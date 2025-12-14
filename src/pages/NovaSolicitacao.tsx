@@ -86,29 +86,32 @@ export default function NovaSolicitacao() {
 
     setSubmitting(true);
     try {
+      const insertData = {
+        user_id: user.id,
+        empreendimento: empreendimento as "mega_curitiba" | "mega_itajai" | "mega_esteio" | "todos",
+        descricao,
+        valor: valorNumerico,
+        tipo: (isAC ? 'AC' : 'OC') as "AC" | "OC",
+        natureza_orcamentaria: naturezaOrcamentaria as "materiais_informatica" | "seguranca_vigilancia" | "assistencia_informatica" | "limpeza_conservacao" | "material_consumo" | "telefone" | "energia_eletrica" | "agua" | "manutencao_imoveis" | "material_expediente",
+        origem_custo: origemCusto,
+        fornecedor_id: fornecedor.id,
+        tipo_contratacao: (tipoContratacao || null) as "servicos" | "material_construcao" | "material_consumo" | "combustivel" | "taxas" | null,
+        data_inicio: dataInicio || null,
+        data_fim: dataFim || null,
+        parcelas: parseInt(parcelas) || 1,
+        contrato_mensal: contratoMensal,
+        faturamento_direto: faturamentoDireto,
+        retencao_6_porcento: retencao6,
+        tipo_garantia: tipoGarantia,
+        dias_garantia: diasGarantia ? parseInt(diasGarantia) : null,
+        custo_cliente: custoCliente,
+        emergencial,
+        protocolo: '', // Will be set by trigger
+      };
+      
       const { data, error } = await supabase
         .from('solicitacoes')
-        .insert({
-          user_id: user.id,
-          empreendimento,
-          descricao,
-          valor: valorNumerico,
-          tipo: isAC ? 'AC' : 'OC',
-          natureza_orcamentaria: naturezaOrcamentaria,
-          origem_custo: origemCusto,
-          fornecedor_id: fornecedor.id,
-          tipo_contratacao: tipoContratacao || null,
-          data_inicio: dataInicio || null,
-          data_fim: dataFim || null,
-          parcelas: parseInt(parcelas) || 1,
-          contrato_mensal: contratoMensal,
-          faturamento_direto: faturamentoDireto,
-          retencao_6_porcento: retencao6,
-          tipo_garantia: tipoGarantia,
-          dias_garantia: diasGarantia ? parseInt(diasGarantia) : null,
-          custo_cliente: custoCliente,
-          emergencial,
-        })
+        .insert(insertData)
         .select('protocolo')
         .single();
 
