@@ -1,0 +1,160 @@
+export type AppRole = 'solicitante' | 'backoffice' | 'admin';
+export type RequestType = 'AC' | 'OC';
+export type RequestStatus = 'recebido' | 'em_analise' | 'pendente_correcao' | 'aprovado' | 'rejeitado';
+export type Empreendimento = 'mega_curitiba' | 'mega_itajai' | 'mega_esteio' | 'todos';
+export type NaturezaOrcamentaria = 
+  | 'materiais_informatica'
+  | 'seguranca_vigilancia'
+  | 'assistencia_informatica'
+  | 'limpeza_conservacao'
+  | 'material_consumo'
+  | 'telefone'
+  | 'energia_eletrica'
+  | 'agua'
+  | 'manutencao_imoveis'
+  | 'material_expediente';
+export type TipoContratacao = 'servicos' | 'material_construcao' | 'material_consumo' | 'combustivel' | 'taxas';
+export type OrigemCusto = 'empreendimento' | 'cliente';
+export type TipoGarantia = 'servico' | 'produto' | 'nenhuma';
+
+export interface Profile {
+  id: string;
+  email: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserRole {
+  id: string;
+  user_id: string;
+  role: AppRole;
+  created_at: string;
+}
+
+export interface Fornecedor {
+  id: string;
+  cnpj: string;
+  razao_social: string | null;
+  nome_fantasia: string | null;
+  endereco: string | null;
+  cidade: string | null;
+  uf: string | null;
+  telefone: string | null;
+  email: string | null;
+  is_mei: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Solicitacao {
+  id: string;
+  protocolo: string;
+  user_id: string;
+  empreendimento: Empreendimento;
+  descricao: string;
+  valor: number;
+  tipo: RequestType;
+  status: RequestStatus;
+  natureza_orcamentaria: NaturezaOrcamentaria;
+  origem_custo: OrigemCusto;
+  fornecedor_id: string | null;
+  tipo_contratacao: TipoContratacao | null;
+  data_inicio: string | null;
+  data_fim: string | null;
+  parcelas: number;
+  contrato_mensal: boolean;
+  faturamento_direto: boolean;
+  retencao_6_porcento: boolean;
+  tipo_garantia: TipoGarantia | null;
+  dias_garantia: number | null;
+  custo_cliente: boolean;
+  emergencial: boolean;
+  fornecedor_concorrente_1_id: string | null;
+  fornecedor_concorrente_2_id: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joined data
+  fornecedor?: Fornecedor;
+  fornecedor_concorrente_1?: Fornecedor;
+  fornecedor_concorrente_2?: Fornecedor;
+  profile?: Profile;
+}
+
+export interface Anexo {
+  id: string;
+  solicitacao_id: string;
+  tipo: string;
+  nome_arquivo: string;
+  storage_path: string;
+  mime_type: string | null;
+  tamanho_bytes: number | null;
+  created_at: string;
+}
+
+export interface HistoricoSolicitacao {
+  id: string;
+  solicitacao_id: string;
+  user_id: string;
+  acao: string;
+  status_anterior: RequestStatus | null;
+  status_novo: RequestStatus | null;
+  motivo: string | null;
+  created_at: string;
+  profile?: Profile;
+}
+
+// Labels for display
+export const EMPREENDIMENTO_LABELS: Record<Empreendimento, string> = {
+  mega_curitiba: 'Mega Curitiba',
+  mega_itajai: 'Mega Itajaí',
+  mega_esteio: 'Mega Esteio',
+  todos: 'Todos os Megas (Rateio)',
+};
+
+export const NATUREZA_ORCAMENTARIA_LABELS: Record<NaturezaOrcamentaria, string> = {
+  materiais_informatica: 'Materiais de Informática',
+  seguranca_vigilancia: 'Segurança e Vigilância',
+  assistencia_informatica: 'Assistência Informática',
+  limpeza_conservacao: 'Limpeza e Conservação',
+  material_consumo: 'Material de Consumo',
+  telefone: 'Telefone',
+  energia_eletrica: 'Energia Elétrica área comum',
+  agua: 'Água área comum',
+  manutencao_imoveis: 'Manutenção de Imóveis',
+  material_expediente: 'Material de expediente',
+};
+
+export const TIPO_CONTRATACAO_LABELS: Record<TipoContratacao, string> = {
+  servicos: 'Serviços',
+  material_construcao: 'Material de Construção',
+  material_consumo: 'Material de Consumo',
+  combustivel: 'Combustível',
+  taxas: 'Taxas',
+};
+
+export const STATUS_LABELS: Record<RequestStatus, string> = {
+  recebido: 'Recebido',
+  em_analise: 'Em Análise',
+  pendente_correcao: 'Pendente de Correção',
+  aprovado: 'Aprovado',
+  rejeitado: 'Rejeitado',
+};
+
+export const ORIGEM_CUSTO_LABELS: Record<OrigemCusto, string> = {
+  empreendimento: 'Empreendimento',
+  cliente: 'Cliente',
+};
+
+export const TIPO_GARANTIA_LABELS: Record<TipoGarantia, string> = {
+  servico: 'Serviço exige garantia',
+  produto: 'Produto exige garantia',
+  nenhuma: 'Não',
+};
+
+export const ROLE_LABELS: Record<AppRole, string> = {
+  solicitante: 'Solicitante (Facilities)',
+  backoffice: 'Backoffice (Financeiro)',
+  admin: 'Administrador',
+};
