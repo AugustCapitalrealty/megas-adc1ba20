@@ -9,7 +9,8 @@ interface AuthContextType {
   profile: Profile | null;
   roles: AppRole[];
   loading: boolean;
-  signInWithGoogle: () => Promise<void>;
+  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  signUp: (email: string, password: string, fullName: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   hasRole: (role: AppRole) => boolean;
   isBackofficeOrAdmin: boolean;
@@ -88,14 +89,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signInWithGoogle = async () => {
+  const signIn = async (email: string, password: string): Promise<{ error: string | null }> => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      if (error.message.includes('Invalid login credentials')) {
+        return { error: 'Email ou senha inválidos' };
+      }
+      return { error: error.message };
+    }
+
+    return { error: null };
+  };
+
+  const signUp = async (email: string, password: string, fullName: string): Promise<{ error: string | null }> => {
     const redirectUrl = `${window.location.origin}/`;
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
+    
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
       options: {
-        redirectTo: redirectUrl,
+        emailRedirectTo: redirectUrl,
+        data: {
+          full_name: fullName,
+        },
       },
     });
+
+    if (error) {
+      if (error.message.includes('User already registered')) {
+        return { error: 'Este email já está cadastrado' };
+      }
+      return { error: error.message };
+    }
+
+    return { error: null };
   };
 
   const signOut = async () => {
@@ -118,7 +149,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         profile,
         roles,
         loading,
-        signInWithGoogle,
+        signIn,
+        signUp,
         signOut,
         hasRole,
         isBackofficeOrAdmin,
