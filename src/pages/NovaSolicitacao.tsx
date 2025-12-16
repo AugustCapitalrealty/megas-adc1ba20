@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useCNPJ } from '@/hooks/useCNPJ';
@@ -25,10 +26,23 @@ import {
   type TipoGarantia,
   type Fornecedor,
 } from '@/types';
-import { ArrowLeft, ArrowRight, Check, Loader2, Search } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Loader2, Search, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { MultiFileUpload, type UploadedFile } from '@/components/FileUpload';
+import { SupplierSearch } from '@/components/SupplierSearch';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 type Step = 'empreendimento' | 'descricao' | 'tipo' | 'detalhes' | 'fornecedor' | 'anexos' | 'revisao';
+
+// Attachment type definitions
+const ATTACHMENT_TYPES = {
+  chamado_preventiva: 'Chamado / Preventiva (Infraspeak)',
+  escopo_detalhado: 'Escopo Detalhado',
+  mapa_cotacao: 'Mapa de Cotação',
+  orcamento_escolhido: 'Orçamento Escolhido',
+  orcamento_concorrente_1: 'Orçamento Concorrente 1',
+  orcamento_concorrente_2: 'Orçamento Concorrente 2',
+} as const;
 
 export default function NovaSolicitacao() {
   const { user } = useAuth();
@@ -59,13 +73,58 @@ export default function NovaSolicitacao() {
   const [custoCliente, setCustoCliente] = useState(false);
   const [emergencial, setEmergencial] = useState(false);
 
-  // Fornecedor
+  // Fornecedores
   const [cnpj, setCnpj] = useState('');
   const [fornecedor, setFornecedor] = useState<Fornecedor | null>(null);
+  const [fornecedorConcorrente1, setFornecedorConcorrente1] = useState<Fornecedor | null>(null);
+  const [fornecedorConcorrente2, setFornecedorConcorrente2] = useState<Fornecedor | null>(null);
 
+  // Anexos
+  const [anexos, setAnexos] = useState<Record<string, UploadedFile | null>>({});
+
+  // Derived values
   const valorNumerico = parseFloat(valor.replace(/\D/g, '')) / 100 || 0;
   const isOC = valorNumerico <= 1000 || (valorNumerico > 1000 && tipoContratacao !== 'servicos');
   const isAC = valorNumerico > 1000 && tipoContratacao === 'servicos';
+  
+  // Emergency checkbox should only appear for AC services (>= 1001)
+  const showEmergencial = isAC;
+  
+  // Determine required attachments based on type
+  const getRequiredAttachments = () => {
+    if (isOC) {
+      // OC <= R$ 1.000: Chamado OU Preventiva + Orçamento escolhido
+      return [
+        { tipo: 'chamado_preventiva', label: ATTACHMENT_TYPES.chamado_preventiva, required: true },
+        { tipo: 'orcamento_escolhido', label: ATTACHMENT_TYPES.orcamento_escolhido, required: true },
+      ];
+    }
+    
+    if (isAC && emergencial) {
+      // AC Emergencial: Chamado + 1 cotação
+      return [
+        { tipo: 'chamado_preventiva', label: ATTACHMENT_TYPES.chamado_preventiva, required: true },
+        { tipo: 'orcamento_escolhido', label: ATTACHMENT_TYPES.orcamento_escolhido, required: true },
+      ];
+    }
+    
+    if (isAC && !emergencial) {
+      // AC não emergencial: todos obrigatórios
+      return [
+        { tipo: 'chamado_preventiva', label: ATTACHMENT_TYPES.chamado_preventiva, required: true },
+        { tipo: 'escopo_detalhado', label: ATTACHMENT_TYPES.escopo_detalhado, required: true },
+        { tipo: 'mapa_cotacao', label: ATTACHMENT_TYPES.mapa_cotacao, required: true },
+        { tipo: 'orcamento_escolhido', label: ATTACHMENT_TYPES.orcamento_escolhido, required: true },
+        { tipo: 'orcamento_concorrente_1', label: ATTACHMENT_TYPES.orcamento_concorrente_1, required: true },
+        { tipo: 'orcamento_concorrente_2', label: ATTACHMENT_TYPES.orcamento_concorrente_2, required: true },
+      ];
+    }
+    
+    return [];
+  };
+
+  // Check if 3 CNPJs are required (AC services non-emergency)
+  const requires3CNPJs = isAC && !emergencial;
 
   const formatCurrency = (value: string) => {
     const digits = value.replace(/\D/g, '');
@@ -81,8 +140,76 @@ export default function NovaSolicitacao() {
     }
   };
 
+  // Update parcelas default based on contrato mensal
+  const handleContratoMensalChange = (checked: boolean) => {
+    setContratoMensal(checked);
+    if (checked) {
+      setParcelas('12');
+    } else {
+      setParcelas('1');
+    }
+  };
+
+  const uploadAnexos = async (solicitacaoId: string) => {
+    const uploadPromises = Object.entries(anexos)
+      .filter(([_, file]) => file !== null)
+      .map(async ([tipo, uploadedFile]) => {
+        if (!uploadedFile) return;
+        
+        const { file } = uploadedFile;
+        const fileExt = file.name.split('.').pop();
+        const filePath = `${solicitacaoId}/${tipo}_${Date.now()}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('anexos')
+          .upload(filePath, file);
+        
+        if (uploadError) throw uploadError;
+        
+        const { error: dbError } = await supabase
+          .from('anexos')
+          .insert({
+            solicitacao_id: solicitacaoId,
+            tipo,
+            nome_arquivo: file.name,
+            storage_path: filePath,
+            mime_type: file.type,
+            tamanho_bytes: file.size,
+          });
+        
+        if (dbError) throw dbError;
+      });
+    
+    await Promise.all(uploadPromises);
+  };
+
   const handleSubmit = async () => {
     if (!user || !empreendimento || !naturezaOrcamentaria || !fornecedor) return;
+
+    // Validate 3 CNPJs if required
+    if (requires3CNPJs && (!fornecedorConcorrente1 || !fornecedorConcorrente2)) {
+      toast({
+        title: 'CNPJs obrigatórios',
+        description: 'Para AC de serviços não emergencial, são necessários 3 fornecedores.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Validate required attachments
+    const requiredAttachments = getRequiredAttachments();
+    const missingAttachments = requiredAttachments
+      .filter(att => att.required && !anexos[att.tipo])
+      .map(att => att.label);
+    
+    if (missingAttachments.length > 0) {
+      toast({
+        title: 'Anexos obrigatórios',
+        description: `Faltando: ${missingAttachments.join(', ')}`,
+        variant: 'destructive',
+      });
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -95,6 +222,8 @@ export default function NovaSolicitacao() {
         natureza_orcamentaria: naturezaOrcamentaria as "materiais_informatica" | "seguranca_vigilancia" | "assistencia_informatica" | "limpeza_conservacao" | "material_consumo" | "telefone" | "energia_eletrica" | "agua" | "manutencao_imoveis" | "material_expediente",
         origem_custo: origemCusto,
         fornecedor_id: fornecedor.id,
+        fornecedor_concorrente_1_id: fornecedorConcorrente1?.id || null,
+        fornecedor_concorrente_2_id: fornecedorConcorrente2?.id || null,
         tipo_contratacao: (tipoContratacao || null) as "servicos" | "material_construcao" | "material_consumo" | "combustivel" | "taxas" | null,
         data_inicio: dataInicio || null,
         data_fim: dataFim || null,
@@ -112,10 +241,23 @@ export default function NovaSolicitacao() {
       const { data, error } = await supabase
         .from('solicitacoes')
         .insert(insertData)
-        .select('protocolo')
+        .select('id, protocolo')
         .single();
 
       if (error) throw error;
+
+      // Upload attachments
+      await uploadAnexos(data.id);
+
+      // Create history entry
+      await supabase.from('historico_solicitacoes').insert({
+        solicitacao_id: data.id,
+        user_id: user.id,
+        acao: 'criacao',
+        status_novo: 'recebido',
+      });
+
+      // Create notification for backoffice users would happen via trigger/edge function
 
       toast({
         title: 'Solicitação criada!',
@@ -140,6 +282,7 @@ export default function NovaSolicitacao() {
     { id: 'tipo', label: 'Tipo', show: valorNumerico > 1000 },
     { id: 'detalhes', label: 'Detalhes', show: true },
     { id: 'fornecedor', label: 'Fornecedor', show: true },
+    { id: 'anexos', label: 'Anexos', show: true },
     { id: 'revisao', label: 'Revisão', show: true },
   ];
 
@@ -152,7 +295,15 @@ export default function NovaSolicitacao() {
       case 'descricao': return !!descricao && valorNumerico > 0;
       case 'tipo': return valorNumerico <= 1000 || !!tipoContratacao;
       case 'detalhes': return !!naturezaOrcamentaria;
-      case 'fornecedor': return !!fornecedor;
+      case 'fornecedor': {
+        if (!fornecedor) return false;
+        if (requires3CNPJs && (!fornecedorConcorrente1 || !fornecedorConcorrente2)) return false;
+        return true;
+      }
+      case 'anexos': {
+        const requiredAttachments = getRequiredAttachments();
+        return requiredAttachments.every(att => !att.required || !!anexos[att.tipo]);
+      }
       default: return true;
     }
   };
@@ -178,7 +329,7 @@ export default function NovaSolicitacao() {
         </div>
 
         {/* Step Indicator */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between overflow-x-auto pb-2">
           {visibleSteps.map((step, i) => (
             <div key={step.id} className="flex items-center">
               <div className={cn(
@@ -191,7 +342,7 @@ export default function NovaSolicitacao() {
               </div>
               {i < visibleSteps.length - 1 && (
                 <div className={cn(
-                  'h-0.5 w-8 sm:w-16 mx-2',
+                  'h-0.5 w-6 sm:w-12 mx-1 sm:mx-2',
                   i < currentIndex ? 'bg-success' : 'bg-muted'
                 )} />
               )}
@@ -202,6 +353,12 @@ export default function NovaSolicitacao() {
         <Card>
           <CardHeader>
             <CardTitle>{visibleSteps[currentIndex]?.label}</CardTitle>
+            {currentStep === 'fornecedor' && requires3CNPJs && (
+              <CardDescription className="text-warning flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" />
+                AC de serviços requer 3 fornecedores
+              </CardDescription>
+            )}
           </CardHeader>
           <CardContent className="space-y-4">
             {currentStep === 'empreendimento' && (
@@ -245,18 +402,50 @@ export default function NovaSolicitacao() {
             )}
 
             {currentStep === 'tipo' && valorNumerico > 1000 && (
-              <RadioGroup value={tipoContratacao} onValueChange={(v) => setTipoContratacao(v as TipoContratacao)}>
-                {Object.entries(TIPO_CONTRATACAO_LABELS).map(([value, label]) => (
-                  <div key={value} className="flex items-center space-x-2 p-3 rounded-lg border hover:bg-accent cursor-pointer">
-                    <RadioGroupItem value={value} id={value} />
-                    <Label htmlFor={value} className="flex-1 cursor-pointer">
-                      {label}
-                      {value === 'servicos' && <span className="text-sm text-muted-foreground ml-2">(AC)</span>}
-                      {value !== 'servicos' && <span className="text-sm text-muted-foreground ml-2">(OC)</span>}
-                    </Label>
-                  </div>
-                ))}
-              </RadioGroup>
+              <div className="space-y-4">
+                <RadioGroup value={tipoContratacao} onValueChange={(v) => setTipoContratacao(v as TipoContratacao)}>
+                  {Object.entries(TIPO_CONTRATACAO_LABELS).map(([value, label]) => (
+                    <div key={value} className="flex items-center space-x-2 p-3 rounded-lg border hover:bg-accent cursor-pointer">
+                      <RadioGroupItem value={value} id={value} />
+                      <Label htmlFor={value} className="flex-1 cursor-pointer">
+                        {label}
+                        {value === 'servicos' && <span className="text-sm text-muted-foreground ml-2">(AC)</span>}
+                        {value !== 'servicos' && <span className="text-sm text-muted-foreground ml-2">(OC)</span>}
+                      </Label>
+                    </div>
+                  ))}
+                </RadioGroup>
+
+                {/* Emergency checkbox - only for services */}
+                {tipoContratacao === 'servicos' && (
+                  <Alert className="bg-warning/10 border-warning">
+                    <AlertTriangle className="h-4 w-4 text-warning" />
+                    <AlertDescription className="flex items-center justify-between">
+                      <span>Marque se for uma contratação emergencial</span>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="emergencial"
+                          checked={emergencial}
+                          onCheckedChange={(checked) => setEmergencial(!!checked)}
+                        />
+                        <Label htmlFor="emergencial" className="font-medium cursor-pointer">
+                          Emergencial
+                        </Label>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {emergencial && (
+                  <Alert>
+                    <Check className="h-4 w-4 text-success" />
+                    <AlertDescription>
+                      <strong>Emergencial:</strong> Dispensa mapa de cotação e orçamentos concorrentes.
+                      Apenas chamado e orçamento escolhido serão exigidos.
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
             )}
 
             {currentStep === 'detalhes' && (
@@ -295,8 +484,16 @@ export default function NovaSolicitacao() {
                         <Input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} />
                       </div>
                     </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="contratoMensal"
+                        checked={contratoMensal}
+                        onCheckedChange={(checked) => handleContratoMensalChange(!!checked)}
+                      />
+                      <Label htmlFor="contratoMensal" className="cursor-pointer">Contrato Mensal</Label>
+                    </div>
                     <div>
-                      <Label>Parcelas</Label>
+                      <Label>Parcelas (máx. 12)</Label>
                       <Select value={parcelas} onValueChange={setParcelas}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
@@ -306,37 +503,89 @@ export default function NovaSolicitacao() {
                         </SelectContent>
                       </Select>
                     </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="retencao6"
+                          checked={retencao6}
+                          onCheckedChange={(checked) => setRetencao6(!!checked)}
+                        />
+                        <Label htmlFor="retencao6" className="cursor-pointer">Retenção de 6%</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="faturamentoDireto"
+                          checked={faturamentoDireto}
+                          onCheckedChange={(checked) => setFaturamentoDireto(!!checked)}
+                        />
+                        <Label htmlFor="faturamentoDireto" className="cursor-pointer">Faturamento Direto</Label>
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Tipo de Garantia</Label>
+                      <Select value={tipoGarantia} onValueChange={(v) => setTipoGarantia(v as TipoGarantia)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(TIPO_GARANTIA_LABELS).map(([value, label]) => (
+                            <SelectItem key={value} value={value}>{label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {tipoGarantia !== 'nenhuma' && (
+                      <div>
+                        <Label>Dias de Garantia</Label>
+                        <Input
+                          type="number"
+                          value={diasGarantia}
+                          onChange={(e) => setDiasGarantia(e.target.value)}
+                          placeholder="Ex: 90"
+                        />
+                      </div>
+                    )}
                   </>
                 )}
               </div>
             )}
 
             {currentStep === 'fornecedor' && (
-              <div className="space-y-4">
-                <div>
-                  <Label>CNPJ do Fornecedor</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="00.000.000/0000-00"
-                      value={formatCNPJ(cnpj)}
-                      onChange={(e) => setCnpj(e.target.value)}
+              <div className="space-y-6">
+                <SupplierSearch
+                  label="Fornecedor Principal"
+                  required
+                  value={fornecedor}
+                  onChange={setFornecedor}
+                />
+
+                {requires3CNPJs && (
+                  <>
+                    <SupplierSearch
+                      label="Fornecedor Concorrente 1"
+                      required
+                      value={fornecedorConcorrente1}
+                      onChange={setFornecedorConcorrente1}
                     />
-                    <Button onClick={handleCNPJSearch} disabled={cnpjLoading}>
-                      {cnpjLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                  {cnpjError && <p className="text-sm text-destructive mt-1">{cnpjError}</p>}
-                </div>
-                {fornecedor && (
-                  <Card className="bg-accent/50">
-                    <CardContent className="pt-4">
-                      <p className="font-medium">{fornecedor.razao_social}</p>
-                      {fornecedor.nome_fantasia && <p className="text-sm text-muted-foreground">{fornecedor.nome_fantasia}</p>}
-                      <p className="text-sm text-muted-foreground mt-1">{fornecedor.cidade}/{fornecedor.uf}</p>
-                      {fornecedor.is_mei && <span className="text-xs bg-warning/20 text-warning px-2 py-0.5 rounded mt-2 inline-block">MEI</span>}
-                    </CardContent>
-                  </Card>
+                    <SupplierSearch
+                      label="Fornecedor Concorrente 2"
+                      required
+                      value={fornecedorConcorrente2}
+                      onChange={setFornecedorConcorrente2}
+                    />
+                  </>
                 )}
+              </div>
+            )}
+
+            {currentStep === 'anexos' && (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Anexe os documentos obrigatórios em formato PDF (máx. 100MB cada)
+                </p>
+                <MultiFileUpload
+                  requirements={getRequiredAttachments()}
+                  files={anexos}
+                  onFilesChange={setAnexos}
+                />
               </div>
             )}
 
@@ -344,7 +593,10 @@ export default function NovaSolicitacao() {
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between py-2 border-b">
                   <span className="text-muted-foreground">Tipo</span>
-                  <span className="font-medium">{isAC ? 'AC - Autorização de Contratação' : 'OC - Ordem de Compra'}</span>
+                  <span className="font-medium">
+                    {isAC ? 'AC - Autorização de Contratação' : 'OC - Ordem de Compra'}
+                    {emergencial && <span className="ml-2 text-warning">(Emergencial)</span>}
+                  </span>
                 </div>
                 <div className="flex justify-between py-2 border-b">
                   <span className="text-muted-foreground">Empreendimento</span>
@@ -357,6 +609,22 @@ export default function NovaSolicitacao() {
                 <div className="flex justify-between py-2 border-b">
                   <span className="text-muted-foreground">Fornecedor</span>
                   <span>{fornecedor?.razao_social}</span>
+                </div>
+                {requires3CNPJs && (
+                  <>
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-muted-foreground">Concorrente 1</span>
+                      <span>{fornecedorConcorrente1?.razao_social}</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-muted-foreground">Concorrente 2</span>
+                      <span>{fornecedorConcorrente2?.razao_social}</span>
+                    </div>
+                  </>
+                )}
+                <div className="flex justify-between py-2 border-b">
+                  <span className="text-muted-foreground">Anexos</span>
+                  <span>{Object.values(anexos).filter(Boolean).length} arquivo(s)</span>
                 </div>
               </div>
             )}

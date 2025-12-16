@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { useState } from 'react';
+import { NotificationBell } from '@/components/NotificationBell';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -124,8 +124,9 @@ export function AppLayout({ children }: AppLayoutProps) {
             <NavLinks />
           </nav>
 
-          {/* User Menu */}
+          {/* Notifications & User Menu */}
           <div className="flex items-center gap-2">
+            <NotificationBell />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-9 w-9 rounded-full">
