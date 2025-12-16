@@ -54,6 +54,20 @@ export interface Fornecedor {
   updated_at: string;
 }
 
+export interface Cliente {
+  id: string;
+  nome: string;
+  created_at: string;
+}
+
+export interface ClienteEmpreendimento {
+  id: string;
+  cliente_id: string;
+  empreendimento: Empreendimento;
+  created_at: string;
+  cliente?: Cliente;
+}
+
 export interface Solicitacao {
   id: string;
   protocolo: string;
@@ -68,6 +82,7 @@ export interface Solicitacao {
   natureza_orcamentaria: NaturezaOrcamentaria;
   origem_custo: OrigemCusto;
   fornecedor_id: string | null;
+  cliente_id: string | null;
   tipo_contratacao: TipoContratacao | null;
   data_inicio: string | null;
   data_fim: string | null;
@@ -87,6 +102,7 @@ export interface Solicitacao {
   fornecedor?: Fornecedor;
   fornecedor_concorrente_1?: Fornecedor;
   fornecedor_concorrente_2?: Fornecedor;
+  cliente?: Cliente;
   profile?: Profile;
 }
 
