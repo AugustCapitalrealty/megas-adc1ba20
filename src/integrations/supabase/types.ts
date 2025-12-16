@@ -310,6 +310,8 @@ export type Database = {
           data_inicio: string | null
           descricao: string
           dias_garantia: number | null
+          dias_garantia_produto: number | null
+          dias_garantia_servico: number | null
           emergencial: boolean | null
           empreendimento: Database["public"]["Enums"]["empreendimento"]
           faturamento_direto: boolean | null
@@ -344,6 +346,8 @@ export type Database = {
           data_inicio?: string | null
           descricao: string
           dias_garantia?: number | null
+          dias_garantia_produto?: number | null
+          dias_garantia_servico?: number | null
           emergencial?: boolean | null
           empreendimento: Database["public"]["Enums"]["empreendimento"]
           faturamento_direto?: boolean | null
@@ -378,6 +382,8 @@ export type Database = {
           data_inicio?: string | null
           descricao?: string
           dias_garantia?: number | null
+          dias_garantia_produto?: number | null
+          dias_garantia_servico?: number | null
           emergencial?: boolean | null
           empreendimento?: Database["public"]["Enums"]["empreendimento"]
           faturamento_direto?: boolean | null

@@ -20,8 +20,10 @@ import {
   type Solicitacao,
   type NaturezaOrcamentaria,
   type Fornecedor,
+  type DocumentoEmitido,
 } from '@/types';
-import { Loader2, FileText, ChevronDown, ChevronUp, Edit, Send, History, AlertTriangle, Copy, XCircle } from 'lucide-react';
+import { Loader2, FileText, ChevronDown, ChevronUp, Edit, Send, History, AlertTriangle, Copy, XCircle, Download, FileCheck } from 'lucide-react';
+import { saveAs } from 'file-saver';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { SolicitacaoTimeline } from '@/components/SolicitacaoTimeline';
@@ -42,6 +44,7 @@ type FilterTab = 'todas' | 'pendentes' | 'aprovadas' | 'reprovadas';
 
 interface SolicitacaoComFornecedor extends Solicitacao {
   fornecedor?: Fornecedor | null;
+  documentoEmitido?: DocumentoEmitido | null;
 }
 
 interface RejectionInfo {
@@ -87,7 +90,26 @@ export default function MinhasSolicitacoes() {
       .order('created_at', { ascending: false });
 
     if (!error && data) {
-      setSolicitacoes(data as unknown as SolicitacaoComFornecedor[]);
+      // Enrich with documentos emitidos
+      const enrichedData = await Promise.all(
+        data.map(async (sol: any) => {
+          let documentoEmitido = null;
+          
+          // Fetch documento emitido if status is oc_ac_emitida or concluida
+          if (sol.status === 'oc_ac_emitida' || sol.status === 'concluida') {
+            const { data: docData } = await supabase
+              .from('documentos_emitidos')
+              .select('*')
+              .eq('solicitacao_id', sol.id)
+              .maybeSingle();
+            documentoEmitido = docData;
+          }
+          
+          return { ...sol, documentoEmitido } as SolicitacaoComFornecedor;
+        })
+      );
+      
+      setSolicitacoes(enrichedData);
       
       // Fetch rejection reasons for rejected solicitações
       const rejectedIds = data
@@ -330,6 +352,24 @@ export default function MinhasSolicitacoes() {
     return desc.substring(0, maxLength).trim() + '...';
   };
 
+  const downloadDocumentoEmitido = async (doc: DocumentoEmitido) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('documentos-emitidos')
+        .download(doc.storage_path);
+      
+      if (error) throw error;
+      if (data) saveAs(data, doc.nome_arquivo);
+    } catch (error) {
+      console.error('Error downloading document:', error);
+      toast({
+        title: 'Erro ao baixar documento',
+        description: 'Tente novamente.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   if (loading) {
     return (
       <AppLayout>
@@ -524,6 +564,30 @@ export default function MinhasSolicitacoes() {
                         </p>
                       </div>
                     </div>
+
+                    {/* Documento Emitido - OC disponível para download */}
+                    {sol.documentoEmitido && (
+                      <div className="mt-4 p-3 bg-success/10 border border-success/20 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <FileCheck className="h-5 w-5 text-success" />
+                            <div>
+                              <p className="font-medium text-success">
+                                {sol.documentoEmitido.tipo_documento} #{sol.documentoEmitido.numero_documento}
+                              </p>
+                              <p className="text-xs text-muted-foreground">Documento disponível para download</p>
+                            </div>
+                          </div>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => downloadDocumentoEmitido(sol.documentoEmitido!)}
+                          >
+                            <Download className="h-4 w-4 mr-1" /> Baixar
+                          </Button>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Expanded content - Timeline */}
                     {expandedId === sol.id && (
