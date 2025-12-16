@@ -473,6 +473,26 @@ export default function Backoffice() {
                   <div>
                     <Label className="text-muted-foreground">Valor</Label>
                     <p className="font-medium text-primary">{formatCurrency(selectedSolicitacao.valor)}</p>
+                    {selectedSolicitacao.faturamento_direto && (selectedSolicitacao.valor_servico || selectedSolicitacao.valor_material) && (
+                      <div className="mt-2 p-2 rounded bg-muted/50 space-y-1 text-sm">
+                        {selectedSolicitacao.valor_servico && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Serviço:</span>
+                            <span>{formatCurrency(selectedSolicitacao.valor_servico)}</span>
+                          </div>
+                        )}
+                        {selectedSolicitacao.valor_material && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Material:</span>
+                            <span>{formatCurrency(selectedSolicitacao.valor_material)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between font-medium pt-1 border-t">
+                          <span>Total FD:</span>
+                          <span>{formatCurrency((selectedSolicitacao.valor_servico || 0) + (selectedSolicitacao.valor_material || 0))}</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
