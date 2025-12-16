@@ -96,6 +96,7 @@ export interface Solicitacao {
   emergencial: boolean;
   fornecedor_concorrente_1_id: string | null;
   fornecedor_concorrente_2_id: string | null;
+  justificativa_fornecedores: string | null;
   created_at: string;
   updated_at: string;
   // Joined data
