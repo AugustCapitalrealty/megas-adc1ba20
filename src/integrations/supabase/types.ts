@@ -374,6 +374,12 @@ export type Database = {
         | "agua"
         | "manutencao_imoveis"
         | "material_expediente"
+        | "servicos_diversos"
+        | "propaganda_publicidade"
+        | "taxa_impostos"
+        | "manutencao_maquinas_equipamentos"
+        | "despesas_pessoal"
+        | "despesas_administrador"
       origem_custo: "empreendimento" | "cliente"
       request_status:
         | "recebido"
@@ -388,7 +394,7 @@ export type Database = {
         | "material_consumo"
         | "combustivel"
         | "taxas"
-      tipo_garantia: "servico" | "produto" | "nenhuma"
+      tipo_garantia: "servico" | "produto" | "nenhuma" | "ambos"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -529,6 +535,12 @@ export const Constants = {
         "agua",
         "manutencao_imoveis",
         "material_expediente",
+        "servicos_diversos",
+        "propaganda_publicidade",
+        "taxa_impostos",
+        "manutencao_maquinas_equipamentos",
+        "despesas_pessoal",
+        "despesas_administrador",
       ],
       origem_custo: ["empreendimento", "cliente"],
       request_status: [
@@ -546,7 +558,7 @@ export const Constants = {
         "combustivel",
         "taxas",
       ],
-      tipo_garantia: ["servico", "produto", "nenhuma"],
+      tipo_garantia: ["servico", "produto", "nenhuma", "ambos"],
     },
   },
 } as const
