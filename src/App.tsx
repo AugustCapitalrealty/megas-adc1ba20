@@ -9,13 +9,22 @@ import Dashboard from "./pages/Dashboard";
 import NovaSolicitacao from "./pages/NovaSolicitacao";
 import MinhasSolicitacoes from "./pages/MinhasSolicitacoes";
 import Backoffice from "./pages/Backoffice";
+import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
 const queryClient = new QueryClient();
 
-function ProtectedRoute({ children, requireBackoffice = false }: { children: React.ReactNode; requireBackoffice?: boolean }) {
-  const { user, loading, isBackofficeOrAdmin } = useAuth();
+function ProtectedRoute({ 
+  children, 
+  requireBackoffice = false,
+  requireAdmin = false 
+}: { 
+  children: React.ReactNode; 
+  requireBackoffice?: boolean;
+  requireAdmin?: boolean;
+}) {
+  const { user, loading, isBackofficeOrAdmin, isAdmin } = useAuth();
 
   if (loading) {
     return (
@@ -27,6 +36,10 @@ function ProtectedRoute({ children, requireBackoffice = false }: { children: Rea
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (requireAdmin && !isAdmin) {
+    return <Navigate to="/" replace />;
   }
 
   if (requireBackoffice && !isBackofficeOrAdmin) {
@@ -44,6 +57,7 @@ function AppRoutes() {
       <Route path="/nova-solicitacao" element={<ProtectedRoute><NovaSolicitacao /></ProtectedRoute>} />
       <Route path="/minhas-solicitacoes" element={<ProtectedRoute><MinhasSolicitacoes /></ProtectedRoute>} />
       <Route path="/backoffice" element={<ProtectedRoute requireBackoffice><Backoffice /></ProtectedRoute>} />
+      <Route path="/admin/usuarios" element={<ProtectedRoute requireAdmin><Admin /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
