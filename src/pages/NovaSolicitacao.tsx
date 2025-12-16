@@ -68,6 +68,8 @@ export default function NovaSolicitacao() {
   const [parcelas, setParcelas] = useState('1');
   const [contratoMensal, setContratoMensal] = useState(false);
   const [faturamentoDireto, setFaturamentoDireto] = useState(false);
+  const [valorServico, setValorServico] = useState('');
+  const [valorMaterial, setValorMaterial] = useState('');
   const [retencao6, setRetencao6] = useState(false);
   const [tipoGarantia, setTipoGarantia] = useState<TipoGarantia>('nenhuma');
   const [diasGarantia, setDiasGarantia] = useState('');
@@ -85,6 +87,8 @@ export default function NovaSolicitacao() {
 
   // Derived values
   const valorNumerico = parseFloat(valor.replace(/\D/g, '')) / 100 || 0;
+  const valorServicoNumerico = parseFloat(valorServico.replace(/\D/g, '')) / 100 || 0;
+  const valorMaterialNumerico = parseFloat(valorMaterial.replace(/\D/g, '')) / 100 || 0;
   const isOC = valorNumerico <= 1000 || (valorNumerico > 1000 && tipoContratacao !== 'servicos');
   const isAC = valorNumerico > 1000 && tipoContratacao === 'servicos';
   
@@ -225,8 +229,10 @@ export default function NovaSolicitacao() {
         empreendimento: empreendimento as "mega_curitiba" | "mega_itajai" | "mega_esteio" | "todos",
         descricao,
         valor: valorNumerico,
+        valor_servico: faturamentoDireto && valorServicoNumerico > 0 ? valorServicoNumerico : null,
+        valor_material: faturamentoDireto && valorMaterialNumerico > 0 ? valorMaterialNumerico : null,
         tipo: (isAC ? 'AC' : 'OC') as "AC" | "OC",
-        natureza_orcamentaria: naturezaOrcamentaria as "materiais_informatica" | "seguranca_vigilancia" | "assistencia_informatica" | "limpeza_conservacao" | "material_consumo" | "telefone" | "energia_eletrica" | "agua" | "manutencao_imoveis" | "material_expediente",
+        natureza_orcamentaria: naturezaOrcamentaria as "materiais_informatica" | "seguranca_vigilancia" | "assistencia_informatica" | "limpeza_conservacao" | "material_consumo" | "telefone" | "energia_eletrica" | "agua" | "manutencao_imoveis" | "material_expediente" | "servicos_diversos" | "propaganda_publicidade" | "taxa_impostos" | "manutencao_maquinas_equipamentos" | "despesas_pessoal" | "despesas_administrador",
         origem_custo: origemCusto,
         fornecedor_id: fornecedor.id,
         fornecedor_concorrente_1_id: fornecedorConcorrente1?.id || null,
@@ -522,11 +528,48 @@ export default function NovaSolicitacao() {
                         <Checkbox
                           id="faturamentoDireto"
                           checked={faturamentoDireto}
-                          onCheckedChange={(checked) => setFaturamentoDireto(!!checked)}
+                          onCheckedChange={(checked) => {
+                            setFaturamentoDireto(!!checked);
+                            if (!checked) {
+                              setValorServico('');
+                              setValorMaterial('');
+                            }
+                          }}
                         />
                         <Label htmlFor="faturamentoDireto" className="cursor-pointer">Faturamento Direto</Label>
                       </div>
                     </div>
+                    {faturamentoDireto && (
+                      <div className="p-4 rounded-lg border bg-muted/30 space-y-4">
+                        <p className="text-sm text-muted-foreground">
+                          Informe os valores separados de serviço e material:
+                        </p>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label>Valor do Serviço (R$)</Label>
+                            <Input
+                              placeholder="R$ 0,00"
+                              value={valorServico ? formatCurrency(valorServico) : ''}
+                              onChange={(e) => setValorServico(e.target.value.replace(/\D/g, ''))}
+                            />
+                          </div>
+                          <div>
+                            <Label>Valor do Material (R$)</Label>
+                            <Input
+                              placeholder="R$ 0,00"
+                              value={valorMaterial ? formatCurrency(valorMaterial) : ''}
+                              onChange={(e) => setValorMaterial(e.target.value.replace(/\D/g, ''))}
+                            />
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-center pt-2 border-t">
+                          <span className="text-sm font-medium">Total (FD):</span>
+                          <span className="font-bold">
+                            {(valorServicoNumerico + valorMaterialNumerico).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                     <div>
                       <Label>Tipo de Garantia</Label>
                       <Select value={tipoGarantia} onValueChange={(v) => setTipoGarantia(v as TipoGarantia)}>
@@ -669,9 +712,29 @@ export default function NovaSolicitacao() {
 
                   {/* Flags financeiras */}
                   {faturamentoDireto && (
-                    <div className="flex justify-between py-2 border-b">
-                      <span className="text-muted-foreground">Faturamento Direto</span>
-                      <span className="text-success">Sim</span>
+                    <div className="p-3 rounded-lg bg-muted/30 space-y-2">
+                      <div className="flex justify-between py-1">
+                        <span className="text-muted-foreground">Faturamento Direto</span>
+                        <span className="text-success font-medium">Sim</span>
+                      </div>
+                      {valorServicoNumerico > 0 && (
+                        <div className="flex justify-between py-1 text-sm">
+                          <span className="text-muted-foreground ml-2">↳ Valor Serviço</span>
+                          <span>{valorServicoNumerico.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                        </div>
+                      )}
+                      {valorMaterialNumerico > 0 && (
+                        <div className="flex justify-between py-1 text-sm">
+                          <span className="text-muted-foreground ml-2">↳ Valor Material</span>
+                          <span>{valorMaterialNumerico.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                        </div>
+                      )}
+                      {(valorServicoNumerico > 0 || valorMaterialNumerico > 0) && (
+                        <div className="flex justify-between py-1 pt-2 border-t text-sm font-medium">
+                          <span className="text-muted-foreground ml-2">↳ Total FD</span>
+                          <span>{(valorServicoNumerico + valorMaterialNumerico).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                        </div>
+                      )}
                     </div>
                   )}
                   {retencao6 && (

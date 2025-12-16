@@ -239,6 +239,8 @@ export type Database = {
           updated_at: string
           user_id: string
           valor: number
+          valor_material: number | null
+          valor_servico: number | null
         }
         Insert: {
           contrato_mensal?: boolean | null
@@ -269,6 +271,8 @@ export type Database = {
           updated_at?: string
           user_id: string
           valor: number
+          valor_material?: number | null
+          valor_servico?: number | null
         }
         Update: {
           contrato_mensal?: boolean | null
@@ -299,6 +303,8 @@ export type Database = {
           updated_at?: string
           user_id?: string
           valor?: number
+          valor_material?: number | null
+          valor_servico?: number | null
         }
         Relationships: [
           {

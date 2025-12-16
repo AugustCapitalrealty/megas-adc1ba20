@@ -61,6 +61,8 @@ export interface Solicitacao {
   empreendimento: Empreendimento;
   descricao: string;
   valor: number;
+  valor_servico: number | null;
+  valor_material: number | null;
   tipo: RequestType;
   status: RequestStatus;
   natureza_orcamentaria: NaturezaOrcamentaria;
