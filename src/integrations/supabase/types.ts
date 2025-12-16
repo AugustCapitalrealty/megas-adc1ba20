@@ -317,6 +317,7 @@ export type Database = {
           fornecedor_concorrente_2_id: string | null
           fornecedor_id: string | null
           id: string
+          justificativa_fornecedores: string | null
           natureza_orcamentaria: Database["public"]["Enums"]["natureza_orcamentaria"]
           origem_custo: Database["public"]["Enums"]["origem_custo"]
           parcelas: number | null
@@ -350,6 +351,7 @@ export type Database = {
           fornecedor_concorrente_2_id?: string | null
           fornecedor_id?: string | null
           id?: string
+          justificativa_fornecedores?: string | null
           natureza_orcamentaria: Database["public"]["Enums"]["natureza_orcamentaria"]
           origem_custo?: Database["public"]["Enums"]["origem_custo"]
           parcelas?: number | null
@@ -383,6 +385,7 @@ export type Database = {
           fornecedor_concorrente_2_id?: string | null
           fornecedor_id?: string | null
           id?: string
+          justificativa_fornecedores?: string | null
           natureza_orcamentaria?: Database["public"]["Enums"]["natureza_orcamentaria"]
           origem_custo?: Database["public"]["Enums"]["origem_custo"]
           parcelas?: number | null

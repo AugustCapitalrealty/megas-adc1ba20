@@ -44,7 +44,17 @@ const ATTACHMENT_TYPES = {
   orcamento_escolhido: 'Orçamento Escolhido',
   orcamento_concorrente_1: 'Orçamento Concorrente 1',
   orcamento_concorrente_2: 'Orçamento Concorrente 2',
+  comunicado_cliente: 'Comunicado ao Cliente',
+  rateio: 'Planilha de Rateio',
 } as const;
+
+// Naturezas orçamentárias isentas de anexos (água, energia, telefone, taxas)
+const NATUREZAS_ISENTAS_ANEXOS: NaturezaOrcamentaria[] = [
+  'agua',
+  'energia_eletrica', 
+  'telefone',
+  'taxa_impostos',
+];
 
 interface DuplicateData {
   tipo?: string;
@@ -104,6 +114,8 @@ export default function NovaSolicitacao() {
   const [clienteId, setClienteId] = useState<string | null>(duplicateFrom?.cliente_id || null);
   const [clienteNome, setClienteNome] = useState<string>('');
 
+  // Justificativa para exceção de 3 fornecedores
+  const [justificativaFornecedores, setJustificativaFornecedores] = useState('');
   // Load fornecedor from duplicateFrom
   useEffect(() => {
     if (duplicateFrom?.fornecedor_id) {
@@ -166,39 +178,53 @@ export default function NovaSolicitacao() {
   
   // Determine required attachments based on type
   const getRequiredAttachments = () => {
-    if (isOC) {
-      // OC <= R$ 1.000: Chamado OU Preventiva + Orçamento escolhido
-      return [
-        { tipo: 'chamado_preventiva', label: ATTACHMENT_TYPES.chamado_preventiva, required: true },
-        { tipo: 'orcamento_escolhido', label: ATTACHMENT_TYPES.orcamento_escolhido, required: true },
-      ];
+    // Naturezas isentas de anexos (água, energia, telefone, taxas)
+    const isNaturezaIsenta = naturezaOrcamentaria && NATUREZAS_ISENTAS_ANEXOS.includes(naturezaOrcamentaria);
+    
+    let attachments: { tipo: string; label: string; required: boolean }[] = [];
+    
+    if (!isNaturezaIsenta) {
+      if (isOC) {
+        // OC <= R$ 1.000: Chamado OU Preventiva + Orçamento escolhido
+        attachments = [
+          { tipo: 'chamado_preventiva', label: ATTACHMENT_TYPES.chamado_preventiva, required: true },
+          { tipo: 'orcamento_escolhido', label: ATTACHMENT_TYPES.orcamento_escolhido, required: true },
+        ];
+      } else if (isAC && emergencial) {
+        // AC Emergencial: Chamado + 1 cotação
+        attachments = [
+          { tipo: 'chamado_preventiva', label: ATTACHMENT_TYPES.chamado_preventiva, required: true },
+          { tipo: 'orcamento_escolhido', label: ATTACHMENT_TYPES.orcamento_escolhido, required: true },
+        ];
+      } else if (isAC && !emergencial) {
+        // AC não emergencial: todos obrigatórios
+        attachments = [
+          { tipo: 'chamado_preventiva', label: ATTACHMENT_TYPES.chamado_preventiva, required: true },
+          { tipo: 'escopo_detalhado', label: ATTACHMENT_TYPES.escopo_detalhado, required: true },
+          { tipo: 'mapa_cotacao', label: ATTACHMENT_TYPES.mapa_cotacao, required: true },
+          { tipo: 'orcamento_escolhido', label: ATTACHMENT_TYPES.orcamento_escolhido, required: true },
+          { tipo: 'orcamento_concorrente_1', label: ATTACHMENT_TYPES.orcamento_concorrente_1, required: true },
+          { tipo: 'orcamento_concorrente_2', label: ATTACHMENT_TYPES.orcamento_concorrente_2, required: true },
+        ];
+      }
     }
     
-    if (isAC && emergencial) {
-      // AC Emergencial: Chamado + 1 cotação
-      return [
-        { tipo: 'chamado_preventiva', label: ATTACHMENT_TYPES.chamado_preventiva, required: true },
-        { tipo: 'orcamento_escolhido', label: ATTACHMENT_TYPES.orcamento_escolhido, required: true },
-      ];
+    // Comunicado ao cliente obrigatório quando origem = cliente
+    if (origemCusto === 'cliente') {
+      attachments.push({ tipo: 'comunicado_cliente', label: ATTACHMENT_TYPES.comunicado_cliente, required: true });
     }
     
-    if (isAC && !emergencial) {
-      // AC não emergencial: todos obrigatórios
-      return [
-        { tipo: 'chamado_preventiva', label: ATTACHMENT_TYPES.chamado_preventiva, required: true },
-        { tipo: 'escopo_detalhado', label: ATTACHMENT_TYPES.escopo_detalhado, required: true },
-        { tipo: 'mapa_cotacao', label: ATTACHMENT_TYPES.mapa_cotacao, required: true },
-        { tipo: 'orcamento_escolhido', label: ATTACHMENT_TYPES.orcamento_escolhido, required: true },
-        { tipo: 'orcamento_concorrente_1', label: ATTACHMENT_TYPES.orcamento_concorrente_1, required: true },
-        { tipo: 'orcamento_concorrente_2', label: ATTACHMENT_TYPES.orcamento_concorrente_2, required: true },
-      ];
+    // Rateio opcional para empreendimento "todos"
+    if (empreendimento === 'todos') {
+      attachments.push({ tipo: 'rateio', label: ATTACHMENT_TYPES.rateio, required: false });
     }
     
-    return [];
+    return attachments;
   };
 
-  // Check if 3 CNPJs are required (AC services non-emergency)
-  const requires3CNPJs = isAC && !emergencial;
+  // Check if 3 CNPJs are required (AC services non-emergency, except for naturezas isentas)
+  const isNaturezaIsenta = naturezaOrcamentaria && NATUREZAS_ISENTAS_ANEXOS.includes(naturezaOrcamentaria);
+  const requires3CNPJs = isAC && !emergencial && !isNaturezaIsenta;
 
   const formatCurrency = (value: string) => {
     const digits = value.replace(/\D/g, '');
@@ -260,11 +286,12 @@ export default function NovaSolicitacao() {
   const handleSubmit = async () => {
     if (!user || !empreendimento || !naturezaOrcamentaria || !fornecedor) return;
 
-    // Validate 3 CNPJs if required
-    if (requires3CNPJs && (!fornecedorConcorrente1 || !fornecedorConcorrente2)) {
+    // Validate 3 CNPJs if required (or justification)
+    const has3Fornecedores = fornecedorConcorrente1 && fornecedorConcorrente2;
+    if (requires3CNPJs && !has3Fornecedores && !justificativaFornecedores.trim()) {
       toast({
-        title: 'CNPJs obrigatórios',
-        description: 'Para AC de serviços não emergencial, são necessários 3 fornecedores.',
+        title: 'Justificativa obrigatória',
+        description: 'Informe a justificativa para não apresentar 3 fornecedores.',
         variant: 'destructive',
       });
       return;
@@ -307,6 +334,7 @@ export default function NovaSolicitacao() {
         fornecedor_id: fornecedor.id,
         fornecedor_concorrente_1_id: fornecedorConcorrente1?.id || null,
         fornecedor_concorrente_2_id: fornecedorConcorrente2?.id || null,
+        justificativa_fornecedores: requires3CNPJs && !has3Fornecedores ? justificativaFornecedores.trim() : null,
         tipo_contratacao: (tipoContratacao || null) as "servicos" | "material_construcao" | "material_consumo" | "combustivel" | "taxas" | null,
         data_inicio: dataInicio || null,
         data_fim: dataFim || null,
@@ -383,7 +411,9 @@ export default function NovaSolicitacao() {
       }
       case 'fornecedor': {
         if (!fornecedor) return false;
-        if (requires3CNPJs && (!fornecedorConcorrente1 || !fornecedorConcorrente2)) return false;
+        // Allow proceeding with justification if less than 3 suppliers
+        const has3Fornecedores = fornecedorConcorrente1 && fornecedorConcorrente2;
+        if (requires3CNPJs && !has3Fornecedores && !justificativaFornecedores.trim()) return false;
         return true;
       }
       case 'anexos': {
@@ -698,18 +728,41 @@ export default function NovaSolicitacao() {
 
                 {requires3CNPJs && (
                   <>
-                    <SupplierSearch
-                      label="Fornecedor Concorrente 1"
-                      required
-                      value={fornecedorConcorrente1}
-                      onChange={setFornecedorConcorrente1}
-                    />
-                    <SupplierSearch
-                      label="Fornecedor Concorrente 2"
-                      required
-                      value={fornecedorConcorrente2}
-                      onChange={setFornecedorConcorrente2}
-                    />
+                    <div className="p-4 rounded-lg bg-muted/30 border space-y-4">
+                      <p className="text-sm text-muted-foreground">
+                        AC de serviços não emergencial requer 3 fornecedores. Caso não seja possível, informe a justificativa.
+                      </p>
+                      <SupplierSearch
+                        label="Fornecedor Concorrente 1"
+                        required={!justificativaFornecedores.trim()}
+                        value={fornecedorConcorrente1}
+                        onChange={setFornecedorConcorrente1}
+                      />
+                      <SupplierSearch
+                        label="Fornecedor Concorrente 2"
+                        required={!justificativaFornecedores.trim()}
+                        value={fornecedorConcorrente2}
+                        onChange={setFornecedorConcorrente2}
+                      />
+                      
+                      {/* Justification for exception */}
+                      {(!fornecedorConcorrente1 || !fornecedorConcorrente2) && (
+                        <div className="pt-4 border-t">
+                          <Label htmlFor="justificativa" className="flex items-center gap-2">
+                            <AlertTriangle className="h-4 w-4 text-warning" />
+                            Justificativa para exceção (obrigatória)
+                          </Label>
+                          <Textarea
+                            id="justificativa"
+                            placeholder="Explique por que não foi possível obter 3 orçamentos de fornecedores diferentes..."
+                            value={justificativaFornecedores}
+                            onChange={(e) => setJustificativaFornecedores(e.target.value)}
+                            rows={3}
+                            className="mt-2"
+                          />
+                        </div>
+                      )}
+                    </div>
                   </>
                 )}
               </div>
@@ -717,9 +770,34 @@ export default function NovaSolicitacao() {
 
             {currentStep === 'anexos' && (
               <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Anexe os documentos obrigatórios em formato PDF (máx. 100MB cada)
-                </p>
+                {isNaturezaIsenta ? (
+                  <Alert>
+                    <Check className="h-4 w-4 text-success" />
+                    <AlertDescription>
+                      <strong>Natureza orçamentária isenta:</strong> Esta natureza ({naturezaOrcamentaria && NATUREZA_ORCAMENTARIA_LABELS[naturezaOrcamentaria]}) não requer anexos obrigatórios de cotação.
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Anexe os documentos obrigatórios em formato PDF (máx. 100MB cada)
+                  </p>
+                )}
+                {origemCusto === 'cliente' && (
+                  <Alert className="bg-warning/10 border-warning">
+                    <AlertTriangle className="h-4 w-4 text-warning" />
+                    <AlertDescription>
+                      <strong>Origem Cliente:</strong> É obrigatório anexar o comunicado ao cliente.
+                    </AlertDescription>
+                  </Alert>
+                )}
+                {empreendimento === 'todos' && (
+                  <Alert>
+                    <FileText className="h-4 w-4" />
+                    <AlertDescription>
+                      <strong>Rateio:</strong> Para solicitações com rateio entre todos os megas, você pode anexar a planilha de rateio (opcional).
+                    </AlertDescription>
+                  </Alert>
+                )}
                 <MultiFileUpload
                   requirements={getRequiredAttachments()}
                   files={anexos}
@@ -864,14 +942,27 @@ export default function NovaSolicitacao() {
                   </div>
                   {requires3CNPJs && (
                     <>
-                      <div className="flex justify-between py-2 border-b">
-                        <span className="text-muted-foreground">Concorrente 1</span>
-                        <span>{fornecedorConcorrente1?.razao_social || fornecedorConcorrente1?.cnpj}</span>
-                      </div>
-                      <div className="flex justify-between py-2 border-b">
-                        <span className="text-muted-foreground">Concorrente 2</span>
-                        <span>{fornecedorConcorrente2?.razao_social || fornecedorConcorrente2?.cnpj}</span>
-                      </div>
+                      {fornecedorConcorrente1 && (
+                        <div className="flex justify-between py-2 border-b">
+                          <span className="text-muted-foreground">Concorrente 1</span>
+                          <span>{fornecedorConcorrente1?.razao_social || fornecedorConcorrente1?.cnpj}</span>
+                        </div>
+                      )}
+                      {fornecedorConcorrente2 && (
+                        <div className="flex justify-between py-2 border-b">
+                          <span className="text-muted-foreground">Concorrente 2</span>
+                          <span>{fornecedorConcorrente2?.razao_social || fornecedorConcorrente2?.cnpj}</span>
+                        </div>
+                      )}
+                      {justificativaFornecedores.trim() && (
+                        <div className="py-2 border-b">
+                          <span className="text-muted-foreground text-sm flex items-center gap-1">
+                            <AlertTriangle className="h-3 w-3 text-warning" />
+                            Justificativa (exceção 3 fornecedores)
+                          </span>
+                          <p className="text-sm mt-1">{justificativaFornecedores}</p>
+                        </div>
+                      )}
                     </>
                   )}
 
