@@ -92,6 +92,8 @@ export interface Solicitacao {
   retencao_6_porcento: boolean;
   tipo_garantia: TipoGarantia | null;
   dias_garantia: number | null;
+  dias_garantia_servico: number | null;
+  dias_garantia_produto: number | null;
   custo_cliente: boolean;
   emergencial: boolean;
   fornecedor_concorrente_1_id: string | null;
@@ -189,8 +191,8 @@ export interface DocumentoEmitido {
 }
 
 export const ORIGEM_CUSTO_LABELS: Record<OrigemCusto, string> = {
-  empreendimento: 'Custeio pelo Empreendimento',
-  cliente: 'Custeio pelo Cliente',
+  empreendimento: 'Área comum',
+  cliente: 'Cliente',
 };
 
 export const TIPO_GARANTIA_LABELS: Record<TipoGarantia, string> = {

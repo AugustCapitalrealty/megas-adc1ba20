@@ -97,6 +97,8 @@ export default function NovaSolicitacao() {
   const [retencao6, setRetencao6] = useState(false);
   const [tipoGarantia, setTipoGarantia] = useState<TipoGarantia>('nenhuma');
   const [diasGarantia, setDiasGarantia] = useState('');
+  const [diasGarantiaServico, setDiasGarantiaServico] = useState('');
+  const [diasGarantiaProduto, setDiasGarantiaProduto] = useState('');
   const [custoCliente, setCustoCliente] = useState(false);
   const [emergencial, setEmergencial] = useState(duplicateFrom?.emergencial || false);
 
@@ -341,7 +343,9 @@ export default function NovaSolicitacao() {
         faturamento_direto: faturamentoDireto,
         retencao_6_porcento: retencao6,
         tipo_garantia: tipoGarantia,
-        dias_garantia: diasGarantia ? parseInt(diasGarantia) : null,
+        dias_garantia: tipoGarantia !== 'ambos' && diasGarantia ? parseInt(diasGarantia) : null,
+        dias_garantia_servico: tipoGarantia === 'ambos' && diasGarantiaServico ? parseInt(diasGarantiaServico) : null,
+        dias_garantia_produto: tipoGarantia === 'ambos' && diasGarantiaProduto ? parseInt(diasGarantiaProduto) : null,
         custo_cliente: custoCliente,
         emergencial,
       };
@@ -699,7 +703,7 @@ export default function NovaSolicitacao() {
                         </SelectContent>
                       </Select>
                     </div>
-                    {tipoGarantia !== 'nenhuma' && (
+                    {tipoGarantia !== 'nenhuma' && tipoGarantia !== 'ambos' && (
                       <div>
                         <Label>Dias de Garantia</Label>
                         <Input
@@ -708,6 +712,28 @@ export default function NovaSolicitacao() {
                           onChange={(e) => setDiasGarantia(e.target.value)}
                           placeholder="Ex: 90"
                         />
+                      </div>
+                    )}
+                    {tipoGarantia === 'ambos' && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>Dias de Garantia (Serviço)</Label>
+                          <Input
+                            type="number"
+                            value={diasGarantiaServico}
+                            onChange={(e) => setDiasGarantiaServico(e.target.value)}
+                            placeholder="Ex: 90"
+                          />
+                        </div>
+                        <div>
+                          <Label>Dias de Garantia (Produto)</Label>
+                          <Input
+                            type="number"
+                            value={diasGarantiaProduto}
+                            onChange={(e) => setDiasGarantiaProduto(e.target.value)}
+                            placeholder="Ex: 365"
+                          />
+                        </div>
                       </div>
                     )}
                   </>
@@ -912,8 +938,13 @@ export default function NovaSolicitacao() {
                     <span className="text-muted-foreground">Garantia</span>
                     <span>
                       {TIPO_GARANTIA_LABELS[tipoGarantia]}
-                      {tipoGarantia !== 'nenhuma' && diasGarantia && (
+                      {tipoGarantia !== 'nenhuma' && tipoGarantia !== 'ambos' && diasGarantia && (
                         <span className="ml-1">({diasGarantia} dias)</span>
+                      )}
+                      {tipoGarantia === 'ambos' && (
+                        <span className="ml-1">
+                          (Serviço: {diasGarantiaServico || '—'} dias, Produto: {diasGarantiaProduto || '—'} dias)
+                        </span>
                       )}
                     </span>
                   </div>

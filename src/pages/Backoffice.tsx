@@ -816,7 +816,7 @@ export default function Backoffice() {
                   <div>
                     <Label className="text-muted-foreground">Origem do Custo</Label>
                     <p className="font-medium">
-                      {selectedSolicitacao.origem_custo === 'empreendimento' ? 'Empreendimento' : 'Cliente'}
+                      {selectedSolicitacao.origem_custo === 'empreendimento' ? 'Área comum' : 'Cliente'}
                       {selectedSolicitacao.clienteData && (
                         <span className="text-primary"> ({selectedSolicitacao.clienteData.nome})</span>
                       )}
@@ -939,7 +939,13 @@ export default function Backoffice() {
                   {selectedSolicitacao.retencao_6_porcento && <Badge variant="outline">Retenção 6%</Badge>}
                   {selectedSolicitacao.custo_cliente && <Badge variant="outline">Custo Cliente</Badge>}
                   {selectedSolicitacao.tipo_garantia && selectedSolicitacao.tipo_garantia !== 'nenhuma' && (
-                    <Badge variant="outline">Garantia: {TIPO_GARANTIA_LABELS[selectedSolicitacao.tipo_garantia]}</Badge>
+                    <Badge variant="outline">
+                      Garantia: {TIPO_GARANTIA_LABELS[selectedSolicitacao.tipo_garantia]}
+                      {selectedSolicitacao.tipo_garantia === 'ambos' 
+                        ? ` (S: ${selectedSolicitacao.dias_garantia_servico || '—'}d, P: ${selectedSolicitacao.dias_garantia_produto || '—'}d)`
+                        : selectedSolicitacao.dias_garantia ? ` (${selectedSolicitacao.dias_garantia}d)` : ''
+                      }
+                    </Badge>
                   )}
                 </div>
 
