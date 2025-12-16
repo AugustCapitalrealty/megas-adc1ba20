@@ -821,8 +821,13 @@ export default function NovaSolicitacao() {
                     <span>{empreendimento && EMPREENDIMENTO_LABELS[empreendimento]}</span>
                   </div>
                   <div className="flex justify-between py-2 border-b">
-                    <span className="text-muted-foreground">Valor</span>
-                    <span className="font-medium">{formatCurrency(valor)}</span>
+                    <span className="text-muted-foreground">Valor Total</span>
+                    <span className="font-medium">
+                      {faturamentoDireto 
+                        ? (valorServicoNumerico + valorMaterialNumerico).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+                        : formatCurrency(valor)
+                      }
+                    </span>
                   </div>
                   <div className="flex justify-between py-2 border-b">
                     <span className="text-muted-foreground">Natureza Orçamentária</span>
@@ -873,31 +878,11 @@ export default function NovaSolicitacao() {
                     </>
                   )}
 
-                  {/* Flags financeiras */}
+                  {/* Flag Faturamento Direto */}
                   {faturamentoDireto && (
-                    <div className="p-3 rounded-lg bg-muted/30 space-y-2">
-                      <div className="flex justify-between py-1">
-                        <span className="text-muted-foreground">Faturamento Direto</span>
-                        <span className="text-success font-medium">Sim</span>
-                      </div>
-                      {valorServicoNumerico > 0 && (
-                        <div className="flex justify-between py-1 text-sm">
-                          <span className="text-muted-foreground ml-2">↳ Valor Serviço</span>
-                          <span>{valorServicoNumerico.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-                        </div>
-                      )}
-                      {valorMaterialNumerico > 0 && (
-                        <div className="flex justify-between py-1 text-sm">
-                          <span className="text-muted-foreground ml-2">↳ Valor Material</span>
-                          <span>{valorMaterialNumerico.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-                        </div>
-                      )}
-                      {(valorServicoNumerico > 0 || valorMaterialNumerico > 0) && (
-                        <div className="flex justify-between py-1 pt-2 border-t text-sm font-medium">
-                          <span className="text-muted-foreground ml-2">↳ Total FD</span>
-                          <span>{(valorServicoNumerico + valorMaterialNumerico).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
-                        </div>
-                      )}
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-muted-foreground">Faturamento Direto</span>
+                      <span className="text-success font-medium">Sim</span>
                     </div>
                   )}
                   {retencao6 && (
