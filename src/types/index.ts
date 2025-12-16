@@ -12,10 +12,16 @@ export type NaturezaOrcamentaria =
   | 'energia_eletrica'
   | 'agua'
   | 'manutencao_imoveis'
-  | 'material_expediente';
+  | 'material_expediente'
+  | 'servicos_diversos'
+  | 'propaganda_publicidade'
+  | 'taxa_impostos'
+  | 'manutencao_maquinas_equipamentos'
+  | 'despesas_pessoal'
+  | 'despesas_administrador';
 export type TipoContratacao = 'servicos' | 'material_construcao' | 'material_consumo' | 'combustivel' | 'taxas';
 export type OrigemCusto = 'empreendimento' | 'cliente';
-export type TipoGarantia = 'servico' | 'produto' | 'nenhuma';
+export type TipoGarantia = 'servico' | 'produto' | 'nenhuma' | 'ambos';
 
 export interface Profile {
   id: string;
@@ -115,15 +121,21 @@ export const EMPREENDIMENTO_LABELS: Record<Empreendimento, string> = {
 
 export const NATUREZA_ORCAMENTARIA_LABELS: Record<NaturezaOrcamentaria, string> = {
   materiais_informatica: 'Materiais de Informática',
-  seguranca_vigilancia: 'Segurança e Vigilância',
   assistencia_informatica: 'Assistência Informática',
+  servicos_diversos: 'Serviços Diversos',
+  seguranca_vigilancia: 'Segurança e Vigilância',
   limpeza_conservacao: 'Limpeza e Conservação',
+  material_expediente: 'Material de Expediente',
   material_consumo: 'Material de Consumo',
   telefone: 'Telefone',
-  energia_eletrica: 'Energia Elétrica área comum',
-  agua: 'Água área comum',
+  propaganda_publicidade: 'Propaganda e Publicidade',
+  energia_eletrica: 'Energia Elétrica',
+  agua: 'Água',
+  taxa_impostos: 'Taxa/Impostos',
   manutencao_imoveis: 'Manutenção de Imóveis',
-  material_expediente: 'Material de expediente',
+  manutencao_maquinas_equipamentos: 'Manutenção de Máquinas e Equipamentos',
+  despesas_pessoal: 'Despesas com Pessoal',
+  despesas_administrador: 'Despesas com Administrador',
 };
 
 export const TIPO_CONTRATACAO_LABELS: Record<TipoContratacao, string> = {
@@ -148,9 +160,10 @@ export const ORIGEM_CUSTO_LABELS: Record<OrigemCusto, string> = {
 };
 
 export const TIPO_GARANTIA_LABELS: Record<TipoGarantia, string> = {
-  servico: 'Serviço exige garantia',
-  produto: 'Produto exige garantia',
   nenhuma: 'Não',
+  servico: 'Sim — Serviço',
+  produto: 'Sim — Produto',
+  ambos: 'Sim — Ambos',
 };
 
 export const ROLE_LABELS: Record<AppRole, string> = {

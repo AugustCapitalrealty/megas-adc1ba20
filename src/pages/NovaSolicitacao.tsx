@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useCNPJ } from '@/hooks/useCNPJ';
@@ -26,7 +27,7 @@ import {
   type TipoGarantia,
   type Fornecedor,
 } from '@/types';
-import { ArrowLeft, ArrowRight, Check, Loader2, Search, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Loader2, Search, AlertTriangle, ChevronDown, ChevronUp, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MultiFileUpload, type UploadedFile } from '@/components/FileUpload';
 import { SupplierSearch } from '@/components/SupplierSearch';
@@ -595,41 +596,143 @@ export default function NovaSolicitacao() {
             )}
 
             {currentStep === 'revisao' && (
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between py-2 border-b">
-                  <span className="text-muted-foreground">Tipo</span>
-                  <span className="font-medium">
-                    {isAC ? 'AC - Autorização de Contratação' : 'OC - Ordem de Compra'}
-                    {emergencial && <span className="ml-2 text-warning">(Emergencial)</span>}
-                  </span>
-                </div>
-                <div className="flex justify-between py-2 border-b">
-                  <span className="text-muted-foreground">Empreendimento</span>
-                  <span>{empreendimento && EMPREENDIMENTO_LABELS[empreendimento]}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b">
-                  <span className="text-muted-foreground">Valor</span>
-                  <span>{formatCurrency(valor)}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b">
-                  <span className="text-muted-foreground">Fornecedor</span>
-                  <span>{fornecedor?.razao_social}</span>
-                </div>
-                {requires3CNPJs && (
-                  <>
+              <div className="space-y-4">
+                {/* Descrição com expand/collapse */}
+                <Collapsible defaultOpen className="rounded-lg border p-3 bg-muted/30">
+                  <CollapsibleTrigger className="flex items-center justify-between w-full">
+                    <span className="font-medium text-sm">Descrição do Serviço/Material</span>
+                    <ChevronDown className="h-4 w-4 transition-transform data-[state=open]:rotate-180" />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pt-2">
+                    <p className="text-sm whitespace-pre-wrap">{descricao}</p>
+                  </CollapsibleContent>
+                </Collapsible>
+
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between py-2 border-b">
+                    <span className="text-muted-foreground">Tipo</span>
+                    <span className="font-medium">
+                      {isAC ? 'AC - Autorização de Contratação' : 'OC - Ordem de Compra'}
+                      {emergencial && <span className="ml-2 text-warning">(Emergencial)</span>}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-2 border-b">
+                    <span className="text-muted-foreground">Empreendimento</span>
+                    <span>{empreendimento && EMPREENDIMENTO_LABELS[empreendimento]}</span>
+                  </div>
+                  <div className="flex justify-between py-2 border-b">
+                    <span className="text-muted-foreground">Valor</span>
+                    <span className="font-medium">{formatCurrency(valor)}</span>
+                  </div>
+                  <div className="flex justify-between py-2 border-b">
+                    <span className="text-muted-foreground">Natureza Orçamentária</span>
+                    <span>{naturezaOrcamentaria && NATUREZA_ORCAMENTARIA_LABELS[naturezaOrcamentaria]}</span>
+                  </div>
+                  <div className="flex justify-between py-2 border-b">
+                    <span className="text-muted-foreground">Origem do Custo</span>
+                    <span>{ORIGEM_CUSTO_LABELS[origemCusto]}</span>
+                  </div>
+                  {tipoContratacao && (
                     <div className="flex justify-between py-2 border-b">
-                      <span className="text-muted-foreground">Concorrente 1</span>
-                      <span>{fornecedorConcorrente1?.razao_social}</span>
+                      <span className="text-muted-foreground">Tipo de Contratação</span>
+                      <span>{TIPO_CONTRATACAO_LABELS[tipoContratacao]}</span>
                     </div>
+                  )}
+                  
+                  {/* Detalhes do AC */}
+                  {isAC && (
+                    <>
+                      {dataInicio && (
+                        <div className="flex justify-between py-2 border-b">
+                          <span className="text-muted-foreground">Data de Início</span>
+                          <span>{new Date(dataInicio).toLocaleDateString('pt-BR')}</span>
+                        </div>
+                      )}
+                      {dataFim && (
+                        <div className="flex justify-between py-2 border-b">
+                          <span className="text-muted-foreground">Data de Término</span>
+                          <span>{new Date(dataFim).toLocaleDateString('pt-BR')}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between py-2 border-b">
+                        <span className="text-muted-foreground">Parcelas</span>
+                        <span>{parcelas}x</span>
+                      </div>
+                      {contratoMensal && (
+                        <div className="flex justify-between py-2 border-b">
+                          <span className="text-muted-foreground">Contrato Mensal</span>
+                          <span className="text-success">Sim</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Flags financeiras */}
+                  {faturamentoDireto && (
                     <div className="flex justify-between py-2 border-b">
-                      <span className="text-muted-foreground">Concorrente 2</span>
-                      <span>{fornecedorConcorrente2?.razao_social}</span>
+                      <span className="text-muted-foreground">Faturamento Direto</span>
+                      <span className="text-success">Sim</span>
                     </div>
-                  </>
-                )}
-                <div className="flex justify-between py-2 border-b">
-                  <span className="text-muted-foreground">Anexos</span>
-                  <span>{Object.values(anexos).filter(Boolean).length} arquivo(s)</span>
+                  )}
+                  {retencao6 && (
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-muted-foreground">Retenção 6%</span>
+                      <span className="text-success">Sim</span>
+                    </div>
+                  )}
+                  {custoCliente && (
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-muted-foreground">Custo do Cliente</span>
+                      <span className="text-success">Sim</span>
+                    </div>
+                  )}
+
+                  {/* Garantia */}
+                  <div className="flex justify-between py-2 border-b">
+                    <span className="text-muted-foreground">Garantia</span>
+                    <span>
+                      {TIPO_GARANTIA_LABELS[tipoGarantia]}
+                      {tipoGarantia !== 'nenhuma' && diasGarantia && (
+                        <span className="ml-1">({diasGarantia} dias)</span>
+                      )}
+                    </span>
+                  </div>
+
+                  {/* Fornecedores */}
+                  <div className="flex justify-between py-2 border-b">
+                    <span className="text-muted-foreground">Fornecedor</span>
+                    <span>{fornecedor?.razao_social || fornecedor?.cnpj}</span>
+                  </div>
+                  {requires3CNPJs && (
+                    <>
+                      <div className="flex justify-between py-2 border-b">
+                        <span className="text-muted-foreground">Concorrente 1</span>
+                        <span>{fornecedorConcorrente1?.razao_social || fornecedorConcorrente1?.cnpj}</span>
+                      </div>
+                      <div className="flex justify-between py-2 border-b">
+                        <span className="text-muted-foreground">Concorrente 2</span>
+                        <span>{fornecedorConcorrente2?.razao_social || fornecedorConcorrente2?.cnpj}</span>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Lista de anexos */}
+                  <div className="pt-2">
+                    <span className="text-muted-foreground text-sm">Anexos ({Object.values(anexos).filter(Boolean).length})</span>
+                    <div className="mt-2 space-y-1">
+                      {Object.entries(anexos)
+                        .filter(([_, file]) => file !== null)
+                        .map(([tipo, file]) => (
+                          <div key={tipo} className="flex items-center gap-2 text-sm p-2 bg-muted/50 rounded">
+                            <FileText className="h-4 w-4 text-muted-foreground" />
+                            <span className="flex-1 truncate">{file?.file.name}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {((file?.file.size || 0) / 1024).toFixed(0)} KB
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
