@@ -506,8 +506,13 @@ export default function MinhasSolicitacoes() {
                         </div>
                       )}
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Valor</span>
-                        <span className="font-medium">{formatCurrency(sol.valor)}</span>
+                        <span className="text-muted-foreground">Valor Total</span>
+                        <span className="font-medium">
+                          {sol.faturamento_direto && sol.valor_servico !== null && sol.valor_material !== null
+                            ? formatCurrency((sol.valor_servico || 0) + (sol.valor_material || 0))
+                            : formatCurrency(sol.valor)
+                          }
+                        </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Data</span>

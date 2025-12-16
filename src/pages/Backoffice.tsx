@@ -458,7 +458,12 @@ export default function Backoffice() {
               </div>
               <div className="flex items-center gap-2 font-semibold text-primary">
                 <DollarSign className="h-4 w-4" />
-                <span>{formatCurrency(sol.valor)}</span>
+                <span>
+                  {sol.faturamento_direto && sol.valor_servico !== null && sol.valor_material !== null
+                    ? formatCurrency((sol.valor_servico || 0) + (sol.valor_material || 0))
+                    : formatCurrency(sol.valor)
+                  }
+                </span>
               </div>
             </div>
             
@@ -818,8 +823,13 @@ export default function Backoffice() {
                     </p>
                   </div>
                   <div>
-                    <Label className="text-muted-foreground">Valor</Label>
-                    <p className="font-medium text-primary">{formatCurrency(selectedSolicitacao.valor)}</p>
+                    <Label className="text-muted-foreground">Valor Total</Label>
+                    <p className="font-medium text-primary">
+                      {selectedSolicitacao.faturamento_direto && selectedSolicitacao.valor_servico !== null && selectedSolicitacao.valor_material !== null
+                        ? formatCurrency((selectedSolicitacao.valor_servico || 0) + (selectedSolicitacao.valor_material || 0))
+                        : formatCurrency(selectedSolicitacao.valor)
+                      }
+                    </p>
                   </div>
                 </div>
 
