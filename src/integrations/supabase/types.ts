@@ -102,6 +102,50 @@ export type Database = {
           },
         ]
       }
+      documentos_emitidos: {
+        Row: {
+          created_at: string
+          emitido_por: string
+          id: string
+          nome_arquivo: string
+          numero_documento: string
+          observacao: string | null
+          solicitacao_id: string
+          storage_path: string
+          tipo_documento: string
+        }
+        Insert: {
+          created_at?: string
+          emitido_por: string
+          id?: string
+          nome_arquivo: string
+          numero_documento: string
+          observacao?: string | null
+          solicitacao_id: string
+          storage_path: string
+          tipo_documento: string
+        }
+        Update: {
+          created_at?: string
+          emitido_por?: string
+          id?: string
+          nome_arquivo?: string
+          numero_documento?: string
+          observacao?: string | null
+          solicitacao_id?: string
+          storage_path?: string
+          tipo_documento?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documentos_emitidos_solicitacao_id_fkey"
+            columns: ["solicitacao_id"]
+            isOneToOne: false
+            referencedRelation: "solicitacoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fornecedores: {
         Row: {
           cidade: string | null
@@ -450,6 +494,9 @@ export type Database = {
         | "pendente_correcao"
         | "aprovado"
         | "rejeitado"
+        | "em_processamento"
+        | "oc_ac_emitida"
+        | "concluida"
       request_type: "AC" | "OC"
       tipo_contratacao:
         | "servicos"
@@ -612,6 +659,9 @@ export const Constants = {
         "pendente_correcao",
         "aprovado",
         "rejeitado",
+        "em_processamento",
+        "oc_ac_emitida",
+        "concluida",
       ],
       request_type: ["AC", "OC"],
       tipo_contratacao: [

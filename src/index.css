@@ -171,6 +171,18 @@
     @apply bg-destructive/10 text-destructive;
   }
 
+  .status-em-processamento {
+    @apply bg-primary/10 text-primary;
+  }
+
+  .status-oc-emitida {
+    @apply bg-[hsl(280,70%,50%)]/10 text-[hsl(280,70%,50%)];
+  }
+
+  .status-concluida {
+    @apply bg-success/20 text-success font-semibold;
+  }
+
   .form-step {
     @apply p-6 bg-card rounded-lg border border-border shadow-sm;
   }

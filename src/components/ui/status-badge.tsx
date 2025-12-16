@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils';
 import type { RequestStatus } from '@/types';
 import { STATUS_LABELS } from '@/types';
-import { Clock, Eye, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { Clock, Eye, AlertCircle, CheckCircle, XCircle, Cog, FileCheck, CheckCheck } from 'lucide-react';
 
 interface StatusBadgeProps {
   status: RequestStatus;
@@ -31,6 +31,18 @@ const statusConfig: Record<RequestStatus, {
   rejeitado: {
     className: 'status-rejeitado',
     Icon: XCircle,
+  },
+  em_processamento: {
+    className: 'status-em-processamento',
+    Icon: Cog,
+  },
+  oc_ac_emitida: {
+    className: 'status-oc-emitida',
+    Icon: FileCheck,
+  },
+  concluida: {
+    className: 'status-concluida',
+    Icon: CheckCheck,
   },
 };
 
