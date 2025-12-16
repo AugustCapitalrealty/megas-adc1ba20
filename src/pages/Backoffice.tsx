@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,7 +23,9 @@ import {
   type RequestStatus,
   type Fornecedor,
   type Profile,
-  type Cliente
+  type Cliente,
+  type Anexo,
+  type DocumentoEmitido
 } from '@/types';
 import { 
   Loader2, 
@@ -40,18 +42,32 @@ import {
   DollarSign,
   FileText,
   Package,
-  Truck
+  Truck,
+  Download,
+  Archive,
+  FileCheck,
+  Cog,
+  CheckCheck,
+  Upload
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { cn } from '@/lib/utils';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 
 interface SolicitacaoComDados extends Solicitacao {
   fornecedor?: Fornecedor | null;
   solicitante?: Profile | null;
   clienteData?: Cliente | null;
+  anexos?: Anexo[];
+  documentoEmitido?: DocumentoEmitido | null;
+  dataAprovacao?: string | null;
 }
+
+type BackofficeTab = 'recebidas' | 'pendentes' | 'em_processamento' | 'oc_emitidas' | 'concluidas' | 'rejeitadas';
 
 export default function Backoffice() {
   const { user } = useAuth();
@@ -63,9 +79,21 @@ export default function Backoffice() {
   const [selectedSolicitacao, setSelectedSolicitacao] = useState<SolicitacaoComDados | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [actionOpen, setActionOpen] = useState(false);
-  const [actionType, setActionType] = useState<'aprovar' | 'devolver' | 'rejeitar'>('aprovar');
+  const [actionType, setActionType] = useState<'aprovar' | 'devolver' | 'rejeitar' | 'processar' | 'concluir'>('aprovar');
   const [motivo, setMotivo] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<BackofficeTab>('recebidas');
+
+  // Registro OC/AC Modal
+  const [registroOpen, setRegistroOpen] = useState(false);
+  const [tipoDocumento, setTipoDocumento] = useState<'OC' | 'AC'>('OC');
+  const [numeroDocumento, setNumeroDocumento] = useState('');
+  const [observacao, setObservacao] = useState('');
+  const [documentoFile, setDocumentoFile] = useState<File | null>(null);
+  const [registroLoading, setRegistroLoading] = useState(false);
+
+  // Download ZIP
+  const [downloadingZip, setDownloadingZip] = useState(false);
 
   useEffect(() => {
     fetchSolicitacoes();
@@ -78,19 +106,21 @@ export default function Backoffice() {
       .order('created_at', { ascending: false });
 
     if (!error && data) {
-      // Fetch fornecedores, profiles and clientes for each solicitacao
       const enrichedData = await Promise.all(
         data.map(async (sol) => {
           let fornecedor = null;
           let solicitante = null;
           let clienteData = null;
+          let anexos: Anexo[] = [];
+          let documentoEmitido = null;
+          let dataAprovacao = null;
 
           if (sol.fornecedor_id) {
             const { data: forn } = await supabase
               .from('fornecedores')
               .select('*')
               .eq('id', sol.fornecedor_id)
-              .single();
+              .maybeSingle();
             fornecedor = forn;
           }
 
@@ -98,7 +128,7 @@ export default function Backoffice() {
             .from('profiles')
             .select('*')
             .eq('id', sol.user_id)
-            .single();
+            .maybeSingle();
           solicitante = prof;
 
           if (sol.cliente_id) {
@@ -106,11 +136,37 @@ export default function Backoffice() {
               .from('clientes')
               .select('*')
               .eq('id', sol.cliente_id)
-              .single();
+              .maybeSingle();
             clienteData = cli;
           }
 
-          return { ...sol, fornecedor, solicitante, clienteData } as SolicitacaoComDados;
+          // Fetch anexos
+          const { data: anexosData } = await supabase
+            .from('anexos')
+            .select('*')
+            .eq('solicitacao_id', sol.id);
+          if (anexosData) anexos = anexosData as Anexo[];
+
+          // Fetch documento emitido
+          const { data: docData } = await supabase
+            .from('documentos_emitidos')
+            .select('*')
+            .eq('solicitacao_id', sol.id)
+            .maybeSingle();
+          documentoEmitido = docData as DocumentoEmitido | null;
+
+          // Fetch data de aprovação do histórico
+          const { data: histData } = await supabase
+            .from('historico_solicitacoes')
+            .select('created_at')
+            .eq('solicitacao_id', sol.id)
+            .eq('status_novo', 'aprovado')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (histData) dataAprovacao = histData.created_at;
+
+          return { ...sol, fornecedor, solicitante, clienteData, anexos, documentoEmitido, dataAprovacao } as SolicitacaoComDados;
         })
       );
       setSolicitacoes(enrichedData);
@@ -128,16 +184,18 @@ export default function Backoffice() {
       .eq('id', id);
 
     if (!error) {
-      const acaoLabel = newStatus === 'aprovado' 
-        ? 'Aprovação' 
-        : newStatus === 'rejeitado' 
-          ? 'Rejeição' 
-          : 'Devolução para correção';
+      const acaoLabels: Record<string, string> = {
+        'aprovado': 'Aprovação',
+        'rejeitado': 'Rejeição',
+        'pendente_correcao': 'Devolução para correção',
+        'em_processamento': 'Envio para processamento',
+        'concluida': 'Conclusão',
+      };
 
       await supabase.from('historico_solicitacoes').insert({
         solicitacao_id: id,
         user_id: user!.id,
-        acao: acaoLabel,
+        acao: acaoLabels[newStatus] || 'Atualização de status',
         status_anterior: sol?.status,
         status_novo: newStatus,
         motivo: motivoText || null,
@@ -161,20 +219,146 @@ export default function Backoffice() {
     setActionLoading(false);
   };
 
+  const handleRegistrarOCAC = async () => {
+    if (!selectedSolicitacao || !user || !documentoFile || !numeroDocumento) return;
+    
+    setRegistroLoading(true);
+    try {
+      // Upload document
+      const fileExt = documentoFile.name.split('.').pop();
+      const filePath = `${selectedSolicitacao.id}/${tipoDocumento}_${numeroDocumento}_${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('documentos-emitidos')
+        .upload(filePath, documentoFile);
+      
+      if (uploadError) throw uploadError;
+
+      // Insert document record
+      const { error: insertError } = await supabase
+        .from('documentos_emitidos')
+        .insert({
+          solicitacao_id: selectedSolicitacao.id,
+          tipo_documento: tipoDocumento,
+          numero_documento: numeroDocumento,
+          storage_path: filePath,
+          nome_arquivo: documentoFile.name,
+          observacao: observacao || null,
+          emitido_por: user.id,
+        });
+
+      if (insertError) throw insertError;
+
+      // Update status
+      await supabase
+        .from('solicitacoes')
+        .update({ status: 'oc_ac_emitida' as any })
+        .eq('id', selectedSolicitacao.id);
+
+      // Create history entry
+      await supabase.from('historico_solicitacoes').insert({
+        solicitacao_id: selectedSolicitacao.id,
+        user_id: user.id,
+        acao: `Emissão de ${tipoDocumento}`,
+        status_anterior: selectedSolicitacao.status,
+        status_novo: 'oc_ac_emitida',
+        motivo: `${tipoDocumento} nº ${numeroDocumento} emitida`,
+      });
+
+      toast({
+        title: `${tipoDocumento} Registrada!`,
+        description: `Número: ${numeroDocumento}`,
+      });
+
+      setRegistroOpen(false);
+      setDetailsOpen(false);
+      setNumeroDocumento('');
+      setObservacao('');
+      setDocumentoFile(null);
+      fetchSolicitacoes();
+    } catch (error) {
+      console.error('Error registering OC/AC:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao registrar',
+        description: 'Não foi possível registrar o documento',
+      });
+    } finally {
+      setRegistroLoading(false);
+    }
+  };
+
+  const downloadAnexosZip = async (sol: SolicitacaoComDados) => {
+    if (!sol.anexos || sol.anexos.length === 0) {
+      toast({ title: 'Nenhum anexo', description: 'Esta solicitação não possui anexos.' });
+      return;
+    }
+
+    setDownloadingZip(true);
+    try {
+      const zip = new JSZip();
+      
+      for (const anexo of sol.anexos) {
+        const { data, error } = await supabase.storage
+          .from('anexos')
+          .download(anexo.storage_path);
+        
+        if (!error && data) {
+          zip.file(anexo.nome_arquivo, data);
+        }
+      }
+
+      const content = await zip.generateAsync({ type: 'blob' });
+      saveAs(content, `anexos_${sol.protocolo}.zip`);
+      
+      toast({ title: 'Download concluído!', description: 'Anexos baixados com sucesso.' });
+    } catch (error) {
+      console.error('Error downloading ZIP:', error);
+      toast({ variant: 'destructive', title: 'Erro no download', description: 'Não foi possível baixar os anexos.' });
+    } finally {
+      setDownloadingZip(false);
+    }
+  };
+
+  const downloadDocumentoEmitido = async (doc: DocumentoEmitido) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('documentos-emitidos')
+        .download(doc.storage_path);
+      
+      if (!error && data) {
+        saveAs(data, doc.nome_arquivo);
+      }
+    } catch (error) {
+      console.error('Error downloading document:', error);
+      toast({ variant: 'destructive', title: 'Erro no download' });
+    }
+  };
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   };
 
   const openDetails = (sol: SolicitacaoComDados) => {
     setSelectedSolicitacao(sol);
+    setTipoDocumento(sol.tipo as 'OC' | 'AC');
     setDetailsOpen(true);
   };
 
-  const openAction = (sol: SolicitacaoComDados, type: 'aprovar' | 'devolver' | 'rejeitar') => {
+  const openAction = (sol: SolicitacaoComDados, type: typeof actionType) => {
     setSelectedSolicitacao(sol);
     setActionType(type);
     setMotivo('');
     setActionOpen(true);
+  };
+
+  const openRegistro = (sol: SolicitacaoComDados) => {
+    setSelectedSolicitacao(sol);
+    setTipoDocumento(sol.tipo as 'OC' | 'AC');
+    setNumeroDocumento('');
+    setObservacao('');
+    setDocumentoFile(null);
+    setRegistroOpen(true);
   };
 
   const handleAction = () => {
@@ -184,6 +368,8 @@ export default function Backoffice() {
       'aprovar': 'aprovado',
       'devolver': 'pendente_correcao',
       'rejeitar': 'rejeitado',
+      'processar': 'em_processamento',
+      'concluir': 'concluida',
     };
     
     updateStatus(selectedSolicitacao.id, statusMap[actionType], motivo);
@@ -204,74 +390,146 @@ export default function Backoffice() {
     return matchesSearch && matchesEmpreendimento;
   });
 
-  const pendentes = filteredSolicitacoes.filter(s => s.status === 'recebido' || s.status === 'em_analise');
-  const aprovadas = filteredSolicitacoes.filter(s => s.status === 'aprovado');
-  const devolvidas = filteredSolicitacoes.filter(s => s.status === 'pendente_correcao');
-  const rejeitadas = filteredSolicitacoes.filter(s => s.status === 'rejeitado');
+  // Group by tab
+  const groupedSolicitacoes = useMemo(() => ({
+    recebidas: filteredSolicitacoes.filter(s => s.status === 'recebido' || s.status === 'em_analise'),
+    pendentes: filteredSolicitacoes.filter(s => s.status === 'pendente_correcao'),
+    em_processamento: filteredSolicitacoes.filter(s => s.status === 'aprovado' || s.status === 'em_processamento'),
+    oc_emitidas: filteredSolicitacoes.filter(s => s.status === 'oc_ac_emitida'),
+    concluidas: filteredSolicitacoes.filter(s => s.status === 'concluida'),
+    rejeitadas: filteredSolicitacoes.filter(s => s.status === 'rejeitado'),
+  }), [filteredSolicitacoes]);
 
-  const SolicitacaoCard = ({ sol }: { sol: SolicitacaoComDados }) => (
-    <Card className="hover:shadow-md transition-shadow">
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Badge variant={sol.tipo === 'AC' ? 'default' : 'secondary'}>
-              {sol.tipo}
-            </Badge>
-            <CardTitle className="text-lg">#{sol.protocolo}</CardTitle>
-          </div>
-          <StatusBadge status={sol.status} />
-        </div>
-        <CardDescription className="line-clamp-1">{sol.descricao}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="grid gap-2 text-sm mb-4">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <User className="h-4 w-4" />
-            <span>{sol.solicitante?.full_name || sol.solicitante?.email || 'Usuário'}</span>
-          </div>
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Building2 className="h-4 w-4" />
-            <span>{EMPREENDIMENTO_LABELS[sol.empreendimento]}</span>
-          </div>
+  // SLA calculation
+  const getSLAInfo = (sol: SolicitacaoComDados) => {
+    const diasDesdeAbertura = differenceInDays(new Date(), new Date(sol.created_at));
+    const diasDesdeAprovacao = sol.dataAprovacao 
+      ? differenceInDays(new Date(), new Date(sol.dataAprovacao))
+      : null;
+    
+    const atrasadoAnalise = diasDesdeAbertura > 5 && ['recebido', 'em_analise'].includes(sol.status);
+    const atrasadoEmissao = diasDesdeAprovacao !== null && diasDesdeAprovacao > 3 && 
+      ['aprovado', 'em_processamento'].includes(sol.status);
+    
+    return { diasDesdeAbertura, diasDesdeAprovacao, atrasadoAnalise, atrasadoEmissao };
+  };
+
+  const SolicitacaoCard = ({ sol }: { sol: SolicitacaoComDados }) => {
+    const sla = getSLAInfo(sol);
+    const isAtrasado = sla.atrasadoAnalise || sla.atrasadoEmissao;
+
+    return (
+      <Card className={cn(
+        'hover:shadow-md transition-shadow',
+        isAtrasado && 'border-destructive border-2'
+      )}>
+        <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Calendar className="h-4 w-4" />
-              <span>{format(new Date(sol.created_at), "dd/MM/yyyy", { locale: ptBR })}</span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge variant={sol.tipo === 'AC' ? 'default' : 'secondary'}>
+                {sol.tipo}
+              </Badge>
+              <CardTitle className="text-lg">#{sol.protocolo}</CardTitle>
+              <StatusBadge status={sol.status} />
             </div>
-            <div className="flex items-center gap-2 font-semibold text-primary">
-              <DollarSign className="h-4 w-4" />
-              <span>{formatCurrency(sol.valor)}</span>
-            </div>
+            {isAtrasado && (
+              <Badge variant="destructive" className="animate-pulse">
+                <AlertTriangle className="h-3 w-3 mr-1" />
+                SLA
+              </Badge>
+            )}
           </div>
-          {sol.emergencial && (
-            <div className="flex items-center gap-2 text-destructive">
-              <AlertTriangle className="h-4 w-4" />
-              <span className="font-medium">Emergencial</span>
+          <CardDescription className="line-clamp-1">{sol.descricao}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-2 text-sm mb-4">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <User className="h-4 w-4" />
+              <span>{sol.solicitante?.full_name || sol.solicitante?.email || 'Usuário'}</span>
             </div>
-          )}
-        </div>
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Building2 className="h-4 w-4" />
+              <span>{EMPREENDIMENTO_LABELS[sol.empreendimento]}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Calendar className="h-4 w-4" />
+                <span>{format(new Date(sol.created_at), "dd/MM/yyyy", { locale: ptBR })}</span>
+              </div>
+              <div className="flex items-center gap-2 font-semibold text-primary">
+                <DollarSign className="h-4 w-4" />
+                <span>{formatCurrency(sol.valor)}</span>
+              </div>
+            </div>
+            
+            {/* SLA Info */}
+            <div className="flex items-center gap-4 pt-2 border-t">
+              <span className={cn(
+                "text-xs",
+                sla.atrasadoAnalise ? "text-destructive font-semibold" : "text-muted-foreground"
+              )}>
+                {sla.diasDesdeAbertura}d desde abertura
+              </span>
+              {sla.diasDesdeAprovacao !== null && (
+                <span className={cn(
+                  "text-xs",
+                  sla.atrasadoEmissao ? "text-destructive font-semibold" : "text-muted-foreground"
+                )}>
+                  {sla.diasDesdeAprovacao}d desde aprovação
+                </span>
+              )}
+            </div>
 
-        <div className="flex gap-2 flex-wrap">
-          <Button size="sm" variant="outline" onClick={() => openDetails(sol)}>
-            <Eye className="h-4 w-4 mr-1" /> Ver Detalhes
-          </Button>
-          {(sol.status === 'recebido' || sol.status === 'em_analise') && (
-            <>
-              <Button size="sm" onClick={() => openAction(sol, 'aprovar')}>
-                <CheckCircle className="h-4 w-4 mr-1" /> Aprovar
+            {sol.emergencial && (
+              <div className="flex items-center gap-2 text-destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <span className="font-medium">Emergencial</span>
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-2 flex-wrap">
+            <Button size="sm" variant="outline" onClick={() => openDetails(sol)}>
+              <Eye className="h-4 w-4 mr-1" /> Ver Detalhes
+            </Button>
+            
+            {/* Actions based on status */}
+            {(sol.status === 'recebido' || sol.status === 'em_analise') && (
+              <>
+                <Button size="sm" onClick={() => openAction(sol, 'aprovar')}>
+                  <CheckCircle className="h-4 w-4 mr-1" /> Aprovar
+                </Button>
+                <Button size="sm" variant="secondary" onClick={() => openAction(sol, 'devolver')}>
+                  <RotateCcw className="h-4 w-4 mr-1" /> Devolver
+                </Button>
+                <Button size="sm" variant="destructive" onClick={() => openAction(sol, 'rejeitar')}>
+                  <XCircle className="h-4 w-4 mr-1" /> Rejeitar
+                </Button>
+              </>
+            )}
+            
+            {sol.status === 'aprovado' && (
+              <Button size="sm" onClick={() => openAction(sol, 'processar')}>
+                <Cog className="h-4 w-4 mr-1" /> Em Processamento
               </Button>
-              <Button size="sm" variant="secondary" onClick={() => openAction(sol, 'devolver')}>
-                <RotateCcw className="h-4 w-4 mr-1" /> Devolver
+            )}
+            
+            {(sol.status === 'aprovado' || sol.status === 'em_processamento') && (
+              <Button size="sm" variant="default" onClick={() => openRegistro(sol)}>
+                <FileCheck className="h-4 w-4 mr-1" /> Registrar {sol.tipo}
               </Button>
-              <Button size="sm" variant="destructive" onClick={() => openAction(sol, 'rejeitar')}>
-                <XCircle className="h-4 w-4 mr-1" /> Rejeitar
+            )}
+            
+            {sol.status === 'oc_ac_emitida' && (
+              <Button size="sm" onClick={() => openAction(sol, 'concluir')}>
+                <CheckCheck className="h-4 w-4 mr-1" /> Concluir
               </Button>
-            </>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
 
   const TabContent = ({ items, emptyMessage }: { items: SolicitacaoComDados[], emptyMessage: string }) => (
     <div className="space-y-4">
@@ -307,46 +565,68 @@ export default function Backoffice() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card>
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+          <Card className="cursor-pointer hover:shadow-md" onClick={() => setActiveTab('recebidas')}>
             <CardContent className="pt-4">
               <div className="flex items-center gap-2">
-                <Clock className="h-5 w-5 text-yellow-500" />
+                <Clock className="h-5 w-5 text-info" />
                 <div>
-                  <p className="text-2xl font-bold">{pendentes.length}</p>
+                  <p className="text-2xl font-bold">{groupedSolicitacoes.recebidas.length}</p>
+                  <p className="text-xs text-muted-foreground">Recebidas</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="cursor-pointer hover:shadow-md" onClick={() => setActiveTab('pendentes')}>
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-2">
+                <RotateCcw className="h-5 w-5 text-orange-500" />
+                <div>
+                  <p className="text-2xl font-bold">{groupedSolicitacoes.pendentes.length}</p>
                   <p className="text-xs text-muted-foreground">Pendentes</p>
                 </div>
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="cursor-pointer hover:shadow-md" onClick={() => setActiveTab('em_processamento')}>
             <CardContent className="pt-4">
               <div className="flex items-center gap-2">
-                <CheckCircle className="h-5 w-5 text-green-500" />
+                <Cog className="h-5 w-5 text-primary" />
                 <div>
-                  <p className="text-2xl font-bold">{aprovadas.length}</p>
-                  <p className="text-xs text-muted-foreground">Aprovadas</p>
+                  <p className="text-2xl font-bold">{groupedSolicitacoes.em_processamento.length}</p>
+                  <p className="text-xs text-muted-foreground">Em Proc.</p>
                 </div>
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="cursor-pointer hover:shadow-md" onClick={() => setActiveTab('oc_emitidas')}>
             <CardContent className="pt-4">
               <div className="flex items-center gap-2">
-                <RotateCcw className="h-5 w-5 text-orange-500" />
+                <FileCheck className="h-5 w-5 text-purple-500" />
                 <div>
-                  <p className="text-2xl font-bold">{devolvidas.length}</p>
-                  <p className="text-xs text-muted-foreground">Devolvidas</p>
+                  <p className="text-2xl font-bold">{groupedSolicitacoes.oc_emitidas.length}</p>
+                  <p className="text-xs text-muted-foreground">Emitidas</p>
                 </div>
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="cursor-pointer hover:shadow-md" onClick={() => setActiveTab('concluidas')}>
             <CardContent className="pt-4">
               <div className="flex items-center gap-2">
-                <XCircle className="h-5 w-5 text-red-500" />
+                <CheckCheck className="h-5 w-5 text-success" />
                 <div>
-                  <p className="text-2xl font-bold">{rejeitadas.length}</p>
+                  <p className="text-2xl font-bold">{groupedSolicitacoes.concluidas.length}</p>
+                  <p className="text-xs text-muted-foreground">Concluídas</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="cursor-pointer hover:shadow-md" onClick={() => setActiveTab('rejeitadas')}>
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-2">
+                <XCircle className="h-5 w-5 text-destructive" />
+                <div>
+                  <p className="text-2xl font-bold">{groupedSolicitacoes.rejeitadas.length}</p>
                   <p className="text-xs text-muted-foreground">Rejeitadas</p>
                 </div>
               </div>
@@ -385,35 +665,40 @@ export default function Backoffice() {
         </Card>
 
         {/* Tabs */}
-        <Tabs defaultValue="pendentes" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="pendentes" className="relative">
-              Pendentes
-              {pendentes.length > 0 && (
-                <Badge variant="destructive" className="ml-2 h-5 w-5 p-0 text-xs flex items-center justify-center">
-                  {pendentes.length}
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as BackofficeTab)} className="space-y-4">
+          <TabsList className="grid w-full grid-cols-6">
+            <TabsTrigger value="recebidas" className="relative text-xs sm:text-sm">
+              Recebidas
+              {groupedSolicitacoes.recebidas.length > 0 && (
+                <Badge variant="destructive" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center">
+                  {groupedSolicitacoes.recebidas.length}
                 </Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="aprovadas">Aprovadas</TabsTrigger>
-            <TabsTrigger value="devolvidas">Devolvidas</TabsTrigger>
-            <TabsTrigger value="rejeitadas">Rejeitadas</TabsTrigger>
+            <TabsTrigger value="pendentes" className="text-xs sm:text-sm">Pendentes</TabsTrigger>
+            <TabsTrigger value="em_processamento" className="text-xs sm:text-sm">Em Proc.</TabsTrigger>
+            <TabsTrigger value="oc_emitidas" className="text-xs sm:text-sm">Emitidas</TabsTrigger>
+            <TabsTrigger value="concluidas" className="text-xs sm:text-sm">Concluídas</TabsTrigger>
+            <TabsTrigger value="rejeitadas" className="text-xs sm:text-sm">Rejeitadas</TabsTrigger>
           </TabsList>
 
+          <TabsContent value="recebidas">
+            <TabContent items={groupedSolicitacoes.recebidas} emptyMessage="Nenhuma solicitação recebida" />
+          </TabsContent>
           <TabsContent value="pendentes">
-            <TabContent items={pendentes} emptyMessage="Nenhuma solicitação pendente" />
+            <TabContent items={groupedSolicitacoes.pendentes} emptyMessage="Nenhuma solicitação pendente de correção" />
           </TabsContent>
-
-          <TabsContent value="aprovadas">
-            <TabContent items={aprovadas} emptyMessage="Nenhuma solicitação aprovada" />
+          <TabsContent value="em_processamento">
+            <TabContent items={groupedSolicitacoes.em_processamento} emptyMessage="Nenhuma solicitação em processamento" />
           </TabsContent>
-
-          <TabsContent value="devolvidas">
-            <TabContent items={devolvidas} emptyMessage="Nenhuma solicitação devolvida" />
+          <TabsContent value="oc_emitidas">
+            <TabContent items={groupedSolicitacoes.oc_emitidas} emptyMessage="Nenhuma OC/AC emitida" />
           </TabsContent>
-
+          <TabsContent value="concluidas">
+            <TabContent items={groupedSolicitacoes.concluidas} emptyMessage="Nenhuma solicitação concluída" />
+          </TabsContent>
           <TabsContent value="rejeitadas">
-            <TabContent items={rejeitadas} emptyMessage="Nenhuma solicitação rejeitada" />
+            <TabContent items={groupedSolicitacoes.rejeitadas} emptyMessage="Nenhuma solicitação rejeitada" />
           </TabsContent>
         </Tabs>
       </div>
@@ -434,8 +719,8 @@ export default function Backoffice() {
           {selectedSolicitacao && (
             <ScrollArea className="max-h-[60vh]">
               <div className="space-y-6 pr-4">
-                {/* Status e Solicitante */}
-                <div className="flex items-center justify-between">
+                {/* Status e SLA */}
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <StatusBadge status={selectedSolicitacao.status} />
                   {selectedSolicitacao.emergencial && (
                     <Badge variant="destructive">
@@ -443,9 +728,54 @@ export default function Backoffice() {
                       Emergencial
                     </Badge>
                   )}
+                  {(() => {
+                    const sla = getSLAInfo(selectedSolicitacao);
+                    return (
+                      <div className="flex gap-2 text-xs">
+                        <Badge variant={sla.atrasadoAnalise ? "destructive" : "outline"}>
+                          {sla.diasDesdeAbertura}d desde abertura
+                        </Badge>
+                        {sla.diasDesdeAprovacao !== null && (
+                          <Badge variant={sla.atrasadoEmissao ? "destructive" : "outline"}>
+                            {sla.diasDesdeAprovacao}d desde aprovação
+                          </Badge>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <Separator />
+
+                {/* Documento Emitido (se existir) */}
+                {selectedSolicitacao.documentoEmitido && (
+                  <>
+                    <div className="p-4 bg-success/10 border border-success/20 rounded-lg">
+                      <h4 className="font-semibold mb-2 flex items-center gap-2 text-success">
+                        <FileCheck className="h-4 w-4" /> Documento Emitido
+                      </h4>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <Label className="text-muted-foreground">Tipo</Label>
+                          <p className="font-medium">{selectedSolicitacao.documentoEmitido.tipo_documento}</p>
+                        </div>
+                        <div>
+                          <Label className="text-muted-foreground">Número</Label>
+                          <p className="font-medium">{selectedSolicitacao.documentoEmitido.numero_documento}</p>
+                        </div>
+                      </div>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="mt-3"
+                        onClick={() => downloadDocumentoEmitido(selectedSolicitacao.documentoEmitido!)}
+                      >
+                        <Download className="h-4 w-4 mr-1" /> Baixar {selectedSolicitacao.documentoEmitido.tipo_documento}
+                      </Button>
+                    </div>
+                    <Separator />
+                  </>
+                )}
 
                 {/* Solicitante */}
                 <div>
@@ -490,30 +820,54 @@ export default function Backoffice() {
                   <div>
                     <Label className="text-muted-foreground">Valor</Label>
                     <p className="font-medium text-primary">{formatCurrency(selectedSolicitacao.valor)}</p>
-                    {selectedSolicitacao.faturamento_direto && (selectedSolicitacao.valor_servico || selectedSolicitacao.valor_material) && (
-                      <div className="mt-2 p-2 rounded bg-muted/50 space-y-1 text-sm">
-                        {selectedSolicitacao.valor_servico && (
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Serviço:</span>
-                            <span>{formatCurrency(selectedSolicitacao.valor_servico)}</span>
-                          </div>
-                        )}
-                        {selectedSolicitacao.valor_material && (
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Material:</span>
-                            <span>{formatCurrency(selectedSolicitacao.valor_material)}</span>
-                          </div>
-                        )}
-                        <div className="flex justify-between font-medium pt-1 border-t">
-                          <span>Total FD:</span>
-                          <span>{formatCurrency((selectedSolicitacao.valor_servico || 0) + (selectedSolicitacao.valor_material || 0))}</span>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
 
                 <Separator />
+
+                {/* Anexos */}
+                {selectedSolicitacao.anexos && selectedSolicitacao.anexos.length > 0 && (
+                  <>
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-semibold flex items-center gap-2">
+                          <Archive className="h-4 w-4" /> Anexos ({selectedSolicitacao.anexos.length})
+                        </h4>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => downloadAnexosZip(selectedSolicitacao)}
+                          disabled={downloadingZip}
+                        >
+                          {downloadingZip ? (
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          ) : (
+                            <Download className="h-4 w-4 mr-1" />
+                          )}
+                          Baixar Todos (ZIP)
+                        </Button>
+                      </div>
+                      <div className="space-y-2">
+                        {selectedSolicitacao.anexos.map((anexo) => (
+                          <div key={anexo.id} className="flex items-center justify-between p-2 bg-muted/50 rounded text-sm">
+                            <span className="truncate flex-1">{anexo.nome_arquivo}</span>
+                            <Button 
+                              size="sm" 
+                              variant="ghost"
+                              onClick={async () => {
+                                const { data } = await supabase.storage.from('anexos').download(anexo.storage_path);
+                                if (data) saveAs(data, anexo.nome_arquivo);
+                              }}
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <Separator />
+                  </>
+                )}
 
                 {/* Fornecedor */}
                 {selectedSolicitacao.fornecedor && (
@@ -531,55 +885,6 @@ export default function Backoffice() {
                           <Label className="text-muted-foreground">CNPJ</Label>
                           <p className="font-medium">{selectedSolicitacao.fornecedor.cnpj}</p>
                         </div>
-                        <div>
-                          <Label className="text-muted-foreground">Cidade/UF</Label>
-                          <p className="font-medium">
-                            {selectedSolicitacao.fornecedor.cidade || 'N/A'} 
-                            {selectedSolicitacao.fornecedor.uf && ` - ${selectedSolicitacao.fornecedor.uf}`}
-                          </p>
-                        </div>
-                        <div>
-                          <Label className="text-muted-foreground">Email</Label>
-                          <p className="font-medium">{selectedSolicitacao.fornecedor.email || 'N/A'}</p>
-                        </div>
-                      </div>
-                    </div>
-                    <Separator />
-                  </>
-                )}
-
-                {/* Contratação (se AC) */}
-                {selectedSolicitacao.tipo === 'AC' && selectedSolicitacao.tipo_contratacao && (
-                  <>
-                    <div>
-                      <h4 className="font-semibold mb-2 flex items-center gap-2">
-                        <Package className="h-4 w-4" /> Contratação
-                      </h4>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label className="text-muted-foreground">Tipo de Contratação</Label>
-                          <p className="font-medium">{TIPO_CONTRATACAO_LABELS[selectedSolicitacao.tipo_contratacao]}</p>
-                        </div>
-                        {selectedSolicitacao.data_inicio && (
-                          <div>
-                            <Label className="text-muted-foreground">Data Início</Label>
-                            <p className="font-medium">
-                              {format(new Date(selectedSolicitacao.data_inicio), "dd/MM/yyyy", { locale: ptBR })}
-                            </p>
-                          </div>
-                        )}
-                        {selectedSolicitacao.data_fim && (
-                          <div>
-                            <Label className="text-muted-foreground">Data Fim</Label>
-                            <p className="font-medium">
-                              {format(new Date(selectedSolicitacao.data_fim), "dd/MM/yyyy", { locale: ptBR })}
-                            </p>
-                          </div>
-                        )}
-                        <div>
-                          <Label className="text-muted-foreground">Parcelas</Label>
-                          <p className="font-medium">{selectedSolicitacao.parcelas || 1}x</p>
-                        </div>
                       </div>
                     </div>
                     <Separator />
@@ -592,11 +897,8 @@ export default function Backoffice() {
                   {selectedSolicitacao.faturamento_direto && <Badge variant="outline">Faturamento Direto</Badge>}
                   {selectedSolicitacao.retencao_6_porcento && <Badge variant="outline">Retenção 6%</Badge>}
                   {selectedSolicitacao.custo_cliente && <Badge variant="outline">Custo Cliente</Badge>}
-                  {selectedSolicitacao.tipo_garantia && (
+                  {selectedSolicitacao.tipo_garantia && selectedSolicitacao.tipo_garantia !== 'nenhuma' && (
                     <Badge variant="outline">Garantia: {TIPO_GARANTIA_LABELS[selectedSolicitacao.tipo_garantia]}</Badge>
-                  )}
-                  {selectedSolicitacao.dias_garantia && (
-                    <Badge variant="outline">{selectedSolicitacao.dias_garantia} dias de garantia</Badge>
                   )}
                 </div>
 
@@ -610,17 +912,31 @@ export default function Backoffice() {
           )}
 
           <DialogFooter className="flex-col sm:flex-row gap-2">
-            {selectedSolicitacao && (selectedSolicitacao.status === 'recebido' || selectedSolicitacao.status === 'em_analise') && (
+            {selectedSolicitacao && (
               <>
-                <Button onClick={() => { setDetailsOpen(false); openAction(selectedSolicitacao, 'aprovar'); }}>
-                  <CheckCircle className="h-4 w-4 mr-1" /> Aprovar
-                </Button>
-                <Button variant="secondary" onClick={() => { setDetailsOpen(false); openAction(selectedSolicitacao, 'devolver'); }}>
-                  <RotateCcw className="h-4 w-4 mr-1" /> Devolver
-                </Button>
-                <Button variant="destructive" onClick={() => { setDetailsOpen(false); openAction(selectedSolicitacao, 'rejeitar'); }}>
-                  <XCircle className="h-4 w-4 mr-1" /> Rejeitar
-                </Button>
+                {(selectedSolicitacao.status === 'recebido' || selectedSolicitacao.status === 'em_analise') && (
+                  <>
+                    <Button onClick={() => { setDetailsOpen(false); openAction(selectedSolicitacao, 'aprovar'); }}>
+                      <CheckCircle className="h-4 w-4 mr-1" /> Aprovar
+                    </Button>
+                    <Button variant="secondary" onClick={() => { setDetailsOpen(false); openAction(selectedSolicitacao, 'devolver'); }}>
+                      <RotateCcw className="h-4 w-4 mr-1" /> Devolver
+                    </Button>
+                    <Button variant="destructive" onClick={() => { setDetailsOpen(false); openAction(selectedSolicitacao, 'rejeitar'); }}>
+                      <XCircle className="h-4 w-4 mr-1" /> Rejeitar
+                    </Button>
+                  </>
+                )}
+                {(selectedSolicitacao.status === 'aprovado' || selectedSolicitacao.status === 'em_processamento') && (
+                  <Button onClick={() => { setDetailsOpen(false); openRegistro(selectedSolicitacao); }}>
+                    <FileCheck className="h-4 w-4 mr-1" /> Registrar {selectedSolicitacao.tipo}
+                  </Button>
+                )}
+                {selectedSolicitacao.status === 'oc_ac_emitida' && (
+                  <Button onClick={() => { setDetailsOpen(false); openAction(selectedSolicitacao, 'concluir'); }}>
+                    <CheckCheck className="h-4 w-4 mr-1" /> Concluir
+                  </Button>
+                )}
               </>
             )}
           </DialogFooter>
@@ -635,11 +951,15 @@ export default function Backoffice() {
               {actionType === 'aprovar' && 'Aprovar Solicitação'}
               {actionType === 'devolver' && 'Devolver para Correção'}
               {actionType === 'rejeitar' && 'Rejeitar Solicitação'}
+              {actionType === 'processar' && 'Enviar para Processamento'}
+              {actionType === 'concluir' && 'Concluir Solicitação'}
             </DialogTitle>
             <DialogDescription>
               {actionType === 'aprovar' && 'A solicitação será marcada como aprovada.'}
               {actionType === 'devolver' && 'Informe o motivo da devolução para que o solicitante possa corrigir.'}
               {actionType === 'rejeitar' && 'Informe o motivo da rejeição.'}
+              {actionType === 'processar' && 'A solicitação será marcada como em processamento no Fluig/RM.'}
+              {actionType === 'concluir' && 'A solicitação será marcada como concluída.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -669,6 +989,82 @@ export default function Backoffice() {
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : null}
               Confirmar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Registro OC/AC Modal */}
+      <Dialog open={registroOpen} onOpenChange={setRegistroOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Registrar {tipoDocumento} Emitida</DialogTitle>
+            <DialogDescription>
+              Registre os dados do documento emitido para a solicitação #{selectedSolicitacao?.protocolo}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Tipo de Documento</Label>
+                <Select value={tipoDocumento} onValueChange={(v) => setTipoDocumento(v as 'OC' | 'AC')}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="OC">OC</SelectItem>
+                    <SelectItem value="AC">AC</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="numero">Número do Documento *</Label>
+                <Input
+                  id="numero"
+                  placeholder="Ex: 2024001234"
+                  value={numeroDocumento}
+                  onChange={(e) => setNumeroDocumento(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="doc-file">Documento (PDF) *</Label>
+              <Input
+                id="doc-file"
+                type="file"
+                accept=".pdf"
+                onChange={(e) => setDocumentoFile(e.target.files?.[0] || null)}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="obs">Observação (opcional)</Label>
+              <Textarea
+                id="obs"
+                placeholder="Observações adicionais..."
+                value={observacao}
+                onChange={(e) => setObservacao(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRegistroOpen(false)} disabled={registroLoading}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleRegistrarOCAC}
+              disabled={registroLoading || !numeroDocumento || !documentoFile}
+            >
+              {registroLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Upload className="h-4 w-4 mr-2" />
+              )}
+              Registrar {tipoDocumento}
             </Button>
           </DialogFooter>
         </DialogContent>

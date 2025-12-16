@@ -128,7 +128,11 @@ export default function MinhasSolicitacoes() {
         );
         break;
       case 'aprovadas':
-        filtered = filtered.filter(s => s.status === 'aprovado');
+        // Include all positive outcomes: aprovado, em_processamento, oc_ac_emitida, concluida
+        filtered = filtered.filter(s => 
+          s.status === 'aprovado' || s.status === 'em_processamento' || 
+          s.status === 'oc_ac_emitida' || s.status === 'concluida'
+        );
         break;
       case 'reprovadas':
         filtered = filtered.filter(s => s.status === 'rejeitado');
@@ -152,7 +156,10 @@ export default function MinhasSolicitacoes() {
       pendentes: solicitacoes.filter(s => 
         s.status === 'pendente_correcao' || s.status === 'recebido' || s.status === 'em_analise'
       ).length,
-      aprovadas: solicitacoes.filter(s => s.status === 'aprovado').length,
+      aprovadas: solicitacoes.filter(s => 
+        s.status === 'aprovado' || s.status === 'em_processamento' || 
+        s.status === 'oc_ac_emitida' || s.status === 'concluida'
+      ).length,
       reprovadas: solicitacoes.filter(s => s.status === 'rejeitado').length,
     };
   }, [solicitacoes]);

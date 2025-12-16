@@ -1,6 +1,6 @@
 export type AppRole = 'solicitante' | 'backoffice' | 'admin';
 export type RequestType = 'AC' | 'OC';
-export type RequestStatus = 'recebido' | 'em_analise' | 'pendente_correcao' | 'aprovado' | 'rejeitado';
+export type RequestStatus = 'recebido' | 'em_analise' | 'pendente_correcao' | 'aprovado' | 'rejeitado' | 'em_processamento' | 'oc_ac_emitida' | 'concluida';
 export type Empreendimento = 'mega_curitiba' | 'mega_itajai' | 'mega_esteio' | 'todos';
 export type NaturezaOrcamentaria = 
   | 'materiais_informatica'
@@ -170,7 +170,22 @@ export const STATUS_LABELS: Record<RequestStatus, string> = {
   pendente_correcao: 'Pendente de Correção',
   aprovado: 'Aprovado',
   rejeitado: 'Rejeitado',
+  em_processamento: 'Em Processamento',
+  oc_ac_emitida: 'OC/AC Emitida',
+  concluida: 'Concluída',
 };
+
+export interface DocumentoEmitido {
+  id: string;
+  solicitacao_id: string;
+  tipo_documento: 'OC' | 'AC';
+  numero_documento: string;
+  storage_path: string;
+  nome_arquivo: string;
+  observacao: string | null;
+  emitido_por: string;
+  created_at: string;
+}
 
 export const ORIGEM_CUSTO_LABELS: Record<OrigemCusto, string> = {
   empreendimento: 'Empreendimento',
