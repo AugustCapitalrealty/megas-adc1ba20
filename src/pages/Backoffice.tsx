@@ -22,7 +22,8 @@ import {
   type Solicitacao, 
   type RequestStatus,
   type Fornecedor,
-  type Profile
+  type Profile,
+  type Cliente
 } from '@/types';
 import { 
   Loader2, 
@@ -49,6 +50,7 @@ import { useAuth } from '@/hooks/useAuth';
 interface SolicitacaoComDados extends Solicitacao {
   fornecedor?: Fornecedor | null;
   solicitante?: Profile | null;
+  clienteData?: Cliente | null;
 }
 
 export default function Backoffice() {
@@ -76,11 +78,12 @@ export default function Backoffice() {
       .order('created_at', { ascending: false });
 
     if (!error && data) {
-      // Fetch fornecedores and profiles for each solicitacao
+      // Fetch fornecedores, profiles and clientes for each solicitacao
       const enrichedData = await Promise.all(
         data.map(async (sol) => {
           let fornecedor = null;
           let solicitante = null;
+          let clienteData = null;
 
           if (sol.fornecedor_id) {
             const { data: forn } = await supabase
@@ -98,7 +101,16 @@ export default function Backoffice() {
             .single();
           solicitante = prof;
 
-          return { ...sol, fornecedor, solicitante } as SolicitacaoComDados;
+          if (sol.cliente_id) {
+            const { data: cli } = await supabase
+              .from('clientes')
+              .select('*')
+              .eq('id', sol.cliente_id)
+              .single();
+            clienteData = cli;
+          }
+
+          return { ...sol, fornecedor, solicitante, clienteData } as SolicitacaoComDados;
         })
       );
       setSolicitacoes(enrichedData);
@@ -468,7 +480,12 @@ export default function Backoffice() {
                   </div>
                   <div>
                     <Label className="text-muted-foreground">Origem do Custo</Label>
-                    <p className="font-medium">{selectedSolicitacao.origem_custo === 'empreendimento' ? 'Empreendimento' : 'Cliente'}</p>
+                    <p className="font-medium">
+                      {selectedSolicitacao.origem_custo === 'empreendimento' ? 'Empreendimento' : 'Cliente'}
+                      {selectedSolicitacao.clienteData && (
+                        <span className="text-primary"> ({selectedSolicitacao.clienteData.nome})</span>
+                      )}
+                    </p>
                   </div>
                   <div>
                     <Label className="text-muted-foreground">Valor</Label>

@@ -55,6 +55,53 @@ export type Database = {
           },
         ]
       }
+      clientes: {
+        Row: {
+          created_at: string
+          id: string
+          nome: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nome: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nome?: string
+        }
+        Relationships: []
+      }
+      clientes_empreendimentos: {
+        Row: {
+          cliente_id: string
+          created_at: string
+          empreendimento: Database["public"]["Enums"]["empreendimento"]
+          id: string
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string
+          empreendimento: Database["public"]["Enums"]["empreendimento"]
+          id?: string
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string
+          empreendimento?: Database["public"]["Enums"]["empreendimento"]
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clientes_empreendimentos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fornecedores: {
         Row: {
           cidade: string | null
@@ -211,6 +258,7 @@ export type Database = {
       }
       solicitacoes: {
         Row: {
+          cliente_id: string | null
           contrato_mensal: boolean | null
           created_at: string
           custo_cliente: boolean | null
@@ -243,6 +291,7 @@ export type Database = {
           valor_servico: number | null
         }
         Insert: {
+          cliente_id?: string | null
           contrato_mensal?: boolean | null
           created_at?: string
           custo_cliente?: boolean | null
@@ -275,6 +324,7 @@ export type Database = {
           valor_servico?: number | null
         }
         Update: {
+          cliente_id?: string | null
           contrato_mensal?: boolean | null
           created_at?: string
           custo_cliente?: boolean | null
@@ -307,6 +357,13 @@ export type Database = {
           valor_servico?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "solicitacoes_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "solicitacoes_fornecedor_concorrente_1_id_fkey"
             columns: ["fornecedor_concorrente_1_id"]

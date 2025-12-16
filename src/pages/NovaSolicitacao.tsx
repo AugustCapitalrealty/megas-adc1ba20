@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -31,6 +31,7 @@ import { ArrowLeft, ArrowRight, Check, Loader2, Search, AlertTriangle, ChevronDo
 import { cn } from '@/lib/utils';
 import { MultiFileUpload, type UploadedFile } from '@/components/FileUpload';
 import { SupplierSearch } from '@/components/SupplierSearch';
+import { ClienteSelect } from '@/components/ClienteSelect';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 type Step = 'empreendimento' | 'descricao' | 'tipo' | 'detalhes' | 'fornecedor' | 'anexos' | 'revisao';
@@ -81,6 +82,30 @@ export default function NovaSolicitacao() {
   const [fornecedor, setFornecedor] = useState<Fornecedor | null>(null);
   const [fornecedorConcorrente1, setFornecedorConcorrente1] = useState<Fornecedor | null>(null);
   const [fornecedorConcorrente2, setFornecedorConcorrente2] = useState<Fornecedor | null>(null);
+
+  // Cliente (quando origem = cliente)
+  const [clienteId, setClienteId] = useState<string | null>(null);
+  const [clienteNome, setClienteNome] = useState<string>('');
+
+  // Fetch cliente nome when clienteId changes
+  useEffect(() => {
+    if (!clienteId) {
+      setClienteNome('');
+      return;
+    }
+    
+    const fetchCliente = async () => {
+      const { data } = await supabase
+        .from('clientes')
+        .select('nome')
+        .eq('id', clienteId)
+        .single();
+      if (data) {
+        setClienteNome(data.nome);
+      }
+    };
+    fetchCliente();
+  }, [clienteId]);
 
   // Anexos
   const [anexos, setAnexos] = useState<Record<string, UploadedFile | null>>({});
@@ -234,6 +259,7 @@ export default function NovaSolicitacao() {
         tipo: (isAC ? 'AC' : 'OC') as "AC" | "OC",
         natureza_orcamentaria: naturezaOrcamentaria as "materiais_informatica" | "seguranca_vigilancia" | "assistencia_informatica" | "limpeza_conservacao" | "material_consumo" | "telefone" | "energia_eletrica" | "agua" | "manutencao_imoveis" | "material_expediente" | "servicos_diversos" | "propaganda_publicidade" | "taxa_impostos" | "manutencao_maquinas_equipamentos" | "despesas_pessoal" | "despesas_administrador",
         origem_custo: origemCusto,
+        cliente_id: origemCusto === 'cliente' ? clienteId : null,
         fornecedor_id: fornecedor.id,
         fornecedor_concorrente_1_id: fornecedorConcorrente1?.id || null,
         fornecedor_concorrente_2_id: fornecedorConcorrente2?.id || null,
@@ -306,7 +332,11 @@ export default function NovaSolicitacao() {
       case 'empreendimento': return !!empreendimento;
       case 'descricao': return !!descricao && valorNumerico > 0;
       case 'tipo': return valorNumerico <= 1000 || !!tipoContratacao;
-      case 'detalhes': return !!naturezaOrcamentaria;
+      case 'detalhes': {
+        if (!naturezaOrcamentaria) return false;
+        if (origemCusto === 'cliente' && !clienteId) return false;
+        return true;
+      }
       case 'fornecedor': {
         if (!fornecedor) return false;
         if (requires3CNPJs && (!fornecedorConcorrente1 || !fornecedorConcorrente2)) return false;
@@ -475,7 +505,15 @@ export default function NovaSolicitacao() {
                 </div>
                 <div>
                   <Label>Origem do Custo</Label>
-                  <Select value={origemCusto} onValueChange={(v) => setOrigemCusto(v as OrigemCusto)}>
+                  <Select 
+                    value={origemCusto} 
+                    onValueChange={(v) => {
+                      setOrigemCusto(v as OrigemCusto);
+                      if (v !== 'cliente') {
+                        setClienteId(null);
+                      }
+                    }}
+                  >
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {Object.entries(ORIGEM_CUSTO_LABELS).map(([value, label]) => (
@@ -484,6 +522,14 @@ export default function NovaSolicitacao() {
                     </SelectContent>
                   </Select>
                 </div>
+                {origemCusto === 'cliente' && (
+                  <ClienteSelect
+                    empreendimento={empreendimento}
+                    value={clienteId}
+                    onChange={setClienteId}
+                    required
+                  />
+                )}
                 {isAC && (
                   <>
                     <div className="grid grid-cols-2 gap-4">
@@ -675,6 +721,12 @@ export default function NovaSolicitacao() {
                     <span className="text-muted-foreground">Origem do Custo</span>
                     <span>{ORIGEM_CUSTO_LABELS[origemCusto]}</span>
                   </div>
+                  {origemCusto === 'cliente' && clienteNome && (
+                    <div className="flex justify-between py-2 border-b">
+                      <span className="text-muted-foreground">Cliente</span>
+                      <span className="font-medium">{clienteNome}</span>
+                    </div>
+                  )}
                   {tipoContratacao && (
                     <div className="flex justify-between py-2 border-b">
                       <span className="text-muted-foreground">Tipo de Contratação</span>
