@@ -37,12 +37,19 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 
 type Step = 'empreendimento' | 'descricao' | 'tipo' | 'detalhes' | 'fornecedor' | 'anexos' | 'revisao';
 
-// Naturezas orçamentárias isentas de anexos (água, energia, telefone, taxas)
+// Naturezas orçamentárias isentas de Chamado/Preventiva
 const NATUREZAS_ISENTAS_ANEXOS: NaturezaOrcamentaria[] = [
   'agua',
   'energia_eletrica', 
   'telefone',
   'taxa_impostos',
+  'material_consumo',
+];
+
+// Tipos de contratação isentos de Chamado/Preventiva
+const TIPOS_CONTRATACAO_ISENTOS: TipoContratacao[] = [
+  'combustivel',
+  'material_construcao',
 ];
 
 interface DuplicateData {
@@ -167,12 +174,13 @@ export default function NovaSolicitacao() {
   
   // Determine required attachments based on type
   const getRequiredAttachments = () => {
-    // Naturezas isentas de anexos (água, energia, telefone, taxas)
+    // Naturezas/tipos isentos de Chamado/Preventiva
     const isNaturezaIsenta = naturezaOrcamentaria && NATUREZAS_ISENTAS_ANEXOS.includes(naturezaOrcamentaria);
-    
+    const isTipoContratacaoIsento = tipoContratacao && TIPOS_CONTRATACAO_ISENTOS.includes(tipoContratacao);
+    const isIsento = isNaturezaIsenta || isTipoContratacaoIsento;
     let attachments: { tipo: string; label: string; required: boolean }[] = [];
     
-    if (!isNaturezaIsenta) {
+    if (!isIsento) {
       if (isOC) {
         // OC <= R$ 1.000: Chamado OU Preventiva + Orçamento escolhido
         attachments = [
@@ -203,17 +211,18 @@ export default function NovaSolicitacao() {
       attachments.push({ tipo: 'comunicado_cliente', label: ANEXO_LABELS.comunicado_cliente, required: true });
     }
     
-    // Rateio opcional para empreendimento "todos"
-    if (empreendimento === 'todos') {
+    // Rateio opcional para naturezas Água ou Energia
+    if (naturezaOrcamentaria === 'agua' || naturezaOrcamentaria === 'energia_eletrica') {
       attachments.push({ tipo: 'rateio', label: ANEXO_LABELS.rateio, required: false });
     }
     
     return attachments;
   };
 
-  // Check if 3 CNPJs are required (AC services non-emergency, except for naturezas isentas)
+  // Check if 3 CNPJs are required (AC services non-emergency, except for isentos)
   const isNaturezaIsenta = naturezaOrcamentaria && NATUREZAS_ISENTAS_ANEXOS.includes(naturezaOrcamentaria);
-  const requires3CNPJs = isAC && !emergencial && !isNaturezaIsenta;
+  const isTipoContratacaoIsento = tipoContratacao && TIPOS_CONTRATACAO_ISENTOS.includes(tipoContratacao);
+  const requires3CNPJs = isAC && !emergencial && !isNaturezaIsenta && !isTipoContratacaoIsento;
 
   const formatCurrency = (value: string) => {
     const digits = value.replace(/\D/g, '');
@@ -779,11 +788,11 @@ export default function NovaSolicitacao() {
                     </AlertDescription>
                   </Alert>
                 )}
-                {empreendimento === 'todos' && (
+                {(naturezaOrcamentaria === 'agua' || naturezaOrcamentaria === 'energia_eletrica') && (
                   <Alert>
                     <FileText className="h-4 w-4" />
                     <AlertDescription>
-                      <strong>Rateio:</strong> Para solicitações com rateio entre todos os megas, você pode anexar a planilha de rateio (opcional).
+                      <strong>Rateio:</strong> Para solicitações de Água ou Energia, você pode anexar a planilha de rateio (opcional).
                     </AlertDescription>
                   </Alert>
                 )}

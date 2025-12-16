@@ -918,6 +918,20 @@ export default function Backoffice() {
                   </>
                 )}
 
+                {/* Justificativa de Fornecedor Único */}
+                {selectedSolicitacao.justificativa_fornecedores && (
+                  <>
+                    <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+                      <Label className="text-muted-foreground font-medium flex items-center gap-2">
+                        <AlertTriangle className="h-4 w-4 text-amber-600" />
+                        Justificativa para Fornecedor Único
+                      </Label>
+                      <p className="mt-2 text-sm">{selectedSolicitacao.justificativa_fornecedores}</p>
+                    </div>
+                    <Separator />
+                  </>
+                )}
+
                 {/* Flags */}
                 <div className="flex flex-wrap gap-2">
                   {selectedSolicitacao.contrato_mensal && <Badge variant="outline">Contrato Mensal</Badge>}
