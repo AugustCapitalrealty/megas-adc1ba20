@@ -20,6 +20,7 @@ import {
   TIPO_CONTRATACAO_LABELS,
   ORIGEM_CUSTO_LABELS,
   TIPO_GARANTIA_LABELS,
+  ANEXO_LABELS,
   type Empreendimento,
   type NaturezaOrcamentaria,
   type TipoContratacao,
@@ -35,18 +36,6 @@ import { ClienteSelect } from '@/components/ClienteSelect';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 type Step = 'empreendimento' | 'descricao' | 'tipo' | 'detalhes' | 'fornecedor' | 'anexos' | 'revisao';
-
-// Attachment type definitions
-const ATTACHMENT_TYPES = {
-  chamado_preventiva: 'Chamado / Preventiva (Infraspeak)',
-  escopo_detalhado: 'Escopo Detalhado',
-  mapa_cotacao: 'Mapa de Cotação',
-  orcamento_escolhido: 'Orçamento Escolhido',
-  orcamento_concorrente_1: 'Orçamento Concorrente 1',
-  orcamento_concorrente_2: 'Orçamento Concorrente 2',
-  comunicado_cliente: 'Comunicado ao Cliente',
-  rateio: 'Planilha de Rateio',
-} as const;
 
 // Naturezas orçamentárias isentas de anexos (água, energia, telefone, taxas)
 const NATUREZAS_ISENTAS_ANEXOS: NaturezaOrcamentaria[] = [
@@ -187,36 +176,36 @@ export default function NovaSolicitacao() {
       if (isOC) {
         // OC <= R$ 1.000: Chamado OU Preventiva + Orçamento escolhido
         attachments = [
-          { tipo: 'chamado_preventiva', label: ATTACHMENT_TYPES.chamado_preventiva, required: true },
-          { tipo: 'orcamento_escolhido', label: ATTACHMENT_TYPES.orcamento_escolhido, required: true },
+          { tipo: 'chamado_preventiva', label: ANEXO_LABELS.chamado_preventiva, required: true },
+          { tipo: 'orcamento_escolhido', label: ANEXO_LABELS.orcamento_escolhido, required: true },
         ];
       } else if (isAC && emergencial) {
         // AC Emergencial: Chamado + 1 cotação
         attachments = [
-          { tipo: 'chamado_preventiva', label: ATTACHMENT_TYPES.chamado_preventiva, required: true },
-          { tipo: 'orcamento_escolhido', label: ATTACHMENT_TYPES.orcamento_escolhido, required: true },
+          { tipo: 'chamado_preventiva', label: ANEXO_LABELS.chamado_preventiva, required: true },
+          { tipo: 'orcamento_escolhido', label: ANEXO_LABELS.orcamento_escolhido, required: true },
         ];
       } else if (isAC && !emergencial) {
         // AC não emergencial: todos obrigatórios
         attachments = [
-          { tipo: 'chamado_preventiva', label: ATTACHMENT_TYPES.chamado_preventiva, required: true },
-          { tipo: 'escopo_detalhado', label: ATTACHMENT_TYPES.escopo_detalhado, required: true },
-          { tipo: 'mapa_cotacao', label: ATTACHMENT_TYPES.mapa_cotacao, required: true },
-          { tipo: 'orcamento_escolhido', label: ATTACHMENT_TYPES.orcamento_escolhido, required: true },
-          { tipo: 'orcamento_concorrente_1', label: ATTACHMENT_TYPES.orcamento_concorrente_1, required: true },
-          { tipo: 'orcamento_concorrente_2', label: ATTACHMENT_TYPES.orcamento_concorrente_2, required: true },
+          { tipo: 'chamado_preventiva', label: ANEXO_LABELS.chamado_preventiva, required: true },
+          { tipo: 'escopo_detalhado', label: ANEXO_LABELS.escopo_detalhado, required: true },
+          { tipo: 'mapa_cotacao', label: ANEXO_LABELS.mapa_cotacao, required: true },
+          { tipo: 'orcamento_escolhido', label: ANEXO_LABELS.orcamento_escolhido, required: true },
+          { tipo: 'orcamento_concorrente_1', label: ANEXO_LABELS.orcamento_concorrente_1, required: true },
+          { tipo: 'orcamento_concorrente_2', label: ANEXO_LABELS.orcamento_concorrente_2, required: true },
         ];
       }
     }
     
     // Comunicado ao cliente obrigatório quando origem = cliente
     if (origemCusto === 'cliente') {
-      attachments.push({ tipo: 'comunicado_cliente', label: ATTACHMENT_TYPES.comunicado_cliente, required: true });
+      attachments.push({ tipo: 'comunicado_cliente', label: ANEXO_LABELS.comunicado_cliente, required: true });
     }
     
     // Rateio opcional para empreendimento "todos"
     if (empreendimento === 'todos') {
-      attachments.push({ tipo: 'rateio', label: ATTACHMENT_TYPES.rateio, required: false });
+      attachments.push({ tipo: 'rateio', label: ANEXO_LABELS.rateio, required: false });
     }
     
     return attachments;
