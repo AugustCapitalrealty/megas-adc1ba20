@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -46,22 +46,39 @@ const ATTACHMENT_TYPES = {
   orcamento_concorrente_2: 'Orçamento Concorrente 2',
 } as const;
 
+interface DuplicateData {
+  tipo?: string;
+  empreendimento?: Empreendimento;
+  natureza_orcamentaria?: NaturezaOrcamentaria;
+  tipo_contratacao?: TipoContratacao;
+  descricao?: string;
+  valor?: number;
+  fornecedor_id?: string;
+  origem_custo?: OrigemCusto;
+  cliente_id?: string;
+  emergencial?: boolean;
+}
+
 export default function NovaSolicitacao() {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
   const { formatCNPJ, lookupCNPJ, loading: cnpjLoading, error: cnpjError } = useCNPJ();
+
+  // Check for duplicate data from navigation state
+  const duplicateFrom = (location.state as { duplicateFrom?: DuplicateData })?.duplicateFrom;
 
   const [currentStep, setCurrentStep] = useState<Step>('empreendimento');
   const [submitting, setSubmitting] = useState(false);
 
   // Form data
-  const [empreendimento, setEmpreendimento] = useState<Empreendimento | ''>('');
-  const [descricao, setDescricao] = useState('');
-  const [valor, setValor] = useState('');
-  const [tipoContratacao, setTipoContratacao] = useState<TipoContratacao | ''>('');
-  const [naturezaOrcamentaria, setNaturezaOrcamentaria] = useState<NaturezaOrcamentaria | ''>('');
-  const [origemCusto, setOrigemCusto] = useState<OrigemCusto>('empreendimento');
+  const [empreendimento, setEmpreendimento] = useState<Empreendimento | ''>(duplicateFrom?.empreendimento || '');
+  const [descricao, setDescricao] = useState(duplicateFrom?.descricao || '');
+  const [valor, setValor] = useState(duplicateFrom?.valor ? String(Math.round(duplicateFrom.valor * 100)) : '');
+  const [tipoContratacao, setTipoContratacao] = useState<TipoContratacao | ''>(duplicateFrom?.tipo_contratacao || '');
+  const [naturezaOrcamentaria, setNaturezaOrcamentaria] = useState<NaturezaOrcamentaria | ''>(duplicateFrom?.natureza_orcamentaria || '');
+  const [origemCusto, setOrigemCusto] = useState<OrigemCusto>(duplicateFrom?.origem_custo || 'empreendimento');
   
   // AC specific
   const [dataInicio, setDataInicio] = useState('');
@@ -75,7 +92,7 @@ export default function NovaSolicitacao() {
   const [tipoGarantia, setTipoGarantia] = useState<TipoGarantia>('nenhuma');
   const [diasGarantia, setDiasGarantia] = useState('');
   const [custoCliente, setCustoCliente] = useState(false);
-  const [emergencial, setEmergencial] = useState(false);
+  const [emergencial, setEmergencial] = useState(duplicateFrom?.emergencial || false);
 
   // Fornecedores
   const [cnpj, setCnpj] = useState('');
@@ -84,8 +101,35 @@ export default function NovaSolicitacao() {
   const [fornecedorConcorrente2, setFornecedorConcorrente2] = useState<Fornecedor | null>(null);
 
   // Cliente (quando origem = cliente)
-  const [clienteId, setClienteId] = useState<string | null>(null);
+  const [clienteId, setClienteId] = useState<string | null>(duplicateFrom?.cliente_id || null);
   const [clienteNome, setClienteNome] = useState<string>('');
+
+  // Load fornecedor from duplicateFrom
+  useEffect(() => {
+    if (duplicateFrom?.fornecedor_id) {
+      const fetchFornecedor = async () => {
+        const { data } = await supabase
+          .from('fornecedores')
+          .select('*')
+          .eq('id', duplicateFrom.fornecedor_id)
+          .single();
+        if (data) {
+          setFornecedor(data as Fornecedor);
+        }
+      };
+      fetchFornecedor();
+    }
+  }, [duplicateFrom?.fornecedor_id]);
+
+  // Show toast if duplicating
+  useEffect(() => {
+    if (duplicateFrom) {
+      toast({
+        title: 'Solicitação duplicada',
+        description: 'Os dados foram pré-preenchidos. Revise e ajuste antes de enviar.',
+      });
+    }
+  }, []);
 
   // Fetch cliente nome when clienteId changes
   useEffect(() => {
