@@ -822,15 +822,32 @@ export default function Backoffice() {
                       )}
                     </p>
                   </div>
-                  <div>
-                    <Label className="text-muted-foreground">Valor Total</Label>
-                    <p className="font-medium text-primary">
-                      {selectedSolicitacao.faturamento_direto && selectedSolicitacao.valor_servico !== null && selectedSolicitacao.valor_material !== null
-                        ? formatCurrency((selectedSolicitacao.valor_servico || 0) + (selectedSolicitacao.valor_material || 0))
-                        : formatCurrency(selectedSolicitacao.valor)
-                      }
-                    </p>
-                  </div>
+                  {selectedSolicitacao.faturamento_direto ? (
+                    <div className="col-span-2 p-3 bg-muted/30 rounded-lg space-y-2">
+                      <Label className="text-muted-foreground font-medium">Valores (Faturamento Direto)</Label>
+                      <div className="grid grid-cols-3 gap-4 mt-2">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Valor Material</Label>
+                          <p className="font-medium">{formatCurrency(selectedSolicitacao.valor_material || 0)}</p>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Valor Serviço</Label>
+                          <p className="font-medium">{formatCurrency(selectedSolicitacao.valor_servico || 0)}</p>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Valor Total</Label>
+                          <p className="font-medium text-primary">
+                            {formatCurrency((selectedSolicitacao.valor_servico || 0) + (selectedSolicitacao.valor_material || 0))}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <Label className="text-muted-foreground">Valor</Label>
+                      <p className="font-medium text-primary">{formatCurrency(selectedSolicitacao.valor)}</p>
+                    </div>
+                  )}
                 </div>
 
                 <Separator />
