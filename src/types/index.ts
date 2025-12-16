@@ -135,45 +135,45 @@ export const EMPREENDIMENTO_LABELS: Record<Empreendimento, string> = {
   mega_curitiba: 'Mega Curitiba',
   mega_itajai: 'Mega Itajaí',
   mega_esteio: 'Mega Esteio',
-  todos: 'Todos os Megas (Rateio)',
+  todos: 'Rateio entre Megas',
 };
 
 export const NATUREZA_ORCAMENTARIA_LABELS: Record<NaturezaOrcamentaria, string> = {
   materiais_informatica: 'Materiais de Informática',
-  assistencia_informatica: 'Assistência Informática',
+  assistencia_informatica: 'Assistência Técnica de Informática',
   servicos_diversos: 'Serviços Diversos',
   seguranca_vigilancia: 'Segurança e Vigilância',
   limpeza_conservacao: 'Limpeza e Conservação',
   material_expediente: 'Material de Expediente',
   material_consumo: 'Material de Consumo',
-  telefone: 'Telefone',
-  propaganda_publicidade: 'Propaganda e Publicidade',
+  telefone: 'Telefonia e Comunicação',
+  propaganda_publicidade: 'Marketing e Publicidade',
   energia_eletrica: 'Energia Elétrica',
-  agua: 'Água',
-  taxa_impostos: 'Taxa/Impostos',
-  manutencao_imoveis: 'Manutenção de Imóveis',
-  manutencao_maquinas_equipamentos: 'Manutenção de Máquinas e Equipamentos',
+  agua: 'Água e Esgoto',
+  taxa_impostos: 'Taxas e Impostos',
+  manutencao_imoveis: 'Manutenção Predial',
+  manutencao_maquinas_equipamentos: 'Manutenção de Equipamentos',
   despesas_pessoal: 'Despesas com Pessoal',
-  despesas_administrador: 'Despesas com Administrador',
+  despesas_administrador: 'Despesas Administrativas',
 };
 
 export const TIPO_CONTRATACAO_LABELS: Record<TipoContratacao, string> = {
-  servicos: 'Serviços',
+  servicos: 'Prestação de Serviços',
   material_construcao: 'Material de Construção',
   material_consumo: 'Material de Consumo',
   combustivel: 'Combustível',
-  taxas: 'Taxas',
+  taxas: 'Taxas e Tributos',
 };
 
 export const STATUS_LABELS: Record<RequestStatus, string> = {
-  recebido: 'Recebido',
-  em_analise: 'Em Análise',
-  pendente_correcao: 'Pendente de Correção',
+  recebido: 'Aguardando Análise',
+  em_analise: 'Em Análise pelo Backoffice',
+  pendente_correcao: 'Correção Necessária',
   aprovado: 'Aprovado',
-  rejeitado: 'Rejeitado',
+  rejeitado: 'Não Aprovado',
   em_processamento: 'Em Processamento',
-  oc_ac_emitida: 'OC/AC Emitida',
-  concluida: 'Concluída',
+  oc_ac_emitida: 'Documento Emitido',
+  concluida: 'Finalizada',
 };
 
 export interface DocumentoEmitido {
@@ -189,19 +189,31 @@ export interface DocumentoEmitido {
 }
 
 export const ORIGEM_CUSTO_LABELS: Record<OrigemCusto, string> = {
-  empreendimento: 'Empreendimento',
-  cliente: 'Cliente',
+  empreendimento: 'Custeio pelo Empreendimento',
+  cliente: 'Custeio pelo Cliente',
 };
 
 export const TIPO_GARANTIA_LABELS: Record<TipoGarantia, string> = {
-  nenhuma: 'Não',
-  servico: 'Sim — Serviço',
-  produto: 'Sim — Produto',
-  ambos: 'Sim — Ambos',
+  nenhuma: 'Sem Garantia',
+  servico: 'Garantia de Serviço',
+  produto: 'Garantia de Produto',
+  ambos: 'Garantia de Serviço e Produto',
 };
 
 export const ROLE_LABELS: Record<AppRole, string> = {
   solicitante: 'Solicitante (Facilities)',
-  backoffice: 'Backoffice (Financeiro)',
-  admin: 'Administrador',
+  backoffice: 'Analista Financeiro',
+  admin: 'Administrador do Sistema',
+};
+
+// Labels padronizados para anexos
+export const ANEXO_LABELS: Record<string, string> = {
+  chamado_preventiva: 'Chamado Técnico / Ordem de Serviço',
+  escopo_detalhado: 'Memorial Descritivo',
+  mapa_cotacao: 'Mapa Comparativo de Preços',
+  orcamento_escolhido: 'Proposta do Fornecedor Selecionado',
+  orcamento_concorrente_1: 'Proposta Concorrente 1',
+  orcamento_concorrente_2: 'Proposta Concorrente 2',
+  comunicado_cliente: 'Aprovação do Cliente',
+  rateio: 'Planilha de Rateio',
 };
