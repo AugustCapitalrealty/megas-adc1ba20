@@ -925,6 +925,11 @@ export default function MinhasSolicitacoes() {
                             Emergencial
                           </span>
                         )}
+                        {sol.numero_chamado_fluig && (
+                          <Badge variant="outline" className="text-xs bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800">
+                            Fluig: {sol.numero_chamado_fluig}
+                          </Badge>
+                        )}
                         {sol.tipo_contratacao && (
                           <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded">
                             {TIPO_CONTRATACAO_LABELS[sol.tipo_contratacao]}
