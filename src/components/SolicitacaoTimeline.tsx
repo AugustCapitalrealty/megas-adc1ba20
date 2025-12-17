@@ -10,35 +10,120 @@ import {
   XCircle, 
   Send,
   RotateCcw,
-  User
+  User,
+  FileCheck,
+  MessageSquare,
+  Cog,
+  UserCheck,
+  HelpCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 interface SolicitacaoTimelineProps {
   solicitacaoId: string;
 }
 
-const getStatusIcon = (acao: string, statusNovo: string | null) => {
-  if (acao === 'criacao') return <Send className="h-4 w-4" />;
-  if (acao === 'reenvio') return <RotateCcw className="h-4 w-4" />;
+const getActionDetails = (acao: string, statusNovo: string | null): { icon: JSX.Element; label: string; color: string } => {
+  // Handle specific action types first
+  if (acao === 'criacao') return { 
+    icon: <Send className="h-4 w-4" />, 
+    label: 'Solicitação criada', 
+    color: 'bg-primary text-primary-foreground' 
+  };
+  if (acao === 'reenvio') return { 
+    icon: <RotateCcw className="h-4 w-4" />, 
+    label: 'Solicitação reenviada após correção', 
+    color: 'bg-primary text-primary-foreground' 
+  };
+  if (acao === 'aceite_oc') return { 
+    icon: <CheckCircle className="h-4 w-4" />, 
+    label: 'Solicitante aceitou a OC', 
+    color: 'bg-success text-success-foreground' 
+  };
+  if (acao === 'ajuste_solicitado') return { 
+    icon: <HelpCircle className="h-4 w-4" />, 
+    label: 'Solicitante pediu ajuste na OC', 
+    color: 'bg-warning text-warning-foreground' 
+  };
+  if (acao === 'resposta_informacoes') return { 
+    icon: <MessageSquare className="h-4 w-4" />, 
+    label: 'Solicitante respondeu às informações', 
+    color: 'bg-info text-info-foreground' 
+  };
+  if (acao.includes('OC nº') || acao.includes('AC nº')) return { 
+    icon: <FileCheck className="h-4 w-4" />, 
+    label: acao, 
+    color: 'bg-success text-success-foreground' 
+  };
+  if (acao === 'Assumido pelo backoffice') return { 
+    icon: <UserCheck className="h-4 w-4" />, 
+    label: 'Backoffice assumiu a análise', 
+    color: 'bg-primary text-primary-foreground' 
+  };
+  if (acao === 'Envio para processamento') return { 
+    icon: <Cog className="h-4 w-4" />, 
+    label: 'Enviado para processamento no Fluig/RM', 
+    color: 'bg-primary text-primary-foreground' 
+  };
+  if (acao === 'Solicitação de informações') return { 
+    icon: <MessageSquare className="h-4 w-4" />, 
+    label: 'Backoffice solicitou informações', 
+    color: 'bg-info text-info-foreground' 
+  };
+  if (acao === 'Devolução para correção') return { 
+    icon: <AlertCircle className="h-4 w-4" />, 
+    label: 'Solicitação devolvida para correção', 
+    color: 'bg-warning text-warning-foreground' 
+  };
   
+  // Fall back to status-based display
   switch (statusNovo) {
-    case 'aprovado': return <CheckCircle className="h-4 w-4" />;
-    case 'rejeitado': return <XCircle className="h-4 w-4" />;
-    case 'pendente_correcao': return <AlertCircle className="h-4 w-4" />;
-    case 'em_analise': return <Clock className="h-4 w-4" />;
-    default: return <Clock className="h-4 w-4" />;
-  }
-};
-
-const getStatusColor = (acao: string, statusNovo: string | null) => {
-  if (acao === 'criacao' || acao === 'reenvio') return 'bg-primary text-primary-foreground';
-  
-  switch (statusNovo) {
-    case 'aprovado': return 'bg-success text-success-foreground';
-    case 'rejeitado': return 'bg-destructive text-destructive-foreground';
-    case 'pendente_correcao': return 'bg-warning text-warning-foreground';
-    default: return 'bg-muted text-muted-foreground';
+    case 'aprovado': return { 
+      icon: <CheckCircle className="h-4 w-4" />, 
+      label: 'Aprovado', 
+      color: 'bg-success text-success-foreground' 
+    };
+    case 'rejeitado': return { 
+      icon: <XCircle className="h-4 w-4" />, 
+      label: 'Reprovado', 
+      color: 'bg-destructive text-destructive-foreground' 
+    };
+    case 'pendente_correcao': return { 
+      icon: <AlertCircle className="h-4 w-4" />, 
+      label: 'Devolvido para correção', 
+      color: 'bg-warning text-warning-foreground' 
+    };
+    case 'em_analise': return { 
+      icon: <Clock className="h-4 w-4" />, 
+      label: 'Em análise', 
+      color: 'bg-muted text-muted-foreground' 
+    };
+    case 'em_processamento': return { 
+      icon: <Cog className="h-4 w-4" />, 
+      label: 'Em processamento', 
+      color: 'bg-primary text-primary-foreground' 
+    };
+    case 'aguardando_informacoes': return { 
+      icon: <MessageSquare className="h-4 w-4" />, 
+      label: 'Aguardando informações', 
+      color: 'bg-info text-info-foreground' 
+    };
+    case 'aguardando_aceite': return { 
+      icon: <FileCheck className="h-4 w-4" />, 
+      label: 'OC emitida - Aguardando aceite', 
+      color: 'bg-success text-success-foreground' 
+    };
+    case 'concluida': return { 
+      icon: <CheckCircle className="h-4 w-4" />, 
+      label: 'Concluída', 
+      color: 'bg-success text-success-foreground' 
+    };
+    default: return { 
+      icon: <Clock className="h-4 w-4" />, 
+      label: acao || STATUS_LABELS[statusNovo as keyof typeof STATUS_LABELS] || 'Atualização', 
+      color: 'bg-muted text-muted-foreground' 
+    };
   }
 };
 
@@ -86,46 +171,52 @@ export function SolicitacaoTimeline({ solicitacaoId }: SolicitacaoTimelineProps)
   }
 
   return (
-    <div className="space-y-4">
-      {historico.map((item, index) => (
-        <div key={item.id} className="flex gap-3">
-          <div className="flex flex-col items-center">
-            <div className={cn(
-              'w-8 h-8 rounded-full flex items-center justify-center',
-              getStatusColor(item.acao, item.status_novo)
-            )}>
-              {getStatusIcon(item.acao, item.status_novo)}
-            </div>
-            {index < historico.length - 1 && (
-              <div className="w-0.5 h-full bg-border mt-2" />
-            )}
-          </div>
-          
-          <div className="flex-1 pb-4">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="font-medium text-sm">
-                {item.acao === 'criacao' && 'Solicitação criada'}
-                {item.acao === 'reenvio' && 'Solicitação reenviada'}
-                {item.acao === 'alteracao_status' && item.status_novo && STATUS_LABELS[item.status_novo]}
-              </span>
-            </div>
-            
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <User className="h-3 w-3" />
-              {item.profile?.full_name || item.profile?.email || 'Usuário'}
-              {' • '}
-              {format(new Date(item.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-            </p>
-            
-            {item.motivo && (
-              <div className="mt-2 p-2 bg-muted rounded text-sm">
-                <span className="font-medium">Motivo: </span>
-                {item.motivo}
+    <div className="space-y-1">
+      {historico.map((item, index) => {
+        const { icon, label, color } = getActionDetails(item.acao, item.status_novo);
+        const isLast = index === historico.length - 1;
+        
+        return (
+          <div key={item.id} className="flex gap-3">
+            <div className="flex flex-col items-center">
+              <div className={cn(
+                'w-8 h-8 rounded-full flex items-center justify-center shrink-0',
+                color
+              )}>
+                {icon}
               </div>
-            )}
+              {!isLast && (
+                <div className="w-0.5 flex-1 bg-border min-h-[24px]" />
+              )}
+            </div>
+            
+            <div className={cn("flex-1", !isLast && "pb-4")}>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-medium text-sm">{label}</span>
+                {item.status_novo && (
+                  <Badge variant="outline" className="text-xs">
+                    {STATUS_LABELS[item.status_novo]}
+                  </Badge>
+                )}
+              </div>
+              
+              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                <User className="h-3 w-3" />
+                {item.profile?.full_name || item.profile?.email || 'Usuário'}
+                {' • '}
+                {format(new Date(item.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+              </p>
+              
+              {item.motivo && (
+                <div className="mt-2 p-2 bg-muted/50 rounded text-sm border-l-2 border-primary/30">
+                  <span className="text-muted-foreground">Observação: </span>
+                  {item.motivo}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
