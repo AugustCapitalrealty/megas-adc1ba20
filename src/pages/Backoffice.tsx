@@ -1298,7 +1298,7 @@ export default function Backoffice() {
                 )}
                 {(selectedSolicitacao.status === 'aprovado' || selectedSolicitacao.status === 'em_processamento') && (
                   <Button onClick={() => { setDetailsOpen(false); openRegistro(selectedSolicitacao); }}>
-                    <FileCheck className="h-4 w-4 mr-1" /> Registrar {selectedSolicitacao.tipo}
+                    <FileCheck className="h-4 w-4 mr-1" /> Registrar OC
                   </Button>
                 )}
                 {selectedSolicitacao.status === 'oc_ac_emitida' && (
