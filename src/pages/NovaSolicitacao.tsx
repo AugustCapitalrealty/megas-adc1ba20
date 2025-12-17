@@ -567,10 +567,12 @@ export default function NovaSolicitacao() {
                   <Label htmlFor="descricao">Descrição do serviço ou material</Label>
                   <Textarea
                     id="descricao"
-                    placeholder="Descreva detalhadamente..."
+                    placeholder="Ex: Aquisição de 4 luminárias para troca das atuais que estão queimadas. Será 2 para a portaria, 1 para o quiosque e 1 sala administrativa.
+
+Ex: Contratação de serviço de reparo do ar-condicionado da sala administrativa, pois o equipamento apresentou falha e não está refrigerando adequadamente."
                     value={descricao}
                     onChange={(e) => setDescricao(e.target.value)}
-                    rows={4}
+                    rows={5}
                   />
                 </div>
                 <div>
