@@ -190,6 +190,19 @@
   .status-aguardando-info {
     @apply bg-warning/10 text-warning;
   }
+
+  .status-aguardando-nf {
+    @apply bg-[hsl(260,70%,50%)]/10 text-[hsl(260,70%,50%)];
+  }
+
+  .status-nf-enviados {
+    @apply bg-info/10 text-info;
+  }
+
+  .status-enviado-pagamento {
+    @apply bg-success/20 text-success font-semibold;
+  }
+
   .form-step {
     @apply p-6 bg-card rounded-lg border border-border shadow-sm;
   }

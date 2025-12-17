@@ -51,6 +51,16 @@ const getActionDetails = (acao: string, statusNovo: string | null): { icon: JSX.
     label: 'Solicitante respondeu às informações', 
     color: 'bg-info text-info-foreground' 
   };
+  if (acao === 'nf_boleto_enviado' || acao === 'nf_boleto_enviado_antecipado') return { 
+    icon: <FileCheck className="h-4 w-4" />, 
+    label: acao === 'nf_boleto_enviado_antecipado' ? 'NF/Boleto enviados (pagamento antecipado)' : 'NF/Boleto enviados', 
+    color: 'bg-info text-info-foreground' 
+  };
+  if (acao === 'baixa_financeiro') return { 
+    icon: <CheckCircle className="h-4 w-4" />, 
+    label: 'Baixa pelo financeiro - Enviado para pagamento', 
+    color: 'bg-success text-success-foreground' 
+  };
   if (acao.includes('OC nº') || acao.includes('AC nº')) return { 
     icon: <FileCheck className="h-4 w-4" />, 
     label: acao, 
@@ -117,6 +127,21 @@ const getActionDetails = (acao: string, statusNovo: string | null): { icon: JSX.
     case 'concluida': return { 
       icon: <CheckCircle className="h-4 w-4" />, 
       label: 'Concluída', 
+      color: 'bg-success text-success-foreground' 
+    };
+    case 'aguardando_nf_boleto': return { 
+      icon: <FileCheck className="h-4 w-4" />, 
+      label: 'Aguardando NF/Boleto', 
+      color: 'bg-[hsl(260,70%,50%)] text-white' 
+    };
+    case 'nf_boleto_enviados': return { 
+      icon: <FileCheck className="h-4 w-4" />, 
+      label: 'NF/Boleto enviados', 
+      color: 'bg-info text-info-foreground' 
+    };
+    case 'enviado_pagamento': return { 
+      icon: <CheckCircle className="h-4 w-4" />, 
+      label: 'Enviado para pagamento', 
       color: 'bg-success text-success-foreground' 
     };
     default: return { 

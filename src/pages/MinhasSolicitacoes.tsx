@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { 
@@ -21,8 +22,9 @@ import {
   type NaturezaOrcamentaria,
   type Fornecedor,
   type DocumentoEmitido,
+  type DocumentoFiscal,
 } from '@/types';
-import { Loader2, FileText, ChevronDown, ChevronUp, Edit, Send, History, AlertTriangle, Copy, XCircle, Download, FileCheck, CheckCircle, MessageSquare, RotateCcw } from 'lucide-react';
+import { Loader2, FileText, ChevronDown, ChevronUp, Edit, Send, History, AlertTriangle, Copy, XCircle, Download, FileCheck, CheckCircle, MessageSquare, RotateCcw, Receipt, Upload, CreditCard } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -40,11 +42,12 @@ const ATTACHMENT_TYPES = {
   orcamento_concorrente_2: 'Orçamento Concorrente 2',
 } as const;
 
-type FilterTab = 'todas' | 'com_backoffice' | 'correcoes' | 'oc_emitida' | 'reprovadas' | 'concluidas';
+type FilterTab = 'todas' | 'com_backoffice' | 'correcoes' | 'oc_emitida' | 'aguardando_nf' | 'reprovadas' | 'concluidas';
 
 interface SolicitacaoComFornecedor extends Solicitacao {
   fornecedor?: Fornecedor | null;
   documentoEmitido?: DocumentoEmitido | null;
+  documentosFiscais?: DocumentoFiscal[];
 }
 
 interface RejectionInfo {
@@ -91,6 +94,17 @@ export default function MinhasSolicitacoes() {
   const [respostaTexto, setRespostaTexto] = useState('');
   const [respostaLoading, setRespostaLoading] = useState(false);
 
+  // NF/Boleto modal state
+  const [nfBoletoOpen, setNfBoletoOpen] = useState(false);
+  const [nfBoletoSolicitacao, setNfBoletoSolicitacao] = useState<SolicitacaoComFornecedor | null>(null);
+  const [nfFile, setNfFile] = useState<File | null>(null);
+  const [boletoFile, setBoletoFile] = useState<File | null>(null);
+  const [dataEmissaoNF, setDataEmissaoNF] = useState('');
+  const [dataVencimentoBoleto, setDataVencimentoBoleto] = useState('');
+  const [pagamentoAntecipado, setPagamentoAntecipado] = useState(false);
+  const [justificativaAntecipado, setJustificativaAntecipado] = useState('');
+  const [nfBoletoLoading, setNfBoletoLoading] = useState(false);
+
   useEffect(() => {
     if (user) {
       fetchSolicitacoes();
@@ -109,13 +123,14 @@ export default function MinhasSolicitacoes() {
       .order('created_at', { ascending: false });
 
     if (!error && data) {
-      // Enrich with documentos emitidos
+      // Enrich with documentos emitidos e fiscais
       const enrichedData = await Promise.all(
         data.map(async (sol: any) => {
           let documentoEmitido = null;
+          let documentosFiscais: DocumentoFiscal[] = [];
           
-          // Fetch documento emitido if status is oc_ac_emitida, concluida or aguardando_aceite
-          if (sol.status === 'oc_ac_emitida' || sol.status === 'concluida' || sol.status === 'aguardando_aceite') {
+          // Fetch documento emitido if status allows
+          if (['oc_ac_emitida', 'concluida', 'aguardando_aceite', 'aguardando_nf_boleto', 'nf_boleto_enviados', 'enviado_pagamento'].includes(sol.status)) {
             const { data: docData } = await supabase
               .from('documentos_emitidos')
               .select('*')
@@ -123,8 +138,15 @@ export default function MinhasSolicitacoes() {
               .maybeSingle();
             documentoEmitido = docData;
           }
+
+          // Fetch documentos fiscais if they exist
+          const { data: fiscaisData } = await supabase
+            .from('documentos_fiscais')
+            .select('*')
+            .eq('solicitacao_id', sol.id);
+          if (fiscaisData) documentosFiscais = fiscaisData as DocumentoFiscal[];
           
-          return { ...sol, documentoEmitido } as SolicitacaoComFornecedor;
+          return { ...sol, documentoEmitido, documentosFiscais } as SolicitacaoComFornecedor;
         })
       );
       
@@ -204,6 +226,12 @@ export default function MinhasSolicitacoes() {
         // OC emitida aguardando aceite
         filtered = filtered.filter(s => s.status === 'aguardando_aceite');
         break;
+      case 'aguardando_nf':
+        // Aguardando NF/Boleto ou já enviados
+        filtered = filtered.filter(s => 
+          s.status === 'aguardando_nf_boleto' || s.status === 'nf_boleto_enviados' || s.status === 'enviado_pagamento'
+        );
+        break;
       case 'reprovadas':
         filtered = filtered.filter(s => s.status === 'rejeitado');
         break;
@@ -212,9 +240,9 @@ export default function MinhasSolicitacoes() {
         break;
     }
     
-    // Sort: pendente_correcao and aguardando_informacoes first, then by date
+    // Sort: action required first, then by date
     filtered.sort((a, b) => {
-      const priorityStatuses = ['pendente_correcao', 'aguardando_informacoes', 'aguardando_aceite'];
+      const priorityStatuses = ['pendente_correcao', 'aguardando_informacoes', 'aguardando_aceite', 'aguardando_nf_boleto'];
       const aPriority = priorityStatuses.includes(a.status) ? 0 : 1;
       const bPriority = priorityStatuses.includes(b.status) ? 0 : 1;
       if (aPriority !== bPriority) return aPriority - bPriority;
@@ -236,6 +264,9 @@ export default function MinhasSolicitacoes() {
         s.status === 'pendente_correcao' || s.status === 'aguardando_informacoes'
       ).length,
       oc_emitida: solicitacoes.filter(s => s.status === 'aguardando_aceite').length,
+      aguardando_nf: solicitacoes.filter(s => 
+        s.status === 'aguardando_nf_boleto' || s.status === 'nf_boleto_enviados' || s.status === 'enviado_pagamento'
+      ).length,
       reprovadas: solicitacoes.filter(s => s.status === 'rejeitado').length,
       concluidas: solicitacoes.filter(s => s.status === 'concluida').length,
     };
@@ -437,9 +468,10 @@ export default function MinhasSolicitacoes() {
     
     setAceiteLoading(true);
     try {
+      // Muda para aguardando_nf_boleto em vez de concluida
       await supabase
         .from('solicitacoes')
-        .update({ status: 'concluida' })
+        .update({ status: 'aguardando_nf_boleto' as any })
         .eq('id', aceiteSolicitacao.id);
 
       await supabase.from('historico_solicitacoes').insert({
@@ -447,12 +479,12 @@ export default function MinhasSolicitacoes() {
         user_id: user.id,
         acao: 'aceite_oc',
         status_anterior: 'aguardando_aceite',
-        status_novo: 'concluida',
+        status_novo: 'aguardando_nf_boleto',
       });
 
       toast({
         title: 'OC Aceita!',
-        description: 'A solicitação foi concluída com sucesso.',
+        description: 'Agora você pode incluir a NF e Boleto.',
       });
 
       setAceiteOpen(false);
@@ -555,6 +587,151 @@ export default function MinhasSolicitacoes() {
     }
   };
 
+  // NF/Boleto handlers
+  const openNfBoletoModal = (sol: SolicitacaoComFornecedor) => {
+    setNfBoletoSolicitacao(sol);
+    setNfFile(null);
+    setBoletoFile(null);
+    setDataEmissaoNF('');
+    setDataVencimentoBoleto('');
+    setPagamentoAntecipado(false);
+    setJustificativaAntecipado('');
+    setNfBoletoOpen(true);
+  };
+
+  const handleEnviarNfBoleto = async () => {
+    if (!nfBoletoSolicitacao || !user) return;
+    
+    // Validação: precisa de boleto sempre, NF apenas se não for pagamento antecipado
+    if (!boletoFile) {
+      toast({
+        title: 'Boleto obrigatório',
+        description: 'É necessário anexar o boleto.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!pagamentoAntecipado && !nfFile) {
+      toast({
+        title: 'Nota Fiscal obrigatória',
+        description: 'É necessário anexar a Nota Fiscal (ou marcar como pagamento antecipado).',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!dataVencimentoBoleto) {
+      toast({
+        title: 'Data de vencimento obrigatória',
+        description: 'Informe a data de vencimento do boleto.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setNfBoletoLoading(true);
+    try {
+      // Upload NF (se existir)
+      if (nfFile) {
+        const nfExt = nfFile.name.split('.').pop();
+        const nfPath = `${user.id}/${nfBoletoSolicitacao.id}/nf_${Date.now()}.${nfExt}`;
+        
+        const { error: nfUploadError } = await supabase.storage
+          .from('documentos-fiscais')
+          .upload(nfPath, nfFile);
+        
+        if (nfUploadError) throw nfUploadError;
+
+        await supabase.from('documentos_fiscais').insert({
+          solicitacao_id: nfBoletoSolicitacao.id,
+          tipo: 'nota_fiscal',
+          storage_path: nfPath,
+          nome_arquivo: nfFile.name,
+          mime_type: nfFile.type,
+          tamanho_bytes: nfFile.size,
+          data_emissao_nf: dataEmissaoNF || null,
+          pagamento_antecipado: false,
+          user_id: user.id,
+        });
+      }
+
+      // Upload Boleto
+      const boletoExt = boletoFile.name.split('.').pop();
+      const boletoPath = `${user.id}/${nfBoletoSolicitacao.id}/boleto_${Date.now()}.${boletoExt}`;
+      
+      const { error: boletoUploadError } = await supabase.storage
+        .from('documentos-fiscais')
+        .upload(boletoPath, boletoFile);
+      
+      if (boletoUploadError) throw boletoUploadError;
+
+      await supabase.from('documentos_fiscais').insert({
+        solicitacao_id: nfBoletoSolicitacao.id,
+        tipo: 'boleto',
+        storage_path: boletoPath,
+        nome_arquivo: boletoFile.name,
+        mime_type: boletoFile.type,
+        tamanho_bytes: boletoFile.size,
+        data_vencimento_boleto: dataVencimentoBoleto,
+        pagamento_antecipado: pagamentoAntecipado,
+        justificativa_antecipado: pagamentoAntecipado ? justificativaAntecipado : null,
+        user_id: user.id,
+      });
+
+      // Update status
+      await supabase
+        .from('solicitacoes')
+        .update({ status: 'nf_boleto_enviados' as any })
+        .eq('id', nfBoletoSolicitacao.id);
+
+      // Create history entry
+      await supabase.from('historico_solicitacoes').insert({
+        solicitacao_id: nfBoletoSolicitacao.id,
+        user_id: user.id,
+        acao: pagamentoAntecipado ? 'nf_boleto_enviado_antecipado' : 'nf_boleto_enviado',
+        status_anterior: 'aguardando_nf_boleto',
+        status_novo: 'nf_boleto_enviados',
+        motivo: pagamentoAntecipado ? `Pagamento antecipado: ${justificativaAntecipado}` : null,
+      });
+
+      toast({
+        title: 'Documentos enviados!',
+        description: 'NF e Boleto foram enviados para o financeiro.',
+      });
+
+      setNfBoletoOpen(false);
+      fetchSolicitacoes();
+    } catch (error) {
+      console.error('Error uploading NF/Boleto:', error);
+      toast({
+        title: 'Erro ao enviar documentos',
+        description: 'Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setNfBoletoLoading(false);
+    }
+  };
+
+  const downloadDocumentoFiscal = async (doc: DocumentoFiscal) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('documentos-fiscais')
+        .download(doc.storage_path);
+      
+      if (error) throw error;
+      if (data) saveAs(data, doc.nome_arquivo);
+    } catch (error) {
+      console.error('Error downloading fiscal document:', error);
+      toast({
+        title: 'Erro ao baixar documento',
+        description: 'Tente novamente.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   if (loading) {
     return (
       <AppLayout>
@@ -575,13 +752,13 @@ export default function MinhasSolicitacoes() {
 
         {/* Filter Tabs */}
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as FilterTab)}>
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="todas" className="gap-1 text-xs">
               Todas
               <Badge variant="secondary" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center">{statusCounts.todas}</Badge>
             </TabsTrigger>
             <TabsTrigger value="com_backoffice" className="gap-1 text-xs">
-              Com Backoffice
+              Backoffice
               <Badge variant="secondary" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center">{statusCounts.com_backoffice}</Badge>
             </TabsTrigger>
             <TabsTrigger value="correcoes" className="gap-1 text-xs">
@@ -594,6 +771,12 @@ export default function MinhasSolicitacoes() {
               OC Emitida
               {statusCounts.oc_emitida > 0 && (
                 <Badge variant="default" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center bg-success">{statusCounts.oc_emitida}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="aguardando_nf" className="gap-1 text-xs">
+              NF/Boleto
+              {statusCounts.aguardando_nf > 0 && (
+                <Badge variant="default" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center bg-[hsl(260,70%,50%)]">{statusCounts.aguardando_nf}</Badge>
               )}
             </TabsTrigger>
             <TabsTrigger value="reprovadas" className="gap-1 text-xs">
@@ -616,6 +799,7 @@ export default function MinhasSolicitacoes() {
                 {activeTab === 'com_backoffice' && 'Nenhuma solicitação com o backoffice'}
                 {activeTab === 'correcoes' && 'Nenhuma solicitação aguardando correção'}
                 {activeTab === 'oc_emitida' && 'Nenhuma OC aguardando aceite'}
+                {activeTab === 'aguardando_nf' && 'Nenhuma solicitação aguardando NF/Boleto'}
                 {activeTab === 'reprovadas' && 'Nenhuma solicitação reprovada'}
                 {activeTab === 'concluidas' && 'Nenhuma solicitação concluída'}
               </p>
@@ -633,6 +817,8 @@ export default function MinhasSolicitacoes() {
               const isRejected = sol.status === 'rejeitado';
               const isAguardandoAceite = sol.status === 'aguardando_aceite';
               const isAguardandoInfo = sol.status === 'aguardando_informacoes';
+              const isAguardandoNfBoleto = sol.status === 'aguardando_nf_boleto';
+              const isNfBoletoEnviados = sol.status === 'nf_boleto_enviados' || sol.status === 'enviado_pagamento';
               const fornecedorNome = getFornecedorNome(sol);
               const rejectionInfo = rejectionReasons[sol.id];
               const infoRequest = infoRequests[sol.id];
@@ -645,9 +831,30 @@ export default function MinhasSolicitacoes() {
                     isPendingCorrection && 'border-2 border-warning bg-warning/5 shadow-lg',
                     isRejected && 'border-destructive/50',
                     isAguardandoAceite && 'border-2 border-success bg-success/5 shadow-lg',
-                    isAguardandoInfo && 'border-2 border-info bg-info/5 shadow-lg'
+                    isAguardandoInfo && 'border-2 border-info bg-info/5 shadow-lg',
+                    isAguardandoNfBoleto && 'border-2 border-[hsl(260,70%,50%)] bg-[hsl(260,70%,50%)]/5 shadow-lg'
                   )}
                 >
+                  {/* Banner for NF/Boleto needed */}
+                  {isAguardandoNfBoleto && (
+                    <div className="bg-[hsl(260,70%,50%)] text-white px-4 py-2 flex items-center justify-between rounded-t-lg">
+                      <div className="flex items-center gap-2">
+                        <Receipt className="h-5 w-5" />
+                        <span className="font-semibold">INCLUIR NF E BOLETO</span>
+                        <span className="text-sm opacity-90">- Anexe a Nota Fiscal e o Boleto</span>
+                      </div>
+                      <Button 
+                        size="sm" 
+                        variant="secondary"
+                        onClick={() => openNfBoletoModal(sol)}
+                        className="bg-background hover:bg-background/90 text-foreground"
+                      >
+                        <Upload className="h-4 w-4 mr-1" />
+                        Incluir Documentos
+                      </Button>
+                    </div>
+                  )}
+
                   {/* Action Required Banner for pending correction */}
                   {isPendingCorrection && (
                     <div className="bg-warning text-warning-foreground px-4 py-2 flex items-center justify-between rounded-t-lg">
@@ -1060,6 +1267,96 @@ export default function MinhasSolicitacoes() {
                 <Send className="h-4 w-4 mr-2" />
               )}
               Enviar Resposta
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* NF/Boleto Modal */}
+      <Dialog open={nfBoletoOpen} onOpenChange={setNfBoletoOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Receipt className="h-5 w-5" />
+              Incluir NF e Boleto - #{nfBoletoSolicitacao?.protocolo}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Pagamento Antecipado */}
+            <div className="flex items-center space-x-2 p-3 bg-muted rounded-lg">
+              <Checkbox
+                id="pagamento_antecipado"
+                checked={pagamentoAntecipado}
+                onCheckedChange={(checked) => setPagamentoAntecipado(checked === true)}
+              />
+              <Label htmlFor="pagamento_antecipado" className="text-sm cursor-pointer">
+                Pagamento antecipado (adiantamento)
+              </Label>
+            </div>
+
+            {pagamentoAntecipado && (
+              <div className="space-y-2">
+                <Label>Justificativa do pagamento antecipado</Label>
+                <Textarea
+                  placeholder="Explique o motivo do pagamento antecipado..."
+                  value={justificativaAntecipado}
+                  onChange={(e) => setJustificativaAntecipado(e.target.value)}
+                  rows={2}
+                />
+              </div>
+            )}
+
+            {/* Nota Fiscal */}
+            {!pagamentoAntecipado && (
+              <div className="space-y-2">
+                <Label>Nota Fiscal (PDF/XML) *</Label>
+                <Input
+                  type="file"
+                  accept=".pdf,.xml"
+                  onChange={(e) => setNfFile(e.target.files?.[0] || null)}
+                />
+                <div className="space-y-2">
+                  <Label>Data de emissão da NF</Label>
+                  <Input
+                    type="date"
+                    value={dataEmissaoNF}
+                    onChange={(e) => setDataEmissaoNF(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Boleto */}
+            <div className="space-y-2">
+              <Label>Boleto (PDF) *</Label>
+              <Input
+                type="file"
+                accept=".pdf"
+                onChange={(e) => setBoletoFile(e.target.files?.[0] || null)}
+              />
+              <div className="space-y-2">
+                <Label>Data de vencimento do boleto *</Label>
+                <Input
+                  type="date"
+                  value={dataVencimentoBoleto}
+                  onChange={(e) => setDataVencimentoBoleto(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNfBoletoOpen(false)} disabled={nfBoletoLoading}>
+              Cancelar
+            </Button>
+            <Button onClick={handleEnviarNfBoleto} disabled={nfBoletoLoading}>
+              {nfBoletoLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Send className="h-4 w-4 mr-2" />
+              )}
+              Enviar Documentos
             </Button>
           </DialogFooter>
         </DialogContent>
