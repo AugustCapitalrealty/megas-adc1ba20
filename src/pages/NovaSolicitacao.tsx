@@ -182,15 +182,17 @@ export default function NovaSolicitacao() {
   const isOC = valorNumerico <= 1000 || (valorNumerico > 1000 && tipoContratacao !== 'servicos');
   const isAC = valorNumerico > 1000 && tipoContratacao === 'servicos';
   
-  // Auto-set natureza_orcamentaria for OC types
+  // Auto-set natureza_orcamentaria for OC types ONLY when valor > 1000
+  const isOCAbove1000 = valorNumerico > 1000 && tipoContratacao !== '' && tipoContratacao !== 'servicos';
+  
   useEffect(() => {
-    if (isOC && tipoContratacao && tipoContratacao !== 'servicos') {
+    if (isOCAbove1000 && tipoContratacao) {
       const autoNatureza = TIPO_TO_NATUREZA[tipoContratacao];
       if (autoNatureza) {
         setNaturezaOrcamentaria(autoNatureza);
       }
     }
-  }, [tipoContratacao, isOC]);
+  }, [tipoContratacao, isOCAbove1000]);
   
   // Emergency checkbox should only appear for AC services (>= 1001)
   const showEmergencial = isAC;
@@ -637,8 +639,8 @@ export default function NovaSolicitacao() {
 
             {currentStep === 'detalhes' && (
               <div className="space-y-4">
-                {/* Natureza Orçamentária - Show for AC OR for OC <= 1000 (no tipo_contratacao) */}
-                {(isAC || (isOC && !tipoContratacao)) && (
+                {/* Natureza Orçamentária - Show for AC OR for OC <= 1000 */}
+                {(isAC || (isOC && valorNumerico <= 1000)) && (
                   <div>
                     <Label>Natureza Orçamentária</Label>
                     <Select value={naturezaOrcamentaria} onValueChange={(v) => setNaturezaOrcamentaria(v as NaturezaOrcamentaria)}>
@@ -652,8 +654,8 @@ export default function NovaSolicitacao() {
                   </div>
                 )}
                 
-                {/* For OC > 1000 with tipo_contratacao, show the auto-assigned natureza */}
-                {isOC && tipoContratacao && naturezaOrcamentaria && (
+                {/* For OC > 1000, show the auto-assigned natureza */}
+                {isOCAbove1000 && naturezaOrcamentaria && (
                   <div className="p-3 bg-muted/30 rounded-lg">
                     <Label className="text-muted-foreground text-sm">Natureza Orçamentária (automática)</Label>
                     <p className="font-medium">{NATUREZA_ORCAMENTARIA_LABELS[naturezaOrcamentaria]}</p>
