@@ -511,6 +511,27 @@ export type Database = {
           },
         ]
       }
+      status_transitions: {
+        Row: {
+          created_at: string
+          id: string
+          status_from: Database["public"]["Enums"]["request_status"]
+          status_to: Database["public"]["Enums"]["request_status"]
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          status_from: Database["public"]["Enums"]["request_status"]
+          status_to: Database["public"]["Enums"]["request_status"]
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          status_from?: Database["public"]["Enums"]["request_status"]
+          status_to?: Database["public"]["Enums"]["request_status"]
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -538,6 +559,45 @@ export type Database = {
     }
     Functions: {
       generate_protocolo: { Args: never; Returns: string }
+      get_solicitacao_detalhes: { Args: { p_id: string }; Returns: Json }
+      get_solicitacoes_backoffice: {
+        Args: {
+          p_empreendimento?: Database["public"]["Enums"]["empreendimento"]
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_status?: Database["public"]["Enums"]["request_status"]
+        }
+        Returns: {
+          cliente_nome: string
+          created_at: string
+          descricao: string
+          emergencial: boolean
+          empreendimento: Database["public"]["Enums"]["empreendimento"]
+          fornecedor_cnpj: string
+          fornecedor_razao: string
+          id: string
+          numero_chamado_fluig: string
+          protocolo: string
+          solicitante_email: string
+          solicitante_nome: string
+          status: Database["public"]["Enums"]["request_status"]
+          tipo: string
+          total_anexos: number
+          total_docs_emitidos: number
+          total_docs_fiscais: number
+          ultima_atualizacao_status: string
+          updated_at: string
+          valor: number
+        }[]
+      }
+      get_solicitacoes_count_by_status: {
+        Args: never
+        Returns: {
+          count: number
+          status: Database["public"]["Enums"]["request_status"]
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
