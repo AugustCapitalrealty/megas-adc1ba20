@@ -61,7 +61,8 @@ import {
   Receipt,
   CreditCard,
   Send,
-  Banknote
+  Banknote,
+  Edit
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -118,6 +119,11 @@ export default function Backoffice() {
   // NF/Boleto Modal
   const [nfBoletoViewOpen, setNfBoletoViewOpen] = useState(false);
   const [baixaLoading, setBaixaLoading] = useState(false);
+
+  // Edit Fluig/RM Modal
+  const [editFluigOpen, setEditFluigOpen] = useState(false);
+  const [editFluigValue, setEditFluigValue] = useState('');
+  const [editFluigLoading, setEditFluigLoading] = useState(false);
 
   useEffect(() => {
     fetchSolicitacoes();
@@ -451,6 +457,43 @@ export default function Backoffice() {
     }
   };
 
+  const openEditFluig = (sol: SolicitacaoComDados) => {
+    setSelectedSolicitacao(sol);
+    setEditFluigValue(sol.numero_chamado_fluig || '');
+    setEditFluigOpen(true);
+  };
+
+  const handleSaveFluig = async () => {
+    if (!selectedSolicitacao) return;
+    
+    setEditFluigLoading(true);
+    try {
+      const { error } = await supabase
+        .from('solicitacoes')
+        .update({ numero_chamado_fluig: editFluigValue || null })
+        .eq('id', selectedSolicitacao.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Fluig/RM atualizado',
+        description: editFluigValue ? `Atualizado para: ${editFluigValue}` : 'Campo removido',
+      });
+
+      setEditFluigOpen(false);
+      fetchSolicitacoes();
+    } catch (error) {
+      console.error('Error updating Fluig:', error);
+      toast({
+        title: 'Erro ao atualizar',
+        description: 'Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setEditFluigLoading(false);
+    }
+  };
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   };
@@ -577,7 +620,14 @@ export default function Backoffice() {
           <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-1.5 flex items-center gap-2">
             <Cog className="h-4 w-4 text-amber-600 animate-spin" />
             <span className="text-xs font-medium text-amber-700 dark:text-amber-400">AGUARDANDO EMISSÃO DE OC</span>
-            <Badge variant="outline" className="text-xs">Fluig: {sol.numero_chamado_fluig}</Badge>
+            <Badge 
+              variant="outline" 
+              className="text-xs cursor-pointer hover:bg-accent"
+              onClick={() => openEditFluig(sol)}
+            >
+              {sol.numero_chamado_fluig === 'RM' ? 'RM' : `Fluig: ${sol.numero_chamado_fluig}`}
+              <Edit className="h-3 w-3 ml-1" />
+            </Badge>
           </div>
         )}
 
@@ -1522,6 +1572,63 @@ export default function Backoffice() {
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Fluig/RM Modal */}
+      <Dialog open={editFluigOpen} onOpenChange={setEditFluigOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar Fluig/RM</DialogTitle>
+            <DialogDescription>
+              Atualize o número do chamado Fluig ou marque como RM
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="edit-rm-flag"
+                  checked={editFluigValue === 'RM'}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      setEditFluigValue('RM');
+                    } else {
+                      setEditFluigValue('');
+                    }
+                  }}
+                />
+                <Label htmlFor="edit-rm-flag" className="cursor-pointer text-sm font-medium">
+                  RM (sem Fluig)
+                </Label>
+              </div>
+            </div>
+            
+            {editFluigValue !== 'RM' && (
+              <div className="space-y-2">
+                <Label htmlFor="edit-fluig">Número do Chamado Fluig</Label>
+                <Input
+                  id="edit-fluig"
+                  placeholder="Ex: CHM-2024-001234"
+                  value={editFluigValue}
+                  onChange={(e) => setEditFluigValue(e.target.value)}
+                />
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditFluigOpen(false)} disabled={editFluigLoading}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveFluig} disabled={editFluigLoading}>
+              {editFluigLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
+              Salvar
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </AppLayout>
