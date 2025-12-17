@@ -969,8 +969,8 @@ export default function Backoffice() {
               <>
                 {(selectedSolicitacao.status === 'recebido' || selectedSolicitacao.status === 'em_analise') && (
                   <>
-                    <Button onClick={() => { setDetailsOpen(false); openAction(selectedSolicitacao, 'aprovar'); }}>
-                      <CheckCircle className="h-4 w-4 mr-1" /> Aprovar
+                    <Button onClick={() => { setDetailsOpen(false); openAction(selectedSolicitacao, 'assumir'); }}>
+                      <CheckCircle className="h-4 w-4 mr-1" /> Assumir
                     </Button>
                     <Button variant="secondary" onClick={() => { setDetailsOpen(false); openAction(selectedSolicitacao, 'devolver'); }}>
                       <RotateCcw className="h-4 w-4 mr-1" /> Devolver
@@ -1001,18 +1001,20 @@ export default function Backoffice() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {actionType === 'aprovar' && 'Aprovar Solicitação'}
+              {actionType === 'assumir' && 'Assumir Solicitação'}
               {actionType === 'devolver' && 'Devolver para Correção'}
               {actionType === 'rejeitar' && 'Rejeitar Solicitação'}
               {actionType === 'processar' && 'Enviar para Processamento'}
               {actionType === 'concluir' && 'Concluir Solicitação'}
+              {actionType === 'solicitar_info' && 'Solicitar Informações'}
             </DialogTitle>
             <DialogDescription>
-              {actionType === 'aprovar' && 'A solicitação será marcada como aprovada.'}
+              {actionType === 'assumir' && 'A solicitação será assumida e seguirá para processamento.'}
               {actionType === 'devolver' && 'Informe o motivo da devolução para que o solicitante possa corrigir.'}
               {actionType === 'rejeitar' && 'Informe o motivo da rejeição.'}
               {actionType === 'processar' && 'A solicitação será marcada como em processamento no Fluig/RM.'}
               {actionType === 'concluir' && 'A solicitação será marcada como concluída.'}
+              {actionType === 'solicitar_info' && 'Informe as informações necessárias.'}
             </DialogDescription>
           </DialogHeader>
 
