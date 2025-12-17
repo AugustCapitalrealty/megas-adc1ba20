@@ -125,6 +125,12 @@ export default function NovaSolicitacao() {
   
   // Checkbox para Chamado Infraspeak (OC)
   const [temChamadoInfraspeak, setTemChamadoInfraspeak] = useState(false);
+  
+  // Flags para AC - sem chamado/memorial com justificativa
+  const [semChamado, setSemChamado] = useState(false);
+  const [justificativaSemChamado, setJustificativaSemChamado] = useState('');
+  const [semMemorial, setSemMemorial] = useState(false);
+  const [justificativaSemMemorial, setJustificativaSemMemorial] = useState('');
   // Load fornecedor from duplicateFrom
   useEffect(() => {
     if (duplicateFrom?.fornecedor_id) {
@@ -229,15 +235,15 @@ export default function NovaSolicitacao() {
         } else {
           // AC não emergencial: base attachments
           attachments = [
-            { tipo: 'chamado_preventiva', label: ANEXO_LABELS.chamado_preventiva, required: true },
-            { tipo: 'escopo_detalhado', label: ANEXO_LABELS.escopo_detalhado, required: true },
-            { tipo: 'mapa_cotacao', label: ANEXO_LABELS.mapa_cotacao, required: !excecaoFornecedores },
+            { tipo: 'chamado_preventiva', label: ANEXO_LABELS.chamado_preventiva, required: !semChamado },
+            { tipo: 'escopo_detalhado', label: ANEXO_LABELS.escopo_detalhado, required: !semMemorial },
             { tipo: 'orcamento_escolhido', label: ANEXO_LABELS.orcamento_escolhido, required: true },
           ];
           
-          // Se NÃO há justificativa de fornecedor único, exige 3 orçamentos
+          // Mapa comparativo só aparece se NÃO tem exceção de fornecedores
           if (!excecaoFornecedores) {
             attachments.push(
+              { tipo: 'mapa_cotacao', label: ANEXO_LABELS.mapa_cotacao, required: true },
               { tipo: 'orcamento_concorrente_1', label: ANEXO_LABELS.orcamento_concorrente_1, required: true },
               { tipo: 'orcamento_concorrente_2', label: ANEXO_LABELS.orcamento_concorrente_2, required: true },
             );
@@ -491,7 +497,12 @@ export default function NovaSolicitacao() {
       }
       case 'anexos': {
         const requiredAttachments = getRequiredAttachments();
-        return requiredAttachments.every(att => !att.required || !!anexos[att.tipo]);
+        const attachmentsOk = requiredAttachments.every(att => !att.required || !!anexos[att.tipo]);
+        // Se marcou sem chamado, precisa justificar
+        if (semChamado && !justificativaSemChamado.trim()) return false;
+        // Se marcou sem memorial, precisa justificar
+        if (semMemorial && !justificativaSemMemorial.trim()) return false;
+        return attachmentsOk;
       }
       default: return true;
     }
@@ -960,7 +971,67 @@ Ex: Contratação de serviço de reparo do ar-condicionado da sala administrativ
                   </Alert>
                 )}
                 
-                {isAC && !isNaturezaIsenta && (
+                {isAC && !isNaturezaIsenta && !emergencial && (
+                  <div className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      Anexe os documentos em formato PDF (máx. 100MB cada)
+                    </p>
+                    
+                    {/* Flag: Sem Chamado */}
+                    <div className="p-4 rounded-lg border bg-muted/20 space-y-3">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="semChamado"
+                          checked={semChamado}
+                          onCheckedChange={(checked) => {
+                            setSemChamado(!!checked);
+                            if (!checked) setJustificativaSemChamado('');
+                          }}
+                        />
+                        <Label htmlFor="semChamado" className="cursor-pointer text-sm">
+                          Não tenho chamado/preventiva para esta solicitação
+                        </Label>
+                      </div>
+                      {semChamado && (
+                        <Textarea
+                          placeholder="Justifique por que não possui chamado/preventiva..."
+                          value={justificativaSemChamado}
+                          onChange={(e) => setJustificativaSemChamado(e.target.value)}
+                          rows={2}
+                          className="mt-2"
+                        />
+                      )}
+                    </div>
+                    
+                    {/* Flag: Sem Memorial */}
+                    <div className="p-4 rounded-lg border bg-muted/20 space-y-3">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="semMemorial"
+                          checked={semMemorial}
+                          onCheckedChange={(checked) => {
+                            setSemMemorial(!!checked);
+                            if (!checked) setJustificativaSemMemorial('');
+                          }}
+                        />
+                        <Label htmlFor="semMemorial" className="cursor-pointer text-sm">
+                          Não tenho memorial descritivo para esta solicitação
+                        </Label>
+                      </div>
+                      {semMemorial && (
+                        <Textarea
+                          placeholder="Justifique por que não possui memorial descritivo..."
+                          value={justificativaSemMemorial}
+                          onChange={(e) => setJustificativaSemMemorial(e.target.value)}
+                          rows={2}
+                          className="mt-2"
+                        />
+                      )}
+                    </div>
+                  </div>
+                )}
+                
+                {isAC && !isNaturezaIsenta && emergencial && (
                   <p className="text-sm text-muted-foreground">
                     Anexe os documentos obrigatórios em formato PDF (máx. 100MB cada)
                   </p>
