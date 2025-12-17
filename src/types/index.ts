@@ -1,6 +1,6 @@
 export type AppRole = 'solicitante' | 'backoffice' | 'admin';
 export type RequestType = 'AC' | 'OC';
-export type RequestStatus = 'recebido' | 'em_analise' | 'pendente_correcao' | 'aprovado' | 'rejeitado' | 'em_processamento' | 'oc_ac_emitida' | 'concluida';
+export type RequestStatus = 'recebido' | 'em_analise' | 'pendente_correcao' | 'aprovado' | 'rejeitado' | 'em_processamento' | 'oc_ac_emitida' | 'aguardando_aceite' | 'aguardando_informacoes' | 'concluida';
 export type Empreendimento = 'mega_curitiba' | 'mega_itajai' | 'mega_esteio' | 'todos';
 export type NaturezaOrcamentaria = 
   | 'materiais_informatica'
@@ -99,6 +99,9 @@ export interface Solicitacao {
   fornecedor_concorrente_1_id: string | null;
   fornecedor_concorrente_2_id: string | null;
   justificativa_fornecedores: string | null;
+  numero_chamado_fluig: string | null;
+  excecao_fornecedores: boolean;
+  resposta_informacoes: string | null;
   created_at: string;
   updated_at: string;
   // Joined data
@@ -174,7 +177,9 @@ export const STATUS_LABELS: Record<RequestStatus, string> = {
   aprovado: 'Aprovado',
   rejeitado: 'Não Aprovado',
   em_processamento: 'Em Processamento',
-  oc_ac_emitida: 'Documento Emitido',
+  oc_ac_emitida: 'OC Enviada - Aguardando Aceite',
+  aguardando_aceite: 'Aguardando Aceite do Solicitante',
+  aguardando_informacoes: 'Aguardando Informações',
   concluida: 'Finalizada',
 };
 

@@ -48,7 +48,8 @@ import {
   FileCheck,
   Cog,
   CheckCheck,
-  Upload
+  Upload,
+  HelpCircle
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -79,7 +80,7 @@ export default function Backoffice() {
   const [selectedSolicitacao, setSelectedSolicitacao] = useState<SolicitacaoComDados | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [actionOpen, setActionOpen] = useState(false);
-  const [actionType, setActionType] = useState<'aprovar' | 'devolver' | 'rejeitar' | 'processar' | 'concluir'>('aprovar');
+  const [actionType, setActionType] = useState<'assumir' | 'devolver' | 'rejeitar' | 'processar' | 'concluir' | 'solicitar_info'>('assumir');
   const [motivo, setMotivo] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<BackofficeTab>('recebidas');
@@ -185,10 +186,11 @@ export default function Backoffice() {
 
     if (!error) {
       const acaoLabels: Record<string, string> = {
-        'aprovado': 'Aprovação',
+        'aprovado': 'Assumido pelo backoffice',
         'rejeitado': 'Rejeição',
         'pendente_correcao': 'Devolução para correção',
         'em_processamento': 'Envio para processamento',
+        'aguardando_informacoes': 'Solicitação de informações',
         'concluida': 'Conclusão',
       };
 
@@ -249,20 +251,20 @@ export default function Backoffice() {
 
       if (insertError) throw insertError;
 
-      // Update status
+      // Update status to aguardando_aceite (waiting for requester acceptance)
       await supabase
         .from('solicitacoes')
-        .update({ status: 'oc_ac_emitida' as any })
+        .update({ status: 'aguardando_aceite' as any })
         .eq('id', selectedSolicitacao.id);
 
       // Create history entry
       await supabase.from('historico_solicitacoes').insert({
         solicitacao_id: selectedSolicitacao.id,
         user_id: user.id,
-        acao: `Emissão de ${tipoDocumento}`,
+        acao: `OC nº ${numeroDocumento} emitida - Aguardando aceite`,
         status_anterior: selectedSolicitacao.status,
-        status_novo: 'oc_ac_emitida',
-        motivo: `${tipoDocumento} nº ${numeroDocumento} emitida`,
+        status_novo: 'aguardando_aceite',
+        motivo: `OC nº ${numeroDocumento} emitida`,
       });
 
       toast({
@@ -365,11 +367,12 @@ export default function Backoffice() {
     if (!selectedSolicitacao) return;
     
     const statusMap: Record<string, RequestStatus> = {
-      'aprovar': 'aprovado',
+      'assumir': 'aprovado',
       'devolver': 'pendente_correcao',
       'rejeitar': 'rejeitado',
       'processar': 'em_processamento',
       'concluir': 'concluida',
+      'solicitar_info': 'aguardando_informacoes',
     };
     
     updateStatus(selectedSolicitacao.id, statusMap[actionType], motivo);
@@ -390,12 +393,12 @@ export default function Backoffice() {
     return matchesSearch && matchesEmpreendimento;
   });
 
-  // Group by tab
+  // Group by tab - reordered as requested
   const groupedSolicitacoes = useMemo(() => ({
     recebidas: filteredSolicitacoes.filter(s => s.status === 'recebido' || s.status === 'em_analise'),
-    pendentes: filteredSolicitacoes.filter(s => s.status === 'pendente_correcao'),
     em_processamento: filteredSolicitacoes.filter(s => s.status === 'aprovado' || s.status === 'em_processamento'),
-    oc_emitidas: filteredSolicitacoes.filter(s => s.status === 'oc_ac_emitida'),
+    oc_emitidas: filteredSolicitacoes.filter(s => s.status === 'oc_ac_emitida' || s.status === 'aguardando_aceite'),
+    pendentes: filteredSolicitacoes.filter(s => s.status === 'pendente_correcao' || s.status === 'aguardando_informacoes'),
     concluidas: filteredSolicitacoes.filter(s => s.status === 'concluida'),
     rejeitadas: filteredSolicitacoes.filter(s => s.status === 'rejeitado'),
   }), [filteredSolicitacoes]);
@@ -501,8 +504,11 @@ export default function Backoffice() {
             {/* Actions based on status */}
             {(sol.status === 'recebido' || sol.status === 'em_analise') && (
               <>
-                <Button size="sm" onClick={() => openAction(sol, 'aprovar')}>
-                  <CheckCircle className="h-4 w-4 mr-1" /> Aprovar
+                <Button size="sm" onClick={() => openAction(sol, 'assumir')}>
+                  <CheckCircle className="h-4 w-4 mr-1" /> Assumir
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => openAction(sol, 'solicitar_info')}>
+                  <HelpCircle className="h-4 w-4 mr-1" /> Solicitar Info
                 </Button>
                 <Button size="sm" variant="secondary" onClick={() => openAction(sol, 'devolver')}>
                   <RotateCcw className="h-4 w-4 mr-1" /> Devolver
