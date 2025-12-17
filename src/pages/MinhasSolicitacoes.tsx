@@ -22,7 +22,7 @@ import {
   type Fornecedor,
   type DocumentoEmitido,
 } from '@/types';
-import { Loader2, FileText, ChevronDown, ChevronUp, Edit, Send, History, AlertTriangle, Copy, XCircle, Download, FileCheck } from 'lucide-react';
+import { Loader2, FileText, ChevronDown, ChevronUp, Edit, Send, History, AlertTriangle, Copy, XCircle, Download, FileCheck, CheckCircle, MessageSquare, RotateCcw } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -53,6 +53,12 @@ interface RejectionInfo {
   created_at: string;
 }
 
+interface InfoRequest {
+  solicitacao_id: string;
+  motivo: string | null;
+  created_at: string;
+}
+
 export default function MinhasSolicitacoes() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -62,6 +68,7 @@ export default function MinhasSolicitacoes() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<FilterTab>('todas');
   const [rejectionReasons, setRejectionReasons] = useState<Record<string, RejectionInfo>>({});
+  const [infoRequests, setInfoRequests] = useState<Record<string, InfoRequest>>({});
   
   // Edit modal state
   const [editOpen, setEditOpen] = useState(false);
@@ -71,6 +78,18 @@ export default function MinhasSolicitacoes() {
   const [editNaturezaOrcamentaria, setEditNaturezaOrcamentaria] = useState<NaturezaOrcamentaria | ''>('');
   const [editAnexos, setEditAnexos] = useState<Record<string, UploadedFile | null>>({});
   const [submitting, setSubmitting] = useState(false);
+
+  // Aceite OC modal state
+  const [aceiteOpen, setAceiteOpen] = useState(false);
+  const [aceiteSolicitacao, setAceiteSolicitacao] = useState<SolicitacaoComFornecedor | null>(null);
+  const [aceiteAjuste, setAceiteAjuste] = useState('');
+  const [aceiteLoading, setAceiteLoading] = useState(false);
+
+  // Resposta informações modal state
+  const [respostaOpen, setRespostaOpen] = useState(false);
+  const [respostaSolicitacao, setRespostaSolicitacao] = useState<SolicitacaoComFornecedor | null>(null);
+  const [respostaTexto, setRespostaTexto] = useState('');
+  const [respostaLoading, setRespostaLoading] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -95,8 +114,8 @@ export default function MinhasSolicitacoes() {
         data.map(async (sol: any) => {
           let documentoEmitido = null;
           
-          // Fetch documento emitido if status is oc_ac_emitida or concluida
-          if (sol.status === 'oc_ac_emitida' || sol.status === 'concluida') {
+          // Fetch documento emitido if status is oc_ac_emitida, concluida or aguardando_aceite
+          if (sol.status === 'oc_ac_emitida' || sol.status === 'concluida' || sol.status === 'aguardando_aceite') {
             const { data: docData } = await supabase
               .from('documentos_emitidos')
               .select('*')
@@ -134,6 +153,30 @@ export default function MinhasSolicitacoes() {
           setRejectionReasons(reasons);
         }
       }
+
+      // Fetch info requests for aguardando_informacoes
+      const infoIds = data
+        .filter((s: any) => s.status === 'aguardando_informacoes')
+        .map((s: any) => s.id);
+      
+      if (infoIds.length > 0) {
+        const { data: infoData } = await supabase
+          .from('historico_solicitacoes')
+          .select('solicitacao_id, motivo, created_at')
+          .in('solicitacao_id', infoIds)
+          .eq('status_novo', 'aguardando_informacoes')
+          .order('created_at', { ascending: false });
+        
+        if (infoData) {
+          const requests: Record<string, InfoRequest> = {};
+          infoData.forEach((h: any) => {
+            if (!requests[h.solicitacao_id]) {
+              requests[h.solicitacao_id] = h;
+            }
+          });
+          setInfoRequests(requests);
+        }
+      }
     }
     setLoading(false);
   };
@@ -146,7 +189,8 @@ export default function MinhasSolicitacoes() {
     switch (activeTab) {
       case 'pendentes':
         filtered = filtered.filter(s => 
-          s.status === 'pendente_correcao' || s.status === 'recebido' || s.status === 'em_analise'
+          s.status === 'pendente_correcao' || s.status === 'recebido' || s.status === 'em_analise' || 
+          s.status === 'aguardando_informacoes' || s.status === 'aguardando_aceite'
         );
         break;
       case 'aprovadas':
@@ -370,6 +414,136 @@ export default function MinhasSolicitacoes() {
     }
   };
 
+  // Aceite OC handlers
+  const openAceiteModal = (sol: SolicitacaoComFornecedor) => {
+    setAceiteSolicitacao(sol);
+    setAceiteAjuste('');
+    setAceiteOpen(true);
+  };
+
+  const handleAceitarOC = async () => {
+    if (!aceiteSolicitacao || !user) return;
+    
+    setAceiteLoading(true);
+    try {
+      await supabase
+        .from('solicitacoes')
+        .update({ status: 'concluida' })
+        .eq('id', aceiteSolicitacao.id);
+
+      await supabase.from('historico_solicitacoes').insert({
+        solicitacao_id: aceiteSolicitacao.id,
+        user_id: user.id,
+        acao: 'aceite_oc',
+        status_anterior: 'aguardando_aceite',
+        status_novo: 'concluida',
+      });
+
+      toast({
+        title: 'OC Aceita!',
+        description: 'A solicitação foi concluída com sucesso.',
+      });
+
+      setAceiteOpen(false);
+      fetchSolicitacoes();
+    } catch (error) {
+      console.error('Error accepting OC:', error);
+      toast({
+        title: 'Erro ao aceitar OC',
+        description: 'Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setAceiteLoading(false);
+    }
+  };
+
+  const handleSolicitarAjuste = async () => {
+    if (!aceiteSolicitacao || !user || !aceiteAjuste.trim()) return;
+    
+    setAceiteLoading(true);
+    try {
+      await supabase
+        .from('solicitacoes')
+        .update({ status: 'em_processamento' })
+        .eq('id', aceiteSolicitacao.id);
+
+      await supabase.from('historico_solicitacoes').insert({
+        solicitacao_id: aceiteSolicitacao.id,
+        user_id: user.id,
+        acao: 'ajuste_solicitado',
+        status_anterior: 'aguardando_aceite',
+        status_novo: 'em_processamento',
+        motivo: aceiteAjuste,
+      });
+
+      toast({
+        title: 'Ajuste solicitado',
+        description: 'O backoffice receberá seu pedido de ajuste.',
+      });
+
+      setAceiteOpen(false);
+      fetchSolicitacoes();
+    } catch (error) {
+      console.error('Error requesting adjustment:', error);
+      toast({
+        title: 'Erro ao solicitar ajuste',
+        description: 'Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setAceiteLoading(false);
+    }
+  };
+
+  // Resposta informações handlers
+  const openRespostaModal = (sol: SolicitacaoComFornecedor) => {
+    setRespostaSolicitacao(sol);
+    setRespostaTexto('');
+    setRespostaOpen(true);
+  };
+
+  const handleResponderInformacoes = async () => {
+    if (!respostaSolicitacao || !user || !respostaTexto.trim()) return;
+    
+    setRespostaLoading(true);
+    try {
+      await supabase
+        .from('solicitacoes')
+        .update({ 
+          status: 'em_processamento',
+          resposta_informacoes: respostaTexto,
+        })
+        .eq('id', respostaSolicitacao.id);
+
+      await supabase.from('historico_solicitacoes').insert({
+        solicitacao_id: respostaSolicitacao.id,
+        user_id: user.id,
+        acao: 'resposta_informacoes',
+        status_anterior: 'aguardando_informacoes',
+        status_novo: 'em_processamento',
+        motivo: respostaTexto,
+      });
+
+      toast({
+        title: 'Resposta enviada!',
+        description: 'Sua resposta foi enviada ao backoffice.',
+      });
+
+      setRespostaOpen(false);
+      fetchSolicitacoes();
+    } catch (error) {
+      console.error('Error responding:', error);
+      toast({
+        title: 'Erro ao enviar resposta',
+        description: 'Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setRespostaLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <AppLayout>
@@ -432,8 +606,11 @@ export default function MinhasSolicitacoes() {
             {sortedAndFilteredSolicitacoes.map((sol) => {
               const isPendingCorrection = sol.status === 'pendente_correcao';
               const isRejected = sol.status === 'rejeitado';
+              const isAguardandoAceite = sol.status === 'aguardando_aceite';
+              const isAguardandoInfo = sol.status === 'aguardando_informacoes';
               const fornecedorNome = getFornecedorNome(sol);
               const rejectionInfo = rejectionReasons[sol.id];
+              const infoRequest = infoRequests[sol.id];
               
               return (
                 <Card 
@@ -441,7 +618,9 @@ export default function MinhasSolicitacoes() {
                   className={cn(
                     'transition-all',
                     isPendingCorrection && 'border-2 border-warning bg-warning/5 shadow-lg',
-                    isRejected && 'border-destructive/50'
+                    isRejected && 'border-destructive/50',
+                    isAguardandoAceite && 'border-2 border-success bg-success/5 shadow-lg',
+                    isAguardandoInfo && 'border-2 border-info bg-info/5 shadow-lg'
                   )}
                 >
                   {/* Action Required Banner for pending correction */}
@@ -460,6 +639,46 @@ export default function MinhasSolicitacoes() {
                       >
                         <Edit className="h-4 w-4 mr-1" />
                         Corrigir Agora
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Banner for OC awaiting acceptance */}
+                  {isAguardandoAceite && (
+                    <div className="bg-success text-success-foreground px-4 py-2 flex items-center justify-between rounded-t-lg">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-5 w-5" />
+                        <span className="font-semibold">OC DISPONÍVEL</span>
+                        <span className="text-sm opacity-90">- Revise e aceite ou solicite ajuste</span>
+                      </div>
+                      <Button 
+                        size="sm" 
+                        variant="secondary"
+                        onClick={() => openAceiteModal(sol)}
+                        className="bg-background hover:bg-background/90"
+                      >
+                        <CheckCircle className="h-4 w-4 mr-1" />
+                        Revisar OC
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Banner for info request */}
+                  {isAguardandoInfo && (
+                    <div className="bg-info text-info-foreground px-4 py-2 flex items-center justify-between rounded-t-lg">
+                      <div className="flex items-center gap-2">
+                        <MessageSquare className="h-5 w-5" />
+                        <span className="font-semibold">INFORMAÇÕES SOLICITADAS</span>
+                        <span className="text-sm opacity-90">- O backoffice precisa de mais informações</span>
+                      </div>
+                      <Button 
+                        size="sm" 
+                        variant="secondary"
+                        onClick={() => openRespostaModal(sol)}
+                        className="bg-background hover:bg-background/90"
+                      >
+                        <MessageSquare className="h-4 w-4 mr-1" />
+                        Responder
                       </Button>
                     </div>
                   )}
@@ -502,6 +721,26 @@ export default function MinhasSolicitacoes() {
                             Corrigir
                           </Button>
                         )}
+                        {isAguardandoAceite && (
+                          <Button 
+                            variant="default" 
+                            size="sm" 
+                            onClick={() => openAceiteModal(sol)}
+                          >
+                            <CheckCircle className="h-4 w-4 mr-1" />
+                            Aceitar OC
+                          </Button>
+                        )}
+                        {isAguardandoInfo && (
+                          <Button 
+                            variant="default" 
+                            size="sm" 
+                            onClick={() => openRespostaModal(sol)}
+                          >
+                            <MessageSquare className="h-4 w-4 mr-1" />
+                            Responder
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"
@@ -525,6 +764,19 @@ export default function MinhasSolicitacoes() {
                           <div>
                             <p className="font-medium text-destructive">Motivo da Reprovação:</p>
                             <p className="text-sm text-muted-foreground mt-1">{rejectionInfo.motivo}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Info request banner */}
+                    {isAguardandoInfo && infoRequest?.motivo && (
+                      <div className="mb-4 p-3 bg-info/10 border border-info/20 rounded-lg">
+                        <div className="flex items-start gap-2">
+                          <MessageSquare className="h-5 w-5 text-info mt-0.5 shrink-0" />
+                          <div>
+                            <p className="font-medium text-info">Informações solicitadas:</p>
+                            <p className="text-sm text-muted-foreground mt-1">{infoRequest.motivo}</p>
                           </div>
                         </div>
                       </div>
@@ -673,6 +925,119 @@ export default function MinhasSolicitacoes() {
                 <Send className="h-4 w-4 mr-2" />
               )}
               Reenviar Solicitação
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Aceite OC Modal */}
+      <Dialog open={aceiteOpen} onOpenChange={setAceiteOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Revisar OC #{aceiteSolicitacao?.protocolo}</DialogTitle>
+          </DialogHeader>
+          
+          {aceiteSolicitacao?.documentoEmitido && (
+            <div className="space-y-4">
+              <div className="p-4 bg-success/10 border border-success/20 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <FileCheck className="h-5 w-5 text-success" />
+                  <span className="font-medium text-success">
+                    {aceiteSolicitacao.documentoEmitido.tipo_documento} #{aceiteSolicitacao.documentoEmitido.numero_documento}
+                  </span>
+                </div>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => downloadDocumentoEmitido(aceiteSolicitacao.documentoEmitido!)}
+                >
+                  <Download className="h-4 w-4 mr-1" /> Baixar OC
+                </Button>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Precisa de algum ajuste?</Label>
+                <Textarea
+                  placeholder="Se precisar de algum ajuste, descreva aqui. Caso contrário, deixe em branco e aceite a OC."
+                  value={aceiteAjuste}
+                  onChange={(e) => setAceiteAjuste(e.target.value)}
+                  rows={3}
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => setAceiteOpen(false)} disabled={aceiteLoading}>
+              Cancelar
+            </Button>
+            {aceiteAjuste.trim() ? (
+              <Button 
+                variant="secondary"
+                onClick={handleSolicitarAjuste} 
+                disabled={aceiteLoading}
+              >
+                {aceiteLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                )}
+                Solicitar Ajuste
+              </Button>
+            ) : (
+              <Button onClick={handleAceitarOC} disabled={aceiteLoading}>
+                {aceiteLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                )}
+                Aceitar OC
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Resposta Informações Modal */}
+      <Dialog open={respostaOpen} onOpenChange={setRespostaOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Responder Solicitação #{respostaSolicitacao?.protocolo}</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {infoRequests[respostaSolicitacao?.id || '']?.motivo && (
+              <div className="p-4 bg-info/10 border border-info/20 rounded-lg">
+                <p className="font-medium text-info mb-1">Informações solicitadas:</p>
+                <p className="text-sm text-muted-foreground">
+                  {infoRequests[respostaSolicitacao?.id || '']?.motivo}
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="resposta">Sua resposta *</Label>
+              <Textarea
+                id="resposta"
+                placeholder="Digite sua resposta às informações solicitadas..."
+                value={respostaTexto}
+                onChange={(e) => setRespostaTexto(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRespostaOpen(false)} disabled={respostaLoading}>
+              Cancelar
+            </Button>
+            <Button onClick={handleResponderInformacoes} disabled={respostaLoading || !respostaTexto.trim()}>
+              {respostaLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Send className="h-4 w-4 mr-2" />
+              )}
+              Enviar Resposta
             </Button>
           </DialogFooter>
         </DialogContent>
