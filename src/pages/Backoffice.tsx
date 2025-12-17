@@ -26,7 +26,8 @@ import {
   type Profile,
   type Cliente,
   type Anexo,
-  type DocumentoEmitido
+  type DocumentoEmitido,
+  type DocumentoFiscal
 } from '@/types';
 import { 
   Loader2, 
@@ -55,7 +56,11 @@ import {
   Filter,
   ChevronDown,
   ChevronUp,
-  History
+  History,
+  Receipt,
+  CreditCard,
+  Send,
+  Banknote
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -71,12 +76,13 @@ interface SolicitacaoComDados extends Solicitacao {
   clienteData?: Cliente | null;
   anexos?: Anexo[];
   documentoEmitido?: DocumentoEmitido | null;
+  documentosFiscais?: DocumentoFiscal[];
   dataAprovacao?: string | null;
   responsavelId?: string | null;
   responsavelNome?: string | null;
 }
 
-type BackofficeTab = 'recebidas' | 'pendentes' | 'em_processamento' | 'oc_emitidas' | 'concluidas' | 'rejeitadas';
+type BackofficeTab = 'recebidas' | 'pendentes' | 'em_processamento' | 'oc_emitidas' | 'nf_boleto' | 'concluidas' | 'rejeitadas';
 
 export default function Backoffice() {
   const { user } = useAuth();
@@ -107,6 +113,10 @@ export default function Backoffice() {
   
   // Expanded card for history
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // NF/Boleto Modal
+  const [nfBoletoViewOpen, setNfBoletoViewOpen] = useState(false);
+  const [baixaLoading, setBaixaLoading] = useState(false);
 
   useEffect(() => {
     fetchSolicitacoes();
@@ -168,6 +178,14 @@ export default function Backoffice() {
             .maybeSingle();
           documentoEmitido = docData as DocumentoEmitido | null;
 
+          // Fetch documentos fiscais (NF/Boleto)
+          let documentosFiscais: DocumentoFiscal[] = [];
+          const { data: docFiscaisData } = await supabase
+            .from('documentos_fiscais')
+            .select('*')
+            .eq('solicitacao_id', sol.id);
+          if (docFiscaisData) documentosFiscais = docFiscaisData as DocumentoFiscal[];
+
           // Fetch data de aprovação e responsável do histórico
           const { data: histData } = await supabase
             .from('historico_solicitacoes')
@@ -197,7 +215,7 @@ export default function Backoffice() {
             }
           }
 
-          return { ...sol, fornecedor, solicitante, clienteData, anexos, documentoEmitido, dataAprovacao, responsavelId, responsavelNome } as SolicitacaoComDados;
+          return { ...sol, fornecedor, solicitante, clienteData, anexos, documentoEmitido, documentosFiscais, dataAprovacao, responsavelId, responsavelNome } as SolicitacaoComDados;
         })
       );
       setSolicitacoes(enrichedData);
@@ -367,6 +385,71 @@ export default function Backoffice() {
     }
   };
 
+  const downloadDocumentoFiscal = async (doc: DocumentoFiscal) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('documentos-fiscais')
+        .download(doc.storage_path);
+      
+      if (!error && data) {
+        saveAs(data, doc.nome_arquivo);
+      }
+    } catch (error) {
+      console.error('Error downloading fiscal document:', error);
+      toast({ variant: 'destructive', title: 'Erro no download' });
+    }
+  };
+
+  const handleDarBaixa = async () => {
+    if (!selectedSolicitacao || !user) return;
+    
+    setBaixaLoading(true);
+    try {
+      // Update status to enviado_pagamento
+      await supabase
+        .from('solicitacoes')
+        .update({ status: 'enviado_pagamento' as any })
+        .eq('id', selectedSolicitacao.id);
+
+      // Update documentos_fiscais with baixa info
+      await supabase
+        .from('documentos_fiscais')
+        .update({ 
+          baixa_financeiro_em: new Date().toISOString(),
+          baixa_financeiro_por: user.id 
+        })
+        .eq('solicitacao_id', selectedSolicitacao.id);
+
+      // Add history entry
+      await supabase.from('historico_solicitacoes').insert({
+        solicitacao_id: selectedSolicitacao.id,
+        user_id: user.id,
+        acao: 'Baixa para pagamento',
+        status_anterior: selectedSolicitacao.status,
+        status_novo: 'enviado_pagamento',
+        motivo: 'NF e Boleto enviados para pagamento',
+      });
+
+      toast({
+        title: 'Baixa realizada!',
+        description: 'Documentos enviados para pagamento',
+      });
+
+      setNfBoletoViewOpen(false);
+      setDetailsOpen(false);
+      fetchSolicitacoes();
+    } catch (error) {
+      console.error('Error dar baixa:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: 'Não foi possível dar baixa',
+      });
+    } finally {
+      setBaixaLoading(false);
+    }
+  };
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   };
@@ -444,8 +527,9 @@ export default function Backoffice() {
     recebidas: filteredSolicitacoes.filter(s => s.status === 'recebido' || s.status === 'em_analise'),
     em_processamento: filteredSolicitacoes.filter(s => s.status === 'aprovado' || s.status === 'em_processamento'),
     oc_emitidas: filteredSolicitacoes.filter(s => s.status === 'oc_ac_emitida' || s.status === 'aguardando_aceite'),
+    nf_boleto: filteredSolicitacoes.filter(s => s.status === 'aguardando_nf_boleto' || s.status === 'nf_boleto_enviados'),
     pendentes: filteredSolicitacoes.filter(s => s.status === 'pendente_correcao' || s.status === 'aguardando_informacoes'),
-    concluidas: filteredSolicitacoes.filter(s => s.status === 'concluida'),
+    concluidas: filteredSolicitacoes.filter(s => s.status === 'concluida' || s.status === 'enviado_pagamento'),
     rejeitadas: filteredSolicitacoes.filter(s => s.status === 'rejeitado'),
   }), [filteredSolicitacoes]);
 
@@ -493,6 +577,17 @@ export default function Backoffice() {
             <Cog className="h-4 w-4 text-amber-600 animate-spin" />
             <span className="text-xs font-medium text-amber-700 dark:text-amber-400">AGUARDANDO EMISSÃO DE OC</span>
             <Badge variant="outline" className="text-xs">Fluig: {sol.numero_chamado_fluig}</Badge>
+          </div>
+        )}
+
+        {/* NF/Boleto Enviados Banner */}
+        {sol.status === 'nf_boleto_enviados' && (
+          <div className="bg-cyan-500/10 border-b border-cyan-500/20 px-4 py-1.5 flex items-center gap-2">
+            <Receipt className="h-4 w-4 text-cyan-600" />
+            <span className="text-xs font-medium text-cyan-700 dark:text-cyan-400">NF/BOLETO RECEBIDOS - AGUARDANDO BAIXA</span>
+            {sol.documentosFiscais && sol.documentosFiscais.length > 0 && (
+              <Badge variant="outline" className="text-xs">{sol.documentosFiscais.length} documento(s)</Badge>
+            )}
           </div>
         )}
         
@@ -621,6 +716,24 @@ export default function Backoffice() {
                 <CheckCheck className="h-4 w-4 mr-1" /> Concluir
               </Button>
             )}
+
+            {/* NF/Boleto Actions */}
+            {sol.status === 'nf_boleto_enviados' && (
+              <>
+                <Button size="sm" variant="outline" onClick={() => {
+                  setSelectedSolicitacao(sol);
+                  setNfBoletoViewOpen(true);
+                }}>
+                  <Receipt className="h-4 w-4 mr-1" /> Ver NF/Boleto
+                </Button>
+                <Button size="sm" onClick={() => {
+                  setSelectedSolicitacao(sol);
+                  setNfBoletoViewOpen(true);
+                }}>
+                  <Send className="h-4 w-4 mr-1" /> Dar Baixa
+                </Button>
+              </>
+            )}
             
             {/* Expand/Collapse button for history */}
             <Button
@@ -688,7 +801,7 @@ export default function Backoffice() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
           <Card className="cursor-pointer hover:shadow-md" onClick={() => setActiveTab('recebidas')}>
             <CardContent className="pt-4">
               <div className="flex items-center gap-2">
@@ -729,6 +842,17 @@ export default function Backoffice() {
                 <div>
                   <p className="text-2xl font-bold">{groupedSolicitacoes.oc_emitidas.length}</p>
                   <p className="text-xs text-muted-foreground">Emitidas</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="cursor-pointer hover:shadow-md" onClick={() => setActiveTab('nf_boleto')}>
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-2">
+                <Receipt className="h-5 w-5 text-cyan-500" />
+                <div>
+                  <p className="text-2xl font-bold">{groupedSolicitacoes.nf_boleto.length}</p>
+                  <p className="text-xs text-muted-foreground">NF/Boleto</p>
                 </div>
               </div>
             </CardContent>
@@ -797,7 +921,7 @@ export default function Backoffice() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as BackofficeTab)} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="recebidas" className="relative text-xs sm:text-sm">
               Recebidas
               {groupedSolicitacoes.recebidas.length > 0 && (
@@ -809,6 +933,14 @@ export default function Backoffice() {
             <TabsTrigger value="pendentes" className="text-xs sm:text-sm">Pendentes</TabsTrigger>
             <TabsTrigger value="em_processamento" className="text-xs sm:text-sm">Em Proc.</TabsTrigger>
             <TabsTrigger value="oc_emitidas" className="text-xs sm:text-sm">Emitidas</TabsTrigger>
+            <TabsTrigger value="nf_boleto" className="relative text-xs sm:text-sm">
+              NF/Boleto
+              {groupedSolicitacoes.nf_boleto.length > 0 && (
+                <Badge variant="secondary" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center bg-cyan-100 text-cyan-700">
+                  {groupedSolicitacoes.nf_boleto.length}
+                </Badge>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="concluidas" className="text-xs sm:text-sm">Concluídas</TabsTrigger>
             <TabsTrigger value="rejeitadas" className="text-xs sm:text-sm">Rejeitadas</TabsTrigger>
           </TabsList>
@@ -824,6 +956,9 @@ export default function Backoffice() {
           </TabsContent>
           <TabsContent value="oc_emitidas">
             <TabContent items={groupedSolicitacoes.oc_emitidas} emptyMessage="Nenhuma OC emitida" />
+          </TabsContent>
+          <TabsContent value="nf_boleto">
+            <TabContent items={groupedSolicitacoes.nf_boleto} emptyMessage="Nenhuma NF/Boleto pendente" />
           </TabsContent>
           <TabsContent value="concluidas">
             <TabContent items={groupedSolicitacoes.concluidas} emptyMessage="Nenhuma solicitação concluída" />
@@ -1255,6 +1390,117 @@ export default function Backoffice() {
               Registrar OC
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* NF/Boleto View Modal */}
+      <Dialog open={nfBoletoViewOpen} onOpenChange={setNfBoletoViewOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Receipt className="h-5 w-5 text-cyan-600" />
+              NF e Boleto - #{selectedSolicitacao?.protocolo}
+            </DialogTitle>
+            <DialogDescription>
+              Documentos fiscais enviados pelo solicitante
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedSolicitacao && (
+            <div className="space-y-4">
+              {/* Solicitante info */}
+              <div className="p-3 bg-muted rounded-lg">
+                <p className="text-sm text-muted-foreground">Solicitante</p>
+                <p className="font-medium">{selectedSolicitacao.solicitante?.full_name || selectedSolicitacao.solicitante?.email}</p>
+              </div>
+
+              {/* Documents list */}
+              {selectedSolicitacao.documentosFiscais && selectedSolicitacao.documentosFiscais.length > 0 ? (
+                <div className="space-y-3">
+                  {selectedSolicitacao.documentosFiscais.map((doc) => (
+                    <div key={doc.id} className="p-4 border rounded-lg space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {doc.tipo === 'nota_fiscal' ? (
+                            <Receipt className="h-5 w-5 text-green-600" />
+                          ) : (
+                            <CreditCard className="h-5 w-5 text-blue-600" />
+                          )}
+                          <span className="font-medium">
+                            {doc.tipo === 'nota_fiscal' ? 'Nota Fiscal' : 'Boleto'}
+                          </span>
+                        </div>
+                        <Button size="sm" variant="outline" onClick={() => downloadDocumentoFiscal(doc)}>
+                          <Download className="h-4 w-4 mr-1" /> Baixar
+                        </Button>
+                      </div>
+                      
+                      <p className="text-sm text-muted-foreground">{doc.nome_arquivo}</p>
+                      
+                      {doc.tipo === 'nota_fiscal' && doc.data_emissao_nf && (
+                        <p className="text-sm">
+                          <span className="text-muted-foreground">Emissão:</span>{' '}
+                          {format(new Date(doc.data_emissao_nf), "dd/MM/yyyy", { locale: ptBR })}
+                        </p>
+                      )}
+                      
+                      {doc.tipo === 'boleto' && doc.data_vencimento_boleto && (
+                        <p className="text-sm">
+                          <span className="text-muted-foreground">Vencimento:</span>{' '}
+                          {format(new Date(doc.data_vencimento_boleto), "dd/MM/yyyy", { locale: ptBR })}
+                        </p>
+                      )}
+                      
+                      {doc.pagamento_antecipado && (
+                        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                          <AlertTriangle className="h-3 w-3 mr-1" />
+                          Pagamento Antecipado
+                        </Badge>
+                      )}
+                      
+                      {doc.justificativa_antecipado && (
+                        <p className="text-sm text-muted-foreground italic">
+                          Justificativa: {doc.justificativa_antecipado}
+                        </p>
+                      )}
+
+                      {doc.baixa_financeiro_em && (
+                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                          <CheckCircle className="h-3 w-3 mr-1" />
+                          Baixa em {format(new Date(doc.baixa_financeiro_em), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                        </Badge>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center text-muted-foreground py-4">
+                  Nenhum documento fiscal encontrado
+                </p>
+              )}
+
+              {/* Dar baixa section */}
+              {selectedSolicitacao.status === 'nf_boleto_enviados' && (
+                <div className="pt-4 border-t">
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Ao dar baixa, os documentos serão marcados como enviados para pagamento.
+                  </p>
+                  <Button 
+                    className="w-full" 
+                    onClick={handleDarBaixa}
+                    disabled={baixaLoading}
+                  >
+                    {baixaLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <Banknote className="h-4 w-4 mr-2" />
+                    )}
+                    Dar Baixa - Enviar para Pagamento
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </AppLayout>
