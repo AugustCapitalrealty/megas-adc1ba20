@@ -40,7 +40,7 @@ const ATTACHMENT_TYPES = {
   orcamento_concorrente_2: 'Orçamento Concorrente 2',
 } as const;
 
-type FilterTab = 'todas' | 'pendentes' | 'aprovadas' | 'reprovadas';
+type FilterTab = 'todas' | 'com_backoffice' | 'correcoes' | 'oc_emitida' | 'reprovadas' | 'concluidas';
 
 interface SolicitacaoComFornecedor extends Solicitacao {
   fornecedor?: Fornecedor | null;
@@ -187,28 +187,37 @@ export default function MinhasSolicitacoes() {
     
     // Filter by tab
     switch (activeTab) {
-      case 'pendentes':
+      case 'com_backoffice':
+        // Solicitações que estão com o backoffice (em análise ou processamento)
         filtered = filtered.filter(s => 
-          s.status === 'pendente_correcao' || s.status === 'recebido' || s.status === 'em_analise' || 
-          s.status === 'aguardando_informacoes' || s.status === 'aguardando_aceite'
+          s.status === 'recebido' || s.status === 'em_analise' || 
+          s.status === 'aprovado' || s.status === 'em_processamento'
         );
         break;
-      case 'aprovadas':
-        // Include all positive outcomes: aprovado, em_processamento, oc_ac_emitida, concluida
+      case 'correcoes':
+        // Solicitações que precisam de ação do solicitante
         filtered = filtered.filter(s => 
-          s.status === 'aprovado' || s.status === 'em_processamento' || 
-          s.status === 'oc_ac_emitida' || s.status === 'concluida'
+          s.status === 'pendente_correcao' || s.status === 'aguardando_informacoes'
         );
+        break;
+      case 'oc_emitida':
+        // OC emitida aguardando aceite
+        filtered = filtered.filter(s => s.status === 'aguardando_aceite');
         break;
       case 'reprovadas':
         filtered = filtered.filter(s => s.status === 'rejeitado');
         break;
+      case 'concluidas':
+        filtered = filtered.filter(s => s.status === 'concluida');
+        break;
     }
     
-    // Sort: pendente_correcao first, then by date
+    // Sort: pendente_correcao and aguardando_informacoes first, then by date
     filtered.sort((a, b) => {
-      if (a.status === 'pendente_correcao' && b.status !== 'pendente_correcao') return -1;
-      if (a.status !== 'pendente_correcao' && b.status === 'pendente_correcao') return 1;
+      const priorityStatuses = ['pendente_correcao', 'aguardando_informacoes', 'aguardando_aceite'];
+      const aPriority = priorityStatuses.includes(a.status) ? 0 : 1;
+      const bPriority = priorityStatuses.includes(b.status) ? 0 : 1;
+      if (aPriority !== bPriority) return aPriority - bPriority;
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
     
@@ -219,14 +228,16 @@ export default function MinhasSolicitacoes() {
   const statusCounts = useMemo(() => {
     return {
       todas: solicitacoes.length,
-      pendentes: solicitacoes.filter(s => 
-        s.status === 'pendente_correcao' || s.status === 'recebido' || s.status === 'em_analise'
+      com_backoffice: solicitacoes.filter(s => 
+        s.status === 'recebido' || s.status === 'em_analise' || 
+        s.status === 'aprovado' || s.status === 'em_processamento'
       ).length,
-      aprovadas: solicitacoes.filter(s => 
-        s.status === 'aprovado' || s.status === 'em_processamento' || 
-        s.status === 'oc_ac_emitida' || s.status === 'concluida'
+      correcoes: solicitacoes.filter(s => 
+        s.status === 'pendente_correcao' || s.status === 'aguardando_informacoes'
       ).length,
+      oc_emitida: solicitacoes.filter(s => s.status === 'aguardando_aceite').length,
       reprovadas: solicitacoes.filter(s => s.status === 'rejeitado').length,
+      concluidas: solicitacoes.filter(s => s.status === 'concluida').length,
     };
   }, [solicitacoes]);
 
@@ -564,22 +575,34 @@ export default function MinhasSolicitacoes() {
 
         {/* Filter Tabs */}
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as FilterTab)}>
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="todas" className="gap-2">
+          <TabsList className="grid w-full grid-cols-6">
+            <TabsTrigger value="todas" className="gap-1 text-xs">
               Todas
-              <Badge variant="secondary" className="ml-1">{statusCounts.todas}</Badge>
+              <Badge variant="secondary" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center">{statusCounts.todas}</Badge>
             </TabsTrigger>
-            <TabsTrigger value="pendentes" className="gap-2">
-              Em Andamento
-              <Badge variant="secondary" className="ml-1">{statusCounts.pendentes}</Badge>
+            <TabsTrigger value="com_backoffice" className="gap-1 text-xs">
+              Com Backoffice
+              <Badge variant="secondary" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center">{statusCounts.com_backoffice}</Badge>
             </TabsTrigger>
-            <TabsTrigger value="aprovadas" className="gap-2">
-              Aprovadas
-              <Badge variant="secondary" className="ml-1">{statusCounts.aprovadas}</Badge>
+            <TabsTrigger value="correcoes" className="gap-1 text-xs">
+              Correções
+              {statusCounts.correcoes > 0 && (
+                <Badge variant="destructive" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center animate-pulse">{statusCounts.correcoes}</Badge>
+              )}
             </TabsTrigger>
-            <TabsTrigger value="reprovadas" className="gap-2">
+            <TabsTrigger value="oc_emitida" className="gap-1 text-xs">
+              OC Emitida
+              {statusCounts.oc_emitida > 0 && (
+                <Badge variant="default" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center bg-success">{statusCounts.oc_emitida}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="reprovadas" className="gap-1 text-xs">
               Reprovadas
-              <Badge variant="secondary" className="ml-1">{statusCounts.reprovadas}</Badge>
+              <Badge variant="secondary" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center">{statusCounts.reprovadas}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="concluidas" className="gap-1 text-xs">
+              Concluídas
+              <Badge variant="secondary" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center">{statusCounts.concluidas}</Badge>
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -589,10 +612,12 @@ export default function MinhasSolicitacoes() {
             <CardContent className="flex flex-col items-center justify-center py-12">
               <FileText className="h-12 w-12 text-muted-foreground mb-4" />
               <p className="text-muted-foreground">
-                {activeTab === 'todas' 
-                  ? 'Você ainda não tem solicitações'
-                  : `Nenhuma solicitação ${activeTab === 'pendentes' ? 'em andamento' : activeTab}`
-                }
+                {activeTab === 'todas' && 'Você ainda não tem solicitações'}
+                {activeTab === 'com_backoffice' && 'Nenhuma solicitação com o backoffice'}
+                {activeTab === 'correcoes' && 'Nenhuma solicitação aguardando correção'}
+                {activeTab === 'oc_emitida' && 'Nenhuma OC aguardando aceite'}
+                {activeTab === 'reprovadas' && 'Nenhuma solicitação reprovada'}
+                {activeTab === 'concluidas' && 'Nenhuma solicitação concluída'}
               </p>
               {activeTab === 'todas' && (
                 <Button className="mt-4" onClick={() => navigate('/nova-solicitacao')}>
