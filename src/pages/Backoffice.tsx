@@ -80,7 +80,7 @@ export default function Backoffice() {
   const [selectedSolicitacao, setSelectedSolicitacao] = useState<SolicitacaoComDados | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [actionOpen, setActionOpen] = useState(false);
-  const [actionType, setActionType] = useState<'assumir' | 'devolver' | 'rejeitar' | 'processar' | 'concluir' | 'solicitar_info' | 'solicitar_ajuste'>('assumir');
+  const [actionType, setActionType] = useState<'assumir' | 'rejeitar' | 'processar' | 'concluir' | 'solicitar_ajuste'>('assumir');
   const [motivo, setMotivo] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<BackofficeTab>('recebidas');
@@ -366,11 +366,9 @@ export default function Backoffice() {
     
     const statusMap: Record<string, RequestStatus> = {
       'assumir': 'aprovado',
-      'devolver': 'pendente_correcao',
       'rejeitar': 'rejeitado',
       'processar': 'em_processamento',
       'concluir': 'concluida',
-      'solicitar_info': 'aguardando_informacoes',
       'solicitar_ajuste': 'aguardando_informacoes',
     };
     
@@ -515,11 +513,8 @@ export default function Backoffice() {
                 <Button size="sm" onClick={() => openAction(sol, 'assumir')}>
                   <CheckCircle className="h-4 w-4 mr-1" /> Assumir
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => openAction(sol, 'solicitar_info')}>
-                  <HelpCircle className="h-4 w-4 mr-1" /> Solicitar Info
-                </Button>
-                <Button size="sm" variant="secondary" onClick={() => openAction(sol, 'devolver')}>
-                  <RotateCcw className="h-4 w-4 mr-1" /> Devolver
+                <Button size="sm" variant="outline" onClick={() => openAction(sol, 'solicitar_ajuste')}>
+                  <HelpCircle className="h-4 w-4 mr-1" /> Solicitar Ajuste
                 </Button>
                 <Button size="sm" variant="destructive" onClick={() => openAction(sol, 'rejeitar')}>
                   <XCircle className="h-4 w-4 mr-1" /> Rejeitar
@@ -992,8 +987,8 @@ export default function Backoffice() {
                     <Button onClick={() => { setDetailsOpen(false); openAction(selectedSolicitacao, 'assumir'); }}>
                       <CheckCircle className="h-4 w-4 mr-1" /> Assumir
                     </Button>
-                    <Button variant="secondary" onClick={() => { setDetailsOpen(false); openAction(selectedSolicitacao, 'devolver'); }}>
-                      <RotateCcw className="h-4 w-4 mr-1" /> Devolver
+                    <Button variant="outline" onClick={() => { setDetailsOpen(false); openAction(selectedSolicitacao, 'solicitar_ajuste'); }}>
+                      <HelpCircle className="h-4 w-4 mr-1" /> Solicitar Ajuste
                     </Button>
                     <Button variant="destructive" onClick={() => { setDetailsOpen(false); openAction(selectedSolicitacao, 'rejeitar'); }}>
                       <XCircle className="h-4 w-4 mr-1" /> Rejeitar
@@ -1022,33 +1017,29 @@ export default function Backoffice() {
           <DialogHeader>
             <DialogTitle>
               {actionType === 'assumir' && 'Assumir Solicitação'}
-              {actionType === 'devolver' && 'Devolver para Correção'}
               {actionType === 'rejeitar' && 'Rejeitar Solicitação'}
               {actionType === 'processar' && 'Enviar para Processamento'}
               {actionType === 'concluir' && 'Concluir Solicitação'}
-              {actionType === 'solicitar_info' && 'Solicitar Informações'}
               {actionType === 'solicitar_ajuste' && 'Solicitar Ajuste'}
             </DialogTitle>
             <DialogDescription>
               {actionType === 'assumir' && 'A solicitação será assumida e seguirá para processamento.'}
-              {actionType === 'devolver' && 'Informe o motivo da devolução para que o solicitante possa corrigir.'}
               {actionType === 'rejeitar' && 'Informe o motivo da rejeição.'}
               {actionType === 'processar' && 'A solicitação será marcada como em processamento no Fluig/RM.'}
               {actionType === 'concluir' && 'A solicitação será marcada como concluída.'}
-              {actionType === 'solicitar_info' && 'Informe as informações necessárias.'}
-              {actionType === 'solicitar_ajuste' && 'Informe o ajuste ou informação necessária.'}
+              {actionType === 'solicitar_ajuste' && 'Informe o ajuste ou informação necessária ao solicitante.'}
             </DialogDescription>
           </DialogHeader>
 
-          {(actionType === 'devolver' || actionType === 'rejeitar' || actionType === 'solicitar_info' || actionType === 'solicitar_ajuste') && (
+          {(actionType === 'rejeitar' || actionType === 'solicitar_ajuste') && (
             <div className="space-y-2">
               <Label htmlFor="motivo">
-                {actionType === 'solicitar_info' || actionType === 'solicitar_ajuste' ? 'Informações solicitadas *' : 'Motivo *'}
+                {actionType === 'solicitar_ajuste' ? 'Informações solicitadas *' : 'Motivo *'}
               </Label>
               <Textarea
                 id="motivo"
-                placeholder={actionType === 'solicitar_info' || actionType === 'solicitar_ajuste'
-                  ? "Descreva as informações ou documentos necessários..." 
+                placeholder={actionType === 'solicitar_ajuste'
+                  ? "Descreva as informações ou ajustes necessários..." 
                   : "Descreva o motivo..."}
                 value={motivo}
                 onChange={(e) => setMotivo(e.target.value)}
@@ -1078,7 +1069,7 @@ export default function Backoffice() {
             </Button>
             <Button 
               onClick={handleAction}
-              disabled={actionLoading || ((actionType === 'devolver' || actionType === 'rejeitar' || actionType === 'solicitar_info' || actionType === 'solicitar_ajuste') && !motivo.trim())}
+              disabled={actionLoading || ((actionType === 'rejeitar' || actionType === 'solicitar_ajuste') && !motivo.trim())}
               variant={actionType === 'rejeitar' ? 'destructive' : 'default'}
             >
               {actionLoading ? (
