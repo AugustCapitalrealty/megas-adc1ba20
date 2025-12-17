@@ -183,6 +183,13 @@
     @apply bg-success/20 text-success font-semibold;
   }
 
+  .status-aguardando-aceite {
+    @apply bg-[hsl(280,70%,50%)]/10 text-[hsl(280,70%,50%)];
+  }
+
+  .status-aguardando-info {
+    @apply bg-warning/10 text-warning;
+  }
   .form-step {
     @apply p-6 bg-card rounded-lg border border-border shadow-sm;
   }

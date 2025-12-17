@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils';
 import type { RequestStatus } from '@/types';
 import { STATUS_LABELS } from '@/types';
-import { Clock, Eye, AlertCircle, CheckCircle, XCircle, Cog, FileCheck, CheckCheck } from 'lucide-react';
+import { Clock, Eye, AlertCircle, CheckCircle, XCircle, Cog, FileCheck, CheckCheck, Send, HelpCircle } from 'lucide-react';
 
 interface StatusBadgeProps {
   status: RequestStatus;
@@ -39,6 +39,14 @@ const statusConfig: Record<RequestStatus, {
   oc_ac_emitida: {
     className: 'status-oc-emitida',
     Icon: FileCheck,
+  },
+  aguardando_aceite: {
+    className: 'status-aguardando-aceite',
+    Icon: Send,
+  },
+  aguardando_informacoes: {
+    className: 'status-aguardando-info',
+    Icon: HelpCircle,
   },
   concluida: {
     className: 'status-concluida',

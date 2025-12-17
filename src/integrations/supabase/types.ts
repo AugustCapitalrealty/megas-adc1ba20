@@ -314,6 +314,7 @@ export type Database = {
           dias_garantia_servico: number | null
           emergencial: boolean | null
           empreendimento: Database["public"]["Enums"]["empreendimento"]
+          excecao_fornecedores: boolean | null
           faturamento_direto: boolean | null
           fornecedor_concorrente_1_id: string | null
           fornecedor_concorrente_2_id: string | null
@@ -321,9 +322,11 @@ export type Database = {
           id: string
           justificativa_fornecedores: string | null
           natureza_orcamentaria: Database["public"]["Enums"]["natureza_orcamentaria"]
+          numero_chamado_fluig: string | null
           origem_custo: Database["public"]["Enums"]["origem_custo"]
           parcelas: number | null
           protocolo: string
+          resposta_informacoes: string | null
           retencao_6_porcento: boolean | null
           status: Database["public"]["Enums"]["request_status"]
           tipo: Database["public"]["Enums"]["request_type"]
@@ -350,6 +353,7 @@ export type Database = {
           dias_garantia_servico?: number | null
           emergencial?: boolean | null
           empreendimento: Database["public"]["Enums"]["empreendimento"]
+          excecao_fornecedores?: boolean | null
           faturamento_direto?: boolean | null
           fornecedor_concorrente_1_id?: string | null
           fornecedor_concorrente_2_id?: string | null
@@ -357,9 +361,11 @@ export type Database = {
           id?: string
           justificativa_fornecedores?: string | null
           natureza_orcamentaria: Database["public"]["Enums"]["natureza_orcamentaria"]
+          numero_chamado_fluig?: string | null
           origem_custo?: Database["public"]["Enums"]["origem_custo"]
           parcelas?: number | null
           protocolo: string
+          resposta_informacoes?: string | null
           retencao_6_porcento?: boolean | null
           status?: Database["public"]["Enums"]["request_status"]
           tipo: Database["public"]["Enums"]["request_type"]
@@ -386,6 +392,7 @@ export type Database = {
           dias_garantia_servico?: number | null
           emergencial?: boolean | null
           empreendimento?: Database["public"]["Enums"]["empreendimento"]
+          excecao_fornecedores?: boolean | null
           faturamento_direto?: boolean | null
           fornecedor_concorrente_1_id?: string | null
           fornecedor_concorrente_2_id?: string | null
@@ -393,9 +400,11 @@ export type Database = {
           id?: string
           justificativa_fornecedores?: string | null
           natureza_orcamentaria?: Database["public"]["Enums"]["natureza_orcamentaria"]
+          numero_chamado_fluig?: string | null
           origem_custo?: Database["public"]["Enums"]["origem_custo"]
           parcelas?: number | null
           protocolo?: string
+          resposta_informacoes?: string | null
           retencao_6_porcento?: boolean | null
           status?: Database["public"]["Enums"]["request_status"]
           tipo?: Database["public"]["Enums"]["request_type"]
@@ -506,6 +515,8 @@ export type Database = {
         | "em_processamento"
         | "oc_ac_emitida"
         | "concluida"
+        | "aguardando_aceite"
+        | "aguardando_informacoes"
       request_type: "AC" | "OC"
       tipo_contratacao:
         | "servicos"
@@ -671,6 +682,8 @@ export const Constants = {
         "em_processamento",
         "oc_ac_emitida",
         "concluida",
+        "aguardando_aceite",
+        "aguardando_informacoes",
       ],
       request_type: ["AC", "OC"],
       tipo_contratacao: [

@@ -112,6 +112,9 @@ export default function NovaSolicitacao() {
   const [clienteId, setClienteId] = useState<string | null>(duplicateFrom?.cliente_id || null);
   const [clienteNome, setClienteNome] = useState<string>('');
 
+  // Exceção explícita para 3 fornecedores
+  const [excecaoFornecedores, setExcecaoFornecedores] = useState(false);
+
   // Justificativa para exceção de 3 fornecedores
   const [justificativaFornecedores, setJustificativaFornecedores] = useState('');
   // Load fornecedor from duplicateFrom
@@ -286,15 +289,37 @@ export default function NovaSolicitacao() {
   const handleSubmit = async () => {
     if (!user || !empreendimento || !naturezaOrcamentaria || !fornecedor) return;
 
-    // Validate 3 CNPJs if required (or justification)
-    const has3Fornecedores = fornecedorConcorrente1 && fornecedorConcorrente2;
-    if (requires3CNPJs && !has3Fornecedores && !justificativaFornecedores.trim()) {
-      toast({
-        title: 'Justificativa obrigatória',
-        description: 'Informe a justificativa para não apresentar 3 fornecedores.',
-        variant: 'destructive',
-      });
-      return;
+    // Validate FD values if enabled
+    if (faturamentoDireto) {
+      const sum = valorServicoNumerico + valorMaterialNumerico;
+      if (Math.abs(sum - valorNumerico) > 0.01) {
+        toast({
+          title: 'Valores inválidos',
+          description: 'A soma de Serviço + Material deve ser igual ao valor total.',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
+    // Validate 3 CNPJs if required
+    if (requires3CNPJs) {
+      if (excecaoFornecedores && !justificativaFornecedores.trim()) {
+        toast({
+          title: 'Justificativa obrigatória',
+          description: 'Informe a justificativa para não apresentar 3 fornecedores.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      if (!excecaoFornecedores && (!fornecedorConcorrente1 || !fornecedorConcorrente2)) {
+        toast({
+          title: 'Fornecedores obrigatórios',
+          description: 'Informe os 3 fornecedores ou selecione a opção de exceção.',
+          variant: 'destructive',
+        });
+        return;
+      }
     }
 
     // Validate required attachments
@@ -332,9 +357,10 @@ export default function NovaSolicitacao() {
         origem_custo: origemCusto,
         cliente_id: origemCusto === 'cliente' ? clienteId : null,
         fornecedor_id: fornecedor.id,
-        fornecedor_concorrente_1_id: fornecedorConcorrente1?.id || null,
-        fornecedor_concorrente_2_id: fornecedorConcorrente2?.id || null,
-        justificativa_fornecedores: requires3CNPJs && !has3Fornecedores ? justificativaFornecedores.trim() : null,
+        fornecedor_concorrente_1_id: !excecaoFornecedores ? fornecedorConcorrente1?.id || null : null,
+        fornecedor_concorrente_2_id: !excecaoFornecedores ? fornecedorConcorrente2?.id || null : null,
+        justificativa_fornecedores: requires3CNPJs && excecaoFornecedores ? justificativaFornecedores.trim() : null,
+        excecao_fornecedores: requires3CNPJs && excecaoFornecedores,
         tipo_contratacao: (tipoContratacao || null) as "servicos" | "material_construcao" | "material_consumo" | "combustivel" | "taxas" | null,
         data_inicio: dataInicio || null,
         data_fim: dataFim || null,
@@ -409,13 +435,19 @@ export default function NovaSolicitacao() {
       case 'detalhes': {
         if (!naturezaOrcamentaria) return false;
         if (origemCusto === 'cliente' && !clienteId) return false;
+        // FD validation: sum must equal total
+        if (faturamentoDireto) {
+          const sum = valorServicoNumerico + valorMaterialNumerico;
+          if (Math.abs(sum - valorNumerico) > 0.01) return false;
+        }
         return true;
       }
       case 'fornecedor': {
         if (!fornecedor) return false;
-        // Allow proceeding with justification if less than 3 suppliers
-        const has3Fornecedores = fornecedorConcorrente1 && fornecedorConcorrente2;
-        if (requires3CNPJs && !has3Fornecedores && !justificativaFornecedores.trim()) return false;
+        // If using exception, require justification
+        if (requires3CNPJs && excecaoFornecedores && !justificativaFornecedores.trim()) return false;
+        // If NOT using exception, require 3 suppliers
+        if (requires3CNPJs && !excecaoFornecedores && (!fornecedorConcorrente1 || !fornecedorConcorrente2)) return false;
         return true;
       }
       case 'anexos': {
@@ -664,7 +696,8 @@ export default function NovaSolicitacao() {
                     {faturamentoDireto && (
                       <div className="p-4 rounded-lg border bg-muted/30 space-y-4">
                         <p className="text-sm text-muted-foreground">
-                          Informe os valores separados de serviço e material:
+                          Informe os valores separados de serviço e material.
+                          <strong className="block mt-1">A soma deve ser igual ao valor total informado ({formatCurrency(valor)}).</strong>
                         </p>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
@@ -686,10 +719,24 @@ export default function NovaSolicitacao() {
                         </div>
                         <div className="flex justify-between items-center pt-2 border-t">
                           <span className="text-sm font-medium">Total (FD):</span>
-                          <span className="font-bold">
+                          <span className={cn(
+                            "font-bold",
+                            Math.abs((valorServicoNumerico + valorMaterialNumerico) - valorNumerico) > 0.01 
+                              ? "text-destructive" 
+                              : "text-success"
+                          )}>
                             {(valorServicoNumerico + valorMaterialNumerico).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                           </span>
                         </div>
+                        {Math.abs((valorServicoNumerico + valorMaterialNumerico) - valorNumerico) > 0.01 && (
+                          <Alert variant="destructive">
+                            <AlertTriangle className="h-4 w-4" />
+                            <AlertDescription>
+                              A soma de Serviço + Material deve ser exatamente igual ao valor total ({formatCurrency(valor)}).
+                              Diferença: {formatCurrency(String(Math.round(Math.abs((valorServicoNumerico + valorMaterialNumerico) - valorNumerico) * 100)))}.
+                            </AlertDescription>
+                          </Alert>
+                        )}
                       </div>
                     )}
                     <div>
@@ -751,43 +798,67 @@ export default function NovaSolicitacao() {
                 />
 
                 {requires3CNPJs && (
-                  <>
-                    <div className="p-4 rounded-lg bg-muted/30 border space-y-4">
+                  <div className="p-4 rounded-lg bg-muted/30 border space-y-4">
+                    <div className="space-y-3">
+                      <Label className="text-base font-semibold">Concorrência com 3 fornecedores?</Label>
                       <p className="text-sm text-muted-foreground">
-                        AC de serviços não emergencial requer 3 fornecedores. Caso não seja possível, informe a justificativa.
+                        AC de serviços não emergencial normalmente requer 3 fornecedores com cotações.
                       </p>
-                      <SupplierSearch
-                        label="Fornecedor Concorrente 1"
-                        required={!justificativaFornecedores.trim()}
-                        value={fornecedorConcorrente1}
-                        onChange={setFornecedorConcorrente1}
-                      />
-                      <SupplierSearch
-                        label="Fornecedor Concorrente 2"
-                        required={!justificativaFornecedores.trim()}
-                        value={fornecedorConcorrente2}
-                        onChange={setFornecedorConcorrente2}
-                      />
-                      
-                      {/* Justification for exception */}
-                      {(!fornecedorConcorrente1 || !fornecedorConcorrente2) && (
-                        <div className="pt-4 border-t">
-                          <Label htmlFor="justificativa" className="flex items-center gap-2">
-                            <AlertTriangle className="h-4 w-4 text-warning" />
-                            Justificativa para exceção (obrigatória)
-                          </Label>
-                          <Textarea
-                            id="justificativa"
-                            placeholder="Explique por que não foi possível obter 3 orçamentos de fornecedores diferentes..."
-                            value={justificativaFornecedores}
-                            onChange={(e) => setJustificativaFornecedores(e.target.value)}
-                            rows={3}
-                            className="mt-2"
-                          />
+                      <RadioGroup 
+                        value={excecaoFornecedores ? 'nao' : 'sim'} 
+                        onValueChange={(v) => {
+                          setExcecaoFornecedores(v === 'nao');
+                          if (v === 'sim') {
+                            setJustificativaFornecedores('');
+                          }
+                        }}
+                        className="flex gap-4"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="sim" id="3forn-sim" />
+                          <Label htmlFor="3forn-sim" className="cursor-pointer">Sim, tenho 3 fornecedores</Label>
                         </div>
-                      )}
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="nao" id="3forn-nao" />
+                          <Label htmlFor="3forn-nao" className="cursor-pointer">Não (exceção)</Label>
+                        </div>
+                      </RadioGroup>
                     </div>
-                  </>
+
+                    {!excecaoFornecedores && (
+                      <>
+                        <SupplierSearch
+                          label="Fornecedor Concorrente 1"
+                          required
+                          value={fornecedorConcorrente1}
+                          onChange={setFornecedorConcorrente1}
+                        />
+                        <SupplierSearch
+                          label="Fornecedor Concorrente 2"
+                          required
+                          value={fornecedorConcorrente2}
+                          onChange={setFornecedorConcorrente2}
+                        />
+                      </>
+                    )}
+                    
+                    {excecaoFornecedores && (
+                      <div className="pt-4 border-t">
+                        <Label htmlFor="justificativa" className="flex items-center gap-2">
+                          <AlertTriangle className="h-4 w-4 text-warning" />
+                          Justificativa para exceção (obrigatória)
+                        </Label>
+                        <Textarea
+                          id="justificativa"
+                          placeholder="Explique por que não foi possível obter 3 orçamentos de fornecedores diferentes..."
+                          value={justificativaFornecedores}
+                          onChange={(e) => setJustificativaFornecedores(e.target.value)}
+                          rows={3}
+                          className="mt-2"
+                        />
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             )}
