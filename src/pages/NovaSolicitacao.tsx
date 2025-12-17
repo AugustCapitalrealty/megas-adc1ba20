@@ -199,15 +199,26 @@ export default function NovaSolicitacao() {
           { tipo: 'orcamento_escolhido', label: ANEXO_LABELS.orcamento_escolhido, required: true },
         ];
       } else if (isAC && !emergencial) {
-        // AC não emergencial: todos obrigatórios
+        // AC não emergencial: base attachments
         attachments = [
           { tipo: 'chamado_preventiva', label: ANEXO_LABELS.chamado_preventiva, required: true },
           { tipo: 'escopo_detalhado', label: ANEXO_LABELS.escopo_detalhado, required: true },
-          { tipo: 'mapa_cotacao', label: ANEXO_LABELS.mapa_cotacao, required: true },
+          { tipo: 'mapa_cotacao', label: ANEXO_LABELS.mapa_cotacao, required: !excecaoFornecedores },
           { tipo: 'orcamento_escolhido', label: ANEXO_LABELS.orcamento_escolhido, required: true },
-          { tipo: 'orcamento_concorrente_1', label: ANEXO_LABELS.orcamento_concorrente_1, required: true },
-          { tipo: 'orcamento_concorrente_2', label: ANEXO_LABELS.orcamento_concorrente_2, required: true },
         ];
+        
+        // Se NÃO há justificativa de fornecedor único, exige 3 orçamentos
+        if (!excecaoFornecedores) {
+          attachments.push(
+            { tipo: 'orcamento_concorrente_1', label: ANEXO_LABELS.orcamento_concorrente_1, required: true },
+            { tipo: 'orcamento_concorrente_2', label: ANEXO_LABELS.orcamento_concorrente_2, required: true },
+          );
+        } else {
+          // Com justificativa, permite anexo de comprovação (opcional)
+          attachments.push(
+            { tipo: 'justificativa_anexo', label: 'Comprovação da Justificativa (ex: e-mail, aceite)', required: false },
+          );
+        }
       }
     }
     
