@@ -84,6 +84,7 @@ export default function Backoffice() {
   const [motivo, setMotivo] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<BackofficeTab>('recebidas');
+  const [numeroChamadoFluig, setNumeroChamadoFluig] = useState('');
 
   // Registro OC/AC Modal
   const [registroOpen, setRegistroOpen] = useState(false);
@@ -363,7 +364,7 @@ export default function Backoffice() {
     setRegistroOpen(true);
   };
 
-  const handleAction = () => {
+  const handleAction = async () => {
     if (!selectedSolicitacao) return;
     
     const statusMap: Record<string, RequestStatus> = {
@@ -375,7 +376,16 @@ export default function Backoffice() {
       'solicitar_info': 'aguardando_informacoes',
     };
     
+    // If processing, also save the Fluig number
+    if (actionType === 'processar' && numeroChamadoFluig) {
+      await supabase
+        .from('solicitacoes')
+        .update({ numero_chamado_fluig: numeroChamadoFluig })
+        .eq('id', selectedSolicitacao.id);
+    }
+    
     updateStatus(selectedSolicitacao.id, statusMap[actionType], motivo);
+    setNumeroChamadoFluig('');
   };
 
   // Filter and group solicitacoes
@@ -1018,16 +1028,35 @@ export default function Backoffice() {
             </DialogDescription>
           </DialogHeader>
 
-          {(actionType === 'devolver' || actionType === 'rejeitar') && (
+          {(actionType === 'devolver' || actionType === 'rejeitar' || actionType === 'solicitar_info') && (
             <div className="space-y-2">
-              <Label htmlFor="motivo">Motivo *</Label>
+              <Label htmlFor="motivo">
+                {actionType === 'solicitar_info' ? 'Informações solicitadas *' : 'Motivo *'}
+              </Label>
               <Textarea
                 id="motivo"
-                placeholder="Descreva o motivo..."
+                placeholder={actionType === 'solicitar_info' 
+                  ? "Descreva as informações ou documentos necessários..." 
+                  : "Descreva o motivo..."}
                 value={motivo}
                 onChange={(e) => setMotivo(e.target.value)}
                 rows={4}
               />
+            </div>
+          )}
+
+          {actionType === 'processar' && (
+            <div className="space-y-2">
+              <Label htmlFor="fluig">Número do Chamado Fluig (opcional)</Label>
+              <Input
+                id="fluig"
+                placeholder="Ex: CHM-2024-001234"
+                value={numeroChamadoFluig}
+                onChange={(e) => setNumeroChamadoFluig(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Registre o número do chamado aberto no Fluig/RM para rastreabilidade.
+              </p>
             </div>
           )}
 
@@ -1037,7 +1066,7 @@ export default function Backoffice() {
             </Button>
             <Button 
               onClick={handleAction}
-              disabled={actionLoading || ((actionType === 'devolver' || actionType === 'rejeitar') && !motivo.trim())}
+              disabled={actionLoading || ((actionType === 'devolver' || actionType === 'rejeitar' || actionType === 'solicitar_info') && !motivo.trim())}
               variant={actionType === 'rejeitar' ? 'destructive' : 'default'}
             >
               {actionLoading ? (
