@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SolicitacaoTimeline } from '@/components/SolicitacaoTimeline';
@@ -1299,16 +1300,36 @@ export default function Backoffice() {
           )}
 
           {actionType === 'processar' && (
-            <div className="space-y-2">
-              <Label htmlFor="fluig">Número do Chamado Fluig (opcional)</Label>
-              <Input
-                id="fluig"
-                placeholder="Ex: CHM-2024-001234"
-                value={numeroChamadoFluig}
-                onChange={(e) => setNumeroChamadoFluig(e.target.value)}
-              />
+            <div className="space-y-3">
+              <Label>Número do Chamado Fluig / RM (opcional)</Label>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="rm-flag"
+                    checked={numeroChamadoFluig === 'RM'}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setNumeroChamadoFluig('RM');
+                      } else {
+                        setNumeroChamadoFluig('');
+                      }
+                    }}
+                  />
+                  <Label htmlFor="rm-flag" className="cursor-pointer text-sm font-medium">
+                    RM (sem Fluig)
+                  </Label>
+                </div>
+              </div>
+              {numeroChamadoFluig !== 'RM' && (
+                <Input
+                  id="fluig"
+                  placeholder="Ex: CHM-2024-001234"
+                  value={numeroChamadoFluig}
+                  onChange={(e) => setNumeroChamadoFluig(e.target.value)}
+                />
+              )}
               <p className="text-xs text-muted-foreground">
-                Registre o número do chamado aberto no Fluig/RM para rastreabilidade.
+                Marque "RM" se não houver chamado Fluig, ou informe o número para rastreabilidade.
               </p>
             </div>
           )}
