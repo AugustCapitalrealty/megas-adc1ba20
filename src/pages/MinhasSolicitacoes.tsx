@@ -925,7 +925,12 @@ export default function MinhasSolicitacoes() {
                             Emergencial
                           </span>
                         )}
-                        {sol.numero_chamado_fluig && (
+                        {sol.numero_chamado_fluig && sol.numero_chamado_fluig === 'RM' && (
+                          <Badge variant="outline" className="text-xs bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800">
+                            RM
+                          </Badge>
+                        )}
+                        {sol.numero_chamado_fluig && sol.numero_chamado_fluig !== 'RM' && (
                           <Badge variant="outline" className="text-xs bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800">
                             Fluig: {sol.numero_chamado_fluig}
                           </Badge>
