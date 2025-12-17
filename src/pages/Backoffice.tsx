@@ -52,7 +52,10 @@ import {
   Upload,
   HelpCircle,
   UserCheck,
-  Filter
+  Filter,
+  ChevronDown,
+  ChevronUp,
+  History
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -101,6 +104,9 @@ export default function Backoffice() {
 
   // Download ZIP
   const [downloadingZip, setDownloadingZip] = useState(false);
+  
+  // Expanded card for history
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSolicitacoes();
@@ -566,7 +572,7 @@ export default function Backoffice() {
             )}
           </div>
 
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap items-center">
             <Button size="sm" variant="outline" onClick={() => openDetails(sol)}>
               <Eye className="h-4 w-4 mr-1" /> Ver Detalhes
             </Button>
@@ -615,7 +621,34 @@ export default function Backoffice() {
                 <CheckCheck className="h-4 w-4 mr-1" /> Concluir
               </Button>
             )}
+            
+            {/* Expand/Collapse button for history */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setExpandedId(expandedId === sol.id ? null : sol.id)}
+              className="ml-auto"
+            >
+              <History className="h-4 w-4 mr-1" />
+              Histórico
+              {expandedId === sol.id ? (
+                <ChevronUp className="h-4 w-4 ml-1" />
+              ) : (
+                <ChevronDown className="h-4 w-4 ml-1" />
+              )}
+            </Button>
           </div>
+          
+          {/* Expanded History Timeline */}
+          {expandedId === sol.id && (
+            <div className="mt-4 pt-4 border-t">
+              <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
+                <History className="h-4 w-4 text-muted-foreground" />
+                Histórico da Solicitação
+              </h4>
+              <SolicitacaoTimeline solicitacaoId={sol.id} />
+            </div>
+          )}
         </CardContent>
       </Card>
     );

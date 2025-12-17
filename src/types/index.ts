@@ -163,11 +163,11 @@ export const NATUREZA_ORCAMENTARIA_LABELS: Record<NaturezaOrcamentaria, string> 
 };
 
 export const TIPO_CONTRATACAO_LABELS: Record<TipoContratacao, string> = {
-  servicos: 'Prestação de Serviços',
-  material_construcao: 'Material de Construção',
-  material_consumo: 'Material de Consumo',
-  combustivel: 'Combustível',
-  taxas: 'Taxas e Tributos',
+  servicos: 'Serviços / Produto (AC)',
+  material_construcao: 'Material de Construção (OC)',
+  material_consumo: 'Material de Consumo (OC)',
+  combustivel: 'Combustível (OC)',
+  taxas: 'Taxas e Tributos (OC)',
 };
 
 export const STATUS_LABELS: Record<RequestStatus, string> = {

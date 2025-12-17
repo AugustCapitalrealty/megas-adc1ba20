@@ -37,7 +37,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 
 type Step = 'empreendimento' | 'descricao' | 'tipo' | 'detalhes' | 'fornecedor' | 'anexos' | 'revisao';
 
-// Naturezas orçamentárias isentas de Chamado/Preventiva
+// Naturezas orçamentárias isentas de Chamado/Preventiva (para AC)
 const NATUREZAS_ISENTAS_ANEXOS: NaturezaOrcamentaria[] = [
   'agua',
   'energia_eletrica', 
@@ -46,11 +46,16 @@ const NATUREZAS_ISENTAS_ANEXOS: NaturezaOrcamentaria[] = [
   'material_consumo',
 ];
 
-// Tipos de contratação isentos de Chamado/Preventiva
-const TIPOS_CONTRATACAO_ISENTOS: TipoContratacao[] = [
-  'combustivel',
-  'material_construcao',
-];
+// Naturezas de Água e Energia (só rateio para OC)
+const NATUREZAS_AGUA_ENERGIA: NaturezaOrcamentaria[] = ['agua', 'energia_eletrica'];
+
+// Mapeamento de tipo_contratacao para natureza_orcamentaria (OC)
+const TIPO_TO_NATUREZA: Record<string, NaturezaOrcamentaria> = {
+  material_construcao: 'manutencao_imoveis',
+  material_consumo: 'material_consumo',
+  combustivel: 'servicos_diversos',
+  taxas: 'taxa_impostos',
+};
 
 interface DuplicateData {
   tipo?: string;
@@ -117,6 +122,9 @@ export default function NovaSolicitacao() {
 
   // Justificativa para exceção de 3 fornecedores
   const [justificativaFornecedores, setJustificativaFornecedores] = useState('');
+  
+  // Checkbox para Chamado Infraspeak (OC)
+  const [temChamadoInfraspeak, setTemChamadoInfraspeak] = useState(false);
   // Load fornecedor from duplicateFrom
   useEffect(() => {
     if (duplicateFrom?.fornecedor_id) {
@@ -174,51 +182,75 @@ export default function NovaSolicitacao() {
   const isOC = valorNumerico <= 1000 || (valorNumerico > 1000 && tipoContratacao !== 'servicos');
   const isAC = valorNumerico > 1000 && tipoContratacao === 'servicos';
   
+  // Auto-set natureza_orcamentaria for OC types
+  useEffect(() => {
+    if (isOC && tipoContratacao && tipoContratacao !== 'servicos') {
+      const autoNatureza = TIPO_TO_NATUREZA[tipoContratacao];
+      if (autoNatureza) {
+        setNaturezaOrcamentaria(autoNatureza);
+      }
+    }
+  }, [tipoContratacao, isOC]);
+  
   // Emergency checkbox should only appear for AC services (>= 1001)
   const showEmergencial = isAC;
   
   // Determine required attachments based on type
   const getRequiredAttachments = () => {
-    // Naturezas/tipos isentos de Chamado/Preventiva
     const isNaturezaIsenta = naturezaOrcamentaria && NATUREZAS_ISENTAS_ANEXOS.includes(naturezaOrcamentaria);
-    const isTipoContratacaoIsento = tipoContratacao && TIPOS_CONTRATACAO_ISENTOS.includes(tipoContratacao);
-    const isIsento = isNaturezaIsenta || isTipoContratacaoIsento;
+    const isAguaEnergia = naturezaOrcamentaria && NATUREZAS_AGUA_ENERGIA.includes(naturezaOrcamentaria);
     let attachments: { tipo: string; label: string; required: boolean }[] = [];
     
-    if (!isIsento) {
-      if (isOC) {
-        // OC <= R$ 1.000: Chamado OU Preventiva + Orçamento escolhido
+    if (isOC) {
+      // OC - Água e Energia: apenas rateio opcional
+      if (isAguaEnergia) {
         attachments = [
-          { tipo: 'chamado_preventiva', label: ANEXO_LABELS.chamado_preventiva, required: true },
-          { tipo: 'orcamento_escolhido', label: ANEXO_LABELS.orcamento_escolhido, required: true },
+          { tipo: 'rateio', label: ANEXO_LABELS.rateio, required: false },
         ];
-      } else if (isAC && emergencial) {
-        // AC Emergencial: Chamado + 1 cotação
+      } else {
+        // OC - Demais naturezas: Proposta obrigatória + Chamado opcional
         attachments = [
-          { tipo: 'chamado_preventiva', label: ANEXO_LABELS.chamado_preventiva, required: true },
-          { tipo: 'orcamento_escolhido', label: ANEXO_LABELS.orcamento_escolhido, required: true },
+          { tipo: 'orcamento_escolhido', label: 'Proposta do Fornecedor (PDF)', required: true },
         ];
-      } else if (isAC && !emergencial) {
-        // AC não emergencial: base attachments
-        attachments = [
-          { tipo: 'chamado_preventiva', label: ANEXO_LABELS.chamado_preventiva, required: true },
-          { tipo: 'escopo_detalhado', label: ANEXO_LABELS.escopo_detalhado, required: true },
-          { tipo: 'mapa_cotacao', label: ANEXO_LABELS.mapa_cotacao, required: !excecaoFornecedores },
-          { tipo: 'orcamento_escolhido', label: ANEXO_LABELS.orcamento_escolhido, required: true },
-        ];
-        
-        // Se NÃO há justificativa de fornecedor único, exige 3 orçamentos
-        if (!excecaoFornecedores) {
-          attachments.push(
-            { tipo: 'orcamento_concorrente_1', label: ANEXO_LABELS.orcamento_concorrente_1, required: true },
-            { tipo: 'orcamento_concorrente_2', label: ANEXO_LABELS.orcamento_concorrente_2, required: true },
-          );
-        } else {
-          // Com justificativa, permite anexo de comprovação (opcional)
-          attachments.push(
-            { tipo: 'justificativa_anexo', label: 'Comprovação da Justificativa (ex: e-mail, aceite)', required: false },
-          );
+        if (temChamadoInfraspeak) {
+          attachments.push({ tipo: 'chamado_preventiva', label: 'Chamado Infraspeak', required: false });
         }
+      }
+    } else if (isAC) {
+      if (!isNaturezaIsenta) {
+        if (emergencial) {
+          // AC Emergencial: Chamado + 1 cotação
+          attachments = [
+            { tipo: 'chamado_preventiva', label: ANEXO_LABELS.chamado_preventiva, required: true },
+            { tipo: 'orcamento_escolhido', label: ANEXO_LABELS.orcamento_escolhido, required: true },
+          ];
+        } else {
+          // AC não emergencial: base attachments
+          attachments = [
+            { tipo: 'chamado_preventiva', label: ANEXO_LABELS.chamado_preventiva, required: true },
+            { tipo: 'escopo_detalhado', label: ANEXO_LABELS.escopo_detalhado, required: true },
+            { tipo: 'mapa_cotacao', label: ANEXO_LABELS.mapa_cotacao, required: !excecaoFornecedores },
+            { tipo: 'orcamento_escolhido', label: ANEXO_LABELS.orcamento_escolhido, required: true },
+          ];
+          
+          // Se NÃO há justificativa de fornecedor único, exige 3 orçamentos
+          if (!excecaoFornecedores) {
+            attachments.push(
+              { tipo: 'orcamento_concorrente_1', label: ANEXO_LABELS.orcamento_concorrente_1, required: true },
+              { tipo: 'orcamento_concorrente_2', label: ANEXO_LABELS.orcamento_concorrente_2, required: true },
+            );
+          } else {
+            // Com justificativa, permite anexo de comprovação (opcional)
+            attachments.push(
+              { tipo: 'justificativa_anexo', label: 'Comprovação da Justificativa (ex: e-mail, aceite)', required: false },
+            );
+          }
+        }
+      }
+      
+      // Rateio opcional para naturezas Água ou Energia (AC)
+      if (isAguaEnergia) {
+        attachments.push({ tipo: 'rateio', label: ANEXO_LABELS.rateio, required: false });
       }
     }
     
@@ -227,18 +259,12 @@ export default function NovaSolicitacao() {
       attachments.push({ tipo: 'comunicado_cliente', label: ANEXO_LABELS.comunicado_cliente, required: true });
     }
     
-    // Rateio opcional para naturezas Água ou Energia
-    if (naturezaOrcamentaria === 'agua' || naturezaOrcamentaria === 'energia_eletrica') {
-      attachments.push({ tipo: 'rateio', label: ANEXO_LABELS.rateio, required: false });
-    }
-    
     return attachments;
   };
 
   // Check if 3 CNPJs are required (AC services non-emergency, except for isentos)
   const isNaturezaIsenta = naturezaOrcamentaria && NATUREZAS_ISENTAS_ANEXOS.includes(naturezaOrcamentaria);
-  const isTipoContratacaoIsento = tipoContratacao && TIPOS_CONTRATACAO_ISENTOS.includes(tipoContratacao);
-  const requires3CNPJs = isAC && !emergencial && !isNaturezaIsenta && !isTipoContratacaoIsento;
+  const requires3CNPJs = isAC && !emergencial && !isNaturezaIsenta;
 
   const formatCurrency = (value: string) => {
     const digits = value.replace(/\D/g, '');
@@ -611,17 +637,28 @@ export default function NovaSolicitacao() {
 
             {currentStep === 'detalhes' && (
               <div className="space-y-4">
-                <div>
-                  <Label>Natureza Orçamentária</Label>
-                  <Select value={naturezaOrcamentaria} onValueChange={(v) => setNaturezaOrcamentaria(v as NaturezaOrcamentaria)}>
-                    <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(NATUREZA_ORCAMENTARIA_LABELS).map(([value, label]) => (
-                        <SelectItem key={value} value={value}>{label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {/* Natureza Orçamentária - Show for AC OR for OC <= 1000 (no tipo_contratacao) */}
+                {(isAC || (isOC && !tipoContratacao)) && (
+                  <div>
+                    <Label>Natureza Orçamentária</Label>
+                    <Select value={naturezaOrcamentaria} onValueChange={(v) => setNaturezaOrcamentaria(v as NaturezaOrcamentaria)}>
+                      <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(NATUREZA_ORCAMENTARIA_LABELS).map(([value, label]) => (
+                          <SelectItem key={value} value={value}>{label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                
+                {/* For OC > 1000 with tipo_contratacao, show the auto-assigned natureza */}
+                {isOC && tipoContratacao && naturezaOrcamentaria && (
+                  <div className="p-3 bg-muted/30 rounded-lg">
+                    <Label className="text-muted-foreground text-sm">Natureza Orçamentária (automática)</Label>
+                    <p className="font-medium">{NATUREZA_ORCAMENTARIA_LABELS[naturezaOrcamentaria]}</p>
+                  </div>
+                )}
                 <div>
                   <Label>Origem do Custo</Label>
                   <Select 
@@ -876,18 +913,65 @@ export default function NovaSolicitacao() {
 
             {currentStep === 'anexos' && (
               <div className="space-y-4">
-                {isNaturezaIsenta ? (
+                {/* OC - Água/Energia info */}
+                {isOC && (naturezaOrcamentaria === 'agua' || naturezaOrcamentaria === 'energia_eletrica') && (
+                  <Alert>
+                    <FileText className="h-4 w-4" />
+                    <AlertDescription>
+                      <strong>Água/Energia:</strong> Você pode anexar a planilha de rateio (opcional).
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
+                {/* OC - Demais naturezas */}
+                {isOC && !(naturezaOrcamentaria === 'agua' || naturezaOrcamentaria === 'energia_eletrica') && (
+                  <>
+                    <Alert>
+                      <FileText className="h-4 w-4" />
+                      <AlertDescription>
+                        <strong>Proposta do Fornecedor:</strong> Anexe a proposta do fornecedor em PDF (obrigatório).
+                      </AlertDescription>
+                    </Alert>
+                    
+                    <div className="flex items-center space-x-2 p-3 rounded-lg border">
+                      <Checkbox
+                        id="temChamado"
+                        checked={temChamadoInfraspeak}
+                        onCheckedChange={(checked) => setTemChamadoInfraspeak(!!checked)}
+                      />
+                      <Label htmlFor="temChamado" className="cursor-pointer">
+                        Existe chamado Infraspeak?
+                      </Label>
+                    </div>
+                  </>
+                )}
+                
+                {/* AC info */}
+                {isAC && isNaturezaIsenta && (
                   <Alert>
                     <Check className="h-4 w-4 text-success" />
                     <AlertDescription>
                       <strong>Natureza orçamentária isenta:</strong> Esta natureza ({naturezaOrcamentaria && NATUREZA_ORCAMENTARIA_LABELS[naturezaOrcamentaria]}) não requer anexos obrigatórios de cotação.
                     </AlertDescription>
                   </Alert>
-                ) : (
+                )}
+                
+                {isAC && !isNaturezaIsenta && (
                   <p className="text-sm text-muted-foreground">
                     Anexe os documentos obrigatórios em formato PDF (máx. 100MB cada)
                   </p>
                 )}
+                
+                {/* AC - Água/Energia rateio */}
+                {isAC && (naturezaOrcamentaria === 'agua' || naturezaOrcamentaria === 'energia_eletrica') && (
+                  <Alert>
+                    <FileText className="h-4 w-4" />
+                    <AlertDescription>
+                      <strong>Rateio:</strong> Para solicitações de Água ou Energia, você pode anexar a planilha de rateio (opcional).
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
                 {origemCusto === 'cliente' && (
                   <Alert className="bg-warning/10 border-warning">
                     <AlertTriangle className="h-4 w-4 text-warning" />
@@ -896,14 +980,7 @@ export default function NovaSolicitacao() {
                     </AlertDescription>
                   </Alert>
                 )}
-                {(naturezaOrcamentaria === 'agua' || naturezaOrcamentaria === 'energia_eletrica') && (
-                  <Alert>
-                    <FileText className="h-4 w-4" />
-                    <AlertDescription>
-                      <strong>Rateio:</strong> Para solicitações de Água ou Energia, você pode anexar a planilha de rateio (opcional).
-                    </AlertDescription>
-                  </Alert>
-                )}
+                
                 <MultiFileUpload
                   requirements={getRequiredAttachments()}
                   files={anexos}
