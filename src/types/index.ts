@@ -145,21 +145,21 @@ export const EMPREENDIMENTO_LABELS: Record<Empreendimento, string> = {
 
 export const NATUREZA_ORCAMENTARIA_LABELS: Record<NaturezaOrcamentaria, string> = {
   materiais_informatica: 'Materiais de Informática',
-  assistencia_informatica: 'Assistência Técnica de Informática',
+  assistencia_informatica: 'Assistência Informática',
   servicos_diversos: 'Serviços Diversos',
   seguranca_vigilancia: 'Segurança e Vigilância',
   limpeza_conservacao: 'Limpeza e Conservação',
   material_expediente: 'Material de Expediente',
   material_consumo: 'Material de Consumo',
-  telefone: 'Telefonia e Comunicação',
-  propaganda_publicidade: 'Marketing e Publicidade',
+  telefone: 'Telefone',
+  propaganda_publicidade: 'Propaganda e Publicidade',
   energia_eletrica: 'Energia Elétrica',
-  agua: 'Água e Esgoto',
-  taxa_impostos: 'Taxas e Impostos',
-  manutencao_imoveis: 'Manutenção Predial',
-  manutencao_maquinas_equipamentos: 'Manutenção de Equipamentos',
+  agua: 'Água',
+  taxa_impostos: 'Taxa/Impostos',
+  manutencao_imoveis: 'Manutenção de Imóveis',
+  manutencao_maquinas_equipamentos: 'Manutenção de Máquinas e Equipamentos',
   despesas_pessoal: 'Despesas com Pessoal',
-  despesas_administrador: 'Despesas Administrativas',
+  despesas_administrador: 'Despesas com Administrador',
 };
 
 export const TIPO_CONTRATACAO_LABELS: Record<TipoContratacao, string> = {
