@@ -956,9 +956,9 @@ export default function MinhasSolicitacoes() {
               </div>
 
               <div className="space-y-2">
-                <Label>Precisa de algum ajuste?</Label>
+                <Label>Precisa de algum ajuste? (obrigatório para solicitar ajuste)</Label>
                 <Textarea
-                  placeholder="Se precisar de algum ajuste, descreva aqui. Caso contrário, deixe em branco e aceite a OC."
+                  placeholder="Descreva o ajuste necessário..."
                   value={aceiteAjuste}
                   onChange={(e) => setAceiteAjuste(e.target.value)}
                   rows={3}
@@ -967,33 +967,30 @@ export default function MinhasSolicitacoes() {
             </div>
           )}
 
-          <DialogFooter className="flex gap-2">
+          <DialogFooter className="flex flex-col sm:flex-row gap-2">
             <Button variant="outline" onClick={() => setAceiteOpen(false)} disabled={aceiteLoading}>
               Cancelar
             </Button>
-            {aceiteAjuste.trim() ? (
-              <Button 
-                variant="secondary"
-                onClick={handleSolicitarAjuste} 
-                disabled={aceiteLoading}
-              >
-                {aceiteLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <RotateCcw className="h-4 w-4 mr-2" />
-                )}
-                Solicitar Ajuste
-              </Button>
-            ) : (
-              <Button onClick={handleAceitarOC} disabled={aceiteLoading}>
-                {aceiteLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                )}
-                Aceitar OC
-              </Button>
-            )}
+            <Button 
+              variant="secondary"
+              onClick={handleSolicitarAjuste} 
+              disabled={aceiteLoading || !aceiteAjuste.trim()}
+            >
+              {aceiteLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <RotateCcw className="h-4 w-4 mr-2" />
+              )}
+              Solicitar Ajuste
+            </Button>
+            <Button onClick={handleAceitarOC} disabled={aceiteLoading}>
+              {aceiteLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <CheckCircle className="h-4 w-4 mr-2" />
+              )}
+              Aceitar OC
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
