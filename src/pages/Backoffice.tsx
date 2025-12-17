@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SolicitacaoTimeline } from '@/components/SolicitacaoTimeline';
 import { supabase } from '@/integrations/supabase/client';
 import { 
   EMPREENDIMENTO_LABELS, 
@@ -49,7 +50,9 @@ import {
   Cog,
   CheckCheck,
   Upload,
-  HelpCircle
+  HelpCircle,
+  UserCheck,
+  Filter
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -66,6 +69,8 @@ interface SolicitacaoComDados extends Solicitacao {
   anexos?: Anexo[];
   documentoEmitido?: DocumentoEmitido | null;
   dataAprovacao?: string | null;
+  responsavelId?: string | null;
+  responsavelNome?: string | null;
 }
 
 type BackofficeTab = 'recebidas' | 'pendentes' | 'em_processamento' | 'oc_emitidas' | 'concluidas' | 'rejeitadas';
@@ -85,6 +90,7 @@ export default function Backoffice() {
   const [actionLoading, setActionLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<BackofficeTab>('recebidas');
   const [numeroChamadoFluig, setNumeroChamadoFluig] = useState('');
+  const [showOnlyMine, setShowOnlyMine] = useState(false);
 
   // Registro OC Modal
   const [registroOpen, setRegistroOpen] = useState(false);
@@ -156,18 +162,36 @@ export default function Backoffice() {
             .maybeSingle();
           documentoEmitido = docData as DocumentoEmitido | null;
 
-          // Fetch data de aprovação do histórico
+          // Fetch data de aprovação e responsável do histórico
           const { data: histData } = await supabase
             .from('historico_solicitacoes')
-            .select('created_at')
+            .select('created_at, user_id')
             .eq('solicitacao_id', sol.id)
             .eq('status_novo', 'aprovado')
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle();
-          if (histData) dataAprovacao = histData.created_at;
+          
+          let responsavelId = null;
+          let responsavelNome = null;
+          
+          if (histData) {
+            dataAprovacao = histData.created_at;
+            responsavelId = histData.user_id;
+            
+            // Fetch responsavel name
+            const { data: respProfile } = await supabase
+              .from('profiles')
+              .select('full_name, email')
+              .eq('id', histData.user_id)
+              .maybeSingle();
+            
+            if (respProfile) {
+              responsavelNome = respProfile.full_name || respProfile.email;
+            }
+          }
 
-          return { ...sol, fornecedor, solicitante, clienteData, anexos, documentoEmitido, dataAprovacao } as SolicitacaoComDados;
+          return { ...sol, fornecedor, solicitante, clienteData, anexos, documentoEmitido, dataAprovacao, responsavelId, responsavelNome } as SolicitacaoComDados;
         })
       );
       setSolicitacoes(enrichedData);
@@ -395,9 +419,19 @@ export default function Backoffice() {
     const matchesEmpreendimento = 
       selectedEmpreendimento === 'todos' || 
       sol.empreendimento === selectedEmpreendimento;
+
+    const matchesMineFilter = !showOnlyMine || sol.responsavelId === user?.id;
     
-    return matchesSearch && matchesEmpreendimento;
+    return matchesSearch && matchesEmpreendimento && matchesMineFilter;
   });
+
+  // Count my responsibilities
+  const myResponsibilityCount = useMemo(() => 
+    solicitacoes.filter(s => 
+      s.responsavelId === user?.id && 
+      !['concluida', 'rejeitado'].includes(s.status)
+    ).length
+  , [solicitacoes, user?.id]);
 
   // Group by tab - reordered as requested
   const groupedSolicitacoes = useMemo(() => ({
@@ -426,12 +460,36 @@ export default function Backoffice() {
   const SolicitacaoCard = ({ sol }: { sol: SolicitacaoComDados }) => {
     const sla = getSLAInfo(sol);
     const isAtrasado = sla.atrasadoAnalise || sla.atrasadoEmissao;
+    const isMyResponsibility = sol.responsavelId === user?.id;
+    const hasFlugNumber = !!sol.numero_chamado_fluig;
+    const awaitingOC = (sol.status === 'aprovado' || sol.status === 'em_processamento') && hasFlugNumber;
 
     return (
       <Card className={cn(
         'hover:shadow-md transition-shadow',
-        isAtrasado && 'border-destructive border-2'
+        isAtrasado && 'border-destructive border-2',
+        isMyResponsibility && !isAtrasado && 'border-primary border-2 bg-primary/5'
       )}>
+        {/* My Responsibility Banner */}
+        {isMyResponsibility && (
+          <div className="bg-primary/10 border-b border-primary/20 px-4 py-1.5 flex items-center gap-2">
+            <UserCheck className="h-4 w-4 text-primary" />
+            <span className="text-xs font-medium text-primary">MINHA RESPONSABILIDADE</span>
+            {sol.responsavelNome && (
+              <span className="text-xs text-muted-foreground">• Assumido por você</span>
+            )}
+          </div>
+        )}
+        
+        {/* Awaiting OC Banner */}
+        {awaitingOC && (
+          <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-1.5 flex items-center gap-2">
+            <Cog className="h-4 w-4 text-amber-600 animate-spin" />
+            <span className="text-xs font-medium text-amber-700 dark:text-amber-400">AGUARDANDO EMISSÃO DE OC</span>
+            <Badge variant="outline" className="text-xs">Fluig: {sol.numero_chamado_fluig}</Badge>
+          </div>
+        )}
+        
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 flex-wrap">
@@ -440,6 +498,12 @@ export default function Backoffice() {
               </Badge>
               <CardTitle className="text-lg">#{sol.protocolo}</CardTitle>
               <StatusBadge status={sol.status} />
+              {sol.responsavelNome && !isMyResponsibility && (
+                <Badge variant="outline" className="text-xs">
+                  <User className="h-3 w-3 mr-1" />
+                  {sol.responsavelNome}
+                </Badge>
+              )}
             </div>
             {isAtrasado && (
               <Badge variant="destructive" className="animate-pulse">
@@ -686,6 +750,14 @@ export default function Backoffice() {
                   <SelectItem value="mega_esteio">Mega Esteio</SelectItem>
                 </SelectContent>
               </Select>
+              <Button 
+                variant={showOnlyMine ? "default" : "outline"} 
+                onClick={() => setShowOnlyMine(!showOnlyMine)}
+                className="w-full md:w-auto"
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                Minhas ({myResponsibilityCount})
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -969,6 +1041,16 @@ export default function Backoffice() {
                     </Badge>
                   )}
                 </div>
+
+                {/* Histórico / Timeline */}
+                <div>
+                  <h4 className="font-semibold mb-3 flex items-center gap-2">
+                    <Clock className="h-4 w-4" /> Histórico
+                  </h4>
+                  <SolicitacaoTimeline solicitacaoId={selectedSolicitacao.id} />
+                </div>
+
+                <Separator />
 
                 {/* Datas */}
                 <div className="text-sm text-muted-foreground">
