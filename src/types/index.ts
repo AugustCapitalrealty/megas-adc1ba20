@@ -225,7 +225,7 @@ export const ANEXO_LABELS: Record<string, string> = {
   orcamento_escolhido: 'Proposta do Fornecedor Selecionado',
   orcamento_concorrente_1: 'Proposta Concorrente 1',
   orcamento_concorrente_2: 'Proposta Concorrente 2',
-  comunicado_cliente: 'Aprovação do Cliente',
+  comunicado_cliente: 'Comunicado ao Cliente',
   rateio: 'Planilha de Rateio',
 };
 
