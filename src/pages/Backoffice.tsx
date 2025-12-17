@@ -80,15 +80,14 @@ export default function Backoffice() {
   const [selectedSolicitacao, setSelectedSolicitacao] = useState<SolicitacaoComDados | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [actionOpen, setActionOpen] = useState(false);
-  const [actionType, setActionType] = useState<'assumir' | 'devolver' | 'rejeitar' | 'processar' | 'concluir' | 'solicitar_info'>('assumir');
+  const [actionType, setActionType] = useState<'assumir' | 'devolver' | 'rejeitar' | 'processar' | 'concluir' | 'solicitar_info' | 'solicitar_ajuste'>('assumir');
   const [motivo, setMotivo] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<BackofficeTab>('recebidas');
   const [numeroChamadoFluig, setNumeroChamadoFluig] = useState('');
 
-  // Registro OC/AC Modal
+  // Registro OC Modal
   const [registroOpen, setRegistroOpen] = useState(false);
-  const [tipoDocumento, setTipoDocumento] = useState<'OC' | 'AC'>('OC');
   const [numeroDocumento, setNumeroDocumento] = useState('');
   const [observacao, setObservacao] = useState('');
   const [documentoFile, setDocumentoFile] = useState<File | null>(null);
@@ -229,7 +228,7 @@ export default function Backoffice() {
     try {
       // Upload document
       const fileExt = documentoFile.name.split('.').pop();
-      const filePath = `${selectedSolicitacao.id}/${tipoDocumento}_${numeroDocumento}_${Date.now()}.${fileExt}`;
+      const filePath = `${selectedSolicitacao.id}/OC_${numeroDocumento}_${Date.now()}.${fileExt}`;
       
       const { error: uploadError } = await supabase.storage
         .from('documentos-emitidos')
@@ -242,7 +241,7 @@ export default function Backoffice() {
         .from('documentos_emitidos')
         .insert({
           solicitacao_id: selectedSolicitacao.id,
-          tipo_documento: tipoDocumento,
+          tipo_documento: 'OC',
           numero_documento: numeroDocumento,
           storage_path: filePath,
           nome_arquivo: documentoFile.name,
@@ -269,7 +268,7 @@ export default function Backoffice() {
       });
 
       toast({
-        title: `${tipoDocumento} Registrada!`,
+        title: 'OC Registrada!',
         description: `Número: ${numeroDocumento}`,
       });
 
@@ -280,7 +279,7 @@ export default function Backoffice() {
       setDocumentoFile(null);
       fetchSolicitacoes();
     } catch (error) {
-      console.error('Error registering OC/AC:', error);
+      console.error('Error registering OC:', error);
       toast({
         variant: 'destructive',
         title: 'Erro ao registrar',
@@ -344,7 +343,6 @@ export default function Backoffice() {
 
   const openDetails = (sol: SolicitacaoComDados) => {
     setSelectedSolicitacao(sol);
-    setTipoDocumento(sol.tipo as 'OC' | 'AC');
     setDetailsOpen(true);
   };
 
@@ -357,7 +355,6 @@ export default function Backoffice() {
 
   const openRegistro = (sol: SolicitacaoComDados) => {
     setSelectedSolicitacao(sol);
-    setTipoDocumento(sol.tipo as 'OC' | 'AC');
     setNumeroDocumento('');
     setObservacao('');
     setDocumentoFile(null);
@@ -374,6 +371,7 @@ export default function Backoffice() {
       'processar': 'em_processamento',
       'concluir': 'concluida',
       'solicitar_info': 'aguardando_informacoes',
+      'solicitar_ajuste': 'aguardando_informacoes',
     };
     
     // If processing, also save the Fluig number
@@ -537,8 +535,20 @@ export default function Backoffice() {
             
             {(sol.status === 'aprovado' || sol.status === 'em_processamento') && (
               <Button size="sm" variant="default" onClick={() => openRegistro(sol)}>
-                <FileCheck className="h-4 w-4 mr-1" /> Registrar {sol.tipo}
+                <FileCheck className="h-4 w-4 mr-1" /> Registrar OC
               </Button>
+            )}
+
+            {/* Ações adicionais para Em Processamento */}
+            {sol.status === 'em_processamento' && (
+              <>
+                <Button size="sm" variant="outline" onClick={() => openAction(sol, 'solicitar_ajuste')}>
+                  <HelpCircle className="h-4 w-4 mr-1" /> Solicitar Ajuste
+                </Button>
+                <Button size="sm" variant="destructive" onClick={() => openAction(sol, 'rejeitar')}>
+                  <XCircle className="h-4 w-4 mr-1" /> Reprovar
+                </Button>
+              </>
             )}
             
             {sol.status === 'oc_ac_emitida' && (
@@ -713,7 +723,7 @@ export default function Backoffice() {
             <TabContent items={groupedSolicitacoes.em_processamento} emptyMessage="Nenhuma solicitação em processamento" />
           </TabsContent>
           <TabsContent value="oc_emitidas">
-            <TabContent items={groupedSolicitacoes.oc_emitidas} emptyMessage="Nenhuma OC/AC emitida" />
+            <TabContent items={groupedSolicitacoes.oc_emitidas} emptyMessage="Nenhuma OC emitida" />
           </TabsContent>
           <TabsContent value="concluidas">
             <TabContent items={groupedSolicitacoes.concluidas} emptyMessage="Nenhuma solicitação concluída" />
@@ -1017,6 +1027,7 @@ export default function Backoffice() {
               {actionType === 'processar' && 'Enviar para Processamento'}
               {actionType === 'concluir' && 'Concluir Solicitação'}
               {actionType === 'solicitar_info' && 'Solicitar Informações'}
+              {actionType === 'solicitar_ajuste' && 'Solicitar Ajuste'}
             </DialogTitle>
             <DialogDescription>
               {actionType === 'assumir' && 'A solicitação será assumida e seguirá para processamento.'}
@@ -1025,17 +1036,18 @@ export default function Backoffice() {
               {actionType === 'processar' && 'A solicitação será marcada como em processamento no Fluig/RM.'}
               {actionType === 'concluir' && 'A solicitação será marcada como concluída.'}
               {actionType === 'solicitar_info' && 'Informe as informações necessárias.'}
+              {actionType === 'solicitar_ajuste' && 'Informe o ajuste ou informação necessária.'}
             </DialogDescription>
           </DialogHeader>
 
-          {(actionType === 'devolver' || actionType === 'rejeitar' || actionType === 'solicitar_info') && (
+          {(actionType === 'devolver' || actionType === 'rejeitar' || actionType === 'solicitar_info' || actionType === 'solicitar_ajuste') && (
             <div className="space-y-2">
               <Label htmlFor="motivo">
-                {actionType === 'solicitar_info' ? 'Informações solicitadas *' : 'Motivo *'}
+                {actionType === 'solicitar_info' || actionType === 'solicitar_ajuste' ? 'Informações solicitadas *' : 'Motivo *'}
               </Label>
               <Textarea
                 id="motivo"
-                placeholder={actionType === 'solicitar_info' 
+                placeholder={actionType === 'solicitar_info' || actionType === 'solicitar_ajuste'
                   ? "Descreva as informações ou documentos necessários..." 
                   : "Descreva o motivo..."}
                 value={motivo}
@@ -1066,7 +1078,7 @@ export default function Backoffice() {
             </Button>
             <Button 
               onClick={handleAction}
-              disabled={actionLoading || ((actionType === 'devolver' || actionType === 'rejeitar' || actionType === 'solicitar_info') && !motivo.trim())}
+              disabled={actionLoading || ((actionType === 'devolver' || actionType === 'rejeitar' || actionType === 'solicitar_info' || actionType === 'solicitar_ajuste') && !motivo.trim())}
               variant={actionType === 'rejeitar' ? 'destructive' : 'default'}
             >
               {actionLoading ? (
@@ -1078,39 +1090,25 @@ export default function Backoffice() {
         </DialogContent>
       </Dialog>
 
-      {/* Registro OC/AC Modal */}
+      {/* Registro OC Modal */}
       <Dialog open={registroOpen} onOpenChange={setRegistroOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Registrar {tipoDocumento} Emitida</DialogTitle>
+            <DialogTitle>Registrar OC Emitida</DialogTitle>
             <DialogDescription>
-              Registre os dados do documento emitido para a solicitação #{selectedSolicitacao?.protocolo}
+              Registre os dados da OC emitida para a solicitação #{selectedSolicitacao?.protocolo}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Tipo de Documento</Label>
-                <Select value={tipoDocumento} onValueChange={(v) => setTipoDocumento(v as 'OC' | 'AC')}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="OC">OC</SelectItem>
-                    <SelectItem value="AC">AC</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="numero">Número do Documento *</Label>
-                <Input
-                  id="numero"
-                  placeholder="Ex: 2024001234"
-                  value={numeroDocumento}
-                  onChange={(e) => setNumeroDocumento(e.target.value)}
-                />
-              </div>
+            <div>
+              <Label htmlFor="numero">Número da OC *</Label>
+              <Input
+                id="numero"
+                placeholder="Ex: 2024001234"
+                value={numeroDocumento}
+                onChange={(e) => setNumeroDocumento(e.target.value)}
+              />
             </div>
 
             <div>
@@ -1148,7 +1146,7 @@ export default function Backoffice() {
               ) : (
                 <Upload className="h-4 w-4 mr-2" />
               )}
-              Registrar {tipoDocumento}
+              Registrar OC
             </Button>
           </DialogFooter>
         </DialogContent>
