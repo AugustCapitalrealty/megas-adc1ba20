@@ -146,6 +146,68 @@ export type Database = {
           },
         ]
       }
+      documentos_fiscais: {
+        Row: {
+          baixa_financeiro_em: string | null
+          baixa_financeiro_por: string | null
+          created_at: string
+          data_emissao_nf: string | null
+          data_vencimento_boleto: string | null
+          id: string
+          justificativa_antecipado: string | null
+          mime_type: string | null
+          nome_arquivo: string
+          pagamento_antecipado: boolean | null
+          solicitacao_id: string
+          storage_path: string
+          tamanho_bytes: number | null
+          tipo: string
+          user_id: string
+        }
+        Insert: {
+          baixa_financeiro_em?: string | null
+          baixa_financeiro_por?: string | null
+          created_at?: string
+          data_emissao_nf?: string | null
+          data_vencimento_boleto?: string | null
+          id?: string
+          justificativa_antecipado?: string | null
+          mime_type?: string | null
+          nome_arquivo: string
+          pagamento_antecipado?: boolean | null
+          solicitacao_id: string
+          storage_path: string
+          tamanho_bytes?: number | null
+          tipo: string
+          user_id: string
+        }
+        Update: {
+          baixa_financeiro_em?: string | null
+          baixa_financeiro_por?: string | null
+          created_at?: string
+          data_emissao_nf?: string | null
+          data_vencimento_boleto?: string | null
+          id?: string
+          justificativa_antecipado?: string | null
+          mime_type?: string | null
+          nome_arquivo?: string
+          pagamento_antecipado?: boolean | null
+          solicitacao_id?: string
+          storage_path?: string
+          tamanho_bytes?: number | null
+          tipo?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documentos_fiscais_solicitacao_id_fkey"
+            columns: ["solicitacao_id"]
+            isOneToOne: false
+            referencedRelation: "solicitacoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fornecedores: {
         Row: {
           cidade: string | null
@@ -517,6 +579,9 @@ export type Database = {
         | "concluida"
         | "aguardando_aceite"
         | "aguardando_informacoes"
+        | "aguardando_nf_boleto"
+        | "nf_boleto_enviados"
+        | "enviado_pagamento"
       request_type: "AC" | "OC"
       tipo_contratacao:
         | "servicos"
@@ -684,6 +749,9 @@ export const Constants = {
         "concluida",
         "aguardando_aceite",
         "aguardando_informacoes",
+        "aguardando_nf_boleto",
+        "nf_boleto_enviados",
+        "enviado_pagamento",
       ],
       request_type: ["AC", "OC"],
       tipo_contratacao: [

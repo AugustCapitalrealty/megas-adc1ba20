@@ -1,6 +1,6 @@
 export type AppRole = 'solicitante' | 'backoffice' | 'admin';
 export type RequestType = 'AC' | 'OC';
-export type RequestStatus = 'recebido' | 'em_analise' | 'pendente_correcao' | 'aprovado' | 'rejeitado' | 'em_processamento' | 'oc_ac_emitida' | 'aguardando_aceite' | 'aguardando_informacoes' | 'concluida';
+export type RequestStatus = 'recebido' | 'em_analise' | 'pendente_correcao' | 'aprovado' | 'rejeitado' | 'em_processamento' | 'oc_ac_emitida' | 'aguardando_aceite' | 'aguardando_informacoes' | 'concluida' | 'aguardando_nf_boleto' | 'nf_boleto_enviados' | 'enviado_pagamento';
 export type Empreendimento = 'mega_curitiba' | 'mega_itajai' | 'mega_esteio' | 'todos';
 export type NaturezaOrcamentaria = 
   | 'materiais_informatica'
@@ -22,6 +22,7 @@ export type NaturezaOrcamentaria =
 export type TipoContratacao = 'servicos' | 'material_construcao' | 'material_consumo' | 'combustivel' | 'taxas';
 export type OrigemCusto = 'empreendimento' | 'cliente';
 export type TipoGarantia = 'servico' | 'produto' | 'nenhuma' | 'ambos';
+export type TipoDocumentoFiscal = 'nota_fiscal' | 'boleto';
 
 export interface Profile {
   id: string;
@@ -181,6 +182,9 @@ export const STATUS_LABELS: Record<RequestStatus, string> = {
   aguardando_aceite: 'Aguardando Aceite do Solicitante',
   aguardando_informacoes: 'Aguardando Informações',
   concluida: 'Finalizada',
+  aguardando_nf_boleto: 'Aguardando NF/Boleto',
+  nf_boleto_enviados: 'NF/Boleto Enviados',
+  enviado_pagamento: 'Enviado para Pagamento',
 };
 
 export interface DocumentoEmitido {
@@ -224,3 +228,22 @@ export const ANEXO_LABELS: Record<string, string> = {
   comunicado_cliente: 'Aprovação do Cliente',
   rateio: 'Planilha de Rateio',
 };
+
+// Interface para documentos fiscais (NF/Boleto)
+export interface DocumentoFiscal {
+  id: string;
+  solicitacao_id: string;
+  tipo: TipoDocumentoFiscal;
+  storage_path: string;
+  nome_arquivo: string;
+  mime_type: string | null;
+  tamanho_bytes: number | null;
+  data_emissao_nf: string | null;
+  data_vencimento_boleto: string | null;
+  pagamento_antecipado: boolean;
+  justificativa_antecipado: string | null;
+  user_id: string;
+  baixa_financeiro_em: string | null;
+  baixa_financeiro_por: string | null;
+  created_at: string;
+}
