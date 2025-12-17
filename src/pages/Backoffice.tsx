@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,18 +15,15 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SolicitacaoTimeline } from '@/components/SolicitacaoTimeline';
 import { supabase } from '@/integrations/supabase/client';
+import { useBackofficeSolicitacoes, type SolicitacaoBackoffice } from '@/hooks/useBackofficeSolicitacoes';
+import { useSolicitacaoDetalhes } from '@/hooks/useSolicitacaoDetalhes';
 import { 
   EMPREENDIMENTO_LABELS, 
   NATUREZA_ORCAMENTARIA_LABELS,
   TIPO_CONTRATACAO_LABELS,
   TIPO_GARANTIA_LABELS,
   STATUS_LABELS,
-  type Solicitacao, 
   type RequestStatus,
-  type Fornecedor,
-  type Profile,
-  type Cliente,
-  type Anexo,
   type DocumentoEmitido,
   type DocumentoFiscal
 } from '@/types';
@@ -72,28 +69,14 @@ import { cn } from '@/lib/utils';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 
-interface SolicitacaoComDados extends Solicitacao {
-  fornecedor?: Fornecedor | null;
-  solicitante?: Profile | null;
-  clienteData?: Cliente | null;
-  anexos?: Anexo[];
-  documentoEmitido?: DocumentoEmitido | null;
-  documentosFiscais?: DocumentoFiscal[];
-  dataAprovacao?: string | null;
-  responsavelId?: string | null;
-  responsavelNome?: string | null;
-}
-
 type BackofficeTab = 'recebidas' | 'pendentes' | 'em_processamento' | 'oc_emitidas' | 'nf_boleto' | 'concluidas' | 'rejeitadas';
 
 export default function Backoffice() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [solicitacoes, setSolicitacoes] = useState<SolicitacaoComDados[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEmpreendimento, setSelectedEmpreendimento] = useState<string>('todos');
-  const [selectedSolicitacao, setSelectedSolicitacao] = useState<SolicitacaoComDados | null>(null);
+  const [selectedSolicitacao, setSelectedSolicitacao] = useState<SolicitacaoBackoffice | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [actionOpen, setActionOpen] = useState(false);
   const [actionType, setActionType] = useState<'assumir' | 'rejeitar' | 'processar' | 'concluir' | 'solicitar_ajuste'>('assumir');
@@ -102,6 +85,15 @@ export default function Backoffice() {
   const [activeTab, setActiveTab] = useState<BackofficeTab>('recebidas');
   const [numeroChamadoFluig, setNumeroChamadoFluig] = useState('');
   const [showOnlyMine, setShowOnlyMine] = useState(false);
+
+  // Use RPC-based hook for fetching
+  const { solicitacoes, loading, refetch: fetchSolicitacoes } = useBackofficeSolicitacoes({
+    search: searchTerm || undefined,
+    empreendimento: selectedEmpreendimento !== 'todos' ? selectedEmpreendimento as any : undefined,
+  });
+
+  // Use RPC for details
+  const { detalhes, loading: detalhesLoading, fetchDetalhes, clearDetalhes } = useSolicitacaoDetalhes();
 
   // Registro OC Modal
   const [registroOpen, setRegistroOpen] = useState(false);
@@ -125,110 +117,16 @@ export default function Backoffice() {
   const [editFluigValue, setEditFluigValue] = useState('');
   const [editFluigLoading, setEditFluigLoading] = useState(false);
 
+  // Fetch details when opening details modal
   useEffect(() => {
-    fetchSolicitacoes();
-  }, []);
-
-  const fetchSolicitacoes = async () => {
-    const { data, error } = await supabase
-      .from('solicitacoes')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (!error && data) {
-      const enrichedData = await Promise.all(
-        data.map(async (sol) => {
-          let fornecedor = null;
-          let solicitante = null;
-          let clienteData = null;
-          let anexos: Anexo[] = [];
-          let documentoEmitido = null;
-          let dataAprovacao = null;
-
-          if (sol.fornecedor_id) {
-            const { data: forn } = await supabase
-              .from('fornecedores')
-              .select('*')
-              .eq('id', sol.fornecedor_id)
-              .maybeSingle();
-            fornecedor = forn;
-          }
-
-          const { data: prof } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', sol.user_id)
-            .maybeSingle();
-          solicitante = prof;
-
-          if (sol.cliente_id) {
-            const { data: cli } = await supabase
-              .from('clientes')
-              .select('*')
-              .eq('id', sol.cliente_id)
-              .maybeSingle();
-            clienteData = cli;
-          }
-
-          // Fetch anexos
-          const { data: anexosData } = await supabase
-            .from('anexos')
-            .select('*')
-            .eq('solicitacao_id', sol.id);
-          if (anexosData) anexos = anexosData as Anexo[];
-
-          // Fetch documento emitido
-          const { data: docData } = await supabase
-            .from('documentos_emitidos')
-            .select('*')
-            .eq('solicitacao_id', sol.id)
-            .maybeSingle();
-          documentoEmitido = docData as DocumentoEmitido | null;
-
-          // Fetch documentos fiscais (NF/Boleto)
-          let documentosFiscais: DocumentoFiscal[] = [];
-          const { data: docFiscaisData } = await supabase
-            .from('documentos_fiscais')
-            .select('*')
-            .eq('solicitacao_id', sol.id);
-          if (docFiscaisData) documentosFiscais = docFiscaisData as DocumentoFiscal[];
-
-          // Fetch data de aprovação e responsável do histórico
-          const { data: histData } = await supabase
-            .from('historico_solicitacoes')
-            .select('created_at, user_id')
-            .eq('solicitacao_id', sol.id)
-            .eq('status_novo', 'aprovado')
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          
-          let responsavelId = null;
-          let responsavelNome = null;
-          
-          if (histData) {
-            dataAprovacao = histData.created_at;
-            responsavelId = histData.user_id;
-            
-            // Fetch responsavel name
-            const { data: respProfile } = await supabase
-              .from('profiles')
-              .select('full_name, email')
-              .eq('id', histData.user_id)
-              .maybeSingle();
-            
-            if (respProfile) {
-              responsavelNome = respProfile.full_name || respProfile.email;
-            }
-          }
-
-          return { ...sol, fornecedor, solicitante, clienteData, anexos, documentoEmitido, documentosFiscais, dataAprovacao, responsavelId, responsavelNome } as SolicitacaoComDados;
-        })
-      );
-      setSolicitacoes(enrichedData);
+    if (detailsOpen && selectedSolicitacao) {
+      fetchDetalhes(selectedSolicitacao.id);
+    } else if (!detailsOpen) {
+      clearDetalhes();
     }
-    setLoading(false);
-  };
+  }, [detailsOpen, selectedSolicitacao?.id, fetchDetalhes, clearDetalhes]);
+
+  // Old N+1 fetch removed - now using useBackofficeSolicitacoes hook
 
   const updateStatus = async (id: string, newStatus: RequestStatus, motivoText?: string) => {
     setActionLoading(true);
@@ -345,8 +243,8 @@ export default function Backoffice() {
     }
   };
 
-  const downloadAnexosZip = async (sol: SolicitacaoComDados) => {
-    if (!sol.anexos || sol.anexos.length === 0) {
+  const downloadAnexosZip = async (solicitacaoId: string, anexos: { storage_path: string; nome_arquivo: string }[], protocolo: string) => {
+    if (!anexos || anexos.length === 0) {
       toast({ title: 'Nenhum anexo', description: 'Esta solicitação não possui anexos.' });
       return;
     }
@@ -355,7 +253,7 @@ export default function Backoffice() {
     try {
       const zip = new JSZip();
       
-      for (const anexo of sol.anexos) {
+      for (const anexo of anexos) {
         const { data, error } = await supabase.storage
           .from('anexos')
           .download(anexo.storage_path);
@@ -366,7 +264,7 @@ export default function Backoffice() {
       }
 
       const content = await zip.generateAsync({ type: 'blob' });
-      saveAs(content, `anexos_${sol.protocolo}.zip`);
+      saveAs(content, `anexos_${protocolo}.zip`);
       
       toast({ title: 'Download concluído!', description: 'Anexos baixados com sucesso.' });
     } catch (error) {
@@ -457,7 +355,7 @@ export default function Backoffice() {
     }
   };
 
-  const openEditFluig = (sol: SolicitacaoComDados) => {
+  const openEditFluig = (sol: SolicitacaoBackoffice) => {
     setSelectedSolicitacao(sol);
     setEditFluigValue(sol.numero_chamado_fluig || '');
     setEditFluigOpen(true);
@@ -498,19 +396,19 @@ export default function Backoffice() {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   };
 
-  const openDetails = (sol: SolicitacaoComDados) => {
+  const openDetails = (sol: SolicitacaoBackoffice) => {
     setSelectedSolicitacao(sol);
     setDetailsOpen(true);
   };
 
-  const openAction = (sol: SolicitacaoComDados, type: typeof actionType) => {
+  const openAction = (sol: SolicitacaoBackoffice, type: typeof actionType) => {
     setSelectedSolicitacao(sol);
     setActionType(type);
     setMotivo('');
     setActionOpen(true);
   };
 
-  const openRegistro = (sol: SolicitacaoComDados) => {
+  const openRegistro = (sol: SolicitacaoBackoffice) => {
     setSelectedSolicitacao(sol);
     setNumeroDocumento('');
     setObservacao('');
@@ -541,22 +439,17 @@ export default function Backoffice() {
     setNumeroChamadoFluig('');
   };
 
-  // Filter and group solicitacoes
-  const filteredSolicitacoes = solicitacoes.filter((sol) => {
-    const matchesSearch = 
-      sol.protocolo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      sol.descricao.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      sol.solicitante?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      sol.solicitante?.email?.toLowerCase().includes(searchTerm.toLowerCase());
+  // Filter solicitacoes - search already handled by RPC, but we can still do local filtering
+  const filteredSolicitacoes = useMemo(() => {
+    let filtered = solicitacoes;
     
-    const matchesEmpreendimento = 
-      selectedEmpreendimento === 'todos' || 
-      sol.empreendimento === selectedEmpreendimento;
-
-    const matchesMineFilter = !showOnlyMine || sol.responsavelId === user?.id;
+    // Additional local filter for "mine only"
+    if (showOnlyMine) {
+      filtered = filtered.filter(sol => sol.responsavelId === user?.id);
+    }
     
-    return matchesSearch && matchesEmpreendimento && matchesMineFilter;
-  });
+    return filtered;
+  }, [solicitacoes, showOnlyMine, user?.id]);
 
   // Count my responsibilities
   const myResponsibilityCount = useMemo(() => 
@@ -578,7 +471,7 @@ export default function Backoffice() {
   }), [filteredSolicitacoes]);
 
   // SLA calculation
-  const getSLAInfo = (sol: SolicitacaoComDados) => {
+  const getSLAInfo = (sol: SolicitacaoBackoffice) => {
     const diasDesdeAbertura = differenceInDays(new Date(), new Date(sol.created_at));
     const diasDesdeAprovacao = sol.dataAprovacao 
       ? differenceInDays(new Date(), new Date(sol.dataAprovacao))
@@ -591,7 +484,7 @@ export default function Backoffice() {
     return { diasDesdeAbertura, diasDesdeAprovacao, atrasadoAnalise, atrasadoEmissao };
   };
 
-  const SolicitacaoCard = ({ sol }: { sol: SolicitacaoComDados }) => {
+  const SolicitacaoCard = ({ sol }: { sol: SolicitacaoBackoffice }) => {
     const sla = getSLAInfo(sol);
     const isAtrasado = sla.atrasadoAnalise || sla.atrasadoEmissao;
     const isMyResponsibility = sol.responsavelId === user?.id;
@@ -636,8 +529,8 @@ export default function Backoffice() {
           <div className="bg-cyan-500/10 border-b border-cyan-500/20 px-4 py-1.5 flex items-center gap-2">
             <Receipt className="h-4 w-4 text-cyan-600" />
             <span className="text-xs font-medium text-cyan-700 dark:text-cyan-400">NF/BOLETO RECEBIDOS - AGUARDANDO BAIXA</span>
-            {sol.documentosFiscais && sol.documentosFiscais.length > 0 && (
-              <Badge variant="outline" className="text-xs">{sol.documentosFiscais.length} documento(s)</Badge>
+            {sol.total_docs_fiscais > 0 && (
+              <Badge variant="outline" className="text-xs">{sol.total_docs_fiscais} documento(s)</Badge>
             )}
           </div>
         )}
@@ -670,7 +563,7 @@ export default function Backoffice() {
           <div className="grid gap-2 text-sm mb-4">
             <div className="flex items-center gap-2 text-muted-foreground">
               <User className="h-4 w-4" />
-              <span>{sol.solicitante?.full_name || sol.solicitante?.email || 'Usuário'}</span>
+              <span>{sol.solicitante_nome || sol.solicitante_email || 'Usuário'}</span>
             </div>
             <div className="flex items-center gap-2 text-muted-foreground">
               <Building2 className="h-4 w-4" />
@@ -683,12 +576,7 @@ export default function Backoffice() {
               </div>
               <div className="flex items-center gap-2 font-semibold text-primary">
                 <DollarSign className="h-4 w-4" />
-                <span>
-                  {sol.faturamento_direto && sol.valor_servico !== null && sol.valor_material !== null
-                    ? formatCurrency((sol.valor_servico || 0) + (sol.valor_material || 0))
-                    : formatCurrency(sol.valor)
-                  }
-                </span>
+                <span>{formatCurrency(sol.valor)}</span>
               </div>
             </div>
             
@@ -818,7 +706,7 @@ export default function Backoffice() {
     );
   };
 
-  const TabContent = ({ items, emptyMessage }: { items: SolicitacaoComDados[], emptyMessage: string }) => (
+  const TabContent = ({ items, emptyMessage }: { items: SolicitacaoBackoffice[], emptyMessage: string }) => (
     <div className="space-y-4">
       {items.length === 0 ? (
         <Card>
@@ -1033,19 +921,23 @@ export default function Backoffice() {
             <DialogDescription>Detalhes completos da solicitação</DialogDescription>
           </DialogHeader>
           
-          {selectedSolicitacao && (
+          {detalhesLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : detalhes?.solicitacao ? (
             <ScrollArea className="max-h-[60vh]">
               <div className="space-y-6 pr-4">
                 {/* Status e SLA */}
                 <div className="flex items-center justify-between flex-wrap gap-2">
-                  <StatusBadge status={selectedSolicitacao.status} />
-                  {selectedSolicitacao.emergencial && (
+                  <StatusBadge status={detalhes.solicitacao.status} />
+                  {detalhes.solicitacao.emergencial && (
                     <Badge variant="destructive">
                       <AlertTriangle className="h-3 w-3 mr-1" />
                       Emergencial
                     </Badge>
                   )}
-                  {(() => {
+                  {selectedSolicitacao && (() => {
                     const sla = getSLAInfo(selectedSolicitacao);
                     return (
                       <div className="flex gap-2 text-xs">
@@ -1065,30 +957,32 @@ export default function Backoffice() {
                 <Separator />
 
                 {/* Documento Emitido (se existir) */}
-                {selectedSolicitacao.documentoEmitido && (
+                {detalhes.documentos_emitidos && detalhes.documentos_emitidos.length > 0 && (
                   <>
                     <div className="p-4 bg-success/10 border border-success/20 rounded-lg">
                       <h4 className="font-semibold mb-2 flex items-center gap-2 text-success">
                         <FileCheck className="h-4 w-4" /> Documento Emitido
                       </h4>
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <Label className="text-muted-foreground">Tipo</Label>
-                          <p className="font-medium">{selectedSolicitacao.documentoEmitido.tipo_documento}</p>
+                      {detalhes.documentos_emitidos.map((doc) => (
+                        <div key={doc.id} className="grid grid-cols-2 gap-4 text-sm mb-2">
+                          <div>
+                            <Label className="text-muted-foreground">Tipo</Label>
+                            <p className="font-medium">{doc.tipo_documento}</p>
+                          </div>
+                          <div>
+                            <Label className="text-muted-foreground">Número</Label>
+                            <p className="font-medium">{doc.numero_documento}</p>
+                          </div>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="col-span-2"
+                            onClick={() => downloadDocumentoEmitido(doc)}
+                          >
+                            <Download className="h-4 w-4 mr-1" /> Baixar {doc.tipo_documento}
+                          </Button>
                         </div>
-                        <div>
-                          <Label className="text-muted-foreground">Número</Label>
-                          <p className="font-medium">{selectedSolicitacao.documentoEmitido.numero_documento}</p>
-                        </div>
-                      </div>
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className="mt-3"
-                        onClick={() => downloadDocumentoEmitido(selectedSolicitacao.documentoEmitido!)}
-                      >
-                        <Download className="h-4 w-4 mr-1" /> Baixar {selectedSolicitacao.documentoEmitido.tipo_documento}
-                      </Button>
+                      ))}
                     </div>
                     <Separator />
                   </>
@@ -1099,8 +993,8 @@ export default function Backoffice() {
                   <h4 className="font-semibold mb-2 flex items-center gap-2">
                     <User className="h-4 w-4" /> Solicitante
                   </h4>
-                  <p>{selectedSolicitacao.solicitante?.full_name || 'N/A'}</p>
-                  <p className="text-sm text-muted-foreground">{selectedSolicitacao.solicitante?.email}</p>
+                  <p>{detalhes.solicitante?.full_name || 'N/A'}</p>
+                  <p className="text-sm text-muted-foreground">{detalhes.solicitante?.email}</p>
                 </div>
 
                 <Separator />
@@ -1110,7 +1004,7 @@ export default function Backoffice() {
                   <h4 className="font-semibold mb-2 flex items-center gap-2">
                     <FileText className="h-4 w-4" /> Descrição
                   </h4>
-                  <p className="text-sm">{selectedSolicitacao.descricao}</p>
+                  <p className="text-sm">{detalhes.solicitacao.descricao}</p>
                 </div>
 
                 <Separator />
@@ -1119,37 +1013,37 @@ export default function Backoffice() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label className="text-muted-foreground">Empreendimento</Label>
-                    <p className="font-medium">{EMPREENDIMENTO_LABELS[selectedSolicitacao.empreendimento]}</p>
+                    <p className="font-medium">{EMPREENDIMENTO_LABELS[detalhes.solicitacao.empreendimento]}</p>
                   </div>
                   <div>
                     <Label className="text-muted-foreground">Natureza Orçamentária</Label>
-                    <p className="font-medium">{NATUREZA_ORCAMENTARIA_LABELS[selectedSolicitacao.natureza_orcamentaria]}</p>
+                    <p className="font-medium">{NATUREZA_ORCAMENTARIA_LABELS[detalhes.solicitacao.natureza_orcamentaria]}</p>
                   </div>
                   <div>
                     <Label className="text-muted-foreground">Origem do Custo</Label>
                     <p className="font-medium">
-                      {selectedSolicitacao.origem_custo === 'empreendimento' ? 'Área comum' : 'Cliente'}
-                      {selectedSolicitacao.clienteData && (
-                        <span className="text-primary"> ({selectedSolicitacao.clienteData.nome})</span>
+                      {detalhes.solicitacao.origem_custo === 'empreendimento' ? 'Área comum' : 'Cliente'}
+                      {detalhes.cliente && (
+                        <span className="text-primary"> ({detalhes.cliente.nome})</span>
                       )}
                     </p>
                   </div>
-                  {selectedSolicitacao.faturamento_direto ? (
+                  {detalhes.solicitacao.faturamento_direto ? (
                     <div className="col-span-2 p-3 bg-muted/30 rounded-lg space-y-2">
                       <Label className="text-muted-foreground font-medium">Valores (Faturamento Direto)</Label>
                       <div className="grid grid-cols-3 gap-4 mt-2">
                         <div>
                           <Label className="text-xs text-muted-foreground">Valor Material</Label>
-                          <p className="font-medium">{formatCurrency(selectedSolicitacao.valor_material || 0)}</p>
+                          <p className="font-medium">{formatCurrency(detalhes.solicitacao.valor_material || 0)}</p>
                         </div>
                         <div>
                           <Label className="text-xs text-muted-foreground">Valor Serviço</Label>
-                          <p className="font-medium">{formatCurrency(selectedSolicitacao.valor_servico || 0)}</p>
+                          <p className="font-medium">{formatCurrency(detalhes.solicitacao.valor_servico || 0)}</p>
                         </div>
                         <div>
                           <Label className="text-xs text-muted-foreground">Valor Total</Label>
                           <p className="font-medium text-primary">
-                            {formatCurrency((selectedSolicitacao.valor_servico || 0) + (selectedSolicitacao.valor_material || 0))}
+                            {formatCurrency((detalhes.solicitacao.valor_servico || 0) + (detalhes.solicitacao.valor_material || 0))}
                           </p>
                         </div>
                       </div>
@@ -1157,7 +1051,7 @@ export default function Backoffice() {
                   ) : (
                     <div>
                       <Label className="text-muted-foreground">Valor</Label>
-                      <p className="font-medium text-primary">{formatCurrency(selectedSolicitacao.valor)}</p>
+                      <p className="font-medium text-primary">{formatCurrency(detalhes.solicitacao.valor)}</p>
                     </div>
                   )}
                 </div>
@@ -1165,17 +1059,17 @@ export default function Backoffice() {
                 <Separator />
 
                 {/* Anexos */}
-                {selectedSolicitacao.anexos && selectedSolicitacao.anexos.length > 0 && (
+                {detalhes.anexos && detalhes.anexos.length > 0 && (
                   <>
                     <div>
                       <div className="flex items-center justify-between mb-2">
                         <h4 className="font-semibold flex items-center gap-2">
-                          <Archive className="h-4 w-4" /> Anexos ({selectedSolicitacao.anexos.length})
+                          <Archive className="h-4 w-4" /> Anexos ({detalhes.anexos.length})
                         </h4>
                         <Button 
                           size="sm" 
                           variant="outline"
-                          onClick={() => downloadAnexosZip(selectedSolicitacao)}
+                          onClick={() => downloadAnexosZip(detalhes.solicitacao.id, detalhes.anexos, detalhes.solicitacao.protocolo)}
                           disabled={downloadingZip}
                         >
                           {downloadingZip ? (
@@ -1187,7 +1081,7 @@ export default function Backoffice() {
                         </Button>
                       </div>
                       <div className="space-y-2">
-                        {selectedSolicitacao.anexos.map((anexo) => (
+                        {detalhes.anexos.map((anexo) => (
                           <div key={anexo.id} className="flex items-center justify-between p-2 bg-muted/50 rounded text-sm">
                             <span className="truncate flex-1">{anexo.nome_arquivo}</span>
                             <Button 
@@ -1209,7 +1103,7 @@ export default function Backoffice() {
                 )}
 
                 {/* Fornecedor */}
-                {selectedSolicitacao.fornecedor && (
+                {detalhes.solicitacao.fornecedor_cnpj && (
                   <>
                     <div>
                       <h4 className="font-semibold mb-2 flex items-center gap-2">
@@ -1218,11 +1112,11 @@ export default function Backoffice() {
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <Label className="text-muted-foreground">Razão Social</Label>
-                          <p className="font-medium">{selectedSolicitacao.fornecedor.razao_social || 'N/A'}</p>
+                          <p className="font-medium">{detalhes.solicitacao.fornecedor_razao || 'N/A'}</p>
                         </div>
                         <div>
                           <Label className="text-muted-foreground">CNPJ</Label>
-                          <p className="font-medium">{selectedSolicitacao.fornecedor.cnpj}</p>
+                          <p className="font-medium">{detalhes.solicitacao.fornecedor_cnpj}</p>
                         </div>
                       </div>
                     </div>
@@ -1231,14 +1125,14 @@ export default function Backoffice() {
                 )}
 
                 {/* Justificativa de Fornecedor Único */}
-                {selectedSolicitacao.justificativa_fornecedores && (
+                {detalhes.solicitacao.justificativa_fornecedores && (
                   <>
                     <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
                       <Label className="text-muted-foreground font-medium flex items-center gap-2">
                         <AlertTriangle className="h-4 w-4 text-amber-600" />
                         Justificativa para Fornecedor Único
                       </Label>
-                      <p className="mt-2 text-sm">{selectedSolicitacao.justificativa_fornecedores}</p>
+                      <p className="mt-2 text-sm">{detalhes.solicitacao.justificativa_fornecedores}</p>
                     </div>
                     <Separator />
                   </>
@@ -1246,16 +1140,16 @@ export default function Backoffice() {
 
                 {/* Flags */}
                 <div className="flex flex-wrap gap-2">
-                  {selectedSolicitacao.contrato_mensal && <Badge variant="outline">Contrato Mensal</Badge>}
-                  {selectedSolicitacao.faturamento_direto && <Badge variant="outline">Faturamento Direto</Badge>}
-                  {selectedSolicitacao.retencao_6_porcento && <Badge variant="outline">Retenção 6%</Badge>}
-                  {selectedSolicitacao.custo_cliente && <Badge variant="outline">Custo Cliente</Badge>}
-                  {selectedSolicitacao.tipo_garantia && selectedSolicitacao.tipo_garantia !== 'nenhuma' && (
+                  {detalhes.solicitacao.contrato_mensal && <Badge variant="outline">Contrato Mensal</Badge>}
+                  {detalhes.solicitacao.faturamento_direto && <Badge variant="outline">Faturamento Direto</Badge>}
+                  {detalhes.solicitacao.retencao_6_porcento && <Badge variant="outline">Retenção 6%</Badge>}
+                  {detalhes.solicitacao.custo_cliente && <Badge variant="outline">Custo Cliente</Badge>}
+                  {detalhes.solicitacao.tipo_garantia && detalhes.solicitacao.tipo_garantia !== 'nenhuma' && (
                     <Badge variant="outline">
-                      Garantia: {TIPO_GARANTIA_LABELS[selectedSolicitacao.tipo_garantia]}
-                      {selectedSolicitacao.tipo_garantia === 'ambos' 
-                        ? ` (S: ${selectedSolicitacao.dias_garantia_servico || '—'}d, P: ${selectedSolicitacao.dias_garantia_produto || '—'}d)`
-                        : selectedSolicitacao.dias_garantia ? ` (${selectedSolicitacao.dias_garantia}d)` : ''
+                      Garantia: {TIPO_GARANTIA_LABELS[detalhes.solicitacao.tipo_garantia]}
+                      {detalhes.solicitacao.tipo_garantia === 'ambos' 
+                        ? ` (S: ${detalhes.solicitacao.dias_garantia_servico || '—'}d, P: ${detalhes.solicitacao.dias_garantia_produto || '—'}d)`
+                        : detalhes.solicitacao.dias_garantia ? ` (${detalhes.solicitacao.dias_garantia}d)` : ''
                       }
                     </Badge>
                   )}
@@ -1266,19 +1160,19 @@ export default function Backoffice() {
                   <h4 className="font-semibold mb-3 flex items-center gap-2">
                     <Clock className="h-4 w-4" /> Histórico
                   </h4>
-                  <SolicitacaoTimeline solicitacaoId={selectedSolicitacao.id} />
+                  <SolicitacaoTimeline solicitacaoId={detalhes.solicitacao.id} />
                 </div>
 
                 <Separator />
 
                 {/* Datas */}
                 <div className="text-sm text-muted-foreground">
-                  <p>Criado em: {format(new Date(selectedSolicitacao.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
-                  <p>Atualizado em: {format(new Date(selectedSolicitacao.updated_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
+                  <p>Criado em: {format(new Date(detalhes.solicitacao.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
+                  <p>Atualizado em: {format(new Date(detalhes.solicitacao.updated_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
                 </div>
               </div>
             </ScrollArea>
-          )}
+          ) : null}
 
           <DialogFooter className="flex-col sm:flex-row gap-2">
             {selectedSolicitacao && (
@@ -1482,13 +1376,13 @@ export default function Backoffice() {
               {/* Solicitante info */}
               <div className="p-3 bg-muted rounded-lg">
                 <p className="text-sm text-muted-foreground">Solicitante</p>
-                <p className="font-medium">{selectedSolicitacao.solicitante?.full_name || selectedSolicitacao.solicitante?.email}</p>
+                <p className="font-medium">{selectedSolicitacao.solicitante_nome || selectedSolicitacao.solicitante_email}</p>
               </div>
 
-              {/* Documents list */}
-              {selectedSolicitacao.documentosFiscais && selectedSolicitacao.documentosFiscais.length > 0 ? (
+              {/* Documents list - uses detalhes from RPC */}
+              {detalhes?.documentos_fiscais && detalhes.documentos_fiscais.length > 0 ? (
                 <div className="space-y-3">
-                  {selectedSolicitacao.documentosFiscais.map((doc) => (
+                  {detalhes.documentos_fiscais.map((doc) => (
                     <div key={doc.id} className="p-4 border rounded-lg space-y-2">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
