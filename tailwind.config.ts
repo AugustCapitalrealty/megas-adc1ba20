@@ -69,6 +69,16 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        // Mega brand colors
+        mega: {
+          orange: "hsl(var(--mega-orange))",
+          gray: "hsl(var(--mega-gray))",
+          black: "hsl(var(--mega-black))",
+          white: "hsl(var(--mega-white))",
+        },
+      },
+      fontFamily: {
+        sans: ['Montserrat', 'system-ui', '-apple-system', 'sans-serif'],
       },
       borderRadius: {
         lg: "var(--radius)",
