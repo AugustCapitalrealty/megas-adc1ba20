@@ -22,10 +22,14 @@ interface FluigStatusCardProps {
 }
 
 const ETAPA_LABELS: Record<string, string> = {
-  'Para o Papel Gestor Condominio': 'Gerencia de Facilities',
-  'Aprovação Nivel 1': 'Gerencia de Facilities',
-  'Aprovação Nivel 2': 'Gerencia Financeira',
+  'Para o Papel Gestor Condominio': 'Gerência de Facilities',
+  'Para o Papel Gestor Condomínio': 'Gerência de Facilities',
+  'Aprovação Nivel 1': 'Gerência de Facilities',
+  'Aprovação Nível 1': 'Gerência de Facilities',
+  'Aprovação Nivel 2': 'Gerência Financeira',
+  'Aprovação Nível 2': 'Gerência Financeira',
   'Aprovação Nivel 3': 'Diretoria',
+  'Aprovação Nível 3': 'Diretoria',
 };
 
 export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
