@@ -21,6 +21,13 @@ interface FluigStatusCardProps {
   numeroChamadoFluig: string;
 }
 
+const ETAPA_LABELS: Record<string, string> = {
+  'Para o Papel Gestor Condominio': 'Gerencia de Facilities',
+  'Aprovação Nivel 1': 'Gerencia de Facilities',
+  'Aprovação Nivel 2': 'Gerencia Financeira',
+  'Aprovação Nivel 3': 'Diretoria',
+};
+
 export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
   const [status, setStatus] = useState<FluigStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -105,7 +112,7 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
           <div className="flex items-center gap-2">
             <MapPin className="h-3.5 w-3.5 text-blue-500" />
             <span className="text-muted-foreground">Etapa:</span>
-            <span className="font-medium text-foreground">{status.localizacao}</span>
+            <span className="font-medium text-foreground">{ETAPA_LABELS[status.localizacao] || status.localizacao}</span>
           </div>
         )}
 
