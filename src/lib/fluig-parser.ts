@@ -138,7 +138,12 @@ export function parseFluigXLSX(buffer: ArrayBuffer): ParseResult {
   const sheet = workbook.Sheets[sheetName];
   
   // Convert to array of arrays
-  const rawData: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, dateNF: 'dd/mm/yyyy hh:mm:ss' });
+  // IMPORTANT: keep raw values to preserve date-time (hours/minutes) from Excel
+  const rawData: any[][] = XLSX.utils.sheet_to_json(sheet, {
+    header: 1,
+    raw: true,
+    dateNF: 'dd/mm/yyyy hh:mm:ss',
+  });
   
   if (rawData.length < 2) {
     return { data: [], invalidRows: [], headers: [], totalRows: 0 };
