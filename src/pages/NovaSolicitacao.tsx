@@ -384,14 +384,9 @@ export default function NovaSolicitacao() {
 
     setSubmitting(true);
     try {
-      // Generate unique protocolo (YYYY + random 6 digits - will be unique due to DB constraint)
-      const year = new Date().getFullYear().toString();
-      const randomSeq = Math.floor(Math.random() * 999999).toString().padStart(6, '0');
-      const protocolo = `${year}${randomSeq}`;
-
+      // Protocolo is generated automatically by the database trigger set_protocolo
       const insertData = {
         user_id: user.id,
-        protocolo,
         empreendimento: empreendimento as "mega_curitiba" | "mega_itajai" | "mega_esteio" | "todos",
         descricao,
         valor: valorNumerico,
