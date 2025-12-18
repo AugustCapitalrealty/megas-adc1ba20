@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+// Tabs removed - using Button groups instead
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
@@ -908,54 +908,137 @@ export default function Backoffice() {
           </CardContent>
         </Card>
 
-        {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as BackofficeTab)} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-7">
-            <TabsTrigger value="recebidas" className="relative text-xs sm:text-sm">
-              Recebidas
-              {groupedSolicitacoes.recebidas.length > 0 && (
-                <Badge variant="destructive" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center">
-                  {groupedSolicitacoes.recebidas.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="pendentes" className="text-xs sm:text-sm">Pendentes</TabsTrigger>
-            <TabsTrigger value="em_processamento" className="text-xs sm:text-sm">Em Proc.</TabsTrigger>
-            <TabsTrigger value="oc_emitidas" className="text-xs sm:text-sm">Emitidas</TabsTrigger>
-            <TabsTrigger value="nf_boleto" className="relative text-xs sm:text-sm">
-              NF/Boleto
-              {groupedSolicitacoes.nf_boleto.length > 0 && (
-                <Badge variant="secondary" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center bg-cyan-100 text-cyan-700">
-                  {groupedSolicitacoes.nf_boleto.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="concluidas" className="text-xs sm:text-sm">Concluídas</TabsTrigger>
-            <TabsTrigger value="rejeitadas" className="text-xs sm:text-sm">Rejeitadas</TabsTrigger>
-          </TabsList>
+        {/* Grouped Filter Tabs */}
+        <div className="flex flex-col lg:flex-row gap-3 lg:gap-2 lg:items-center">
+          {/* Em Andamento */}
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1">Em Andamento</span>
+            <div className="flex gap-1">
+              <Button
+                variant={activeTab === 'recebidas' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setActiveTab('recebidas')}
+                className="gap-1 text-xs h-8"
+              >
+                Recebidas
+                <Badge variant="secondary" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center">{groupedSolicitacoes.recebidas.length}</Badge>
+              </Button>
+              <Button
+                variant={activeTab === 'em_processamento' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setActiveTab('em_processamento')}
+                className="gap-1 text-xs h-8"
+              >
+                Em Proc.
+                <Badge variant="secondary" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center">{groupedSolicitacoes.em_processamento.length}</Badge>
+              </Button>
+              <Button
+                variant={activeTab === 'oc_emitidas' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setActiveTab('oc_emitidas')}
+                className="gap-1 text-xs h-8"
+              >
+                OC Emitida
+                {groupedSolicitacoes.oc_emitidas.length > 0 && (
+                  <Badge variant="default" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center bg-success">{groupedSolicitacoes.oc_emitidas.length}</Badge>
+                )}
+              </Button>
+              <Button
+                variant={activeTab === 'nf_boleto' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setActiveTab('nf_boleto')}
+                className="gap-1 text-xs h-8"
+              >
+                NF/Boleto
+                {groupedSolicitacoes.nf_boleto.length > 0 && (
+                  <Badge variant="default" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center bg-[hsl(260,70%,50%)]">{groupedSolicitacoes.nf_boleto.length}</Badge>
+                )}
+              </Button>
+            </div>
+          </div>
 
-          <TabsContent value="recebidas">
+          {/* Separator */}
+          <div className="hidden lg:block w-px h-12 bg-border mx-2" />
+          <div className="lg:hidden h-px w-full bg-border" />
+
+          {/* Ações Pendentes */}
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-medium text-destructive uppercase tracking-wider px-1 flex items-center gap-1">
+              <AlertTriangle className="h-3 w-3" />
+              Ações Pendentes
+            </span>
+            <div className="flex gap-1">
+              <Button
+                variant={activeTab === 'pendentes' ? 'destructive' : 'outline'}
+                size="sm"
+                onClick={() => setActiveTab('pendentes')}
+                className={cn(
+                  "gap-1 text-xs h-8",
+                  activeTab !== 'pendentes' && groupedSolicitacoes.pendentes.length > 0 && "border-destructive text-destructive hover:bg-destructive/10"
+                )}
+              >
+                Correções
+                {groupedSolicitacoes.pendentes.length > 0 && (
+                  <Badge variant="destructive" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center animate-pulse">{groupedSolicitacoes.pendentes.length}</Badge>
+                )}
+              </Button>
+            </div>
+          </div>
+
+          {/* Separator */}
+          <div className="hidden lg:block w-px h-12 bg-border mx-2" />
+          <div className="lg:hidden h-px w-full bg-border" />
+
+          {/* Finalizadas */}
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1">Finalizadas</span>
+            <div className="flex gap-1">
+              <Button
+                variant={activeTab === 'rejeitadas' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setActiveTab('rejeitadas')}
+                className="gap-1 text-xs h-8"
+              >
+                Rejeitadas
+                <Badge variant="secondary" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center">{groupedSolicitacoes.rejeitadas.length}</Badge>
+              </Button>
+              <Button
+                variant={activeTab === 'concluidas' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setActiveTab('concluidas')}
+                className="gap-1 text-xs h-8"
+              >
+                Concluídas
+                <Badge variant="secondary" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center">{groupedSolicitacoes.concluidas.length}</Badge>
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Tab Content */}
+        <div className="space-y-4">
+          {activeTab === 'recebidas' && (
             <TabContent items={groupedSolicitacoes.recebidas} emptyMessage="Nenhuma solicitação recebida" />
-          </TabsContent>
-          <TabsContent value="pendentes">
+          )}
+          {activeTab === 'pendentes' && (
             <TabContent items={groupedSolicitacoes.pendentes} emptyMessage="Nenhuma solicitação pendente de correção" />
-          </TabsContent>
-          <TabsContent value="em_processamento">
+          )}
+          {activeTab === 'em_processamento' && (
             <TabContent items={groupedSolicitacoes.em_processamento} emptyMessage="Nenhuma solicitação em processamento" />
-          </TabsContent>
-          <TabsContent value="oc_emitidas">
+          )}
+          {activeTab === 'oc_emitidas' && (
             <TabContent items={groupedSolicitacoes.oc_emitidas} emptyMessage="Nenhuma OC emitida" />
-          </TabsContent>
-          <TabsContent value="nf_boleto">
+          )}
+          {activeTab === 'nf_boleto' && (
             <TabContent items={groupedSolicitacoes.nf_boleto} emptyMessage="Nenhuma NF/Boleto pendente" />
-          </TabsContent>
-          <TabsContent value="concluidas">
+          )}
+          {activeTab === 'concluidas' && (
             <TabContent items={groupedSolicitacoes.concluidas} emptyMessage="Nenhuma solicitação concluída" />
-          </TabsContent>
-          <TabsContent value="rejeitadas">
+          )}
+          {activeTab === 'rejeitadas' && (
             <TabContent items={groupedSolicitacoes.rejeitadas} emptyMessage="Nenhuma solicitação rejeitada" />
-          </TabsContent>
-        </Tabs>
+          )}
+        </div>
       </div>
 
       {/* Details Modal */}
