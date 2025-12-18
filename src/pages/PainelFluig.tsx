@@ -91,6 +91,17 @@ export default function PainelFluig() {
     };
   }, [allSnapshots]);
 
+  // Count user's pending items (where they are responsible)
+  const minhasPendencias = useMemo(() => {
+    if (!profile?.full_name) return 0;
+    const userFirstName = profile.full_name.split(' ')[0].toLowerCase();
+    return allSnapshots.filter(s => {
+      // Only count open items
+      if (isCancelado(s) || isFechado(s)) return false;
+      return s.responsavel_atual?.toLowerCase().includes(userFirstName);
+    }).length;
+  }, [allSnapshots, profile?.full_name]);
+
   // Separate by status within selected empreendimento
   const { abertos, fechados, cancelados } = useMemo(() => {
     const filtered = filterByEmpreendimento(allSnapshots, empreendimentoTab);
@@ -187,7 +198,7 @@ export default function PainelFluig() {
   return (
     <AppLayout>
       <div className="container mx-auto py-6 px-4">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-2xl font-bold">Painel Fluig</h1>
             <p className="text-muted-foreground">
@@ -215,6 +226,23 @@ export default function PainelFluig() {
             </Dialog>
           </div>
         </div>
+
+        {/* Minhas Pendências Card */}
+        {profile && minhasPendencias > 0 && (
+          <Card className="mb-4 border-warning bg-warning/10">
+            <CardContent className="py-3 px-4 flex items-center gap-3">
+              <div className="flex items-center justify-center w-10 h-10 rounded-full bg-warning text-warning-foreground font-bold text-lg">
+                {minhasPendencias}
+              </div>
+              <div>
+                <p className="font-semibold text-warning-foreground">Minhas Pendências</p>
+                <p className="text-sm text-muted-foreground">
+                  Você tem {minhasPendencias} {minhasPendencias === 1 ? 'solicitação aguardando' : 'solicitações aguardando'} sua ação
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Empreendimento Tabs */}
         <Tabs value={empreendimentoTab} onValueChange={(v) => setEmpreendimentoTab(v as any)} className="mb-4">
