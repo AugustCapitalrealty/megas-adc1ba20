@@ -32,18 +32,26 @@ export default function PainelFluig() {
   
   const { snapshots: allSnapshots, loading, refetch } = useFluigSnapshots({});
 
+  // Business rule: valor < 2500 doesn't need Diretoria approval
+  // Closes when Financeiro approves. valor >= 2500 needs Diretoria.
+  const isFechado = (s: typeof allSnapshots[0]) => {
+    if (!s.valor) return false;
+    if (s.valor < 2500) {
+      return !!s.gerencia_financeiro_conclusao;
+    }
+    return !!s.diretoria_conclusao;
+  };
+
+  const isCancelado = (s: typeof allSnapshots[0]) => {
+    return s.situacao?.toLowerCase() === 'cancelado' || 
+           s.situacao?.toLowerCase() === 'cancelada';
+  };
+
   // Separate by status
   const { abertos, fechados, cancelados } = useMemo(() => {
-    const abertos = allSnapshots.filter(s => 
-      !s.diretoria_conclusao && 
-      s.situacao?.toLowerCase() !== 'cancelado' &&
-      s.situacao?.toLowerCase() !== 'cancelada'
-    );
-    const fechados = allSnapshots.filter(s => s.diretoria_conclusao);
-    const cancelados = allSnapshots.filter(s => 
-      s.situacao?.toLowerCase() === 'cancelado' ||
-      s.situacao?.toLowerCase() === 'cancelada'
-    );
+    const cancelados = allSnapshots.filter(isCancelado);
+    const fechados = allSnapshots.filter(s => !isCancelado(s) && isFechado(s));
+    const abertos = allSnapshots.filter(s => !isCancelado(s) && !isFechado(s));
     return { abertos, fechados, cancelados };
   }, [allSnapshots]);
 
