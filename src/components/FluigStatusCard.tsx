@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { RefreshCw, MapPin, User, Clock } from 'lucide-react';
+import { RefreshCw, MapPin, User, Calendar } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { calculateDuration } from '@/lib/fluig-parser';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface FluigStatus {
   solicitacao_fluig: string;
@@ -60,8 +61,8 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
     );
   }
 
-  const duration = status.data_lancamento 
-    ? calculateDuration(status.data_lancamento, null)
+  const dataLancamentoFormatted = status.data_lancamento 
+    ? format(new Date(status.data_lancamento), "dd/MM/yyyy 'às' HH:mm:ss", { locale: ptBR })
     : null;
 
   // Determine approval stages
@@ -108,12 +109,12 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
           </div>
         )}
 
-        {/* Duration */}
-        {duration && (
+        {/* Launch date */}
+        {dataLancamentoFormatted && (
           <div className="flex items-center gap-2">
-            <Clock className="h-3.5 w-3.5 text-blue-500" />
-            <span className="text-muted-foreground">Tempo na etapa:</span>
-            <span className="font-medium text-foreground">{duration}</span>
+            <Calendar className="h-3.5 w-3.5 text-blue-500" />
+            <span className="text-muted-foreground">Lançamento:</span>
+            <span className="font-medium text-foreground">{dataLancamentoFormatted}</span>
           </div>
         )}
 
