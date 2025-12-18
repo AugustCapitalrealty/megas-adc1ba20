@@ -29,6 +29,7 @@ import { saveAs } from 'file-saver';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { SolicitacaoTimeline } from '@/components/SolicitacaoTimeline';
+import { FluigStatusCard } from '@/components/FluigStatusCard';
 import { MultiFileUpload, type UploadedFile } from '@/components/FileUpload';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -1169,14 +1170,22 @@ export default function MinhasSolicitacoes() {
                       </div>
                     )}
 
-                    {/* Expanded content - Timeline */}
+                    {/* Expanded content - Fluig Status + Timeline */}
                     {expandedId === sol.id && (
-                      <div className="mt-6 pt-4 border-t">
-                        <div className="flex items-center gap-2 mb-4">
-                          <History className="h-4 w-4 text-muted-foreground" />
-                          <h4 className="font-medium">Histórico</h4>
+                      <div className="mt-6 pt-4 border-t space-y-6">
+                        {/* Fluig Status Card */}
+                        {sol.numero_chamado_fluig && sol.numero_chamado_fluig !== 'RM' && (
+                          <FluigStatusCard numeroChamadoFluig={sol.numero_chamado_fluig} />
+                        )}
+
+                        {/* Timeline */}
+                        <div>
+                          <div className="flex items-center gap-2 mb-4">
+                            <History className="h-4 w-4 text-muted-foreground" />
+                            <h4 className="font-medium">Histórico</h4>
+                          </div>
+                          <SolicitacaoTimeline solicitacaoId={sol.id} />
                         </div>
-                        <SolicitacaoTimeline solicitacaoId={sol.id} />
                       </div>
                     )}
                   </CardContent>
