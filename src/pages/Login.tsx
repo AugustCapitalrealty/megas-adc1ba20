@@ -6,9 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Building2, Loader2, Mail, Lock, User } from 'lucide-react';
+import { Loader2, Mail, Lock, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
+import logoMega from '@/assets/logos/logo-mega.jpg';
 
 const loginSchema = z.object({
   email: z.string().email('Email inválido'),
@@ -127,16 +128,18 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-accent/30 p-4">
-      <Card className="w-full max-w-md animate-fade-in">
-        <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
-            <div className="flex items-center justify-center h-16 w-16 rounded-full bg-primary/10">
-              <Building2 className="h-8 w-8 text-primary" />
-            </div>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
+      <Card className="w-full max-w-md animate-fade-in shadow-xl border-border/50">
+        <CardHeader className="text-center pb-2">
+          <div className="flex justify-center mb-6">
+            <img 
+              src={logoMega} 
+              alt="Mega Centro Logístico" 
+              className="h-16 w-auto object-contain"
+            />
           </div>
-          <CardTitle className="text-2xl">Megas Centros Logísticos</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-2xl font-semibold">Bem-vindo</CardTitle>
+          <CardDescription className="text-muted-foreground">
             Plataforma de Solicitação de AC e OC
           </CardDescription>
         </CardHeader>
@@ -183,7 +186,7 @@ export default function Login() {
                   {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
                 </div>
                 
-                <Button type="submit" className="w-full h-12" disabled={isSubmitting}>
+                <Button type="submit" className="w-full h-12 font-semibold" disabled={isSubmitting}>
                   {isSubmitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -266,7 +269,7 @@ export default function Login() {
                   {errors.confirmPassword && <p className="text-sm text-destructive">{errors.confirmPassword}</p>}
                 </div>
                 
-                <Button type="submit" className="w-full h-12" disabled={isSubmitting}>
+                <Button type="submit" className="w-full h-12 font-semibold" disabled={isSubmitting}>
                   {isSubmitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />

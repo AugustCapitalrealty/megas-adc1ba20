@@ -17,7 +17,6 @@ import {
   Plus, 
   Users, 
   LogOut,
-  Building2,
   Menu,
   BarChart3,
   UserCog,
@@ -26,6 +25,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { NotificationBell } from '@/components/NotificationBell';
+import logoMega from '@/assets/logos/logo-mega.jpg';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -122,7 +122,7 @@ export function AppLayout({ children }: AppLayoutProps) {
                 'flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors',
                 isActive
                   ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                  : 'text-foreground/70 hover:text-primary hover:bg-accent'
               )}
             >
               <Icon className="h-4 w-4" />
@@ -158,11 +158,12 @@ export function AppLayout({ children }: AppLayoutProps) {
       <header className="sticky top-0 z-50 w-full border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
         <div className="container flex h-16 items-center justify-between">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2">
-            <Building2 className="h-6 w-6 text-primary" />
-            <span className="font-semibold text-lg hidden sm:inline-block">
-              Megas AC/OC
-            </span>
+          <Link to="/" className="flex items-center gap-3">
+            <img 
+              src={logoMega} 
+              alt="Mega Centro Logístico" 
+              className="h-10 w-auto object-contain"
+            />
           </Link>
 
           {/* Desktop Navigation */}
@@ -178,7 +179,7 @@ export function AppLayout({ children }: AppLayoutProps) {
                 <Button variant="ghost" className="relative h-9 w-9 rounded-full">
                   <Avatar className="h-9 w-9">
                     <AvatarImage src={displayProfile?.avatar_url || undefined} alt={displayProfile?.full_name || displayEmail || ''} />
-                    <AvatarFallback>
+                    <AvatarFallback className="bg-primary/10 text-primary font-medium">
                       {getInitials(displayProfile?.full_name || null, displayEmail || '')}
                     </AvatarFallback>
                   </Avatar>
@@ -222,7 +223,14 @@ export function AppLayout({ children }: AppLayoutProps) {
                 </Button>
               </SheetTrigger>
               <SheetContent side="right" className="w-64">
-                <nav className="flex flex-col gap-2 mt-8">
+                <div className="flex items-center gap-2 mb-8">
+                  <img 
+                    src={logoMega} 
+                    alt="Mega Centro Logístico" 
+                    className="h-8 w-auto object-contain"
+                  />
+                </div>
+                <nav className="flex flex-col gap-2">
                   <NavLinks mobile />
                 </nav>
               </SheetContent>
