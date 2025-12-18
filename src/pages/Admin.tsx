@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import { Loader2, Search, Shield, Users, UserCheck } from 'lucide-react';
+import { Loader2, Search, Shield, Users, UserCheck, UserCog, X } from 'lucide-react';
 import { AppRole, ROLE_LABELS } from '@/types';
 
 interface UserWithRoles {
@@ -22,12 +22,22 @@ interface UserWithRoles {
 }
 
 export default function Admin() {
-  const { isAdmin, loading: authLoading } = useAuth();
+  const { 
+    isAdmin, 
+    loading: authLoading, 
+    user,
+    isMasterUser, 
+    impersonateUser, 
+    stopImpersonation, 
+    isImpersonating,
+    impersonatedProfile 
+  } = useAuth();
   const navigate = useNavigate();
   const [users, setUsers] = useState<UserWithRoles[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [savingUserId, setSavingUserId] = useState<string | null>(null);
+  const [impersonatingUserId, setImpersonatingUserId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !isAdmin) {
@@ -118,6 +128,31 @@ export default function Admin() {
     }
   };
 
+  const handleImpersonate = async (targetUser: UserWithRoles) => {
+    if (!isMasterUser) return;
+    if (targetUser.id === user?.id) {
+      toast.error('Você não pode impersonar a si mesmo');
+      return;
+    }
+    
+    setImpersonatingUserId(targetUser.id);
+    try {
+      await impersonateUser(targetUser.id);
+      toast.success(`Agora você está visualizando como: ${targetUser.full_name || targetUser.email}`);
+      navigate('/');
+    } catch (error) {
+      console.error('Error impersonating user:', error);
+      toast.error('Erro ao trocar de perfil');
+    } finally {
+      setImpersonatingUserId(null);
+    }
+  };
+
+  const handleStopImpersonation = () => {
+    stopImpersonation();
+    toast.success('Voltou ao seu perfil original');
+  };
+
   const filteredUsers = users.filter(
     (user) =>
       user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -149,6 +184,34 @@ export default function Admin() {
             Gerencie usuários e suas permissões
           </p>
         </div>
+
+        {/* Impersonation Banner */}
+        {isImpersonating && impersonatedProfile && (
+          <Card className="border-warning bg-warning/10">
+            <CardContent className="py-3 px-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <UserCog className="h-5 w-5 text-warning" />
+                <div>
+                  <p className="font-semibold text-warning-foreground">
+                    Visualizando como: {impersonatedProfile.full_name || impersonatedProfile.email}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Você está vendo o sistema como outro usuário
+                  </p>
+                </div>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleStopImpersonation}
+                className="gap-2"
+              >
+                <X className="h-4 w-4" />
+                Voltar ao meu perfil
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Stats Cards */}
         <div className="grid gap-4 md:grid-cols-3">
@@ -209,30 +272,37 @@ export default function Admin() {
                     <TableHead className="text-center">Backoffice</TableHead>
                     <TableHead className="text-center">Admin</TableHead>
                     <TableHead>Roles Ativas</TableHead>
+                    {isMasterUser && <TableHead className="text-center">Ações</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredUsers.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={isMasterUser ? 7 : 6} className="text-center py-8 text-muted-foreground">
                         {searchTerm ? 'Nenhum usuário encontrado' : 'Nenhum usuário cadastrado'}
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredUsers.map((user) => {
-                      const isSaving = savingUserId === user.id;
+                    filteredUsers.map((targetUser) => {
+                      const isSaving = savingUserId === targetUser.id;
+                      const isCurrentUser = targetUser.id === user?.id;
+                      const isImpersonatingThis = impersonatingUserId === targetUser.id;
+                      
                       return (
-                        <TableRow key={user.id}>
+                        <TableRow key={targetUser.id} className={isCurrentUser ? 'bg-muted/50' : ''}>
                           <TableCell className="font-medium">
-                            {user.full_name || '-'}
+                            {targetUser.full_name || '-'}
+                            {isCurrentUser && (
+                              <Badge variant="outline" className="ml-2 text-xs">Você</Badge>
+                            )}
                           </TableCell>
-                          <TableCell>{user.email}</TableCell>
+                          <TableCell>{targetUser.email}</TableCell>
                           <TableCell className="text-center">
                             <div className="flex justify-center">
                               <Checkbox
-                                checked={user.roles.includes('solicitante')}
+                                checked={targetUser.roles.includes('solicitante')}
                                 onCheckedChange={() =>
-                                  handleRoleChange(user.id, 'solicitante', user.roles.includes('solicitante'))
+                                  handleRoleChange(targetUser.id, 'solicitante', targetUser.roles.includes('solicitante'))
                                 }
                                 disabled={isSaving}
                               />
@@ -241,9 +311,9 @@ export default function Admin() {
                           <TableCell className="text-center">
                             <div className="flex justify-center">
                               <Checkbox
-                                checked={user.roles.includes('backoffice')}
+                                checked={targetUser.roles.includes('backoffice')}
                                 onCheckedChange={() =>
-                                  handleRoleChange(user.id, 'backoffice', user.roles.includes('backoffice'))
+                                  handleRoleChange(targetUser.id, 'backoffice', targetUser.roles.includes('backoffice'))
                                 }
                                 disabled={isSaving}
                               />
@@ -252,9 +322,9 @@ export default function Admin() {
                           <TableCell className="text-center">
                             <div className="flex justify-center">
                               <Checkbox
-                                checked={user.roles.includes('admin')}
+                                checked={targetUser.roles.includes('admin')}
                                 onCheckedChange={() =>
-                                  handleRoleChange(user.id, 'admin', user.roles.includes('admin'))
+                                  handleRoleChange(targetUser.id, 'admin', targetUser.roles.includes('admin'))
                                 }
                                 disabled={isSaving}
                               />
@@ -262,10 +332,10 @@ export default function Admin() {
                           </TableCell>
                           <TableCell>
                             <div className="flex flex-wrap gap-1">
-                              {user.roles.length === 0 ? (
+                              {targetUser.roles.length === 0 ? (
                                 <span className="text-muted-foreground text-sm">Sem roles</span>
                               ) : (
-                                user.roles.map((role) => (
+                                targetUser.roles.map((role) => (
                                   <Badge
                                     key={role}
                                     variant={
@@ -282,6 +352,26 @@ export default function Admin() {
                               )}
                             </div>
                           </TableCell>
+                          {isMasterUser && (
+                            <TableCell className="text-center">
+                              {!isCurrentUser && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleImpersonate(targetUser)}
+                                  disabled={isImpersonatingThis}
+                                  className="gap-1 text-xs"
+                                >
+                                  {isImpersonatingThis ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <UserCog className="h-3 w-3" />
+                                  )}
+                                  Entrar
+                                </Button>
+                              )}
+                            </TableCell>
+                          )}
                         </TableRow>
                       );
                     })
