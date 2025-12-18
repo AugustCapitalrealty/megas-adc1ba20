@@ -604,7 +604,7 @@ export default function Backoffice() {
                   "text-xs",
                   sla.atrasadoEmissao ? "text-destructive font-semibold" : "text-muted-foreground"
                 )}>
-                  {sla.tempoDesdeAprovacao} desde aprovação
+                  {sla.tempoDesdeAprovacao} desde assumido
                 </span>
               )}
             </div>
@@ -957,7 +957,7 @@ export default function Backoffice() {
                         </Badge>
                         {sla.tempoDesdeAprovacao !== null && (
                           <Badge variant={sla.atrasadoEmissao ? "destructive" : "outline"}>
-                            {sla.tempoDesdeAprovacao} desde aprovação
+                            {sla.tempoDesdeAprovacao} desde assumido
                           </Badge>
                         )}
                       </div>
