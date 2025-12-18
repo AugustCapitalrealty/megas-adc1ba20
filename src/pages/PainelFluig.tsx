@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { useFluigSnapshots } from '@/hooks/useFluigDashboard';
-import { format } from 'date-fns';
+import { format, differenceInHours, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   Loader2,
@@ -478,15 +478,28 @@ export default function PainelFluig() {
                             </td>
                             {statusTab === 'abertos' && (
                               <td className="px-2 py-2">
-                                {isMyResponsibility ? (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-warning text-warning-foreground text-xs font-semibold">
-                                    VOCÊ
-                                  </span>
-                                ) : (
-                                  <span className="font-medium text-xs" title={snapshot.responsavel_atual || undefined}>
-                                    {formatName(snapshot.responsavel_atual)}
-                                  </span>
-                                )}
+                                {(() => {
+                                  // Calculate time since last update (approximation for time with current responsible)
+                                  const horasCom = differenceInHours(new Date(), new Date(snapshot.updated_at));
+                                  const diasCom = differenceInDays(new Date(), new Date(snapshot.updated_at));
+                                  const tempoCom = diasCom === 0 ? `${horasCom}h` : `${diasCom}d`;
+                                  
+                                  return isMyResponsibility ? (
+                                    <div className="flex flex-col items-center gap-0.5">
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-warning text-warning-foreground text-xs font-semibold">
+                                        VOCÊ
+                                      </span>
+                                      <span className="text-[10px] text-muted-foreground">{tempoCom}</span>
+                                    </div>
+                                  ) : (
+                                    <div className="flex flex-col items-center gap-0.5">
+                                      <span className="font-medium text-xs" title={snapshot.responsavel_atual || undefined}>
+                                        {formatName(snapshot.responsavel_atual)}
+                                      </span>
+                                      <span className="text-[10px] text-muted-foreground">{tempoCom}</span>
+                                    </div>
+                                  );
+                                })()}
                               </td>
                             )}
                             <td className="px-2 py-2">
