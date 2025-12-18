@@ -3,6 +3,8 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import type { AppRole, Profile } from '@/types';
 
+const MASTER_EMAIL = 'guilherme_xd@live.com';
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -15,6 +17,15 @@ interface AuthContextType {
   hasRole: (role: AppRole) => boolean;
   isBackofficeOrAdmin: boolean;
   isAdmin: boolean;
+  // Impersonation
+  isMasterUser: boolean;
+  impersonatedProfile: Profile | null;
+  impersonatedRoles: AppRole[];
+  impersonateUser: (userId: string) => Promise<void>;
+  stopImpersonation: () => void;
+  isImpersonating: boolean;
+  effectiveProfile: Profile | null;
+  effectiveRoles: AppRole[];
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -25,6 +36,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Impersonation state
+  const [impersonatedProfile, setImpersonatedProfile] = useState<Profile | null>(null);
+  const [impersonatedRoles, setImpersonatedRoles] = useState<AppRole[]>([]);
+
+  const isMasterUser = user?.email === MASTER_EMAIL;
+  const isImpersonating = isMasterUser && impersonatedProfile !== null;
+
+  // Effective profile/roles (impersonated or real)
+  const effectiveProfile = isImpersonating ? impersonatedProfile : profile;
+  const effectiveRoles = isImpersonating ? impersonatedRoles : roles;
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -41,6 +63,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           setProfile(null);
           setRoles([]);
+          setImpersonatedProfile(null);
+          setImpersonatedRoles([]);
           setLoading(false);
         }
       }
@@ -89,6 +113,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const impersonateUser = async (userId: string) => {
+    if (!isMasterUser) {
+      console.error('Only master user can impersonate');
+      return;
+    }
+
+    try {
+      // Fetch target user's profile
+      const { data: targetProfile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (targetProfile) {
+        setImpersonatedProfile(targetProfile as Profile);
+      }
+
+      // Fetch target user's roles
+      const { data: targetRoles } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId);
+
+      if (targetRoles) {
+        setImpersonatedRoles(targetRoles.map((r) => r.role as AppRole));
+      }
+    } catch (error) {
+      console.error('Error impersonating user:', error);
+    }
+  };
+
+  const stopImpersonation = () => {
+    setImpersonatedProfile(null);
+    setImpersonatedRoles([]);
+  };
+
   const signIn = async (email: string, password: string): Promise<{ error: string | null }> => {
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -135,6 +196,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
     setProfile(null);
     setRoles([]);
+    setImpersonatedProfile(null);
+    setImpersonatedRoles([]);
   };
 
   const hasRole = (role: AppRole) => roles.includes(role);
@@ -155,6 +218,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         hasRole,
         isBackofficeOrAdmin,
         isAdmin,
+        // Impersonation
+        isMasterUser,
+        impersonatedProfile,
+        impersonatedRoles,
+        impersonateUser,
+        stopImpersonation,
+        isImpersonating,
+        effectiveProfile,
+        effectiveRoles,
       }}
     >
       {children}

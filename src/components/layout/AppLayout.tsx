@@ -20,6 +20,8 @@ import {
   Building2,
   Menu,
   BarChart3,
+  UserCog,
+  X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -30,7 +32,16 @@ interface AppLayoutProps {
 }
 
 export function AppLayout({ children }: AppLayoutProps) {
-  const { user, profile, signOut, isBackofficeOrAdmin, isAdmin } = useAuth();
+  const { 
+    user, 
+    profile, 
+    signOut, 
+    isBackofficeOrAdmin, 
+    isAdmin,
+    isImpersonating,
+    impersonatedProfile,
+    stopImpersonation,
+  } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -39,6 +50,15 @@ export function AppLayout({ children }: AppLayoutProps) {
     await signOut();
     navigate('/login');
   };
+
+  const handleStopImpersonation = () => {
+    stopImpersonation();
+    navigate('/admin/usuarios');
+  };
+
+  // When impersonating, show the impersonated profile info
+  const displayProfile = isImpersonating ? impersonatedProfile : profile;
+  const displayEmail = isImpersonating ? impersonatedProfile?.email : user?.email;
 
   const navItems = [
     {
@@ -115,6 +135,25 @@ export function AppLayout({ children }: AppLayoutProps) {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Impersonation Banner */}
+      {isImpersonating && impersonatedProfile && (
+        <div className="bg-warning text-warning-foreground px-4 py-2 flex items-center justify-center gap-3">
+          <UserCog className="h-4 w-4" />
+          <span className="text-sm font-medium">
+            Visualizando como: <strong>{impersonatedProfile.full_name || impersonatedProfile.email}</strong>
+          </span>
+          <Button 
+            variant="secondary" 
+            size="sm" 
+            onClick={handleStopImpersonation}
+            className="h-6 px-2 text-xs gap-1"
+          >
+            <X className="h-3 w-3" />
+            Sair
+          </Button>
+        </div>
+      )}
+
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
         <div className="container flex h-16 items-center justify-between">
@@ -138,9 +177,9 @@ export function AppLayout({ children }: AppLayoutProps) {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-9 w-9 rounded-full">
                   <Avatar className="h-9 w-9">
-                    <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.full_name || user?.email || ''} />
+                    <AvatarImage src={displayProfile?.avatar_url || undefined} alt={displayProfile?.full_name || displayEmail || ''} />
                     <AvatarFallback>
-                      {getInitials(profile?.full_name || null, user?.email || '')}
+                      {getInitials(displayProfile?.full_name || null, displayEmail || '')}
                     </AvatarFallback>
                   </Avatar>
                 </Button>
@@ -149,14 +188,25 @@ export function AppLayout({ children }: AppLayoutProps) {
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
                     <p className="text-sm font-medium leading-none">
-                      {profile?.full_name || 'Usuário'}
+                      {displayProfile?.full_name || 'Usuário'}
                     </p>
                     <p className="text-xs leading-none text-muted-foreground">
-                      {user?.email}
+                      {displayEmail}
                     </p>
+                    {isImpersonating && (
+                      <p className="text-xs leading-none text-warning mt-1">
+                        (Impersonando)
+                      </p>
+                    )}
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                {isImpersonating && (
+                  <DropdownMenuItem onClick={handleStopImpersonation}>
+                    <X className="mr-2 h-4 w-4" />
+                    Voltar ao meu perfil
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onClick={handleSignOut}>
                   <LogOut className="mr-2 h-4 w-4" />
                   Sair
