@@ -107,7 +107,7 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
           <div className="flex items-center gap-2">
             <User className="h-3.5 w-3.5 text-blue-500" />
             <span className="text-muted-foreground">Responsável:</span>
-            <span className="font-medium text-foreground">{status.responsavel_atual}</span>
+            <span className="font-medium text-foreground">{ETAPA_LABELS[status.responsavel_atual] || status.responsavel_atual}</span>
           </div>
         )}
 
