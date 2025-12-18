@@ -9,6 +9,7 @@ import Dashboard from "./pages/Dashboard";
 import NovaSolicitacao from "./pages/NovaSolicitacao";
 import MinhasSolicitacoes from "./pages/MinhasSolicitacoes";
 import Backoffice from "./pages/Backoffice";
+import PainelFluig from "./pages/PainelFluig";
 import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
@@ -57,6 +58,7 @@ function AppRoutes() {
       <Route path="/nova-solicitacao" element={<ProtectedRoute><NovaSolicitacao /></ProtectedRoute>} />
       <Route path="/minhas-solicitacoes" element={<ProtectedRoute><MinhasSolicitacoes /></ProtectedRoute>} />
       <Route path="/backoffice" element={<ProtectedRoute requireBackoffice><Backoffice /></ProtectedRoute>} />
+      <Route path="/painel-fluig" element={<ProtectedRoute requireBackoffice><PainelFluig /></ProtectedRoute>} />
       <Route path="/admin/usuarios" element={<ProtectedRoute requireAdmin><Admin /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>

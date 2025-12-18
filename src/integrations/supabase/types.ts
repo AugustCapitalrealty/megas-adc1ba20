@@ -208,6 +208,131 @@ export type Database = {
           },
         ]
       }
+      fluig_painel_eventos: {
+        Row: {
+          campo_alterado: string
+          created_at: string
+          id: string
+          importado_em: string
+          importado_por: string | null
+          solicitacao_fluig: string
+          valor_anterior: string | null
+          valor_novo: string | null
+        }
+        Insert: {
+          campo_alterado: string
+          created_at?: string
+          id?: string
+          importado_em?: string
+          importado_por?: string | null
+          solicitacao_fluig: string
+          valor_anterior?: string | null
+          valor_novo?: string | null
+        }
+        Update: {
+          campo_alterado?: string
+          created_at?: string
+          id?: string
+          importado_em?: string
+          importado_por?: string | null
+          solicitacao_fluig?: string
+          valor_anterior?: string | null
+          valor_novo?: string | null
+        }
+        Relationships: []
+      }
+      fluig_painel_snapshot: {
+        Row: {
+          created_at: string
+          data_fim: string | null
+          data_inicio: string | null
+          data_lancamento: string | null
+          diretoria_conclusao: string | null
+          diretoria_responsavel: string | null
+          empreendimento: string | null
+          fornecedor: string | null
+          gerencia_conclusao: string | null
+          gerencia_facilities_conclusao: string | null
+          gerencia_facilities_responsavel: string | null
+          gerencia_financeiro_conclusao: string | null
+          gerencia_financeiro_responsavel: string | null
+          gerencia_responsavel: string | null
+          id: string
+          importado_em: string
+          importado_por: string | null
+          localizacao: string | null
+          responsavel_atual: string | null
+          servico: string | null
+          situacao: string | null
+          solicitacao_fluig: string
+          solicitacao_interna_id: string | null
+          updated_at: string
+          valor: number | null
+        }
+        Insert: {
+          created_at?: string
+          data_fim?: string | null
+          data_inicio?: string | null
+          data_lancamento?: string | null
+          diretoria_conclusao?: string | null
+          diretoria_responsavel?: string | null
+          empreendimento?: string | null
+          fornecedor?: string | null
+          gerencia_conclusao?: string | null
+          gerencia_facilities_conclusao?: string | null
+          gerencia_facilities_responsavel?: string | null
+          gerencia_financeiro_conclusao?: string | null
+          gerencia_financeiro_responsavel?: string | null
+          gerencia_responsavel?: string | null
+          id?: string
+          importado_em?: string
+          importado_por?: string | null
+          localizacao?: string | null
+          responsavel_atual?: string | null
+          servico?: string | null
+          situacao?: string | null
+          solicitacao_fluig: string
+          solicitacao_interna_id?: string | null
+          updated_at?: string
+          valor?: number | null
+        }
+        Update: {
+          created_at?: string
+          data_fim?: string | null
+          data_inicio?: string | null
+          data_lancamento?: string | null
+          diretoria_conclusao?: string | null
+          diretoria_responsavel?: string | null
+          empreendimento?: string | null
+          fornecedor?: string | null
+          gerencia_conclusao?: string | null
+          gerencia_facilities_conclusao?: string | null
+          gerencia_facilities_responsavel?: string | null
+          gerencia_financeiro_conclusao?: string | null
+          gerencia_financeiro_responsavel?: string | null
+          gerencia_responsavel?: string | null
+          id?: string
+          importado_em?: string
+          importado_por?: string | null
+          localizacao?: string | null
+          responsavel_atual?: string | null
+          servico?: string | null
+          situacao?: string | null
+          solicitacao_fluig?: string
+          solicitacao_interna_id?: string | null
+          updated_at?: string
+          valor?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fluig_painel_snapshot_solicitacao_interna_id_fkey"
+            columns: ["solicitacao_interna_id"]
+            isOneToOne: false
+            referencedRelation: "solicitacoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fornecedores: {
         Row: {
           cidade: string | null

@@ -19,6 +19,7 @@ import {
   LogOut,
   Building2,
   Menu,
+  BarChart3,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -56,6 +57,12 @@ export function AppLayout({ children }: AppLayoutProps) {
       href: '/backoffice',
       label: 'Backoffice',
       icon: LayoutDashboard,
+      show: isBackofficeOrAdmin,
+    },
+    {
+      href: '/painel-fluig',
+      label: 'Painel Fluig',
+      icon: BarChart3,
       show: isBackofficeOrAdmin,
     },
     {
