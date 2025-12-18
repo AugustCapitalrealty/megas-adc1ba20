@@ -479,9 +479,23 @@ export default function PainelFluig() {
                             {statusTab === 'abertos' && (
                               <td className="px-2 py-2">
                                 {(() => {
-                                  // Calculate time since last update (approximation for time with current responsible)
-                                  const horasCom = differenceInHours(new Date(), new Date(snapshot.updated_at));
-                                  const diasCom = differenceInDays(new Date(), new Date(snapshot.updated_at));
+                                  // Calculate time since responsibility changed
+                                  // Use the most recent conclusion timestamp from any stage
+                                  // That's when the item was assigned to the current responsible
+                                  const timestamps = [
+                                    snapshot.gerencia_conclusao,
+                                    snapshot.gerencia_facilities_conclusao,
+                                    snapshot.gerencia_financeiro_conclusao,
+                                    snapshot.diretoria_conclusao,
+                                  ].filter(Boolean).map(t => new Date(t!).getTime());
+                                  
+                                  // If no stage concluded yet, use data_lancamento (creation)
+                                  const lastChangeTime = timestamps.length > 0 
+                                    ? Math.max(...timestamps)
+                                    : (snapshot.data_lancamento ? new Date(snapshot.data_lancamento).getTime() : new Date(snapshot.created_at).getTime());
+                                  
+                                  const horasCom = differenceInHours(new Date(), new Date(lastChangeTime));
+                                  const diasCom = differenceInDays(new Date(), new Date(lastChangeTime));
                                   const tempoCom = diasCom === 0 ? `${horasCom}h` : `${diasCom}d`;
                                   
                                   return isMyResponsibility ? (
