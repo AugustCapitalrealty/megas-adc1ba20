@@ -112,8 +112,17 @@ export default function MinhasSolicitacoes() {
   }, [user]);
 
   const fetchSolicitacoes = async () => {
+    // Fetch user's empreendimentos first
+    const { data: empData } = await supabase
+      .from('user_empreendimentos')
+      .select('empreendimento')
+      .eq('user_id', user!.id);
+    
+    const userEmps = empData?.map(e => e.empreendimento) || [];
+    const hasTodos = userEmps.includes('todos');
+
     // Fetch solicitações with fornecedor data
-    const { data, error } = await supabase
+    let query = supabase
       .from('solicitacoes')
       .select(`
         *,
@@ -121,6 +130,13 @@ export default function MinhasSolicitacoes() {
       `)
       .eq('user_id', user!.id)
       .order('created_at', { ascending: false });
+
+    // Filter by empreendimento if user has restrictions (not admin with 'todos')
+    if (!hasTodos && userEmps.length > 0) {
+      query = query.in('empreendimento', userEmps);
+    }
+
+    const { data, error } = await query;
 
     if (!error && data) {
       // Enrich with documentos emitidos e fiscais
