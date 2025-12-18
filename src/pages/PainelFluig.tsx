@@ -384,7 +384,7 @@ export default function PainelFluig() {
     // Remove "Para o Papel" prefix
     let cleaned = name.replace(/^Para o Papel\s*/i, '').trim();
     // Role keywords - if name contains these, keep the full name
-    const roleKeywords = ['gestor', 'analista', 'coordenador', 'diretor', 'gerente', 'supervisor', 'assistente'];
+    const roleKeywords = ['gestor', 'analista', 'coordenador', 'diretor', 'gerente', 'gerencia', 'supervisor', 'assistente'];
     const isRole = roleKeywords.some(kw => cleaned.toLowerCase().includes(kw));
     if (isRole) {
       return cleaned;
