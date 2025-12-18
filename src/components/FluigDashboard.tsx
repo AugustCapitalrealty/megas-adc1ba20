@@ -303,7 +303,7 @@ export function FluigDashboard({ onNavigateToSolicitacao }: FluigDashboardProps)
       </Card>
 
       {/* Data Table */}
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden border">
         {loading ? (
           <div className="py-16 text-center">
             <Loader2 className="h-10 w-10 mx-auto mb-4 animate-spin text-primary" />
@@ -318,8 +318,9 @@ export function FluigDashboard({ onNavigateToSolicitacao }: FluigDashboardProps)
             </p>
           </div>
         ) : (
-          <ScrollArea className="h-[600px]">
-            <table className="w-full border-collapse">
+          <div className="overflow-x-auto">
+            <ScrollArea className="h-[600px]">
+              <table className="w-full border-collapse min-w-[1400px]">
               <thead className="sticky top-0 z-10">
                 <tr className="bg-primary text-primary-foreground">
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider whitespace-nowrap">
@@ -473,6 +474,7 @@ export function FluigDashboard({ onNavigateToSolicitacao }: FluigDashboardProps)
               </tbody>
             </table>
           </ScrollArea>
+          </div>
         )}
       </Card>
     </div>
