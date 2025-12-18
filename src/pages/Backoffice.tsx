@@ -61,7 +61,7 @@ import {
   Banknote,
   Edit
 } from 'lucide-react';
-import { format, differenceInDays } from 'date-fns';
+import { format, differenceInDays, differenceInHours } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -476,12 +476,20 @@ export default function Backoffice() {
     const diasDesdeAprovacao = sol.dataAprovacao 
       ? differenceInDays(new Date(), new Date(sol.dataAprovacao))
       : null;
+    const horasDesdeAprovacao = sol.dataAprovacao
+      ? differenceInHours(new Date(), new Date(sol.dataAprovacao))
+      : null;
+    
+    // Format approval time - show hours if less than 1 day, otherwise days
+    const tempoDesdeAprovacao = sol.dataAprovacao
+      ? (diasDesdeAprovacao === 0 ? `${horasDesdeAprovacao}h` : `${diasDesdeAprovacao}d`)
+      : null;
     
     const atrasadoAnalise = diasDesdeAbertura > 5 && ['recebido', 'em_analise'].includes(sol.status);
     const atrasadoEmissao = diasDesdeAprovacao !== null && diasDesdeAprovacao > 3 && 
       ['aprovado', 'em_processamento'].includes(sol.status);
     
-    return { diasDesdeAbertura, diasDesdeAprovacao, atrasadoAnalise, atrasadoEmissao };
+    return { diasDesdeAbertura, diasDesdeAprovacao, horasDesdeAprovacao, tempoDesdeAprovacao, atrasadoAnalise, atrasadoEmissao };
   };
 
   const SolicitacaoCard = ({ sol }: { sol: SolicitacaoBackoffice }) => {
@@ -588,12 +596,12 @@ export default function Backoffice() {
               )}>
                 {sla.diasDesdeAbertura}d desde abertura
               </span>
-              {sla.diasDesdeAprovacao !== null && (
+              {sla.tempoDesdeAprovacao !== null && (
                 <span className={cn(
                   "text-xs",
                   sla.atrasadoEmissao ? "text-destructive font-semibold" : "text-muted-foreground"
                 )}>
-                  {sla.diasDesdeAprovacao}d desde aprovação
+                  {sla.tempoDesdeAprovacao} desde aprovação
                 </span>
               )}
             </div>
@@ -944,9 +952,9 @@ export default function Backoffice() {
                         <Badge variant={sla.atrasadoAnalise ? "destructive" : "outline"}>
                           {sla.diasDesdeAbertura}d desde abertura
                         </Badge>
-                        {sla.diasDesdeAprovacao !== null && (
+                        {sla.tempoDesdeAprovacao !== null && (
                           <Badge variant={sla.atrasadoEmissao ? "destructive" : "outline"}>
-                            {sla.diasDesdeAprovacao}d desde aprovação
+                            {sla.tempoDesdeAprovacao} desde aprovação
                           </Badge>
                         )}
                       </div>
