@@ -32,13 +32,22 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function PainelFluig() {
   const [empreendimentoTab, setEmpreendimentoTab] = useState<'curitiba' | 'itajai' | 'esteio'>('curitiba');
   const [statusTab, setStatusTab] = useState<'abertos' | 'fechados' | 'cancelados'>('abertos');
   const [importOpen, setImportOpen] = useState(false);
   
+  const { profile } = useAuth();
   const { snapshots: allSnapshots, loading, refetch } = useFluigSnapshots({});
+
+  // Check if current user is the responsible for a snapshot
+  const isCurrentUserResponsible = (responsavelAtual: string | null) => {
+    if (!profile?.full_name || !responsavelAtual) return false;
+    const userFirstName = profile.full_name.split(' ')[0].toLowerCase();
+    return responsavelAtual.toLowerCase().includes(userFirstName);
+  };
 
   // Business rule: valor <= 2500 doesn't need Diretoria approval
   // Closes when Financeiro approves. valor > 2500 needs Diretoria.
@@ -322,12 +331,15 @@ export default function PainelFluig() {
                           !isBackWithFacilities // If back with Facilities, Financeiro didn't reject
                         );
                         
+                        const isMyResponsibility = isCurrentUserResponsible(snapshot.responsavel_atual);
+                        
                         return (
                           <tr 
                             key={snapshot.id} 
                             className={cn(
                               "hover:bg-muted/50 transition-colors",
-                              idx % 2 === 0 ? "bg-background" : "bg-muted/20"
+                              idx % 2 === 0 ? "bg-background" : "bg-muted/20",
+                              isMyResponsibility && "bg-warning/20 hover:bg-warning/30 border-l-4 border-l-warning"
                             )}
                           >
                             <td className="px-2 py-2">
@@ -381,9 +393,15 @@ export default function PainelFluig() {
                             </td>
                             {statusTab === 'abertos' && (
                               <td className="px-2 py-2">
-                                <span className="font-medium text-xs" title={snapshot.responsavel_atual || undefined}>
-                                  {formatName(snapshot.responsavel_atual)}
-                                </span>
+                                {isMyResponsibility ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-warning text-warning-foreground text-xs font-semibold">
+                                    VOCÊ
+                                  </span>
+                                ) : (
+                                  <span className="font-medium text-xs" title={snapshot.responsavel_atual || undefined}>
+                                    {formatName(snapshot.responsavel_atual)}
+                                  </span>
+                                )}
                               </td>
                             )}
                             <td className="px-2 py-2">
