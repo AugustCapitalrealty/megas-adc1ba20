@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { RefreshCw, MapPin, User, Calendar } from 'lucide-react';
+import { RefreshCw, MapPin, User, Calendar, Clock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { format } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface FluigStatus {
@@ -87,6 +87,11 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
     ? format(new Date(status.data_lancamento), "dd/MM/yyyy", { locale: ptBR })
     : null;
 
+  // Calculate days with current responsible
+  const diasComResponsavel = status.data_lancamento
+    ? differenceInDays(new Date(), new Date(status.data_lancamento))
+    : 0;
+
   // Determine approval stages
   const approvalStages = [
     { key: 'gerencia', label: 'Gerência', done: !!status.gerencia_conclusao },
@@ -119,6 +124,10 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
             <User className="h-3.5 w-3.5 text-blue-500" />
             <span className="text-muted-foreground">Responsável atual:</span>
             <span className="font-medium text-foreground">{ETAPA_LABELS[status.responsavel_atual] || status.responsavel_atual}</span>
+            <Badge variant="outline" className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700 flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {diasComResponsavel}d
+            </Badge>
           </div>
         )}
 
