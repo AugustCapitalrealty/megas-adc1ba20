@@ -71,14 +71,59 @@ interface DuplicateData {
 }
 
 export default function NovaSolicitacao() {
-  const { user } = useAuth();
+  const { user, effectiveProfile } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
   const { formatCNPJ, lookupCNPJ, loading: cnpjLoading, error: cnpjError } = useCNPJ();
 
+  const effectiveUserId = effectiveProfile?.id ?? user?.id;
+
   // Check for duplicate data from navigation state
   const duplicateFrom = (location.state as { duplicateFrom?: DuplicateData })?.duplicateFrom;
+
+  const [allowedEmpreendimentos, setAllowedEmpreendimentos] = useState<Empreendimento[]>([]);
+  const [loadingEmpreendimentos, setLoadingEmpreendimentos] = useState(true);
+
+  useEffect(() => {
+    const fetchAllowedEmpreendimentos = async () => {
+      if (!effectiveUserId) {
+        setAllowedEmpreendimentos([]);
+        setLoadingEmpreendimentos(false);
+        return;
+      }
+
+      setLoadingEmpreendimentos(true);
+      const { data, error } = await supabase
+        .from('user_empreendimentos')
+        .select('empreendimento')
+        .eq('user_id', effectiveUserId);
+
+      if (error) {
+        console.error('Erro ao buscar empreendimentos do usuário:', error);
+        setAllowedEmpreendimentos([]);
+        setLoadingEmpreendimentos(false);
+        return;
+      }
+
+      const userEmps = (data ?? []).map((d) => d.empreendimento as Empreendimento);
+      const hasTodos = userEmps.includes('todos');
+      const allOptions = Object.keys(EMPREENDIMENTO_LABELS) as Empreendimento[];
+      const allowed = hasTodos ? allOptions : userEmps;
+
+      setAllowedEmpreendimentos(allowed);
+      setLoadingEmpreendimentos(false);
+
+      // Ajusta seleção automaticamente
+      setEmpreendimento((current) => {
+        if (allowed.length === 1) return allowed[0];
+        if (current && allowed.includes(current as Empreendimento)) return current;
+        return '';
+      });
+    };
+
+    fetchAllowedEmpreendimentos();
+  }, [effectiveUserId]);
 
   const [currentStep, setCurrentStep] = useState<Step>('empreendimento');
   const [submitting, setSubmitting] = useState(false);
@@ -557,14 +602,38 @@ export default function NovaSolicitacao() {
           </CardHeader>
           <CardContent className="space-y-4">
             {currentStep === 'empreendimento' && (
-              <RadioGroup value={empreendimento} onValueChange={(v) => setEmpreendimento(v as Empreendimento)}>
-                {Object.entries(EMPREENDIMENTO_LABELS).map(([value, label]) => (
-                  <div key={value} className="flex items-center space-x-2 p-3 rounded-lg border hover:bg-accent cursor-pointer">
-                    <RadioGroupItem value={value} id={value} />
-                    <Label htmlFor={value} className="flex-1 cursor-pointer">{label}</Label>
+              <div className="space-y-3">
+                {loadingEmpreendimentos ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Carregando empreendimentos...
                   </div>
-                ))}
-              </RadioGroup>
+                ) : allowedEmpreendimentos.length === 0 ? (
+                  <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription>
+                      Nenhum empreendimento está vinculado a este usuário. Peça ao admin para configurar o empreendimento.
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <RadioGroup
+                    value={empreendimento}
+                    onValueChange={(v) => setEmpreendimento(v as Empreendimento)}
+                  >
+                    {allowedEmpreendimentos.map((value) => (
+                      <div
+                        key={value}
+                        className="flex items-center space-x-2 p-3 rounded-lg border hover:bg-accent cursor-pointer"
+                      >
+                        <RadioGroupItem value={value} id={value} />
+                        <Label htmlFor={value} className="flex-1 cursor-pointer">
+                          {EMPREENDIMENTO_LABELS[value]}
+                        </Label>
+                      </div>
+                    ))}
+                  </RadioGroup>
+                )}
+              </div>
             )}
 
             {currentStep === 'descricao' && (
