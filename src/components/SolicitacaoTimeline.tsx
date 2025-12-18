@@ -26,6 +26,23 @@ interface SolicitacaoTimelineProps {
 }
 
 const getActionDetails = (acao: string, statusNovo: string | null): { icon: JSX.Element; label: string; color: string } => {
+  // Handle Fluig number actions
+  if (acao === 'numero_fluig_adicionado') return { 
+    icon: <RefreshCw className="h-4 w-4" />, 
+    label: 'Número Fluig/RM adicionado', 
+    color: 'bg-blue-500 text-white' 
+  };
+  if (acao === 'numero_fluig_alterado') return { 
+    icon: <RefreshCw className="h-4 w-4" />, 
+    label: 'Número Fluig/RM alterado', 
+    color: 'bg-blue-500 text-white' 
+  };
+  if (acao === 'numero_fluig_removido') return { 
+    icon: <RefreshCw className="h-4 w-4" />, 
+    label: 'Número Fluig/RM removido', 
+    color: 'bg-orange-500 text-white' 
+  };
+  
   // Handle Fluig integration updates
   if (acao === 'atualizacao_fluig') return { 
     icon: <RefreshCw className="h-4 w-4" />, 
@@ -209,7 +226,8 @@ export function SolicitacaoTimeline({ solicitacaoId }: SolicitacaoTimelineProps)
         const { icon, label, color } = getActionDetails(item.acao, item.status_novo);
         const isLast = index === historico.length - 1;
         const isFluigUpdate = item.acao === 'atualizacao_fluig';
-        const displayLabel = isFluigUpdate && item.motivo ? item.motivo : label;
+        const isFluigNumberAction = item.acao.startsWith('numero_fluig_');
+        const displayLabel = (isFluigUpdate || isFluigNumberAction) && item.motivo ? item.motivo : label;
         
         return (
           <div key={item.id} className="flex gap-3">
@@ -228,12 +246,12 @@ export function SolicitacaoTimeline({ solicitacaoId }: SolicitacaoTimelineProps)
             <div className={cn("flex-1", !isLast && "pb-4")}>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-medium text-sm">{displayLabel}</span>
-                {isFluigUpdate && (
+                {(isFluigUpdate || isFluigNumberAction) && (
                   <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
                     Fluig
                   </Badge>
                 )}
-                {item.status_novo && !isFluigUpdate && (
+                {item.status_novo && !isFluigUpdate && !isFluigNumberAction && (
                   <Badge variant="outline" className="text-xs">
                     {STATUS_LABELS[item.status_novo]}
                   </Badge>
@@ -247,7 +265,7 @@ export function SolicitacaoTimeline({ solicitacaoId }: SolicitacaoTimelineProps)
                 {format(new Date(item.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
               </p>
               
-              {item.motivo && !isFluigUpdate && (
+              {item.motivo && !isFluigUpdate && !isFluigNumberAction && (
                 <div className="mt-2 p-2 bg-muted/50 rounded text-sm border-l-2 border-primary/30">
                   <span className="text-muted-foreground">Observação: </span>
                   {item.motivo}
