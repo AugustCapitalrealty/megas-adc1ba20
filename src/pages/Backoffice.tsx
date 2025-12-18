@@ -473,6 +473,9 @@ export default function Backoffice() {
   // SLA calculation
   const getSLAInfo = (sol: SolicitacaoBackoffice) => {
     const diasDesdeAbertura = differenceInDays(new Date(), new Date(sol.created_at));
+    const horasDesdeAbertura = differenceInHours(new Date(), new Date(sol.created_at));
+    const tempoDesdeAbertura = diasDesdeAbertura === 0 ? `${horasDesdeAbertura}h` : `${diasDesdeAbertura}d`;
+    
     const diasDesdeAprovacao = sol.dataAprovacao 
       ? differenceInDays(new Date(), new Date(sol.dataAprovacao))
       : null;
@@ -489,7 +492,7 @@ export default function Backoffice() {
     const atrasadoEmissao = diasDesdeAprovacao !== null && diasDesdeAprovacao > 3 && 
       ['aprovado', 'em_processamento'].includes(sol.status);
     
-    return { diasDesdeAbertura, diasDesdeAprovacao, horasDesdeAprovacao, tempoDesdeAprovacao, atrasadoAnalise, atrasadoEmissao };
+    return { diasDesdeAbertura, tempoDesdeAbertura, diasDesdeAprovacao, horasDesdeAprovacao, tempoDesdeAprovacao, atrasadoAnalise, atrasadoEmissao };
   };
 
   const SolicitacaoCard = ({ sol }: { sol: SolicitacaoBackoffice }) => {
@@ -594,7 +597,7 @@ export default function Backoffice() {
                 "text-xs",
                 sla.atrasadoAnalise ? "text-destructive font-semibold" : "text-muted-foreground"
               )}>
-                {sla.diasDesdeAbertura}d desde abertura
+                {sla.tempoDesdeAbertura} desde abertura
               </span>
               {sla.tempoDesdeAprovacao !== null && (
                 <span className={cn(
@@ -950,7 +953,7 @@ export default function Backoffice() {
                     return (
                       <div className="flex gap-2 text-xs">
                         <Badge variant={sla.atrasadoAnalise ? "destructive" : "outline"}>
-                          {sla.diasDesdeAbertura}d desde abertura
+                          {sla.tempoDesdeAbertura} desde abertura
                         </Badge>
                         {sla.tempoDesdeAprovacao !== null && (
                           <Badge variant={sla.atrasadoEmissao ? "destructive" : "outline"}>
