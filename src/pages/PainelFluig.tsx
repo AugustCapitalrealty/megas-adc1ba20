@@ -45,18 +45,19 @@ export default function PainelFluig() {
   const [userEmpreendimentos, setUserEmpreendimentos] = useState<string[]>([]);
   const [loadingEmps, setLoadingEmps] = useState(true);
   
-  const { effectiveProfile, user } = useAuth();
+  const { effectiveProfile, user, isImpersonating } = useAuth();
+  const effectiveUserId = (isImpersonating ? effectiveProfile?.id : user?.id) ?? user?.id;
   const { snapshots: allSnapshots, loading, refetch } = useFluigSnapshots({});
 
   // Fetch user's assigned empreendimentos
   useEffect(() => {
     const fetchUserEmps = async () => {
-      if (!user) return;
+      if (!effectiveUserId) return;
       
       const { data } = await supabase
         .from('user_empreendimentos')
         .select('empreendimento')
-        .eq('user_id', user.id);
+        .eq('user_id', effectiveUserId);
       
       const emps = data?.map(e => e.empreendimento) || [];
       setUserEmpreendimentos(emps);
@@ -73,7 +74,7 @@ export default function PainelFluig() {
       setLoadingEmps(false);
     };
     fetchUserEmps();
-  }, [user]);
+  }, [effectiveUserId]);
 
   // Check if user can access specific empreendimento tab
   const canAccessEmpreendimento = (emp: 'curitiba' | 'itajai' | 'esteio') => {
