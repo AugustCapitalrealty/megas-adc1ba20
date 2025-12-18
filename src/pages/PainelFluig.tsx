@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { useFluigSnapshots } from '@/hooks/useFluigDashboard';
-import { format, differenceInHours, differenceInDays } from 'date-fns';
+import { format, differenceInHours, differenceInDays, startOfMonth, endOfMonth, subMonths, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   Loader2,
@@ -19,6 +19,12 @@ import {
   ExternalLink,
   ChevronDown,
   ChevronUp,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Calendar,
+  Timer,
+  Inbox,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { FluigImport } from '@/components/FluigImport';
@@ -36,6 +42,80 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useAuth } from '@/hooks/useAuth';
+
+type Snapshot = ReturnType<typeof useFluigSnapshots>['snapshots'][0];
+
+// KPI Card component
+const KPICard = ({ 
+  title, 
+  value, 
+  previousValue, 
+  icon: Icon, 
+  invertTrend = false,
+  suffix = '',
+  tooltip,
+}: { 
+  title: string; 
+  value: number; 
+  previousValue: number; 
+  icon: React.ElementType;
+  invertTrend?: boolean;
+  suffix?: string;
+  tooltip?: string;
+}) => {
+  const diff = previousValue === 0 ? (value > 0 ? 100 : 0) : Math.round(((value - previousValue) / previousValue) * 100);
+  const isPositive = diff > 0;
+  const isNegative = diff < 0;
+  const isNeutral = diff === 0;
+  
+  // invertTrend: for backlog and tempo médio, decrease is good (green)
+  const isGood = invertTrend ? isNegative : isPositive;
+  const isBad = invertTrend ? isPositive : isNegative;
+  
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Card className="flex-1 min-w-[140px]">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Icon className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground font-medium">{title}</span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold">{value}{suffix}</span>
+                {!isNeutral && (
+                  <span className={cn(
+                    "text-xs font-medium flex items-center gap-0.5",
+                    isGood && "text-green-600",
+                    isBad && "text-red-600"
+                  )}>
+                    {isPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                    {isPositive ? '+' : ''}{diff}%
+                  </span>
+                )}
+                {isNeutral && (
+                  <span className="text-xs font-medium text-muted-foreground flex items-center gap-0.5">
+                    <Minus className="h-3 w-3" />
+                    0%
+                  </span>
+                )}
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                vs mês anterior: {previousValue}{suffix}
+              </p>
+            </CardContent>
+          </Card>
+        </TooltipTrigger>
+        {tooltip && (
+          <TooltipContent>
+            <p className="text-xs">{tooltip}</p>
+          </TooltipContent>
+        )}
+      </Tooltip>
+    </TooltipProvider>
+  );
+};
 
 export default function PainelFluig() {
   const [empreendimentoTab, setEmpreendimentoTab] = useState<'curitiba' | 'itajai' | 'esteio' | null>(null);
@@ -96,7 +176,7 @@ export default function PainelFluig() {
 
   // Business rule: valor <= 2500 doesn't need Diretoria approval
   // Closes when Financeiro approves. valor > 2500 needs Diretoria.
-  const isFechado = (s: typeof allSnapshots[0]) => {
+  const isFechado = (s: Snapshot) => {
     if (!s.valor) return false;
     if (s.valor <= 2500) {
       return !!s.gerencia_financeiro_conclusao;
@@ -104,9 +184,49 @@ export default function PainelFluig() {
     return !!s.diretoria_conclusao;
   };
 
-  const isCancelado = (s: typeof allSnapshots[0]) => {
+  const isCancelado = (s: Snapshot) => {
     return s.situacao?.toLowerCase() === 'cancelado' || 
            s.situacao?.toLowerCase() === 'cancelada';
+  };
+
+  // Get the final conclusion date for a snapshot
+  const getDataConclusao = (s: Snapshot): Date | null => {
+    if (!s.valor) return null;
+    if (s.valor <= 2500 && s.gerencia_financeiro_conclusao) {
+      return new Date(s.gerencia_financeiro_conclusao);
+    }
+    if (s.diretoria_conclusao) {
+      return new Date(s.diretoria_conclusao);
+    }
+    return null;
+  };
+
+  // Calculate duration in days
+  const calcularDuracao = (s: Snapshot): { dias: number; status: 'aberto' | 'fechado' | 'cancelado' } => {
+    const dataInicio = s.data_lancamento ? new Date(s.data_lancamento) : new Date(s.created_at);
+    
+    if (isCancelado(s)) {
+      // For cancelled, use the most recent date available
+      const timestamps = [
+        s.gerencia_conclusao,
+        s.gerencia_facilities_conclusao,
+        s.gerencia_financeiro_conclusao,
+        s.diretoria_conclusao,
+      ].filter(Boolean).map(t => new Date(t!).getTime());
+      
+      const dataFim = timestamps.length > 0 ? new Date(Math.max(...timestamps)) : new Date();
+      return { dias: differenceInDays(dataFim, dataInicio), status: 'cancelado' };
+    }
+    
+    if (isFechado(s)) {
+      const dataConclusao = getDataConclusao(s);
+      if (dataConclusao) {
+        return { dias: differenceInDays(dataConclusao, dataInicio), status: 'fechado' };
+      }
+    }
+    
+    // Still open
+    return { dias: differenceInDays(new Date(), dataInicio), status: 'aberto' };
   };
 
   // Filter by empreendimento
@@ -119,7 +239,7 @@ export default function PainelFluig() {
     return filters[emp];
   };
 
-  const filterByEmpreendimento = (snapshots: typeof allSnapshots, emp: 'curitiba' | 'itajai' | 'esteio' | null) => {
+  const filterByEmpreendimento = (snapshots: Snapshot[], emp: 'curitiba' | 'itajai' | 'esteio' | null) => {
     if (!emp) return [];
     const keywords = getEmpreendimentoFilter(emp);
     if (!keywords) return [];
@@ -160,6 +280,88 @@ export default function PainelFluig() {
     return { abertos, fechados, cancelados };
   }, [allSnapshots, empreendimentoTab]);
 
+  // KPI calculations
+  const kpis = useMemo(() => {
+    const now = new Date();
+    const currentMonthStart = startOfMonth(now);
+    const currentMonthEnd = endOfMonth(now);
+    const previousMonthStart = startOfMonth(subMonths(now, 1));
+    const previousMonthEnd = endOfMonth(subMonths(now, 1));
+
+    const filtered = filterByEmpreendimento(allSnapshots, empreendimentoTab);
+
+    // Novas este mês: data_lancamento no mês atual
+    const novasEsteMes = filtered.filter(s => {
+      if (!s.data_lancamento) return false;
+      const date = new Date(s.data_lancamento);
+      return isWithinInterval(date, { start: currentMonthStart, end: currentMonthEnd });
+    }).length;
+
+    const novasMesAnterior = filtered.filter(s => {
+      if (!s.data_lancamento) return false;
+      const date = new Date(s.data_lancamento);
+      return isWithinInterval(date, { start: previousMonthStart, end: previousMonthEnd });
+    }).length;
+
+    // Concluídas este mês: data de conclusão no mês atual
+    const concluidasEsteMes = filtered.filter(s => {
+      if (isCancelado(s)) return false;
+      const dataConclusao = getDataConclusao(s);
+      if (!dataConclusao) return false;
+      return isWithinInterval(dataConclusao, { start: currentMonthStart, end: currentMonthEnd });
+    }).length;
+
+    const concluidasMesAnterior = filtered.filter(s => {
+      if (isCancelado(s)) return false;
+      const dataConclusao = getDataConclusao(s);
+      if (!dataConclusao) return false;
+      return isWithinInterval(dataConclusao, { start: previousMonthStart, end: previousMonthEnd });
+    }).length;
+
+    // Backlog: total de abertos
+    const backlog = filtered.filter(s => !isCancelado(s) && !isFechado(s)).length;
+
+    // Para comparar backlog com mês anterior, precisamos simular o estado no final do mês anterior
+    // Simplificação: usamos o mesmo valor como referência (não temos snapshot histórico)
+    // Então vamos contar quantos abertos existiam no final do mês passado aproximadamente
+    // = abertos atuais + concluídos este mês - novos este mês
+    const backlogMesAnterior = Math.max(0, backlog + concluidasEsteMes - novasEsteMes);
+
+    // Tempo médio: média de dias dos concluídos este mês
+    const concluidosEsteMesSnapshots = filtered.filter(s => {
+      if (isCancelado(s)) return false;
+      const dataConclusao = getDataConclusao(s);
+      if (!dataConclusao) return false;
+      return isWithinInterval(dataConclusao, { start: currentMonthStart, end: currentMonthEnd });
+    });
+
+    const tempoMedioEsteMes = concluidosEsteMesSnapshots.length > 0
+      ? Math.round(concluidosEsteMesSnapshots.reduce((acc, s) => acc + calcularDuracao(s).dias, 0) / concluidosEsteMesSnapshots.length)
+      : 0;
+
+    const concluidosMesAnteriorSnapshots = filtered.filter(s => {
+      if (isCancelado(s)) return false;
+      const dataConclusao = getDataConclusao(s);
+      if (!dataConclusao) return false;
+      return isWithinInterval(dataConclusao, { start: previousMonthStart, end: previousMonthEnd });
+    });
+
+    const tempoMedioMesAnterior = concluidosMesAnteriorSnapshots.length > 0
+      ? Math.round(concluidosMesAnteriorSnapshots.reduce((acc, s) => acc + calcularDuracao(s).dias, 0) / concluidosMesAnteriorSnapshots.length)
+      : 0;
+
+    return {
+      novasEsteMes,
+      novasMesAnterior,
+      concluidasEsteMes,
+      concluidasMesAnterior,
+      backlog,
+      backlogMesAnterior,
+      tempoMedioEsteMes,
+      tempoMedioMesAnterior,
+    };
+  }, [allSnapshots, empreendimentoTab]);
+
   const currentSnapshots = statusTab === 'abertos' ? abertos : statusTab === 'fechados' ? fechados : cancelados;
 
   const formatCurrency = (value: number | null) => {
@@ -194,6 +396,41 @@ export default function PainelFluig() {
   // Build Fluig portal URL
   const getFluigUrl = (numero: string) => {
     return `https://portal.capitalrealty.com.br/portal/p/1/pageworkflowview?app_ecm_workflowview_detailsProcessInstanceID=${numero}`;
+  };
+
+  // Duration badge component
+  const DurationBadge = ({ snapshot }: { snapshot: Snapshot }) => {
+    const { dias, status } = calcularDuracao(snapshot);
+    
+    if (status === 'fechado') {
+      return (
+        <span className="text-xs text-muted-foreground whitespace-nowrap">
+          {dias}d
+        </span>
+      );
+    }
+    
+    if (status === 'cancelado') {
+      return (
+        <span className="text-xs text-muted-foreground/60 whitespace-nowrap">
+          {dias}d
+        </span>
+      );
+    }
+    
+    // Aberto: color code based on duration
+    let colorClass = 'text-green-600';
+    if (dias > 15) {
+      colorClass = 'text-red-600';
+    } else if (dias > 7) {
+      colorClass = 'text-yellow-600';
+    }
+    
+    return (
+      <span className={cn("text-xs font-medium whitespace-nowrap", colorClass)}>
+        {dias}d
+      </span>
+    );
   };
 
   const ApprovalCell = ({ responsavel, conclusao, rejected }: { responsavel: string | null; conclusao: string | null; rejected?: boolean }) => {
@@ -244,6 +481,8 @@ export default function PainelFluig() {
     refetch();
   };
 
+  const currentMonthName = format(new Date(), 'MMMM', { locale: ptBR });
+
   return (
     <AppLayout>
       <div className="container mx-auto py-6 px-4">
@@ -275,6 +514,43 @@ export default function PainelFluig() {
             </Dialog>
           </div>
         </div>
+
+        {/* KPIs Section */}
+        {!loadingEmps && empreendimentoTab && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            <KPICard
+              title={`Novas (${currentMonthName.slice(0, 3)})`}
+              value={kpis.novasEsteMes}
+              previousValue={kpis.novasMesAnterior}
+              icon={Calendar}
+              tooltip="Solicitações criadas neste mês"
+            />
+            <KPICard
+              title={`Concluídas (${currentMonthName.slice(0, 3)})`}
+              value={kpis.concluidasEsteMes}
+              previousValue={kpis.concluidasMesAnterior}
+              icon={CheckCircle2}
+              tooltip="Solicitações finalizadas neste mês"
+            />
+            <KPICard
+              title="Backlog"
+              value={kpis.backlog}
+              previousValue={kpis.backlogMesAnterior}
+              icon={Inbox}
+              invertTrend
+              tooltip="Total de solicitações em aberto"
+            />
+            <KPICard
+              title="Tempo médio"
+              value={kpis.tempoMedioEsteMes}
+              previousValue={kpis.tempoMedioMesAnterior}
+              icon={Timer}
+              invertTrend
+              suffix="d"
+              tooltip="Média de dias para concluir (concluídos este mês)"
+            />
+          </div>
+        )}
 
         {/* Minhas Pendências Card */}
         {effectiveProfile && minhasPendencias > 0 && (
@@ -415,9 +691,10 @@ export default function PainelFluig() {
                       <tr className="bg-primary text-primary-foreground">
                         <th className="w-[80px] px-2 py-2.5 font-semibold">Nº</th>
                         <th className="w-[70px] px-2 py-2.5 font-semibold">Data</th>
+                        <th className="w-[50px] px-2 py-2.5 font-semibold">Dias</th>
                         <th className="w-[85px] px-2 py-2.5 font-semibold">Valor</th>
-                        <th className="w-[150px] px-2 py-2.5 font-semibold text-left">Descrição</th>
-                        <th className="w-[120px] px-2 py-2.5 font-semibold text-left">Fornecedor</th>
+                        <th className="w-[140px] px-2 py-2.5 font-semibold text-left">Descrição</th>
+                        <th className="w-[110px] px-2 py-2.5 font-semibold text-left">Fornecedor</th>
                         {statusTab === 'abertos' && (
                           <th className="w-[90px] px-2 py-2.5 font-semibold">Responsável</th>
                         )}
@@ -502,6 +779,9 @@ export default function PainelFluig() {
                             </td>
                             <td className="px-2 py-2 whitespace-nowrap">
                               {formatDateShort(snapshot.data_lancamento)}
+                            </td>
+                            <td className="px-2 py-2">
+                              <DurationBadge snapshot={snapshot} />
                             </td>
                             <td className="px-2 py-2 font-medium whitespace-nowrap">
                               {formatCurrency(snapshot.valor)}
