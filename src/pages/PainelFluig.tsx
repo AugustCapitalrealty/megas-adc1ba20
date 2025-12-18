@@ -269,14 +269,15 @@ export default function PainelFluig() {
                         const facilitiesConclusao = snapshot.gerencia_facilities_conclusao || snapshot.gerencia_conclusao;
                         
                         // Detect rejection: Facilities acted but flow went backwards (not to Financeiro)
-                        // If facilitiesConclusao exists but gerencia_financeiro_conclusao is null
-                        // AND responsavel_atual is not the Facilities person, it was rejected
+                        // If facilitiesConclusao exists but responsavel_atual is NOT the Financeiro person, it was rejected
+                        // Check if current responsible is the Financeiro responsible
+                        const isWithFinanceiro = snapshot.gerencia_financeiro_responsavel && 
+                          snapshot.responsavel_atual?.toLowerCase().includes(snapshot.gerencia_financeiro_responsavel.split(' ')[0].toLowerCase());
+                        
                         const facilitiesRejected = !!(
                           facilitiesConclusao && 
                           !snapshot.gerencia_financeiro_conclusao &&
-                          snapshot.responsavel_atual &&
-                          facilitiesResponsavel &&
-                          !snapshot.responsavel_atual.toLowerCase().includes(facilitiesResponsavel.split(' ')[0].toLowerCase())
+                          !isWithFinanceiro
                         );
                         
                         return (
