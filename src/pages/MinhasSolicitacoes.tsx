@@ -63,9 +63,10 @@ interface InfoRequest {
 }
 
 export default function MinhasSolicitacoes() {
-  const { user } = useAuth();
+  const { user, effectiveProfile, isImpersonating } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const effectiveUserId = (isImpersonating ? effectiveProfile?.id : user?.id) ?? user?.id;
   const [solicitacoes, setSolicitacoes] = useState<SolicitacaoComFornecedor[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -106,18 +107,20 @@ export default function MinhasSolicitacoes() {
   const [nfBoletoLoading, setNfBoletoLoading] = useState(false);
 
   useEffect(() => {
-    if (user) {
+    if (effectiveUserId) {
       fetchSolicitacoes();
     }
-  }, [user]);
+  }, [effectiveUserId]);
 
   const fetchSolicitacoes = async () => {
+    if (!effectiveUserId) return;
+
     // First, fetch user's assigned empreendimentos
     const { data: empData } = await supabase
       .from('user_empreendimentos')
       .select('empreendimento')
-      .eq('user_id', user!.id);
-    
+      .eq('user_id', effectiveUserId);
+
     const userEmps = empData?.map(e => e.empreendimento) || [];
     const hasTodos = userEmps.includes('todos');
 
@@ -128,7 +131,7 @@ export default function MinhasSolicitacoes() {
         *,
         fornecedor:fornecedores!solicitacoes_fornecedor_id_fkey(id, razao_social, nome_fantasia)
       `)
-      .eq('user_id', user!.id)
+      .eq('user_id', effectiveUserId)
       .order('created_at', { ascending: false });
 
     // Filter by user's empreendimentos (unless they have 'todos')
