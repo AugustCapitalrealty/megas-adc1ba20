@@ -124,17 +124,17 @@ export default function MinhasSolicitacoes() {
     const userEmps = empData?.map(e => e.empreendimento) || [];
     const hasTodos = userEmps.includes('todos');
 
-    // Fetch solicitações with fornecedor data
+    // Fetch solicitações - RLS cuida da permissão por empreendimento
+    // Usuários verão todas as solicitações dos empreendimentos aos quais estão vinculados
     let query = supabase
       .from('solicitacoes')
       .select(`
         *,
         fornecedor:fornecedores!solicitacoes_fornecedor_id_fkey(id, razao_social, nome_fantasia)
       `)
-      .eq('user_id', effectiveUserId)
       .order('created_at', { ascending: false });
 
-    // Filter by user's empreendimentos (unless they have 'todos')
+    // Filtro adicional por empreendimento no cliente (caso RLS permita mais do que necessário)
     if (!hasTodos && userEmps.length > 0) {
       query = query.in('empreendimento', userEmps);
     }
