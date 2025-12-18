@@ -362,16 +362,45 @@ export default function Backoffice() {
   };
 
   const handleSaveFluig = async () => {
-    if (!selectedSolicitacao) return;
+    if (!selectedSolicitacao || !user) return;
     
     setEditFluigLoading(true);
     try {
+      const previousValue = selectedSolicitacao.numero_chamado_fluig;
+      const newValue = editFluigValue || null;
+      
       const { error } = await supabase
         .from('solicitacoes')
-        .update({ numero_chamado_fluig: editFluigValue || null })
+        .update({ numero_chamado_fluig: newValue })
         .eq('id', selectedSolicitacao.id);
 
       if (error) throw error;
+
+      // Register in history when Fluig number is added or changed
+      if (newValue !== previousValue) {
+        let acao = '';
+        let motivo = '';
+        
+        if (!previousValue && newValue) {
+          acao = 'numero_fluig_adicionado';
+          motivo = newValue === 'RM' ? 'Número RM adicionado' : `Número Fluig #${newValue} adicionado`;
+        } else if (previousValue && newValue) {
+          acao = 'numero_fluig_alterado';
+          motivo = `Número alterado de ${previousValue} para ${newValue}`;
+        } else if (previousValue && !newValue) {
+          acao = 'numero_fluig_removido';
+          motivo = `Número ${previousValue} removido`;
+        }
+        
+        await supabase.from('historico_solicitacoes').insert({
+          solicitacao_id: selectedSolicitacao.id,
+          user_id: user.id,
+          acao,
+          motivo,
+          status_anterior: selectedSolicitacao.status,
+          status_novo: selectedSolicitacao.status,
+        });
+      }
 
       toast({
         title: 'Fluig/RM atualizado',
