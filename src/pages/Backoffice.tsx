@@ -446,7 +446,7 @@ export default function Backoffice() {
   };
 
   const handleAction = async () => {
-    if (!selectedSolicitacao) return;
+    if (!selectedSolicitacao || !user) return;
     
     const statusMap: Record<string, RequestStatus> = {
       'assumir': 'aprovado',
@@ -456,12 +456,22 @@ export default function Backoffice() {
       'solicitar_ajuste': 'aguardando_informacoes',
     };
     
-    // If processing, also save the Fluig number
+    // If processing, also save the Fluig number and register in history
     if (actionType === 'processar' && numeroChamadoFluig) {
       await supabase
         .from('solicitacoes')
         .update({ numero_chamado_fluig: numeroChamadoFluig })
         .eq('id', selectedSolicitacao.id);
+      
+      // Register Fluig number in history
+      await supabase.from('historico_solicitacoes').insert({
+        solicitacao_id: selectedSolicitacao.id,
+        user_id: user.id,
+        acao: 'numero_fluig_adicionado',
+        motivo: numeroChamadoFluig === 'RM' ? 'Número RM adicionado' : `Número Fluig #${numeroChamadoFluig} adicionado`,
+        status_anterior: selectedSolicitacao.status,
+        status_novo: selectedSolicitacao.status,
+      });
     }
     
     updateStatus(selectedSolicitacao.id, statusMap[actionType], motivo);
