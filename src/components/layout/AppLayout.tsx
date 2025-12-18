@@ -19,9 +19,7 @@ import {
   LogOut,
   Building2,
   Menu,
-  Clock,
-  CheckCircle,
-  Upload,
+  BarChart3,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -62,21 +60,9 @@ export function AppLayout({ children }: AppLayoutProps) {
       show: isBackofficeOrAdmin,
     },
     {
-      href: '/fluig-abertos',
-      label: 'Fluig Abertos',
-      icon: Clock,
-      show: isBackofficeOrAdmin,
-    },
-    {
-      href: '/fluig-concluidos',
-      label: 'Fluig Concluídos',
-      icon: CheckCircle,
-      show: isBackofficeOrAdmin,
-    },
-    {
       href: '/painel-fluig',
-      label: 'Importar Fluig',
-      icon: Upload,
+      label: 'Painel Fluig',
+      icon: BarChart3,
       show: isBackofficeOrAdmin,
     },
     {
