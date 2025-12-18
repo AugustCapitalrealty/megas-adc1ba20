@@ -75,11 +75,15 @@ export default function PainelFluig() {
     if (!conclusao) {
       return <span className="text-muted-foreground/40">-</span>;
     }
-    const firstName = responsavel?.split(' ')[0] || 'OK';
+    // If System:Auto or empty, just show checkmark
+    if (!responsavel || responsavel === 'System:Auto') {
+      return <CheckCircle2 className="h-3.5 w-3.5 text-success mx-auto" />;
+    }
+    const firstName = responsavel.split(' ')[0];
     return (
-      <div className="flex items-center gap-1 text-success">
+      <div className="flex items-center gap-1 text-success justify-center">
         <CheckCircle2 className="h-3 w-3 flex-shrink-0" />
-        <span className="text-xs font-medium" title={responsavel || undefined}>
+        <span className="text-xs font-medium" title={responsavel}>
           {firstName}
         </span>
       </div>
@@ -159,55 +163,66 @@ export default function PainelFluig() {
                         <th className="px-3 py-2.5 text-left font-semibold">Nº</th>
                         <th className="px-3 py-2.5 text-left font-semibold">Data</th>
                         <th className="px-3 py-2.5 text-right font-semibold">Valor</th>
-                        <th className="px-3 py-2.5 text-left font-semibold">Responsável</th>
+                        {activeTab === 'abertos' && (
+                          <th className="px-3 py-2.5 text-left font-semibold">Responsável</th>
+                        )}
                         <th className="px-3 py-2.5 text-center font-semibold">Facilities</th>
                         <th className="px-3 py-2.5 text-center font-semibold">Financeiro</th>
                         <th className="px-3 py-2.5 text-center font-semibold">Diretoria</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {currentSnapshots.map((snapshot, idx) => (
-                        <tr 
-                          key={snapshot.id} 
-                          className={cn(
-                            "hover:bg-muted/50 transition-colors",
-                            idx % 2 === 0 ? "bg-background" : "bg-muted/20"
-                          )}
-                        >
-                          <td className="px-3 py-2">
-                            <span className="font-semibold text-primary">{snapshot.solicitacao_fluig}</span>
-                          </td>
-                          <td className="px-3 py-2 whitespace-nowrap">
-                            {formatDateShort(snapshot.data_lancamento)}
-                          </td>
-                          <td className="px-3 py-2 text-right font-medium whitespace-nowrap">
-                            {formatCurrency(snapshot.valor)}
-                          </td>
-                          <td className="px-3 py-2">
-                            <span className="font-medium" title={snapshot.responsavel_atual || undefined}>
-                              {snapshot.responsavel_atual || '-'}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2 text-center">
-                            <ApprovalCell 
-                              responsavel={snapshot.gerencia_facilities_responsavel} 
-                              conclusao={snapshot.gerencia_facilities_conclusao} 
-                            />
-                          </td>
-                          <td className="px-3 py-2 text-center">
-                            <ApprovalCell 
-                              responsavel={snapshot.gerencia_financeiro_responsavel} 
-                              conclusao={snapshot.gerencia_financeiro_conclusao} 
-                            />
-                          </td>
-                          <td className="px-3 py-2 text-center">
-                            <ApprovalCell 
-                              responsavel={snapshot.diretoria_responsavel} 
-                              conclusao={snapshot.diretoria_conclusao} 
-                            />
-                          </td>
-                        </tr>
-                      ))}
+                      {currentSnapshots.map((snapshot, idx) => {
+                        // If Facilities is System:Auto, use Gerência (Nivel 1) responsavel
+                        const facilitiesResponsavel = snapshot.gerencia_facilities_responsavel === 'System:Auto' 
+                          ? snapshot.gerencia_responsavel 
+                          : snapshot.gerencia_facilities_responsavel;
+                        
+                        return (
+                          <tr 
+                            key={snapshot.id} 
+                            className={cn(
+                              "hover:bg-muted/50 transition-colors",
+                              idx % 2 === 0 ? "bg-background" : "bg-muted/20"
+                            )}
+                          >
+                            <td className="px-3 py-2">
+                              <span className="font-semibold text-primary">{snapshot.solicitacao_fluig}</span>
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap">
+                              {formatDateShort(snapshot.data_lancamento)}
+                            </td>
+                            <td className="px-3 py-2 text-right font-medium whitespace-nowrap">
+                              {formatCurrency(snapshot.valor)}
+                            </td>
+                            {activeTab === 'abertos' && (
+                              <td className="px-3 py-2">
+                                <span className="font-medium" title={snapshot.responsavel_atual || undefined}>
+                                  {snapshot.responsavel_atual || '-'}
+                                </span>
+                              </td>
+                            )}
+                            <td className="px-3 py-2 text-center">
+                              <ApprovalCell 
+                                responsavel={facilitiesResponsavel} 
+                                conclusao={snapshot.gerencia_facilities_conclusao} 
+                              />
+                            </td>
+                            <td className="px-3 py-2 text-center">
+                              <ApprovalCell 
+                                responsavel={snapshot.gerencia_financeiro_responsavel} 
+                                conclusao={snapshot.gerencia_financeiro_conclusao} 
+                              />
+                            </td>
+                            <td className="px-3 py-2 text-center">
+                              <ApprovalCell 
+                                responsavel={snapshot.diretoria_responsavel} 
+                                conclusao={snapshot.diretoria_conclusao} 
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </ScrollArea>
