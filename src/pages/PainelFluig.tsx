@@ -247,10 +247,10 @@ export default function PainelFluig() {
                     </thead>
                     <tbody className="divide-y divide-border">
                       {currentSnapshots.map((snapshot, idx) => {
-                        // If Facilities is System:Auto, use Gerência (Nivel 1) responsavel
-                        const facilitiesResponsavel = snapshot.gerencia_facilities_responsavel === 'System:Auto' 
-                          ? snapshot.gerencia_responsavel 
-                          : snapshot.gerencia_facilities_responsavel;
+                        // Facilities uses gerencia_conclusao (Gerência Nivel 1)
+                        // If gerencia_facilities has data, use it; otherwise fallback to gerencia
+                        const facilitiesResponsavel = snapshot.gerencia_facilities_responsavel || snapshot.gerencia_responsavel;
+                        const facilitiesConclusao = snapshot.gerencia_facilities_conclusao || snapshot.gerencia_conclusao;
                         
                         return (
                           <tr 
@@ -287,7 +287,7 @@ export default function PainelFluig() {
                             <td className="px-2 py-2">
                               <ApprovalCell 
                                 responsavel={facilitiesResponsavel} 
-                                conclusao={snapshot.gerencia_facilities_conclusao} 
+                                conclusao={facilitiesConclusao} 
                               />
                             </td>
                             <td className="px-2 py-2">
