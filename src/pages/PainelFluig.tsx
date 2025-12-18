@@ -39,13 +39,13 @@ export default function PainelFluig() {
   const [statusTab, setStatusTab] = useState<'abertos' | 'fechados' | 'cancelados'>('abertos');
   const [importOpen, setImportOpen] = useState(false);
   
-  const { profile } = useAuth();
+  const { effectiveProfile } = useAuth();
   const { snapshots: allSnapshots, loading, refetch } = useFluigSnapshots({});
 
-  // Check if current user is the responsible for a snapshot
+  // Check if current user (or impersonated user) is the responsible for a snapshot
   const isCurrentUserResponsible = (responsavelAtual: string | null) => {
-    if (!profile?.full_name || !responsavelAtual) return false;
-    const userFirstName = profile.full_name.split(' ')[0].toLowerCase();
+    if (!effectiveProfile?.full_name || !responsavelAtual) return false;
+    const userFirstName = effectiveProfile.full_name.split(' ')[0].toLowerCase();
     return responsavelAtual.toLowerCase().includes(userFirstName);
   };
 
@@ -93,14 +93,14 @@ export default function PainelFluig() {
 
   // Count user's pending items (where they are responsible)
   const minhasPendencias = useMemo(() => {
-    if (!profile?.full_name) return 0;
-    const userFirstName = profile.full_name.split(' ')[0].toLowerCase();
+    if (!effectiveProfile?.full_name) return 0;
+    const userFirstName = effectiveProfile.full_name.split(' ')[0].toLowerCase();
     return allSnapshots.filter(s => {
       // Only count open items
       if (isCancelado(s) || isFechado(s)) return false;
       return s.responsavel_atual?.toLowerCase().includes(userFirstName);
     }).length;
-  }, [allSnapshots, profile?.full_name]);
+  }, [allSnapshots, effectiveProfile?.full_name]);
 
   // Separate by status within selected empreendimento
   const { abertos, fechados, cancelados } = useMemo(() => {
@@ -228,7 +228,7 @@ export default function PainelFluig() {
         </div>
 
         {/* Minhas Pendências Card */}
-        {profile && minhasPendencias > 0 && (
+        {effectiveProfile && minhasPendencias > 0 && (
           <Card className="mb-4 border-warning bg-warning/10">
             <CardContent className="py-3 px-4 flex items-center gap-3">
               <div className="flex items-center justify-center w-10 h-10 rounded-full bg-warning text-warning-foreground font-bold text-lg">
