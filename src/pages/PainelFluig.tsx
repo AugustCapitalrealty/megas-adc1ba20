@@ -16,6 +16,8 @@ import {
   XCircle,
   Upload,
   ExternalLink,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { FluigImport } from '@/components/FluigImport';
@@ -38,6 +40,7 @@ export default function PainelFluig() {
   const [empreendimentoTab, setEmpreendimentoTab] = useState<'curitiba' | 'itajai' | 'esteio'>('curitiba');
   const [statusTab, setStatusTab] = useState<'abertos' | 'fechados' | 'cancelados'>('abertos');
   const [importOpen, setImportOpen] = useState(false);
+  const [showMinhasPendencias, setShowMinhasPendencias] = useState(false);
   
   const { effectiveProfile } = useAuth();
   const { snapshots: allSnapshots, loading, refetch } = useFluigSnapshots({});
@@ -91,16 +94,18 @@ export default function PainelFluig() {
     };
   }, [allSnapshots]);
 
-  // Count user's pending items (where they are responsible)
-  const minhasPendencias = useMemo(() => {
-    if (!effectiveProfile?.full_name) return 0;
+  // Get user's pending items (where they are responsible)
+  const minhasPendenciasList = useMemo(() => {
+    if (!effectiveProfile?.full_name) return [];
     const userFirstName = effectiveProfile.full_name.split(' ')[0].toLowerCase();
     return allSnapshots.filter(s => {
       // Only count open items
       if (isCancelado(s) || isFechado(s)) return false;
       return s.responsavel_atual?.toLowerCase().includes(userFirstName);
-    }).length;
+    });
   }, [allSnapshots, effectiveProfile?.full_name]);
+
+  const minhasPendencias = minhasPendenciasList.length;
 
   // Separate by status within selected empreendimento
   const { abertos, fechados, cancelados } = useMemo(() => {
@@ -229,18 +234,70 @@ export default function PainelFluig() {
 
         {/* Minhas Pendências Card */}
         {effectiveProfile && minhasPendencias > 0 && (
-          <Card className="mb-4 border-warning bg-warning/10">
-            <CardContent className="py-3 px-4 flex items-center gap-3">
+          <Card className="mb-4 border-warning bg-warning/10 overflow-hidden">
+            <CardContent 
+              className="py-3 px-4 flex items-center gap-3 cursor-pointer hover:bg-warning/20 transition-colors"
+              onClick={() => setShowMinhasPendencias(!showMinhasPendencias)}
+            >
               <div className="flex items-center justify-center w-10 h-10 rounded-full bg-warning text-warning-foreground font-bold text-lg">
                 {minhasPendencias}
               </div>
-              <div>
+              <div className="flex-1">
                 <p className="font-semibold text-warning-foreground">Minhas Pendências</p>
                 <p className="text-sm text-muted-foreground">
                   Você tem {minhasPendencias} {minhasPendencias === 1 ? 'solicitação aguardando' : 'solicitações aguardando'} sua ação
                 </p>
               </div>
+              {showMinhasPendencias ? (
+                <ChevronUp className="h-5 w-5 text-warning-foreground" />
+              ) : (
+                <ChevronDown className="h-5 w-5 text-warning-foreground" />
+              )}
             </CardContent>
+            
+            {/* Lista de pendências */}
+            {showMinhasPendencias && (
+              <div className="border-t border-warning/30 bg-background/50">
+                <div className="divide-y divide-border">
+                  {minhasPendenciasList.map((item) => (
+                    <div 
+                      key={item.id} 
+                      className="px-4 py-3 hover:bg-muted/50 transition-colors flex items-center justify-between"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={getFluigUrl(item.solicitacao_fluig)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-medium text-primary hover:underline flex items-center gap-1"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {item.solicitacao_fluig}
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                          <span className="text-xs text-muted-foreground">
+                            {item.empreendimento}
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground truncate mt-0.5">
+                          {item.servico || 'Sem descrição'}
+                        </p>
+                        {item.fornecedor && (
+                          <p className="text-xs text-muted-foreground truncate">
+                            Fornecedor: {item.fornecedor}
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-right ml-4 flex-shrink-0">
+                        <p className="font-semibold text-sm">{formatCurrency(item.valor)}</p>
+                        <p className="text-xs text-muted-foreground">{formatDateShort(item.data_lancamento)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </Card>
         )}
 
