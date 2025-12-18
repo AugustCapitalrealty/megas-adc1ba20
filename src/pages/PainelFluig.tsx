@@ -26,6 +26,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 export default function PainelFluig() {
   const [empreendimentoTab, setEmpreendimentoTab] = useState<'curitiba' | 'itajai' | 'esteio'>('curitiba');
@@ -246,8 +252,9 @@ export default function PainelFluig() {
                   <p className="text-sm text-muted-foreground">Nenhum registro</p>
                 </div>
               ) : (
-                <ScrollArea className="h-[500px]">
-                  <table className="w-full text-sm text-center table-fixed">
+                <TooltipProvider delayDuration={200}>
+                  <ScrollArea className="h-[500px]">
+                    <table className="w-full text-sm text-center table-fixed">
                     <thead className="sticky top-0 z-10">
                       <tr className="bg-primary text-primary-foreground">
                         <th className="w-[80px] px-2 py-2.5 font-semibold">Nº</th>
@@ -341,20 +348,36 @@ export default function PainelFluig() {
                               {formatCurrency(snapshot.valor)}
                             </td>
                             <td className="px-2 py-1.5 text-left">
-                              <span 
-                                className="text-xs line-clamp-2 cursor-help" 
-                                title={snapshot.servico || undefined}
-                              >
-                                {snapshot.servico || '-'}
-                              </span>
+                              {snapshot.servico ? (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="text-xs line-clamp-2 cursor-help">
+                                      {snapshot.servico}
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="bottom" className="max-w-xs">
+                                    <p className="text-xs">{snapshot.servico}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">-</span>
+                              )}
                             </td>
                             <td className="px-2 py-1.5 text-left">
-                              <span 
-                                className="text-xs line-clamp-2 cursor-help" 
-                                title={snapshot.fornecedor || undefined}
-                              >
-                                {snapshot.fornecedor || '-'}
-                              </span>
+                              {snapshot.fornecedor ? (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="text-xs line-clamp-2 cursor-help">
+                                      {snapshot.fornecedor}
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="bottom" className="max-w-xs">
+                                    <p className="text-xs">{snapshot.fornecedor}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">-</span>
+                              )}
                             </td>
                             {statusTab === 'abertos' && (
                               <td className="px-2 py-2">
@@ -389,6 +412,7 @@ export default function PainelFluig() {
                     </tbody>
                   </table>
                 </ScrollArea>
+              </TooltipProvider>
               )}
             </Card>
           </TabsContent>
