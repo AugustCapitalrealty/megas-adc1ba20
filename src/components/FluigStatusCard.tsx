@@ -62,7 +62,7 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
   }
 
   const dataLancamentoFormatted = status.data_lancamento 
-    ? format(new Date(status.data_lancamento), "dd/MM/yyyy 'às' HH:mm:ss", { locale: ptBR })
+    ? format(new Date(status.data_lancamento), "dd/MM/yyyy", { locale: ptBR })
     : null;
 
   // Determine approval stages
