@@ -118,8 +118,10 @@ export default function PainelFluig() {
     return filters[emp];
   };
 
-  const filterByEmpreendimento = (snapshots: typeof allSnapshots, emp: 'curitiba' | 'itajai' | 'esteio') => {
+  const filterByEmpreendimento = (snapshots: typeof allSnapshots, emp: 'curitiba' | 'itajai' | 'esteio' | null) => {
+    if (!emp) return [];
     const keywords = getEmpreendimentoFilter(emp);
+    if (!keywords) return [];
     return snapshots.filter(s => {
       const empLower = (s.empreendimento || '').toLowerCase();
       return keywords.some(kw => empLower.includes(kw));
