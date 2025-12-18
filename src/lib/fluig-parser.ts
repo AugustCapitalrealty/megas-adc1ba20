@@ -150,14 +150,14 @@ export function parseFluigXLSX(buffer: ArrayBuffer): ParseResult {
     const descricaoIdx = findColumnIndex(headers, FLUIG_COLUMN_MAPPINGS.descricao);
     const empreendimentoIdx = findColumnIndex(headers, FLUIG_COLUMN_MAPPINGS.empreendimento);
     
-    // Get service
+    // Get description (priority) and service type
     const servicoIdx = findColumnIndex(headers, FLUIG_COLUMN_MAPPINGS.servico);
-    let servico = servicoIdx !== -1 && row[servicoIdx] ? String(row[servicoIdx]).trim() : null;
+    const descricao = descricaoIdx !== -1 && row[descricaoIdx] ? String(row[descricaoIdx]).trim() : null;
+    const tipoServico = servicoIdx !== -1 && row[servicoIdx] ? String(row[servicoIdx]).trim() : null;
     
-    // Fallback to descricao if servico is empty
-    if (!servico && descricaoIdx !== -1 && row[descricaoIdx]) {
-      servico = String(row[descricaoIdx]).trim();
-    }
+    // Priority: use descricao (detailed description) as main value
+    // Only use tipoServico as fallback if descricao is empty
+    let servico = descricao || tipoServico;
     
     // Get approval stages
     const gerenciaResponsavelIdx = findColumnIndex(headers, FLUIG_COLUMN_MAPPINGS.gerencia_responsavel);
