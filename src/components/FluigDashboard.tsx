@@ -291,21 +291,16 @@ export function FluigDashboard({ onNavigateToSolicitacao }: FluigDashboardProps)
           </div>
         ) : (
           <ScrollArea className="h-[550px]">
-            <table className="w-full text-xs">
+            <table className="w-full text-sm">
               <thead className="sticky top-0 z-10">
                 <tr className="bg-primary text-primary-foreground">
-                  <th className="px-2 py-2 text-left font-semibold">Nº</th>
-                  <th className="px-2 py-2 text-left font-semibold">Data</th>
-                  <th className="px-2 py-2 text-left font-semibold">Fornecedor</th>
-                  <th className="px-2 py-2 text-right font-semibold">Valor</th>
-                  <th className="px-2 py-2 text-left font-semibold">Serviço</th>
-                  <th className="px-2 py-2 text-left font-semibold">Responsável</th>
-                  <th className="px-2 py-2 text-left font-semibold">Etapa</th>
-                  <th className="px-2 py-2 text-center font-semibold">Facilities</th>
-                  <th className="px-2 py-2 text-center font-semibold">Financeiro</th>
-                  <th className="px-2 py-2 text-center font-semibold">Diretoria</th>
-                  <th className="px-2 py-2 text-left font-semibold">Duração</th>
-                  <th className="px-1 py-2"></th>
+                  <th className="px-3 py-2.5 text-left font-semibold">Nº</th>
+                  <th className="px-3 py-2.5 text-left font-semibold">Data</th>
+                  <th className="px-3 py-2.5 text-right font-semibold">Valor</th>
+                  <th className="px-3 py-2.5 text-left font-semibold">Responsável Atual</th>
+                  <th className="px-3 py-2.5 text-center font-semibold">Facilities</th>
+                  <th className="px-3 py-2.5 text-center font-semibold">Financeiro</th>
+                  <th className="px-3 py-2.5 text-center font-semibold">Diretoria</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -317,78 +312,43 @@ export function FluigDashboard({ onNavigateToSolicitacao }: FluigDashboardProps)
                       idx % 2 === 0 ? "bg-background" : "bg-muted/20"
                     )}
                   >
-                    <td className="px-2 py-1.5">
+                    <td className="px-3 py-2">
                       <span className="font-semibold text-primary">{snapshot.solicitacao_fluig}</span>
                     </td>
 
-                    <td className="px-2 py-1.5 whitespace-nowrap">
+                    <td className="px-3 py-2 whitespace-nowrap">
                       {formatDateShort(snapshot.data_lancamento)}
                     </td>
 
-                    <td className="px-2 py-1.5 max-w-[120px]">
-                      <span className="truncate block" title={snapshot.fornecedor || undefined}>
-                        {snapshot.fornecedor || '-'}
-                      </span>
-                    </td>
-
-                    <td className="px-2 py-1.5 text-right font-medium whitespace-nowrap">
+                    <td className="px-3 py-2 text-right font-medium whitespace-nowrap">
                       {formatCurrency(snapshot.valor)}
                     </td>
 
-                    <td className="px-2 py-1.5 max-w-[150px]">
-                      <span className="truncate block" title={snapshot.servico || undefined}>
-                        {snapshot.servico || '-'}
-                      </span>
-                    </td>
-
-                    <td className="px-2 py-1.5 max-w-[100px]">
-                      <span className="truncate block font-medium" title={snapshot.responsavel_atual || undefined}>
+                    <td className="px-3 py-2">
+                      <span className="font-medium" title={snapshot.responsavel_atual || undefined}>
                         {snapshot.responsavel_atual || '-'}
                       </span>
                     </td>
 
-                    <td className="px-2 py-1.5 max-w-[100px]">
-                      <span className="truncate block text-muted-foreground" title={snapshot.localizacao || undefined}>
-                        {snapshot.localizacao || '-'}
-                      </span>
-                    </td>
-
-                    <td className="px-2 py-1.5 text-center">
+                    <td className="px-3 py-2 text-center">
                       <ApprovalCell 
                         responsavel={snapshot.gerencia_facilities_responsavel} 
                         conclusao={snapshot.gerencia_facilities_conclusao} 
                       />
                     </td>
 
-                    <td className="px-2 py-1.5 text-center">
+                    <td className="px-3 py-2 text-center">
                       <ApprovalCell 
                         responsavel={snapshot.gerencia_financeiro_responsavel} 
                         conclusao={snapshot.gerencia_financeiro_conclusao} 
                       />
                     </td>
 
-                    <td className="px-2 py-1.5 text-center">
+                    <td className="px-3 py-2 text-center">
                       <ApprovalCell 
                         responsavel={snapshot.diretoria_responsavel} 
                         conclusao={snapshot.diretoria_conclusao} 
                       />
-                    </td>
-
-                    <td className="px-2 py-1.5 whitespace-nowrap text-muted-foreground">
-                      {calculateDuration(snapshot.data_inicio, snapshot.data_fim)}
-                    </td>
-
-                    <td className="px-1 py-1.5">
-                      {snapshot.solicitacao_interna_id && onNavigateToSolicitacao && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={() => onNavigateToSolicitacao(snapshot.solicitacao_interna_id!)}
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                        </Button>
-                      )}
                     </td>
                   </tr>
                 ))}
