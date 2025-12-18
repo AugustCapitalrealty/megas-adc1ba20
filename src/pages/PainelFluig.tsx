@@ -28,7 +28,8 @@ import {
 } from '@/components/ui/dialog';
 
 export default function PainelFluig() {
-  const [activeTab, setActiveTab] = useState<'abertos' | 'fechados' | 'cancelados'>('abertos');
+  const [empreendimentoTab, setEmpreendimentoTab] = useState<'curitiba' | 'itajai' | 'esteio'>('curitiba');
+  const [statusTab, setStatusTab] = useState<'abertos' | 'fechados' | 'cancelados'>('abertos');
   const [importOpen, setImportOpen] = useState(false);
   
   const { snapshots: allSnapshots, loading, refetch } = useFluigSnapshots({});
@@ -48,15 +49,43 @@ export default function PainelFluig() {
            s.situacao?.toLowerCase() === 'cancelada';
   };
 
-  // Separate by status
-  const { abertos, fechados, cancelados } = useMemo(() => {
-    const cancelados = allSnapshots.filter(isCancelado);
-    const fechados = allSnapshots.filter(s => !isCancelado(s) && isFechado(s));
-    const abertos = allSnapshots.filter(s => !isCancelado(s) && !isFechado(s));
-    return { abertos, fechados, cancelados };
+  // Filter by empreendimento
+  const getEmpreendimentoFilter = (emp: 'curitiba' | 'itajai' | 'esteio') => {
+    const filters: Record<string, string[]> = {
+      curitiba: ['curitiba', 'mega curitiba'],
+      itajai: ['itajai', 'itajaí', 'mega itajai', 'mega itajaí'],
+      esteio: ['esteio', 'mega esteio'],
+    };
+    return filters[emp];
+  };
+
+  const filterByEmpreendimento = (snapshots: typeof allSnapshots, emp: 'curitiba' | 'itajai' | 'esteio') => {
+    const keywords = getEmpreendimentoFilter(emp);
+    return snapshots.filter(s => {
+      const empLower = (s.empreendimento || '').toLowerCase();
+      return keywords.some(kw => empLower.includes(kw));
+    });
+  };
+
+  // Get counts for each empreendimento
+  const empCounts = useMemo(() => {
+    return {
+      curitiba: filterByEmpreendimento(allSnapshots, 'curitiba').length,
+      itajai: filterByEmpreendimento(allSnapshots, 'itajai').length,
+      esteio: filterByEmpreendimento(allSnapshots, 'esteio').length,
+    };
   }, [allSnapshots]);
 
-  const currentSnapshots = activeTab === 'abertos' ? abertos : activeTab === 'fechados' ? fechados : cancelados;
+  // Separate by status within selected empreendimento
+  const { abertos, fechados, cancelados } = useMemo(() => {
+    const filtered = filterByEmpreendimento(allSnapshots, empreendimentoTab);
+    const cancelados = filtered.filter(isCancelado);
+    const fechados = filtered.filter(s => !isCancelado(s) && isFechado(s));
+    const abertos = filtered.filter(s => !isCancelado(s) && !isFechado(s));
+    return { abertos, fechados, cancelados };
+  }, [allSnapshots, empreendimentoTab]);
+
+  const currentSnapshots = statusTab === 'abertos' ? abertos : statusTab === 'fechados' ? fechados : cancelados;
 
   const formatCurrency = (value: number | null) => {
     if (value == null) return '-';
@@ -147,7 +176,23 @@ export default function PainelFluig() {
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+        {/* Empreendimento Tabs */}
+        <Tabs value={empreendimentoTab} onValueChange={(v) => setEmpreendimentoTab(v as any)} className="mb-4">
+          <TabsList className="grid w-full max-w-lg grid-cols-3">
+            <TabsTrigger value="curitiba" className="text-sm">
+              Mega Curitiba ({empCounts.curitiba})
+            </TabsTrigger>
+            <TabsTrigger value="itajai" className="text-sm">
+              Mega Itajaí ({empCounts.itajai})
+            </TabsTrigger>
+            <TabsTrigger value="esteio" className="text-sm">
+              Mega Esteio ({empCounts.esteio})
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        {/* Status Tabs */}
+        <Tabs value={statusTab} onValueChange={(v) => setStatusTab(v as any)}>
           <TabsList className="mb-4 grid w-full max-w-md grid-cols-3">
             <TabsTrigger value="abertos" className="gap-2">
               <Clock className="h-4 w-4" />
@@ -163,7 +208,7 @@ export default function PainelFluig() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value={activeTab} className="mt-0">
+          <TabsContent value={statusTab} className="mt-0">
             <Card className="overflow-hidden border">
               {loading ? (
                 <div className="py-12 text-center">
@@ -183,7 +228,7 @@ export default function PainelFluig() {
                         <th className="px-2 py-2.5 font-semibold">Nº</th>
                         <th className="px-2 py-2.5 font-semibold">Data</th>
                         <th className="px-2 py-2.5 font-semibold">Valor</th>
-                        {activeTab === 'abertos' && (
+                        {statusTab === 'abertos' && (
                           <th className="px-2 py-2.5 font-semibold">Responsável</th>
                         )}
                         <th className="px-2 py-2.5 font-semibold">Facilities</th>
@@ -223,7 +268,7 @@ export default function PainelFluig() {
                             <td className="px-2 py-2 font-medium whitespace-nowrap">
                               {formatCurrency(snapshot.valor)}
                             </td>
-                            {activeTab === 'abertos' && (
+                            {statusTab === 'abertos' && (
                               <td className="px-2 py-2">
                                 <span className="font-medium" title={snapshot.responsavel_atual || undefined}>
                                   {formatName(snapshot.responsavel_atual)}
