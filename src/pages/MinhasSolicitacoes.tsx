@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useAuth } from '@/hooks/useAuth';
@@ -750,45 +750,112 @@ export default function MinhasSolicitacoes() {
           <p className="text-muted-foreground">Acompanhe o status das suas solicitações</p>
         </div>
 
-        {/* Filter Tabs */}
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as FilterTab)}>
-          <TabsList className="grid w-full grid-cols-7">
-            <TabsTrigger value="todas" className="gap-1 text-xs">
-              Todas
-              <Badge variant="secondary" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center">{statusCounts.todas}</Badge>
-            </TabsTrigger>
-            <TabsTrigger value="com_backoffice" className="gap-1 text-xs">
-              Backoffice
-              <Badge variant="secondary" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center">{statusCounts.com_backoffice}</Badge>
-            </TabsTrigger>
-            <TabsTrigger value="correcoes" className="gap-1 text-xs">
-              Correções
-              {statusCounts.correcoes > 0 && (
-                <Badge variant="destructive" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center animate-pulse">{statusCounts.correcoes}</Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="oc_emitida" className="gap-1 text-xs">
-              OC Emitida
-              {statusCounts.oc_emitida > 0 && (
-                <Badge variant="default" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center bg-success">{statusCounts.oc_emitida}</Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="aguardando_nf" className="gap-1 text-xs">
-              NF/Boleto
-              {statusCounts.aguardando_nf > 0 && (
-                <Badge variant="default" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center bg-[hsl(260,70%,50%)]">{statusCounts.aguardando_nf}</Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="reprovadas" className="gap-1 text-xs">
-              Reprovadas
-              <Badge variant="secondary" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center">{statusCounts.reprovadas}</Badge>
-            </TabsTrigger>
-            <TabsTrigger value="concluidas" className="gap-1 text-xs">
-              Concluídas
-              <Badge variant="secondary" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center">{statusCounts.concluidas}</Badge>
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+        {/* Grouped Filter Tabs */}
+        <div className="flex flex-col lg:flex-row gap-3 lg:gap-2 lg:items-center">
+          {/* Em Andamento */}
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1">Em Andamento</span>
+            <div className="flex gap-1">
+              <Button
+                variant={activeTab === 'todas' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setActiveTab('todas')}
+                className="gap-1 text-xs h-8"
+              >
+                Todas
+                <Badge variant="secondary" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center">{statusCounts.todas}</Badge>
+              </Button>
+              <Button
+                variant={activeTab === 'com_backoffice' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setActiveTab('com_backoffice')}
+                className="gap-1 text-xs h-8"
+              >
+                Backoffice
+                <Badge variant="secondary" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center">{statusCounts.com_backoffice}</Badge>
+              </Button>
+              <Button
+                variant={activeTab === 'oc_emitida' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setActiveTab('oc_emitida')}
+                className="gap-1 text-xs h-8"
+              >
+                OC Emitida
+                {statusCounts.oc_emitida > 0 && (
+                  <Badge variant="default" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center bg-success">{statusCounts.oc_emitida}</Badge>
+                )}
+              </Button>
+              <Button
+                variant={activeTab === 'aguardando_nf' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setActiveTab('aguardando_nf')}
+                className="gap-1 text-xs h-8"
+              >
+                NF/Boleto
+                {statusCounts.aguardando_nf > 0 && (
+                  <Badge variant="default" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center bg-[hsl(260,70%,50%)]">{statusCounts.aguardando_nf}</Badge>
+                )}
+              </Button>
+            </div>
+          </div>
+
+          {/* Separator */}
+          <div className="hidden lg:block w-px h-12 bg-border mx-2" />
+          <div className="lg:hidden h-px w-full bg-border" />
+
+          {/* Ações Pendentes */}
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-medium text-destructive uppercase tracking-wider px-1 flex items-center gap-1">
+              <AlertTriangle className="h-3 w-3" />
+              Ações Pendentes
+            </span>
+            <div className="flex gap-1">
+              <Button
+                variant={activeTab === 'correcoes' ? 'destructive' : 'outline'}
+                size="sm"
+                onClick={() => setActiveTab('correcoes')}
+                className={cn(
+                  "gap-1 text-xs h-8",
+                  activeTab !== 'correcoes' && statusCounts.correcoes > 0 && "border-destructive text-destructive hover:bg-destructive/10"
+                )}
+              >
+                Correções
+                {statusCounts.correcoes > 0 && (
+                  <Badge variant="destructive" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center animate-pulse">{statusCounts.correcoes}</Badge>
+                )}
+              </Button>
+            </div>
+          </div>
+
+          {/* Separator */}
+          <div className="hidden lg:block w-px h-12 bg-border mx-2" />
+          <div className="lg:hidden h-px w-full bg-border" />
+
+          {/* Finalizadas */}
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1">Finalizadas</span>
+            <div className="flex gap-1">
+              <Button
+                variant={activeTab === 'reprovadas' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setActiveTab('reprovadas')}
+                className="gap-1 text-xs h-8"
+              >
+                Reprovadas
+                <Badge variant="secondary" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center">{statusCounts.reprovadas}</Badge>
+              </Button>
+              <Button
+                variant={activeTab === 'concluidas' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setActiveTab('concluidas')}
+                className="gap-1 text-xs h-8"
+              >
+                Concluídas
+                <Badge variant="secondary" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center">{statusCounts.concluidas}</Badge>
+              </Button>
+            </div>
+          </div>
+        </div>
 
         {sortedAndFilteredSolicitacoes.length === 0 ? (
           <Card>
