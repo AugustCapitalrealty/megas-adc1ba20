@@ -381,14 +381,21 @@ export default function PainelFluig() {
   // Format name: remove "Para o Papel" prefix, first name only for personal names
   const formatName = (name: string | null) => {
     if (!name) return '-';
+
     // Remove "Para o Papel" prefix
-    let cleaned = name.replace(/^Para o Papel\s*/i, '').trim();
-    // Role keywords - if name contains these, keep the full name
+    const cleaned = name.replace(/^Para o Papel\s*/i, '').trim();
+
+    // For role/area names, keep full label (ex: "Gerência de Facilities")
+    const normalized = cleaned
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '')
+      .toLowerCase();
+
     const roleKeywords = ['gestor', 'analista', 'coordenador', 'diretor', 'gerente', 'gerencia', 'supervisor', 'assistente'];
-    const isRole = roleKeywords.some(kw => cleaned.toLowerCase().includes(kw));
-    if (isRole) {
-      return cleaned;
-    }
+    const isRole = roleKeywords.some((kw) => normalized.includes(kw));
+
+    if (isRole) return cleaned;
+
     // Otherwise it's a person's name - get first name only
     return cleaned.split(' ')[0];
   };
