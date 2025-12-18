@@ -32,6 +32,17 @@ const ETAPA_LABELS: Record<string, string> = {
   'Aprovação Nível 3': 'Diretoria',
 };
 
+const PROXIMA_ETAPA: Record<string, string> = {
+  'Para o Papel Gestor Condominio': 'Gerência Financeira',
+  'Para o Papel Gestor Condomínio': 'Gerência Financeira',
+  'Aprovação Nivel 1': 'Gerência Financeira',
+  'Aprovação Nível 1': 'Gerência Financeira',
+  'Aprovação Nivel 2': 'Diretoria',
+  'Aprovação Nível 2': 'Diretoria',
+  'Aprovação Nivel 3': 'Conclusão',
+  'Aprovação Nível 3': 'Conclusão',
+};
+
 export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
   const [status, setStatus] = useState<FluigStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -111,12 +122,12 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
           </div>
         )}
 
-        {/* Current location/stage */}
+        {/* Next stage */}
         {status.localizacao && (
           <div className="flex items-center gap-2">
             <MapPin className="h-3.5 w-3.5 text-blue-500" />
             <span className="text-muted-foreground">Próxima etapa:</span>
-            <span className="font-medium text-foreground">{ETAPA_LABELS[status.localizacao] || status.localizacao}</span>
+            <span className="font-medium text-foreground">{PROXIMA_ETAPA[status.localizacao] || status.localizacao}</span>
           </div>
         )}
 
