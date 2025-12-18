@@ -121,11 +121,27 @@ export default function PainelFluig() {
     return `https://portal.capitalrealty.com.br/portal/p/1/pageworkflowview?app_ecm_workflowview_detailsProcessInstanceID=${numero}`;
   };
 
-  const ApprovalCell = ({ responsavel, conclusao }: { responsavel: string | null; conclusao: string | null }) => {
+  const ApprovalCell = ({ responsavel, conclusao, rejected }: { responsavel: string | null; conclusao: string | null; rejected?: boolean }) => {
     if (!conclusao) {
       return <span className="text-muted-foreground/40">-</span>;
     }
     const dateStr = formatDateShort(conclusao);
+    
+    // If rejected, show X icon in red
+    if (rejected) {
+      return (
+        <div className="flex flex-col items-center text-destructive">
+          <div className="flex items-center gap-1">
+            <XCircle className="h-3 w-3 flex-shrink-0" />
+            <span className="text-xs font-medium" title={responsavel || undefined}>
+              {formatName(responsavel)}
+            </span>
+          </div>
+          <span className="text-[10px] text-muted-foreground">{dateStr}</span>
+        </div>
+      );
+    }
+    
     // If System:Auto or empty, just show checkmark with date
     if (!responsavel || responsavel === 'System:Auto') {
       return (
@@ -252,6 +268,17 @@ export default function PainelFluig() {
                         const facilitiesResponsavel = snapshot.gerencia_facilities_responsavel || snapshot.gerencia_responsavel;
                         const facilitiesConclusao = snapshot.gerencia_facilities_conclusao || snapshot.gerencia_conclusao;
                         
+                        // Detect rejection: Facilities acted but flow went backwards (not to Financeiro)
+                        // If facilitiesConclusao exists but gerencia_financeiro_conclusao is null
+                        // AND responsavel_atual is not the Facilities person, it was rejected
+                        const facilitiesRejected = !!(
+                          facilitiesConclusao && 
+                          !snapshot.gerencia_financeiro_conclusao &&
+                          snapshot.responsavel_atual &&
+                          facilitiesResponsavel &&
+                          !snapshot.responsavel_atual.toLowerCase().includes(facilitiesResponsavel.split(' ')[0].toLowerCase())
+                        );
+                        
                         return (
                           <tr 
                             key={snapshot.id} 
@@ -287,7 +314,8 @@ export default function PainelFluig() {
                             <td className="px-2 py-2">
                               <ApprovalCell 
                                 responsavel={facilitiesResponsavel} 
-                                conclusao={facilitiesConclusao} 
+                                conclusao={facilitiesConclusao}
+                                rejected={facilitiesRejected}
                               />
                             </td>
                             <td className="px-2 py-2">
