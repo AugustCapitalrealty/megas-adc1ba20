@@ -76,14 +76,15 @@ export default function PainelFluig() {
   const formatName = (name: string | null) => {
     if (!name) return '-';
     // Remove "Para o Papel" prefix
-    let cleaned = name.replace(/^Para o Papel\s*/i, '');
-    const words = cleaned.split(' ').filter(w => w.length > 0);
-    // If 3+ words, it's probably a person's name - get first name only
-    // If 2 or fewer words, it's a role name - keep it
-    if (words.length >= 3) {
-      return words[0];
+    let cleaned = name.replace(/^Para o Papel\s*/i, '').trim();
+    // Role keywords - if name contains these, keep the full name
+    const roleKeywords = ['gestor', 'analista', 'coordenador', 'diretor', 'gerente', 'supervisor', 'assistente'];
+    const isRole = roleKeywords.some(kw => cleaned.toLowerCase().includes(kw));
+    if (isRole) {
+      return cleaned;
     }
-    return cleaned;
+    // Otherwise it's a person's name - get first name only
+    return cleaned.split(' ')[0];
   };
 
   // Build Fluig portal URL
