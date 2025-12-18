@@ -836,9 +836,8 @@ export default function PainelFluig() {
                                     ? Math.max(...timestamps)
                                     : (snapshot.data_lancamento ? new Date(snapshot.data_lancamento).getTime() : new Date(snapshot.created_at).getTime());
                                   
-                                  const horasCom = differenceInHours(new Date(), new Date(lastChangeTime));
                                   const diasCom = differenceInDays(new Date(), new Date(lastChangeTime));
-                                  const tempoCom = diasCom === 0 ? `${horasCom}h` : `${diasCom}d`;
+                                  const tempoCom = `${diasCom}d`;
                                   
                                   return isMyResponsibility ? (
                                     <div className="flex flex-col items-center gap-0.5">
