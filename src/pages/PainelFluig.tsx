@@ -34,11 +34,11 @@ export default function PainelFluig() {
   
   const { snapshots: allSnapshots, loading, refetch } = useFluigSnapshots({});
 
-  // Business rule: valor < 2500 doesn't need Diretoria approval
-  // Closes when Financeiro approves. valor >= 2500 needs Diretoria.
+  // Business rule: valor <= 2500 doesn't need Diretoria approval
+  // Closes when Financeiro approves. valor > 2500 needs Diretoria.
   const isFechado = (s: typeof allSnapshots[0]) => {
     if (!s.valor) return false;
-    if (s.valor < 2500) {
+    if (s.valor <= 2500) {
       return !!s.gerencia_financeiro_conclusao;
     }
     return !!s.diretoria_conclusao;
