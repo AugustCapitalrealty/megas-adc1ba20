@@ -106,7 +106,7 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
         {status.responsavel_atual && (
           <div className="flex items-center gap-2">
             <User className="h-3.5 w-3.5 text-blue-500" />
-            <span className="text-muted-foreground">Responsável:</span>
+            <span className="text-muted-foreground">Responsável atual:</span>
             <span className="font-medium text-foreground">{ETAPA_LABELS[status.responsavel_atual] || status.responsavel_atual}</span>
           </div>
         )}
@@ -115,7 +115,7 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
         {status.localizacao && (
           <div className="flex items-center gap-2">
             <MapPin className="h-3.5 w-3.5 text-blue-500" />
-            <span className="text-muted-foreground">Etapa:</span>
+            <span className="text-muted-foreground">Próxima etapa:</span>
             <span className="font-medium text-foreground">{ETAPA_LABELS[status.localizacao] || status.localizacao}</span>
           </div>
         )}
