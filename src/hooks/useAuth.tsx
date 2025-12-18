@@ -200,7 +200,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setImpersonatedRoles([]);
   };
 
-  const hasRole = (role: AppRole) => roles.includes(role);
+  // Role checks should respect impersonation
+  const hasRole = (role: AppRole) => effectiveRoles.includes(role);
   const isBackofficeOrAdmin = hasRole('backoffice') || hasRole('admin');
   const isAdmin = hasRole('admin');
 
