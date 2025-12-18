@@ -72,13 +72,18 @@ export default function PainelFluig() {
     }
   };
 
-  // Format name: first name only, remove "Para o Papel" prefix
+  // Format name: remove "Para o Papel" prefix, first name only for personal names
   const formatName = (name: string | null) => {
     if (!name) return '-';
     // Remove "Para o Papel" prefix
     let cleaned = name.replace(/^Para o Papel\s*/i, '');
-    // Get first name only
-    return cleaned.split(' ')[0];
+    const words = cleaned.split(' ').filter(w => w.length > 0);
+    // If 3+ words, it's probably a person's name - get first name only
+    // If 2 or fewer words, it's a role name - keep it
+    if (words.length >= 3) {
+      return words[0];
+    }
+    return cleaned;
   };
 
   // Build Fluig portal URL
