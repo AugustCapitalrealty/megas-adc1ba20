@@ -125,16 +125,25 @@ export default function PainelFluig() {
     if (!conclusao) {
       return <span className="text-muted-foreground/40">-</span>;
     }
-    // If System:Auto or empty, just show checkmark
+    const dateStr = formatDateShort(conclusao);
+    // If System:Auto or empty, just show checkmark with date
     if (!responsavel || responsavel === 'System:Auto') {
-      return <CheckCircle2 className="h-3.5 w-3.5 text-success" />;
+      return (
+        <div className="flex flex-col items-center text-success">
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          <span className="text-[10px] text-muted-foreground">{dateStr}</span>
+        </div>
+      );
     }
     return (
-      <div className="flex items-center gap-1 text-success">
-        <CheckCircle2 className="h-3 w-3 flex-shrink-0" />
-        <span className="text-xs font-medium" title={responsavel}>
-          {formatName(responsavel)}
-        </span>
+      <div className="flex flex-col items-center text-success">
+        <div className="flex items-center gap-1">
+          <CheckCircle2 className="h-3 w-3 flex-shrink-0" />
+          <span className="text-xs font-medium" title={responsavel}>
+            {formatName(responsavel)}
+          </span>
+        </div>
+        <span className="text-[10px] text-muted-foreground">{dateStr}</span>
       </div>
     );
   };
