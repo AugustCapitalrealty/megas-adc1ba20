@@ -15,6 +15,7 @@ import {
   Clock,
   XCircle,
   Upload,
+  ExternalLink,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { FluigImport } from '@/components/FluigImport';
@@ -71,20 +72,33 @@ export default function PainelFluig() {
     }
   };
 
+  // Format name: first name only, remove "Para o Papel" prefix
+  const formatName = (name: string | null) => {
+    if (!name) return '-';
+    // Remove "Para o Papel" prefix
+    let cleaned = name.replace(/^Para o Papel\s*/i, '');
+    // Get first name only
+    return cleaned.split(' ')[0];
+  };
+
+  // Build Fluig portal URL
+  const getFluigUrl = (numero: string) => {
+    return `https://portal.capitalrealty.com.br/portal/p/1/pageworkflowview?app_ecm_workflowview_detailsProcessInstanceID=${numero}`;
+  };
+
   const ApprovalCell = ({ responsavel, conclusao }: { responsavel: string | null; conclusao: string | null }) => {
     if (!conclusao) {
       return <span className="text-muted-foreground/40">-</span>;
     }
     // If System:Auto or empty, just show checkmark
     if (!responsavel || responsavel === 'System:Auto') {
-      return <CheckCircle2 className="h-3.5 w-3.5 text-success mx-auto" />;
+      return <CheckCircle2 className="h-3.5 w-3.5 text-success" />;
     }
-    const firstName = responsavel.split(' ')[0];
     return (
-      <div className="flex items-center gap-1 text-success justify-center">
+      <div className="flex items-center gap-1 text-success">
         <CheckCircle2 className="h-3 w-3 flex-shrink-0" />
         <span className="text-xs font-medium" title={responsavel}>
-          {firstName}
+          {formatName(responsavel)}
         </span>
       </div>
     );
@@ -157,18 +171,18 @@ export default function PainelFluig() {
                 </div>
               ) : (
                 <ScrollArea className="h-[500px]">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-sm text-center">
                     <thead className="sticky top-0 z-10">
                       <tr className="bg-primary text-primary-foreground">
-                        <th className="px-3 py-2.5 text-left font-semibold">Nº</th>
-                        <th className="px-3 py-2.5 text-left font-semibold">Data</th>
-                        <th className="px-3 py-2.5 text-right font-semibold">Valor</th>
+                        <th className="px-2 py-2.5 font-semibold">Nº</th>
+                        <th className="px-2 py-2.5 font-semibold">Data</th>
+                        <th className="px-2 py-2.5 font-semibold">Valor</th>
                         {activeTab === 'abertos' && (
-                          <th className="px-3 py-2.5 text-left font-semibold">Responsável</th>
+                          <th className="px-2 py-2.5 font-semibold">Responsável</th>
                         )}
-                        <th className="px-3 py-2.5 text-center font-semibold">Facilities</th>
-                        <th className="px-3 py-2.5 text-center font-semibold">Financeiro</th>
-                        <th className="px-3 py-2.5 text-center font-semibold">Diretoria</th>
+                        <th className="px-2 py-2.5 font-semibold">Facilities</th>
+                        <th className="px-2 py-2.5 font-semibold">Financeiro</th>
+                        <th className="px-2 py-2.5 font-semibold">Diretoria</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
@@ -186,35 +200,43 @@ export default function PainelFluig() {
                               idx % 2 === 0 ? "bg-background" : "bg-muted/20"
                             )}
                           >
-                            <td className="px-3 py-2">
-                              <span className="font-semibold text-primary">{snapshot.solicitacao_fluig}</span>
+                            <td className="px-2 py-2">
+                              <a 
+                                href={getFluigUrl(snapshot.solicitacao_fluig)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="font-semibold text-primary hover:underline inline-flex items-center gap-1"
+                              >
+                                {snapshot.solicitacao_fluig}
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
                             </td>
-                            <td className="px-3 py-2 whitespace-nowrap">
+                            <td className="px-2 py-2 whitespace-nowrap">
                               {formatDateShort(snapshot.data_lancamento)}
                             </td>
-                            <td className="px-3 py-2 text-right font-medium whitespace-nowrap">
+                            <td className="px-2 py-2 font-medium whitespace-nowrap">
                               {formatCurrency(snapshot.valor)}
                             </td>
                             {activeTab === 'abertos' && (
-                              <td className="px-3 py-2">
+                              <td className="px-2 py-2">
                                 <span className="font-medium" title={snapshot.responsavel_atual || undefined}>
-                                  {snapshot.responsavel_atual || '-'}
+                                  {formatName(snapshot.responsavel_atual)}
                                 </span>
                               </td>
                             )}
-                            <td className="px-3 py-2 text-center">
+                            <td className="px-2 py-2">
                               <ApprovalCell 
                                 responsavel={facilitiesResponsavel} 
                                 conclusao={snapshot.gerencia_facilities_conclusao} 
                               />
                             </td>
-                            <td className="px-3 py-2 text-center">
+                            <td className="px-2 py-2">
                               <ApprovalCell 
                                 responsavel={snapshot.gerencia_financeiro_responsavel} 
                                 conclusao={snapshot.gerencia_financeiro_conclusao} 
                               />
                             </td>
-                            <td className="px-3 py-2 text-center">
+                            <td className="px-2 py-2">
                               <ApprovalCell 
                                 responsavel={snapshot.diretoria_responsavel} 
                                 conclusao={snapshot.diretoria_conclusao} 
