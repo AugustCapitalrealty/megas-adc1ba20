@@ -250,15 +250,17 @@ export default function PainelFluig() {
                   <table className="w-full text-sm text-center table-fixed">
                     <thead className="sticky top-0 z-10">
                       <tr className="bg-primary text-primary-foreground">
-                        <th className="w-[90px] px-2 py-2.5 font-semibold">Nº</th>
-                        <th className="w-[80px] px-2 py-2.5 font-semibold">Data</th>
-                        <th className="w-[100px] px-2 py-2.5 font-semibold">Valor</th>
+                        <th className="w-[80px] px-2 py-2.5 font-semibold">Nº</th>
+                        <th className="w-[70px] px-2 py-2.5 font-semibold">Data</th>
+                        <th className="w-[85px] px-2 py-2.5 font-semibold">Valor</th>
+                        <th className="w-[150px] px-2 py-2.5 font-semibold text-left">Descrição</th>
+                        <th className="w-[120px] px-2 py-2.5 font-semibold text-left">Fornecedor</th>
                         {statusTab === 'abertos' && (
-                          <th className="w-[120px] px-2 py-2.5 font-semibold">Responsável</th>
+                          <th className="w-[90px] px-2 py-2.5 font-semibold">Responsável</th>
                         )}
-                        <th className="w-[110px] px-2 py-2.5 font-semibold">Facilities</th>
-                        <th className="w-[110px] px-2 py-2.5 font-semibold">Financeiro</th>
-                        <th className="w-[110px] px-2 py-2.5 font-semibold">Diretoria</th>
+                        <th className="w-[85px] px-2 py-2.5 font-semibold">Facilities</th>
+                        <th className="w-[85px] px-2 py-2.5 font-semibold">Financeiro</th>
+                        <th className="w-[85px] px-2 py-2.5 font-semibold">Diretoria</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
@@ -338,9 +340,25 @@ export default function PainelFluig() {
                             <td className="px-2 py-2 font-medium whitespace-nowrap">
                               {formatCurrency(snapshot.valor)}
                             </td>
+                            <td className="px-2 py-1.5 text-left">
+                              <span 
+                                className="text-xs line-clamp-2 cursor-help" 
+                                title={snapshot.servico || undefined}
+                              >
+                                {snapshot.servico || '-'}
+                              </span>
+                            </td>
+                            <td className="px-2 py-1.5 text-left">
+                              <span 
+                                className="text-xs line-clamp-2 cursor-help" 
+                                title={snapshot.fornecedor || undefined}
+                              >
+                                {snapshot.fornecedor || '-'}
+                              </span>
+                            </td>
                             {statusTab === 'abertos' && (
-                              <td className="px-2 py-2 truncate max-w-[120px]">
-                                <span className="font-medium" title={snapshot.responsavel_atual || undefined}>
+                              <td className="px-2 py-2">
+                                <span className="font-medium text-xs" title={snapshot.responsavel_atual || undefined}>
                                   {formatName(snapshot.responsavel_atual)}
                                 </span>
                               </td>
