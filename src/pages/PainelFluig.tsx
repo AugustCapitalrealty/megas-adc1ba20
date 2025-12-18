@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
@@ -37,13 +38,53 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 
 export default function PainelFluig() {
-  const [empreendimentoTab, setEmpreendimentoTab] = useState<'curitiba' | 'itajai' | 'esteio'>('curitiba');
+  const [empreendimentoTab, setEmpreendimentoTab] = useState<'curitiba' | 'itajai' | 'esteio' | null>(null);
   const [statusTab, setStatusTab] = useState<'abertos' | 'fechados' | 'cancelados'>('abertos');
   const [importOpen, setImportOpen] = useState(false);
   const [showMinhasPendencias, setShowMinhasPendencias] = useState(false);
+  const [userEmpreendimentos, setUserEmpreendimentos] = useState<string[]>([]);
+  const [loadingEmps, setLoadingEmps] = useState(true);
   
-  const { effectiveProfile } = useAuth();
+  const { effectiveProfile, user } = useAuth();
   const { snapshots: allSnapshots, loading, refetch } = useFluigSnapshots({});
+
+  // Fetch user's assigned empreendimentos
+  useEffect(() => {
+    const fetchUserEmps = async () => {
+      if (!user) return;
+      
+      const { data } = await supabase
+        .from('user_empreendimentos')
+        .select('empreendimento')
+        .eq('user_id', user.id);
+      
+      const emps = data?.map(e => e.empreendimento) || [];
+      setUserEmpreendimentos(emps);
+      
+      // Set default tab to first available empreendimento
+      const hasTodos = emps.includes('todos');
+      if (hasTodos || emps.some(e => e === 'mega_curitiba')) {
+        setEmpreendimentoTab('curitiba');
+      } else if (emps.some(e => e === 'mega_itajai')) {
+        setEmpreendimentoTab('itajai');
+      } else if (emps.some(e => e === 'mega_esteio')) {
+        setEmpreendimentoTab('esteio');
+      }
+      setLoadingEmps(false);
+    };
+    fetchUserEmps();
+  }, [user]);
+
+  // Check if user can access specific empreendimento tab
+  const canAccessEmpreendimento = (emp: 'curitiba' | 'itajai' | 'esteio') => {
+    if (userEmpreendimentos.includes('todos')) return true;
+    const empMap: Record<string, string> = {
+      curitiba: 'mega_curitiba',
+      itajai: 'mega_itajai',
+      esteio: 'mega_esteio',
+    };
+    return userEmpreendimentos.includes(empMap[emp]);
+  };
 
   // Check if current user (or impersonated user) is the responsible for a snapshot
   const isCurrentUserResponsible = (responsavelAtual: string | null) => {
@@ -302,19 +343,37 @@ export default function PainelFluig() {
         )}
 
         {/* Empreendimento Tabs */}
-        <Tabs value={empreendimentoTab} onValueChange={(v) => setEmpreendimentoTab(v as any)} className="mb-4">
-          <TabsList className="grid w-full max-w-lg grid-cols-3">
-            <TabsTrigger value="curitiba" className="text-sm">
-              Mega Curitiba ({empCounts.curitiba})
-            </TabsTrigger>
-            <TabsTrigger value="itajai" className="text-sm">
-              Mega Itajaí ({empCounts.itajai})
-            </TabsTrigger>
-            <TabsTrigger value="esteio" className="text-sm">
-              Mega Esteio ({empCounts.esteio})
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+        {loadingEmps ? (
+          <div className="py-4 text-center text-muted-foreground">Carregando...</div>
+        ) : userEmpreendimentos.length === 0 ? (
+          <div className="py-8 text-center">
+            <p className="text-muted-foreground">Você não está vinculado a nenhum empreendimento.</p>
+            <p className="text-sm text-muted-foreground mt-1">Solicite acesso ao administrador.</p>
+          </div>
+        ) : (
+          <>
+            <Tabs value={empreendimentoTab || undefined} onValueChange={(v) => setEmpreendimentoTab(v as any)} className="mb-4">
+              <TabsList className={cn("grid w-full max-w-lg", 
+                [canAccessEmpreendimento('curitiba'), canAccessEmpreendimento('itajai'), canAccessEmpreendimento('esteio')].filter(Boolean).length === 1 ? "grid-cols-1" :
+                [canAccessEmpreendimento('curitiba'), canAccessEmpreendimento('itajai'), canAccessEmpreendimento('esteio')].filter(Boolean).length === 2 ? "grid-cols-2" : "grid-cols-3"
+              )}>
+                {canAccessEmpreendimento('curitiba') && (
+                  <TabsTrigger value="curitiba" className="text-sm">
+                    Mega Curitiba ({empCounts.curitiba})
+                  </TabsTrigger>
+                )}
+                {canAccessEmpreendimento('itajai') && (
+                  <TabsTrigger value="itajai" className="text-sm">
+                    Mega Itajaí ({empCounts.itajai})
+                  </TabsTrigger>
+                )}
+                {canAccessEmpreendimento('esteio') && (
+                  <TabsTrigger value="esteio" className="text-sm">
+                    Mega Esteio ({empCounts.esteio})
+                  </TabsTrigger>
+                )}
+              </TabsList>
+            </Tabs>
 
         {/* Status Tabs */}
         <Tabs value={statusTab} onValueChange={(v) => setStatusTab(v as any)}>
@@ -547,6 +606,8 @@ export default function PainelFluig() {
             </Card>
           </TabsContent>
         </Tabs>
+          </>
+        )}
       </div>
     </AppLayout>
   );
