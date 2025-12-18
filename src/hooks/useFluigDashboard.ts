@@ -232,7 +232,7 @@ export function useFluigImport() {
             if (changes.length > 0) {
               result.comAlteracaoStatus++;
               
-              // Insert events
+              // Insert events into fluig_painel_eventos
               for (const change of changes) {
                 await supabase.from('fluig_painel_eventos').insert({
                   solicitacao_fluig: row.solicitacao_fluig,
@@ -241,6 +241,38 @@ export function useFluigImport() {
                   valor_novo: change.novo,
                   importado_por: userId,
                 });
+              }
+              
+              // If linked to internal solicitation, also insert into historico_solicitacoes
+              if (internalId) {
+                for (const change of changes) {
+                  let mensagem = '';
+                  
+                  if (change.campo === 'responsavel_atual') {
+                    mensagem = `Fluig: Responsável alterado para "${change.novo}"`;
+                  } else if (change.campo === 'localizacao') {
+                    mensagem = `Fluig: Etapa alterada para "${change.novo}"`;
+                  } else if (change.campo === 'situacao') {
+                    mensagem = `Fluig: Situação alterada para "${change.novo}"`;
+                  } else if (change.campo === 'gerencia_conclusao') {
+                    mensagem = `Fluig: Aprovado pela Gerência`;
+                  } else if (change.campo === 'gerencia_facilities_conclusao') {
+                    mensagem = `Fluig: Aprovado pela Gerência de Facilities`;
+                  } else if (change.campo === 'gerencia_financeiro_conclusao') {
+                    mensagem = `Fluig: Aprovado pela Gerência Financeira`;
+                  } else if (change.campo === 'diretoria_conclusao') {
+                    mensagem = `Fluig: Aprovado pela Diretoria`;
+                  }
+                  
+                  if (mensagem) {
+                    await supabase.from('historico_solicitacoes').insert({
+                      solicitacao_id: internalId,
+                      user_id: userId,
+                      acao: 'atualizacao_fluig',
+                      motivo: mensagem,
+                    });
+                  }
+                }
               }
             }
           } else {
