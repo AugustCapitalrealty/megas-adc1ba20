@@ -378,12 +378,15 @@ export default function PainelFluig() {
     }
   };
 
-  // Format name: remove "Para o Papel" prefix, first name only for personal names
+  // Format name: remove "Para o Papel" prefix and Pool:Role suffix, first name only for personal names
   const formatName = (name: string | null) => {
     if (!name) return '-';
 
     // Remove "Para o Papel" prefix
-    const cleaned = name.replace(/^Para o Papel\s*/i, '').trim();
+    let cleaned = name.replace(/^Para o Papel\s*/i, '').trim();
+
+    // Remove ", Pool:Role:..." suffix (Fluig system metadata)
+    cleaned = cleaned.replace(/,\s*Pool:Role:[^\s,]*/gi, '').trim();
 
     // For role/area names, keep full label (ex: "Gerência de Facilities")
     const normalized = cleaned
