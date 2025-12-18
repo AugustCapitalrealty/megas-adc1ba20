@@ -291,6 +291,28 @@ export default function PainelFluig() {
                           !isBackWithFacilities
                         );
                         
+                        // Financeiro rejection logic
+                        const financeiroFirstName = snapshot.gerencia_financeiro_responsavel?.split(' ')[0]?.toLowerCase() || '';
+                        const isBackWithFinanceiro = financeiroFirstName && 
+                          snapshot.responsavel_atual?.toLowerCase().includes(financeiroFirstName);
+                        
+                        // Check if with Diretoria
+                        const diretoriaFirstName = snapshot.diretoria_responsavel?.split(' ')[0]?.toLowerCase() || '';
+                        const isWithDiretoria = diretoriaFirstName && 
+                          snapshot.responsavel_atual?.toLowerCase().includes(diretoriaFirstName);
+                        
+                        // If back with Financeiro, show blank (pending re-approval)
+                        const showFinanceiroConclusao = isBackWithFinanceiro ? null : snapshot.gerencia_financeiro_conclusao;
+                        
+                        // Financeiro rejected if: acted, not approved by Diretoria, not with Diretoria, not back with Financeiro
+                        const financeiroRejected = !!(
+                          snapshot.gerencia_financeiro_conclusao && 
+                          !snapshot.diretoria_conclusao &&
+                          !isWithDiretoria &&
+                          !isBackWithFinanceiro &&
+                          !isBackWithFacilities // If back with Facilities, Financeiro didn't reject
+                        );
+                        
                         return (
                           <tr 
                             key={snapshot.id} 
@@ -333,7 +355,8 @@ export default function PainelFluig() {
                             <td className="px-2 py-2">
                               <ApprovalCell 
                                 responsavel={snapshot.gerencia_financeiro_responsavel} 
-                                conclusao={snapshot.gerencia_financeiro_conclusao} 
+                                conclusao={showFinanceiroConclusao}
+                                rejected={financeiroRejected}
                               />
                             </td>
                             <td className="px-2 py-2">
