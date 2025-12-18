@@ -657,6 +657,27 @@ export type Database = {
         }
         Relationships: []
       }
+      user_empreendimentos: {
+        Row: {
+          created_at: string
+          empreendimento: Database["public"]["Enums"]["empreendimento"]
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          empreendimento: Database["public"]["Enums"]["empreendimento"]
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          empreendimento?: Database["public"]["Enums"]["empreendimento"]
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -723,6 +744,10 @@ export type Database = {
           status: Database["public"]["Enums"]["request_status"]
         }[]
       }
+      get_user_empreendimentos: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["empreendimento"][]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -731,6 +756,13 @@ export type Database = {
         Returns: boolean
       }
       is_backoffice_or_admin: { Args: { _user_id: string }; Returns: boolean }
+      user_has_empreendimento: {
+        Args: {
+          _empreendimento: Database["public"]["Enums"]["empreendimento"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "solicitante" | "backoffice" | "admin"

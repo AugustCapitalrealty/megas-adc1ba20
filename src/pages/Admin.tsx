@@ -10,8 +10,10 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import { Loader2, Search, Shield, Users, UserCheck, UserCog, X } from 'lucide-react';
-import { AppRole, ROLE_LABELS } from '@/types';
+import { Loader2, Search, Shield, Users, UserCheck, UserCog, X, Building2 } from 'lucide-react';
+import { AppRole, ROLE_LABELS, Empreendimento, EMPREENDIMENTO_LABELS } from '@/types';
+
+const EMPREENDIMENTOS: Empreendimento[] = ['mega_curitiba', 'mega_itajai', 'mega_esteio', 'todos'];
 
 interface UserWithRoles {
   id: string;
@@ -19,6 +21,7 @@ interface UserWithRoles {
   full_name: string | null;
   created_at: string;
   roles: AppRole[];
+  empreendimentos: Empreendimento[];
 }
 
 export default function Admin() {
@@ -68,12 +71,22 @@ export default function Admin() {
 
       if (rolesError) throw rolesError;
 
+      // Fetch all user empreendimentos
+      const { data: allEmpreendimentos, error: empError } = await supabase
+        .from('user_empreendimentos')
+        .select('user_id, empreendimento');
+
+      if (empError) throw empError;
+
       // Combine data
       const usersWithRoles: UserWithRoles[] = (profiles || []).map((profile) => ({
         ...profile,
         roles: (allRoles || [])
           .filter((r) => r.user_id === profile.id)
           .map((r) => r.role as AppRole),
+        empreendimentos: (allEmpreendimentos || [])
+          .filter((e) => e.user_id === profile.id)
+          .map((e) => e.empreendimento as Empreendimento),
       }));
 
       setUsers(usersWithRoles);
@@ -123,6 +136,49 @@ export default function Admin() {
     } catch (error) {
       console.error('Error updating role:', error);
       toast.error('Erro ao atualizar permissão');
+    } finally {
+      setSavingUserId(null);
+    }
+  };
+
+  const handleEmpreendimentoChange = async (userId: string, emp: Empreendimento, hasEmp: boolean) => {
+    setSavingUserId(userId);
+    try {
+      if (hasEmp) {
+        // Remove empreendimento
+        const { error } = await supabase
+          .from('user_empreendimentos')
+          .delete()
+          .eq('user_id', userId)
+          .eq('empreendimento', emp);
+
+        if (error) throw error;
+        toast.success(`Empreendimento "${EMPREENDIMENTO_LABELS[emp]}" removido`);
+      } else {
+        // Add empreendimento
+        const { error } = await supabase
+          .from('user_empreendimentos')
+          .insert({ user_id: userId, empreendimento: emp });
+
+        if (error) throw error;
+        toast.success(`Empreendimento "${EMPREENDIMENTO_LABELS[emp]}" adicionado`);
+      }
+
+      // Update local state
+      setUsers((prev) =>
+        prev.map((user) => {
+          if (user.id !== userId) return user;
+          return {
+            ...user,
+            empreendimentos: hasEmp
+              ? user.empreendimentos.filter((e) => e !== emp)
+              : [...user.empreendimentos, emp],
+          };
+        })
+      );
+    } catch (error) {
+      console.error('Error updating empreendimento:', error);
+      toast.error('Erro ao atualizar empreendimento');
     } finally {
       setSavingUserId(null);
     }
@@ -271,7 +327,7 @@ export default function Admin() {
                     <TableHead className="text-center">Solicitante</TableHead>
                     <TableHead className="text-center">Backoffice</TableHead>
                     <TableHead className="text-center">Admin</TableHead>
-                    <TableHead>Roles Ativas</TableHead>
+                    <TableHead>Empreendimentos</TableHead>
                     {isMasterUser && <TableHead className="text-center">Ações</TableHead>}
                   </TableRow>
                 </TableHeader>
@@ -331,25 +387,21 @@ export default function Admin() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <div className="flex flex-wrap gap-1">
-                              {targetUser.roles.length === 0 ? (
-                                <span className="text-muted-foreground text-sm">Sem roles</span>
-                              ) : (
-                                targetUser.roles.map((role) => (
-                                  <Badge
-                                    key={role}
-                                    variant={
-                                      role === 'admin'
-                                        ? 'destructive'
-                                        : role === 'backoffice'
-                                        ? 'default'
-                                        : 'secondary'
+                            <div className="flex flex-wrap gap-2">
+                              {EMPREENDIMENTOS.map((emp) => (
+                                <label key={emp} className="flex items-center gap-1 text-xs">
+                                  <Checkbox
+                                    checked={targetUser.empreendimentos.includes(emp)}
+                                    onCheckedChange={() =>
+                                      handleEmpreendimentoChange(targetUser.id, emp, targetUser.empreendimentos.includes(emp))
                                     }
-                                  >
-                                    {ROLE_LABELS[role]}
-                                  </Badge>
-                                ))
-                              )}
+                                    disabled={isSaving}
+                                  />
+                                  <span className={targetUser.empreendimentos.includes(emp) ? 'font-medium' : 'text-muted-foreground'}>
+                                    {EMPREENDIMENTO_LABELS[emp].replace('Mega ', '')}
+                                  </span>
+                                </label>
+                              ))}
                             </div>
                           </TableCell>
                           {isMasterUser && (
