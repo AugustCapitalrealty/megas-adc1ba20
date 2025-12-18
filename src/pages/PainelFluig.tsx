@@ -264,8 +264,10 @@ export default function PainelFluig() {
                     <tbody className="divide-y divide-border">
                       {currentSnapshots.map((snapshot, idx) => {
                         // Facilities uses gerencia_conclusao (Gerência Nivel 1)
-                        // If gerencia_facilities has data, use it; otherwise fallback to gerencia
-                        const facilitiesResponsavel = snapshot.gerencia_facilities_responsavel || snapshot.gerencia_responsavel;
+                        // If gerencia_facilities has data (and not System:Auto), use it; otherwise fallback to gerencia
+                        const facilitiesResponsavel = (snapshot.gerencia_facilities_responsavel && snapshot.gerencia_facilities_responsavel !== 'System:Auto') 
+                          ? snapshot.gerencia_facilities_responsavel 
+                          : snapshot.gerencia_responsavel;
                         const facilitiesConclusao = snapshot.gerencia_facilities_conclusao || snapshot.gerencia_conclusao;
                         
                         // Detect rejection: Facilities acted but flow went backwards (not to Financeiro)
