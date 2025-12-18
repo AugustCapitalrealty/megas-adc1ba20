@@ -1,18 +1,8 @@
 import { useState, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import {
   Select,
   SelectContent,
@@ -34,16 +24,18 @@ import { ptBR } from 'date-fns/locale';
 import {
   Search,
   Loader2,
-  Building2,
   Calendar as CalendarIcon,
-  Filter,
   RefreshCw,
   ExternalLink,
   X,
   Clock,
-  User,
+  DollarSign,
+  FileText,
+  Users,
+  TrendingUp,
   CheckCircle2,
-  Link2,
+  AlertCircle,
+  Timer,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -69,6 +61,14 @@ export function FluigDashboard({ onNavigateToSolicitacao }: FluigDashboardProps)
 
   const hasFilters = Object.values(filters).some(v => v !== undefined);
 
+  // Stats calculations
+  const stats = useMemo(() => {
+    const totalValor = snapshots.reduce((acc, s) => acc + (s.valor || 0), 0);
+    const pendentes = snapshots.filter(s => !s.diretoria_conclusao).length;
+    const aprovados = snapshots.filter(s => s.diretoria_conclusao).length;
+    return { total: snapshots.length, totalValor, pendentes, aprovados };
+  }, [snapshots]);
+
   const formatCurrency = (value: number | null) => {
     if (value == null) return '-';
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -76,334 +76,404 @@ export function FluigDashboard({ onNavigateToSolicitacao }: FluigDashboardProps)
 
   const formatDate = (date: string | null) => {
     if (!date) return '-';
-    return format(new Date(date), 'dd/MM/yyyy', { locale: ptBR });
+    try {
+      return format(new Date(date), "dd/MM/yyyy HH:mm", { locale: ptBR });
+    } catch {
+      return date;
+    }
   };
 
-  // Approval cell renderer
   const ApprovalCell = ({ responsavel, conclusao }: { responsavel: string | null; conclusao: string | null }) => {
-    if (!conclusao) return <span className="text-muted-foreground">-</span>;
+    if (!conclusao) {
+      return <span className="text-muted-foreground/50">-</span>;
+    }
+    
+    const formattedDate = conclusao ? (() => {
+      try {
+        return format(new Date(conclusao), "dd/MM/yyyy HH:mm", { locale: ptBR });
+      } catch {
+        return conclusao;
+      }
+    })() : '';
+
     return (
-      <div className="flex items-center gap-1">
-        <CheckCircle2 className="h-3 w-3 text-emerald-500" />
-        <span className="text-xs truncate max-w-[100px]" title={responsavel || undefined}>
-          {responsavel || 'Aprovado'}
-        </span>
+      <div className="space-y-0.5">
+        <div className="flex items-center gap-1 text-success">
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          <span className="text-xs font-medium truncate max-w-[120px]" title={responsavel || undefined}>
+            {responsavel || 'Aprovado'}
+          </span>
+        </div>
+        <div className="text-[10px] text-muted-foreground">{formattedDate}</div>
       </div>
     );
   };
 
   return (
-    <div className="space-y-4">
-      {/* Filters Card */}
+    <div className="space-y-6">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Solicitações</p>
+                <p className="text-2xl font-bold text-primary mt-1">{stats.total}</p>
+              </div>
+              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <FileText className="h-5 w-5 text-primary" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-success/10 to-success/5 border-success/20">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Valor Total</p>
+                <p className="text-2xl font-bold text-success mt-1">{formatCurrency(stats.totalValor)}</p>
+              </div>
+              <div className="h-10 w-10 rounded-full bg-success/10 flex items-center justify-center">
+                <DollarSign className="h-5 w-5 text-success" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-warning/10 to-warning/5 border-warning/20">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Pendentes</p>
+                <p className="text-2xl font-bold text-warning mt-1">{stats.pendentes}</p>
+              </div>
+              <div className="h-10 w-10 rounded-full bg-warning/10 flex items-center justify-center">
+                <AlertCircle className="h-5 w-5 text-warning" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-info/10 to-info/5 border-info/20">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Aprovados</p>
+                <p className="text-2xl font-bold text-info mt-1">{stats.aprovados}</p>
+              </div>
+              <div className="h-10 w-10 rounded-full bg-info/10 flex items-center justify-center">
+                <CheckCircle2 className="h-5 w-5 text-info" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filters Bar */}
       <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Filter className="h-4 w-4" />
-              Filtros
-            </CardTitle>
-            {hasFilters && (
-              <Button variant="ghost" size="sm" onClick={clearFilters}>
-                <X className="h-4 w-4 mr-1" />
-                Limpar
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <CardContent className="p-4">
+          <div className="flex flex-wrap items-center gap-3">
             {/* Search */}
-            <div className="lg:col-span-2">
-              <Label className="text-xs">Buscar</Label>
-              <div className="flex gap-2">
+            <div className="flex-1 min-w-[200px] max-w-[400px]">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Solicitação, fornecedor ou serviço..."
+                  placeholder="Buscar solicitação, fornecedor ou serviço..."
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                  className="h-9"
+                  className="pl-9 h-9"
                 />
-                <Button size="sm" onClick={handleSearch}>
-                  <Search className="h-4 w-4" />
-                </Button>
               </div>
             </div>
 
             {/* Empreendimento */}
-            <div>
-              <Label className="text-xs">Empreendimento</Label>
-              <Select
-                value={filters.empreendimento || 'todos'}
-                onValueChange={(v) => setFilters(prev => ({ ...prev, empreendimento: v === 'todos' ? undefined : v }))}
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos</SelectItem>
-                  {empreendimentos.map(e => (
-                    <SelectItem key={e} value={e}>{e}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <Select
+              value={filters.empreendimento || 'todos'}
+              onValueChange={(v) => setFilters(prev => ({ ...prev, empreendimento: v === 'todos' ? undefined : v }))}
+            >
+              <SelectTrigger className="w-[180px] h-9">
+                <SelectValue placeholder="Empreendimento" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos Empreendimentos</SelectItem>
+                {empreendimentos.map(e => (
+                  <SelectItem key={e} value={e}>{e}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
             {/* Situação */}
-            <div>
-              <Label className="text-xs">Situação</Label>
-              <Select
-                value={filters.situacao || 'todos'}
-                onValueChange={(v) => setFilters(prev => ({ ...prev, situacao: v === 'todos' ? undefined : v }))}
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Todas" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todas</SelectItem>
-                  {situacoes.map(s => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Localização/Etapa */}
-            <div>
-              <Label className="text-xs">Localização/Etapa</Label>
-              <Select
-                value={filters.localizacao || 'todos'}
-                onValueChange={(v) => setFilters(prev => ({ ...prev, localizacao: v === 'todos' ? undefined : v }))}
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Todas" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todas</SelectItem>
-                  {localizacoes.map(l => (
-                    <SelectItem key={l} value={l}>{l}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <Select
+              value={filters.situacao || 'todos'}
+              onValueChange={(v) => setFilters(prev => ({ ...prev, situacao: v === 'todos' ? undefined : v }))}
+            >
+              <SelectTrigger className="w-[160px] h-9">
+                <SelectValue placeholder="Situação" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todas Situações</SelectItem>
+                {situacoes.map(s => (
+                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
             {/* Responsável */}
-            <div>
-              <Label className="text-xs">Responsável</Label>
-              <Select
-                value={filters.responsavel || 'todos'}
-                onValueChange={(v) => setFilters(prev => ({ ...prev, responsavel: v === 'todos' ? undefined : v }))}
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos</SelectItem>
-                  {responsaveis.map(r => (
-                    <SelectItem key={r} value={r}>{r}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <Select
+              value={filters.responsavel || 'todos'}
+              onValueChange={(v) => setFilters(prev => ({ ...prev, responsavel: v === 'todos' ? undefined : v }))}
+            >
+              <SelectTrigger className="w-[160px] h-9">
+                <SelectValue placeholder="Responsável" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos Responsáveis</SelectItem>
+                {responsaveis.map(r => (
+                  <SelectItem key={r} value={r}>{r}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-            {/* Date range - Início */}
-            <div>
-              <Label className="text-xs">Data início (de)</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      'w-full h-9 justify-start text-left font-normal',
-                      !filters.dataInicio && 'text-muted-foreground'
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {filters.dataInicio ? format(filters.dataInicio, 'dd/MM/yyyy') : 'Selecionar'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={filters.dataInicio}
-                    onSelect={(date) => setFilters(prev => ({ ...prev, dataInicio: date || undefined }))}
-                    locale={ptBR}
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
+            {/* Date - Início */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    'w-[130px] h-9 justify-start text-left font-normal',
+                    !filters.dataInicio && 'text-muted-foreground'
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {filters.dataInicio ? format(filters.dataInicio, 'dd/MM/yy') : 'Data início'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={filters.dataInicio}
+                  onSelect={(date) => setFilters(prev => ({ ...prev, dataInicio: date || undefined }))}
+                  locale={ptBR}
+                  className="pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
 
-            {/* Date range - Fim */}
-            <div>
-              <Label className="text-xs">Data início (até)</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      'w-full h-9 justify-start text-left font-normal',
-                      !filters.dataFim && 'text-muted-foreground'
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {filters.dataFim ? format(filters.dataFim, 'dd/MM/yyyy') : 'Selecionar'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={filters.dataFim}
-                    onSelect={(date) => setFilters(prev => ({ ...prev, dataFim: date || undefined }))}
-                    locale={ptBR}
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
+            {/* Date - Fim */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    'w-[130px] h-9 justify-start text-left font-normal',
+                    !filters.dataFim && 'text-muted-foreground'
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {filters.dataFim ? format(filters.dataFim, 'dd/MM/yy') : 'Data fim'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={filters.dataFim}
+                  onSelect={(date) => setFilters(prev => ({ ...prev, dataFim: date || undefined }))}
+                  locale={ptBR}
+                  className="pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+
+            <div className="flex items-center gap-2 ml-auto">
+              {hasFilters && (
+                <Button variant="ghost" size="sm" onClick={clearFilters} className="h-9">
+                  <X className="h-4 w-4 mr-1" />
+                  Limpar
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={refetch} disabled={loading} className="h-9">
+                <RefreshCw className={cn('h-4 w-4 mr-1', loading && 'animate-spin')} />
+                Atualizar
+              </Button>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Results */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">
-              Painel Fluig
-              {!loading && (
-                <Badge variant="secondary" className="ml-2">
-                  {snapshots.length} registros
-                </Badge>
-              )}
-            </CardTitle>
-            <Button variant="outline" size="sm" onClick={refetch} disabled={loading}>
-              <RefreshCw className={cn('h-4 w-4 mr-1', loading && 'animate-spin')} />
-              Atualizar
-            </Button>
+      {/* Data Table */}
+      <Card className="overflow-hidden">
+        {loading ? (
+          <div className="py-16 text-center">
+            <Loader2 className="h-10 w-10 mx-auto mb-4 animate-spin text-primary" />
+            <p className="text-muted-foreground">Carregando dados do painel...</p>
           </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          {loading ? (
-            <div className="py-12 text-center">
-              <Loader2 className="h-8 w-8 mx-auto mb-4 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground">Carregando...</p>
-            </div>
-          ) : snapshots.length === 0 ? (
-            <div className="py-12 text-center">
-              <p className="text-muted-foreground">Nenhum registro encontrado</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Importe uma planilha para começar
-              </p>
-            </div>
-          ) : (
-            <ScrollArea className="h-[600px]">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50">
-                    <TableHead className="w-[100px]">Solicitação</TableHead>
-                    <TableHead className="w-[90px]">Data</TableHead>
-                    <TableHead className="w-[150px]">Fornecedor</TableHead>
-                    <TableHead className="w-[100px] text-right">Valor</TableHead>
-                    <TableHead className="w-[200px]">Serviço</TableHead>
-                    <TableHead className="w-[120px]">Responsável</TableHead>
-                    <TableHead className="w-[100px]">Gerência</TableHead>
-                    <TableHead className="w-[100px]">G. Facilities</TableHead>
-                    <TableHead className="w-[100px]">G. Financeiro</TableHead>
-                    <TableHead className="w-[100px]">Diretoria</TableHead>
-                    <TableHead className="w-[120px]">Duração</TableHead>
-                    <TableHead className="w-[50px]"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {snapshots.map((snapshot) => (
-                    <TableRow key={snapshot.id} className="hover:bg-muted/30">
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <span className="font-medium">{snapshot.solicitacao_fluig}</span>
-                          {snapshot.solicitacao_interna_id && (
-                            <Badge variant="outline" className="h-5 px-1" title="Vinculado ao sistema">
-                              <Link2 className="h-3 w-3" />
-                            </Badge>
-                          )}
-                        </div>
-                        {snapshot.situacao && (
-                          <span className="text-xs text-muted-foreground block">{snapshot.situacao}</span>
+        ) : snapshots.length === 0 ? (
+          <div className="py-16 text-center">
+            <FileText className="h-10 w-10 mx-auto mb-4 text-muted-foreground/50" />
+            <p className="text-muted-foreground font-medium">Nenhum registro encontrado</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Importe uma planilha do Fluig para começar
+            </p>
+          </div>
+        ) : (
+          <ScrollArea className="h-[600px]">
+            <table className="w-full border-collapse">
+              <thead className="sticky top-0 z-10">
+                <tr className="bg-primary text-primary-foreground">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider whitespace-nowrap">
+                    Solicitação
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider whitespace-nowrap">
+                    Data de Lançamento
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider whitespace-nowrap">
+                    Fornecedor
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider whitespace-nowrap">
+                    Valor
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
+                    Serviço
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider whitespace-nowrap">
+                    Responsável Atual
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider whitespace-nowrap">
+                    Gerência Facilities
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider whitespace-nowrap">
+                    Gerência Financeiro
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider whitespace-nowrap">
+                    Diretoria
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider whitespace-nowrap">
+                    Duração
+                  </th>
+                  <th className="px-2 py-3"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {snapshots.map((snapshot, idx) => (
+                  <tr 
+                    key={snapshot.id} 
+                    className={cn(
+                      "hover:bg-muted/50 transition-colors",
+                      idx % 2 === 0 ? "bg-background" : "bg-muted/20"
+                    )}
+                  >
+                    {/* Solicitação */}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-primary">{snapshot.solicitacao_fluig}</span>
+                        {snapshot.solicitacao_interna_id && (
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                            Vinculado
+                          </Badge>
                         )}
-                      </TableCell>
-                      <TableCell className="text-sm">{formatDate(snapshot.data_lancamento)}</TableCell>
-                      <TableCell>
-                        <span className="text-sm truncate block max-w-[150px]" title={snapshot.fornecedor || undefined}>
-                          {snapshot.fornecedor || '-'}
+                      </div>
+                    </td>
+
+                    {/* Data de Lançamento */}
+                    <td className="px-4 py-3">
+                      <span className="text-sm">{formatDate(snapshot.data_lancamento)}</span>
+                    </td>
+
+                    {/* Fornecedor */}
+                    <td className="px-4 py-3">
+                      <span 
+                        className="text-sm block max-w-[200px] truncate" 
+                        title={snapshot.fornecedor || undefined}
+                      >
+                        {snapshot.fornecedor || '-'}
+                      </span>
+                    </td>
+
+                    {/* Valor */}
+                    <td className="px-4 py-3 text-right">
+                      <span className="font-semibold text-sm">{formatCurrency(snapshot.valor)}</span>
+                    </td>
+
+                    {/* Serviço */}
+                    <td className="px-4 py-3">
+                      <span 
+                        className="text-sm block max-w-[300px] truncate" 
+                        title={snapshot.servico || undefined}
+                      >
+                        {snapshot.servico || '-'}
+                      </span>
+                    </td>
+
+                    {/* Responsável Atual */}
+                    <td className="px-4 py-3">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-sm font-medium truncate max-w-[120px]" title={snapshot.responsavel_atual || undefined}>
+                          {snapshot.responsavel_atual || '-'}
                         </span>
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        {formatCurrency(snapshot.valor)}
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm truncate block max-w-[200px]" title={snapshot.servico || undefined}>
-                          {snapshot.servico || '-'}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <User className="h-3 w-3 text-muted-foreground" />
-                          <span className="text-sm truncate max-w-[100px]" title={snapshot.responsavel_atual || undefined}>
-                            {snapshot.responsavel_atual || '-'}
+                        {snapshot.localizacao && (
+                          <span className="text-[10px] text-muted-foreground truncate max-w-[120px]" title={snapshot.localizacao}>
+                            {snapshot.localizacao}
                           </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <ApprovalCell 
-                          responsavel={snapshot.gerencia_responsavel} 
-                          conclusao={snapshot.gerencia_conclusao} 
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <ApprovalCell 
-                          responsavel={snapshot.gerencia_facilities_responsavel} 
-                          conclusao={snapshot.gerencia_facilities_conclusao} 
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <ApprovalCell 
-                          responsavel={snapshot.gerencia_financeiro_responsavel} 
-                          conclusao={snapshot.gerencia_financeiro_conclusao} 
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <ApprovalCell 
-                          responsavel={snapshot.diretoria_responsavel} 
-                          conclusao={snapshot.diretoria_conclusao} 
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1 text-sm">
-                          <Clock className="h-3 w-3 text-muted-foreground" />
-                          <span className="whitespace-nowrap">
-                            {calculateDuration(snapshot.data_inicio, snapshot.data_fim)}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {snapshot.solicitacao_interna_id && onNavigateToSolicitacao && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => onNavigateToSolicitacao(snapshot.solicitacao_interna_id!)}
-                            title="Ver solicitação vinculada"
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </Button>
                         )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </ScrollArea>
-          )}
-        </CardContent>
+                      </div>
+                    </td>
+
+                    {/* Gerência Facilities */}
+                    <td className="px-4 py-3">
+                      <ApprovalCell 
+                        responsavel={snapshot.gerencia_facilities_responsavel} 
+                        conclusao={snapshot.gerencia_facilities_conclusao} 
+                      />
+                    </td>
+
+                    {/* Gerência Financeiro */}
+                    <td className="px-4 py-3">
+                      <ApprovalCell 
+                        responsavel={snapshot.gerencia_financeiro_responsavel} 
+                        conclusao={snapshot.gerencia_financeiro_conclusao} 
+                      />
+                    </td>
+
+                    {/* Diretoria */}
+                    <td className="px-4 py-3">
+                      <ApprovalCell 
+                        responsavel={snapshot.diretoria_responsavel} 
+                        conclusao={snapshot.diretoria_conclusao} 
+                      />
+                    </td>
+
+                    {/* Duração */}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1.5 text-sm">
+                        <Timer className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="whitespace-nowrap font-medium">
+                          {calculateDuration(snapshot.data_inicio, snapshot.data_fim)}
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* Actions */}
+                    <td className="px-2 py-3">
+                      {snapshot.solicitacao_interna_id && onNavigateToSolicitacao && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => onNavigateToSolicitacao(snapshot.solicitacao_interna_id!)}
+                          title="Ver solicitação vinculada"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </ScrollArea>
+        )}
       </Card>
     </div>
   );
