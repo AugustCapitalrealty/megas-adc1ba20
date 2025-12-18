@@ -231,6 +231,40 @@ export function FluigImport({ onImportComplete }: FluigImportProps) {
                   </div>
                 </div>
 
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Amostra (primeiras 5 linhas):</Label>
+                  <div className="rounded-lg border bg-muted/20">
+                    <div className="grid grid-cols-12 gap-2 px-3 py-2 text-[11px] text-muted-foreground font-medium">
+                      <div className="col-span-2">Solicitação</div>
+                      <div className="col-span-4">Empreendimento</div>
+                      <div className="col-span-3">Fornecedor</div>
+                      <div className="col-span-3">Descrição/Serviço</div>
+                    </div>
+                    <Separator />
+                    <div className="divide-y">
+                      {parseResult.data.slice(0, 5).map((row, i) => (
+                        <div key={i} className="grid grid-cols-12 gap-2 px-3 py-2 text-xs">
+                          <div className="col-span-2 font-medium">{row.solicitacao_fluig}</div>
+                          <div className="col-span-4 truncate" title={row.empreendimento || undefined}>{row.empreendimento || '-'}</div>
+                          <div className="col-span-3 truncate" title={row.fornecedor || undefined}>{row.fornecedor || '-'}</div>
+                          <div className="col-span-3 truncate" title={row.servico || undefined}>{row.servico || '-'}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Headers detectados na planilha:</Label>
+                  <ScrollArea className="h-24 rounded-lg border bg-muted/20 p-3">
+                    <div className="flex flex-wrap gap-2">
+                      {parseResult.headers.filter(Boolean).map((h, i) => (
+                        <Badge key={i} variant="secondary" className="text-[10px] font-normal">{h}</Badge>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+
                 <Button 
                   onClick={handleImport} 
                   disabled={importing}
