@@ -51,10 +51,10 @@ function parseExcelDate(value: any): Date | null {
     const trimmed = value.trim();
     if (!trimmed) return null;
     
-    // Try DD/MM/YYYY HH:mm:ss format
-    const brMatch = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})\s*(\d{2})?:?(\d{2})?:?(\d{2})?$/);
-    if (brMatch) {
-      const [, day, month, year, hour = '0', min = '0', sec = '0'] = brMatch;
+    // Try DD/MM/YYYY HH:mm:ss format (with proper time capture)
+    const brMatchFull = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2}):(\d{2})$/);
+    if (brMatchFull) {
+      const [, day, month, year, hour, min, sec] = brMatchFull;
       return new Date(
         parseInt(year),
         parseInt(month) - 1,
@@ -62,6 +62,32 @@ function parseExcelDate(value: any): Date | null {
         parseInt(hour),
         parseInt(min),
         parseInt(sec)
+      );
+    }
+    
+    // Try DD/MM/YYYY HH:mm format (without seconds)
+    const brMatchNoSec = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/);
+    if (brMatchNoSec) {
+      const [, day, month, year, hour, min] = brMatchNoSec;
+      return new Date(
+        parseInt(year),
+        parseInt(month) - 1,
+        parseInt(day),
+        parseInt(hour),
+        parseInt(min),
+        0
+      );
+    }
+    
+    // Try DD/MM/YYYY format (date only)
+    const brMatchDateOnly = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (brMatchDateOnly) {
+      const [, day, month, year] = brMatchDateOnly;
+      return new Date(
+        parseInt(year),
+        parseInt(month) - 1,
+        parseInt(day),
+        0, 0, 0
       );
     }
     
