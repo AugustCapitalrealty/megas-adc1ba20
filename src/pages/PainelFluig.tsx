@@ -270,16 +270,25 @@ export default function PainelFluig() {
                           : snapshot.gerencia_responsavel;
                         const facilitiesConclusao = snapshot.gerencia_facilities_conclusao || snapshot.gerencia_conclusao;
                         
-                        // Detect rejection: Facilities acted but flow went backwards (not to Financeiro)
-                        // If facilitiesConclusao exists but responsavel_atual is NOT the Financeiro person, it was rejected
-                        // Check if current responsible is the Financeiro responsible
+                        // Detect if item is back with Facilities for re-approval
+                        const facilitiesFirstName = facilitiesResponsavel?.split(' ')[0]?.toLowerCase() || '';
+                        const isBackWithFacilities = snapshot.responsavel_atual?.toLowerCase().includes('gestor') ||
+                          (facilitiesFirstName && snapshot.responsavel_atual?.toLowerCase().includes(facilitiesFirstName));
+                        
+                        // Check if current responsible is the Financeiro person
                         const isWithFinanceiro = snapshot.gerencia_financeiro_responsavel && 
                           snapshot.responsavel_atual?.toLowerCase().includes(snapshot.gerencia_financeiro_responsavel.split(' ')[0].toLowerCase());
                         
+                        // If back with Facilities, show blank (pending re-approval)
+                        // Use null conclusao to show as pending
+                        const showFacilitiesConclusao = isBackWithFacilities ? null : facilitiesConclusao;
+                        
+                        // Detect rejection: Facilities acted, not with Financeiro, and not back with Facilities
                         const facilitiesRejected = !!(
                           facilitiesConclusao && 
                           !snapshot.gerencia_financeiro_conclusao &&
-                          !isWithFinanceiro
+                          !isWithFinanceiro &&
+                          !isBackWithFacilities
                         );
                         
                         return (
@@ -317,7 +326,7 @@ export default function PainelFluig() {
                             <td className="px-2 py-2">
                               <ApprovalCell 
                                 responsavel={facilitiesResponsavel} 
-                                conclusao={facilitiesConclusao}
+                                conclusao={showFacilitiesConclusao}
                                 rejected={facilitiesRejected}
                               />
                             </td>
