@@ -503,25 +503,44 @@ export default function PainelFluig() {
               Acompanhe as solicitações do Fluig
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={refetch} disabled={loading}>
-              <RefreshCw className={cn('h-4 w-4 mr-1', loading && 'animate-spin')} />
-              Atualizar
-            </Button>
-            <Dialog open={importOpen} onOpenChange={setImportOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm">
-                  <Upload className="h-4 w-4 mr-1" />
-                  Importar
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-lg">
-                <DialogHeader>
-                  <DialogTitle>Importar Planilha Fluig</DialogTitle>
-                </DialogHeader>
-                <FluigImport onImportComplete={handleImportComplete} />
-              </DialogContent>
-            </Dialog>
+          <div className="flex flex-col items-end gap-1">
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={refetch} disabled={loading}>
+                <RefreshCw className={cn('h-4 w-4 mr-1', loading && 'animate-spin')} />
+                Atualizar
+              </Button>
+              <Dialog open={importOpen} onOpenChange={setImportOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm">
+                    <Upload className="h-4 w-4 mr-1" />
+                    Importar
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>Importar Planilha Fluig</DialogTitle>
+                  </DialogHeader>
+                  <FluigImport onImportComplete={handleImportComplete} />
+                </DialogContent>
+              </Dialog>
+            </div>
+            {/* Última atualização */}
+            {!loading && allSnapshots.length > 0 && (() => {
+              const lastUpdate = allSnapshots.reduce((latest, s) => {
+                if (!s.importado_em) return latest;
+                const date = new Date(s.importado_em);
+                return date > latest ? date : latest;
+              }, new Date(0));
+              
+              if (lastUpdate.getTime() === 0) return null;
+              
+              return (
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  Última atualização: {format(lastUpdate, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                </p>
+              );
+            })()}
           </div>
         </div>
 
