@@ -92,7 +92,16 @@ export const FLUIG_COLUMN_MAPPINGS = {
   responsavel: ['responsavel'],
   situacao: ['situacao'],
   localizacao: ['localizacao'],
-  descricao: ['autCondHistOC - CON001 - Autorizacao Contratacao - Condomínios', 'descricao'],
+  descricao: [
+    'autCondHistOC - CON001 - Autorizacao Contratacao - Condomínios',
+    'autcondhisto - con001 - autorizacao contratacao - condominios',
+    'autcondhistoc - con001 - autorizacao contratacao - condominios',
+    'autcondhistoco - con001 - autorizacao contratacao - condominios',
+    'historico - con001 - autorizacao contratacao - condominios',
+    'descricao',
+    'descrição',
+    'desc',
+  ],
   
   // Supplier (priority order)
   fornecedor: [
