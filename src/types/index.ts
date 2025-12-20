@@ -247,3 +247,16 @@ export interface DocumentoFiscal {
   baixa_financeiro_por: string | null;
   created_at: string;
 }
+
+// Interface para mensagens de solicitação
+export interface SolicitacaoMensagem {
+  id: string;
+  solicitacao_id: string;
+  user_id: string;
+  mensagem: string;
+  created_at: string;
+  profile?: {
+    full_name: string | null;
+    email: string;
+  };
+}

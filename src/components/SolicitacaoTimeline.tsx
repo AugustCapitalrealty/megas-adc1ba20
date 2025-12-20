@@ -20,9 +20,12 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { SolicitacaoMessages } from '@/components/SolicitacaoMessages';
 
 interface SolicitacaoTimelineProps {
   solicitacaoId: string;
+  showMessages?: boolean;
 }
 
 const getActionDetails = (acao: string, statusNovo: string | null): { icon: JSX.Element; label: string; color: string } => {
@@ -177,7 +180,7 @@ const getActionDetails = (acao: string, statusNovo: string | null): { icon: JSX.
   }
 };
 
-export function SolicitacaoTimeline({ solicitacaoId }: SolicitacaoTimelineProps) {
+export function SolicitacaoTimeline({ solicitacaoId, showMessages = true }: SolicitacaoTimelineProps) {
   const [historico, setHistorico] = useState<HistoricoSolicitacao[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -221,60 +224,77 @@ export function SolicitacaoTimeline({ solicitacaoId }: SolicitacaoTimelineProps)
   }
 
   return (
-    <div className="space-y-1">
-      {historico.map((item, index) => {
-        const { icon, label, color } = getActionDetails(item.acao, item.status_novo);
-        const isLast = index === historico.length - 1;
-        const isFluigUpdate = item.acao === 'atualizacao_fluig';
-        const isFluigNumberAction = item.acao.startsWith('numero_fluig_');
-        const displayLabel = (isFluigUpdate || isFluigNumberAction) && item.motivo ? item.motivo : label;
-        
-        return (
-          <div key={item.id} className="flex gap-3">
-            <div className="flex flex-col items-center">
-              <div className={cn(
-                'w-8 h-8 rounded-full flex items-center justify-center shrink-0',
-                color
-              )}>
-                {icon}
-              </div>
-              {!isLast && (
-                <div className="w-0.5 flex-1 bg-border min-h-[24px]" />
-              )}
-            </div>
-            
-            <div className={cn("flex-1", !isLast && "pb-4")}>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-medium text-sm">{displayLabel}</span>
-                {(isFluigUpdate || isFluigNumberAction) && (
-                  <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
-                    Fluig
-                  </Badge>
-                )}
-                {item.status_novo && !isFluigUpdate && !isFluigNumberAction && (
-                  <Badge variant="outline" className="text-xs">
-                    {STATUS_LABELS[item.status_novo]}
-                  </Badge>
-                )}
-              </div>
-              
-              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                <User className="h-3 w-3" />
-                {item.profile?.full_name || item.profile?.email || 'Usuário'}
-                {' • '}
-                {format(new Date(item.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-              </p>
-              
-              {item.motivo && !isFluigUpdate && !isFluigNumberAction && (
-                <div className="mt-2 p-2 bg-muted/50 rounded text-sm border-l-2 border-primary/30">
-                  <span className="text-muted-foreground">Observação: </span>
-                  {item.motivo}
+    <div className="space-y-4">
+      {/* Timeline */}
+      <div className="space-y-1">
+        {historico.map((item, index) => {
+          const { icon, label, color } = getActionDetails(item.acao, item.status_novo);
+          const isLast = index === historico.length - 1;
+          const isFluigUpdate = item.acao === 'atualizacao_fluig';
+          const isFluigNumberAction = item.acao.startsWith('numero_fluig_');
+          const displayLabel = (isFluigUpdate || isFluigNumberAction) && item.motivo ? item.motivo : label;
+          
+          return (
+            <div key={item.id} className="flex gap-3">
+              <div className="flex flex-col items-center">
+                <div className={cn(
+                  'w-8 h-8 rounded-full flex items-center justify-center shrink-0',
+                  color
+                )}>
+                  {icon}
                 </div>
-              )}
+                {!isLast && (
+                  <div className="w-0.5 flex-1 bg-border min-h-[24px]" />
+                )}
+              </div>
+              
+              <div className={cn("flex-1", !isLast && "pb-4")}>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-medium text-sm">{displayLabel}</span>
+                  {(isFluigUpdate || isFluigNumberAction) && (
+                    <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                      Fluig
+                    </Badge>
+                  )}
+                  {item.status_novo && !isFluigUpdate && !isFluigNumberAction && (
+                    <Badge variant="outline" className="text-xs">
+                      {STATUS_LABELS[item.status_novo]}
+                    </Badge>
+                  )}
+                </div>
+                
+                <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                  <User className="h-3 w-3" />
+                  {item.profile?.full_name || item.profile?.email || 'Usuário'}
+                  {' • '}
+                  {format(new Date(item.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                </p>
+                
+                {item.motivo && !isFluigUpdate && !isFluigNumberAction && (
+                  <div className="mt-2 p-2 bg-muted/50 rounded text-sm border-l-2 border-primary/30">
+                    <span className="text-muted-foreground">Observação: </span>
+                    {item.motivo}
+                  </div>
+                )}
+              </div>
             </div>
+          );
+        })}
+      </div>
+
+      {/* Messages section */}
+      {showMessages && (
+        <>
+          <Separator className="my-4" />
+          <div>
+            <h4 className="text-sm font-medium flex items-center gap-2 mb-3">
+              <MessageSquare className="h-4 w-4 text-primary" />
+              Mensagens
+            </h4>
+            <SolicitacaoMessages solicitacaoId={solicitacaoId} />
           </div>
-        );
-      })}
+        </>
+      )}
     </div>
   );
 }
