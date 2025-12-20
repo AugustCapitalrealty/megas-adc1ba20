@@ -177,7 +177,7 @@ export const STATUS_LABELS: Record<RequestStatus, string> = {
   pendente_correcao: 'Correção Necessária',
   aprovado: 'Aprovado',
   rejeitado: 'Não Aprovado',
-  em_processamento: 'Em Processamento',
+  em_processamento: 'Em Aprovação',
   oc_ac_emitida: 'OC Enviada - Aguardando Aceite',
   aguardando_aceite: 'Aguardando Aceite do Solicitante',
   aguardando_informacoes: 'Aguardando Informações',
