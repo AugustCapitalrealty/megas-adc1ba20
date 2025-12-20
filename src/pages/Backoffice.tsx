@@ -743,14 +743,31 @@ export default function Backoffice() {
             </Button>
           </div>
           
+          {/* Descrição com Ver mais/menos */}
+          <div className="mt-3 pt-3 border-t">
+            <ExpandableDescription 
+              description={sol.descricao} 
+              maxLength={100}
+              className="text-muted-foreground"
+            />
+          </div>
+
           {/* Expanded History Timeline */}
           {expandedId === sol.id && (
-            <div className="mt-4 pt-4 border-t">
-              <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
-                <History className="h-4 w-4 text-muted-foreground" />
-                Histórico da Solicitação
-              </h4>
-              <SolicitacaoTimeline solicitacaoId={sol.id} />
+            <div className="mt-4 pt-4 border-t space-y-6">
+              {/* Fluig Status Card */}
+              {sol.numero_chamado_fluig && sol.numero_chamado_fluig !== 'RM' && (
+                <FluigStatusCard numeroChamadoFluig={sol.numero_chamado_fluig} />
+              )}
+              
+              {/* Histórico */}
+              <div>
+                <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
+                  <History className="h-4 w-4 text-muted-foreground" />
+                  Histórico da Solicitação
+                </h4>
+                <SolicitacaoTimeline solicitacaoId={sol.id} />
+              </div>
             </div>
           )}
         </CardContent>
