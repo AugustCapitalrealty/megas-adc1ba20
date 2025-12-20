@@ -16,16 +16,37 @@ import {
   Cog,
   UserCheck,
   HelpCircle,
-  RefreshCw
+  RefreshCw,
+  Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { SolicitacaoMessages } from '@/components/SolicitacaoMessages';
+import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 interface SolicitacaoTimelineProps {
   solicitacaoId: string;
   showMessages?: boolean;
+}
+
+interface Message {
+  id: string;
+  mensagem: string;
+  created_at: string;
+  user_id: string;
+  profile?: {
+    full_name: string | null;
+    email: string;
+  };
+}
+
+interface TimelineItem {
+  id: string;
+  type: 'historico' | 'mensagem';
+  created_at: string;
+  data: HistoricoSolicitacao | Message;
 }
 
 const getActionDetails = (acao: string, statusNovo: string | null): { icon: JSX.Element; label: string; color: string } => {
@@ -181,58 +202,175 @@ const getActionDetails = (acao: string, statusNovo: string | null): { icon: JSX.
 };
 
 export function SolicitacaoTimeline({ solicitacaoId, showMessages = true }: SolicitacaoTimelineProps) {
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [historico, setHistorico] = useState<HistoricoSolicitacao[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
+  const [newMessage, setNewMessage] = useState('');
+  const [sending, setSending] = useState(false);
 
   useEffect(() => {
-    fetchHistorico();
+    fetchData();
   }, [solicitacaoId]);
 
-  const fetchHistorico = async () => {
-    const { data, error } = await supabase
-      .from('historico_solicitacoes')
-      .select('*')
-      .eq('solicitacao_id', solicitacaoId)
-      .order('created_at', { ascending: true });
-
-    if (!error && data) {
-      // Fetch profiles for each history entry
-      const userIds = [...new Set(data.map(h => h.user_id))];
-      const { data: profiles } = await supabase
-        .from('profiles')
+  const fetchData = async () => {
+    setLoading(true);
+    
+    // Fetch historico and messages in parallel
+    const [historicoResult, messagesResult] = await Promise.all([
+      supabase
+        .from('historico_solicitacoes')
         .select('*')
-        .in('id', userIds);
+        .eq('solicitacao_id', solicitacaoId)
+        .order('created_at', { ascending: true }),
+      showMessages ? supabase
+        .from('solicitacao_mensagens')
+        .select('*')
+        .eq('solicitacao_id', solicitacaoId)
+        .order('created_at', { ascending: true }) : Promise.resolve({ data: [], error: null })
+    ]);
 
-      const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
-      
-      const historicoWithProfiles = data.map(h => ({
-        ...h,
-        profile: profileMap.get(h.user_id),
-      })) as HistoricoSolicitacao[];
+    // Get all unique user IDs from both sources
+    const historicoData = historicoResult.data || [];
+    const messagesData = messagesResult.data || [];
+    
+    const allUserIds = [...new Set([
+      ...historicoData.map(h => h.user_id),
+      ...messagesData.map(m => m.user_id)
+    ])];
 
-      setHistorico(historicoWithProfiles);
-    }
+    // Fetch profiles
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('*')
+      .in('id', allUserIds);
+
+    const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+    
+    // Map historico with profiles
+    const historicoWithProfiles = historicoData.map(h => ({
+      ...h,
+      profile: profileMap.get(h.user_id),
+    })) as HistoricoSolicitacao[];
+
+    // Map messages with profiles
+    const messagesWithProfiles = messagesData.map(m => ({
+      ...m,
+      profile: profileMap.get(m.user_id),
+    }));
+
+    setHistorico(historicoWithProfiles);
+    setMessages(messagesWithProfiles);
     setLoading(false);
   };
+
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !user) return;
+
+    setSending(true);
+    try {
+      const { error } = await supabase
+        .from('solicitacao_mensagens')
+        .insert({
+          solicitacao_id: solicitacaoId,
+          user_id: user.id,
+          mensagem: newMessage.trim(),
+        });
+
+      if (error) throw error;
+
+      setNewMessage('');
+      fetchData();
+      toast({
+        title: 'Mensagem enviada',
+        description: 'Sua mensagem foi registrada no histórico.',
+      });
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast({
+        title: 'Erro ao enviar',
+        description: 'Não foi possível enviar a mensagem.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // Merge historico and messages into a single timeline
+  const timelineItems: TimelineItem[] = [
+    ...historico.map(h => ({
+      id: h.id,
+      type: 'historico' as const,
+      created_at: h.created_at,
+      data: h
+    })),
+    ...messages.map(m => ({
+      id: m.id,
+      type: 'mensagem' as const,
+      created_at: m.created_at,
+      data: m
+    }))
+  ].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
   if (loading) {
     return <div className="animate-pulse h-20 bg-muted rounded" />;
   }
 
-  if (historico.length === 0) {
+  if (timelineItems.length === 0 && !showMessages) {
     return <p className="text-sm text-muted-foreground">Nenhum histórico disponível</p>;
   }
 
   return (
     <div className="space-y-4">
-      {/* Timeline */}
+      {/* Combined Timeline */}
       <div className="space-y-1">
-        {historico.map((item, index) => {
-          const { icon, label, color } = getActionDetails(item.acao, item.status_novo);
-          const isLast = index === historico.length - 1;
-          const isFluigUpdate = item.acao === 'atualizacao_fluig';
-          const isFluigNumberAction = item.acao.startsWith('numero_fluig_');
-          const displayLabel = (isFluigUpdate || isFluigNumberAction) && item.motivo ? item.motivo : label;
+        {timelineItems.map((item, index) => {
+          const isLast = index === timelineItems.length - 1;
+
+          if (item.type === 'mensagem') {
+            const msg = item.data as Message;
+            return (
+              <div key={item.id} className="flex gap-3">
+                <div className="flex flex-col items-center">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <MessageSquare className="h-4 w-4 text-primary" />
+                  </div>
+                  {!isLast && (
+                    <div className="w-0.5 flex-1 bg-border min-h-[24px]" />
+                  )}
+                </div>
+                
+                <div className={cn("flex-1", !isLast && "pb-4")}>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-medium text-sm">
+                      {msg.profile?.full_name || msg.profile?.email || 'Usuário'}
+                    </span>
+                    <span className="text-sm text-muted-foreground">comentou</span>
+                    <Badge variant="outline" className="text-xs bg-primary/5 text-primary border-primary/20">
+                      Mensagem
+                    </Badge>
+                  </div>
+                  
+                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                    {format(new Date(msg.created_at), "dd/MM/yyyy HH:mm:ss", { locale: ptBR })}
+                  </p>
+                  
+                  <div className="mt-2 p-3 bg-muted/30 rounded-lg border-l-4 border-primary/40">
+                    <p className="text-sm whitespace-pre-wrap break-words">{msg.mensagem}</p>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          // Historico item
+          const hist = item.data as HistoricoSolicitacao;
+          const { icon, label, color } = getActionDetails(hist.acao, hist.status_novo);
+          const isFluigUpdate = hist.acao === 'atualizacao_fluig';
+          const isFluigNumberAction = hist.acao.startsWith('numero_fluig_');
+          const displayLabel = (isFluigUpdate || isFluigNumberAction) && hist.motivo ? hist.motivo : label;
           
           return (
             <div key={item.id} className="flex gap-3">
@@ -256,24 +394,24 @@ export function SolicitacaoTimeline({ solicitacaoId, showMessages = true }: Soli
                       Fluig
                     </Badge>
                   )}
-                  {item.status_novo && !isFluigUpdate && !isFluigNumberAction && (
+                  {hist.status_novo && !isFluigUpdate && !isFluigNumberAction && (
                     <Badge variant="outline" className="text-xs">
-                      {STATUS_LABELS[item.status_novo]}
+                      {STATUS_LABELS[hist.status_novo]}
                     </Badge>
                   )}
                 </div>
                 
                 <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
                   <User className="h-3 w-3" />
-                  {item.profile?.full_name || item.profile?.email || 'Usuário'}
+                  {hist.profile?.full_name || hist.profile?.email || 'Usuário'}
                   {' • '}
-                  {format(new Date(item.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                  {format(new Date(hist.created_at), "dd/MM/yyyy HH:mm:ss", { locale: ptBR })}
                 </p>
                 
-                {item.motivo && !isFluigUpdate && !isFluigNumberAction && (
+                {hist.motivo && !isFluigUpdate && !isFluigNumberAction && (
                   <div className="mt-2 p-2 bg-muted/50 rounded text-sm border-l-2 border-primary/30">
                     <span className="text-muted-foreground">Observação: </span>
-                    {item.motivo}
+                    {hist.motivo}
                   </div>
                 )}
               </div>
@@ -282,18 +420,36 @@ export function SolicitacaoTimeline({ solicitacaoId, showMessages = true }: Soli
         })}
       </div>
 
-      {/* Messages section */}
+      {/* Message input */}
       {showMessages && (
-        <>
-          <Separator className="my-4" />
-          <div>
-            <h4 className="text-sm font-medium flex items-center gap-2 mb-3">
-              <MessageSquare className="h-4 w-4 text-primary" />
-              Mensagens
-            </h4>
-            <SolicitacaoMessages solicitacaoId={solicitacaoId} />
+        <div className="pt-4 border-t">
+          <div className="flex gap-2">
+            <Textarea
+              placeholder="Digite sua mensagem..."
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              className="min-h-[60px] resize-none"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendMessage();
+                }
+              }}
+            />
+            <Button
+              onClick={handleSendMessage}
+              disabled={!newMessage.trim() || sending}
+              size="icon"
+              className="shrink-0 h-[60px] w-[60px]"
+            >
+              {sending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+            </Button>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
