@@ -14,6 +14,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SolicitacaoTimeline } from '@/components/SolicitacaoTimeline';
+import { FluigStatusCard } from '@/components/FluigStatusCard';
+import { ExpandableDescription } from '@/components/ExpandableDescription';
 import { supabase } from '@/integrations/supabase/client';
 import { useBackofficeSolicitacoes, type SolicitacaoBackoffice } from '@/hooks/useBackofficeSolicitacoes';
 import { useSolicitacaoDetalhes } from '@/hooks/useSolicitacaoDetalhes';
@@ -1052,12 +1054,23 @@ export default function Backoffice() {
 
                 <Separator />
 
+                {/* Fluig Status Card */}
+                {detalhes.solicitacao.numero_chamado_fluig && detalhes.solicitacao.numero_chamado_fluig !== 'RM' && (
+                  <>
+                    <FluigStatusCard numeroChamadoFluig={detalhes.solicitacao.numero_chamado_fluig} />
+                    <Separator />
+                  </>
+                )}
+
                 {/* Descrição */}
                 <div>
                   <h4 className="font-semibold mb-2 flex items-center gap-2">
                     <FileText className="h-4 w-4" /> Descrição
                   </h4>
-                  <p className="text-sm">{detalhes.solicitacao.descricao}</p>
+                  <ExpandableDescription 
+                    description={detalhes.solicitacao.descricao} 
+                    maxLength={150}
+                  />
                 </div>
 
                 <Separator />

@@ -30,6 +30,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { SolicitacaoTimeline } from '@/components/SolicitacaoTimeline';
 import { FluigStatusCard } from '@/components/FluigStatusCard';
+import { ExpandableDescription } from '@/components/ExpandableDescription';
 import { MultiFileUpload, type UploadedFile } from '@/components/FileUpload';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -1140,9 +1141,11 @@ export default function MinhasSolicitacoes() {
                         <span>{format(new Date(sol.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</span>
                       </div>
                       <div className="pt-2 border-t mt-2">
-                        <p className="text-muted-foreground text-sm">
-                          {truncateDescription(sol.descricao)}
-                        </p>
+                        <ExpandableDescription 
+                          description={sol.descricao} 
+                          maxLength={100}
+                          className="text-muted-foreground"
+                        />
                       </div>
                     </div>
 

@@ -487,6 +487,38 @@ export type Database = {
         }
         Relationships: []
       }
+      solicitacao_mensagens: {
+        Row: {
+          created_at: string
+          id: string
+          mensagem: string
+          solicitacao_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mensagem: string
+          solicitacao_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mensagem?: string
+          solicitacao_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solicitacao_mensagens_solicitacao_id_fkey"
+            columns: ["solicitacao_id"]
+            isOneToOne: false
+            referencedRelation: "solicitacoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       solicitacoes: {
         Row: {
           cliente_id: string | null
