@@ -756,9 +756,11 @@ export default function PainelFluig() {
                         // If back with Financeiro, show blank (pending re-approval)
                         const showFinanceiroConclusao = isBackWithFinanceiro ? null : snapshot.gerencia_financeiro_conclusao;
                         
-                        // Financeiro rejected if: acted, not approved by Diretoria, not with Diretoria, not back with Financeiro
+                        // Financeiro rejected if: acted, valor > 2500, not approved by Diretoria, not with Diretoria, not back with Financeiro
+                        // Valores <= 2500 não precisam de Diretoria, então não são considerados rejeitados
                         const financeiroRejected = !!(
                           snapshot.gerencia_financeiro_conclusao && 
+                          snapshot.valor && snapshot.valor > 2500 &&
                           !snapshot.diretoria_conclusao &&
                           !isWithDiretoria &&
                           !isBackWithFinanceiro &&
