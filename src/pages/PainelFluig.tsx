@@ -378,6 +378,12 @@ export default function PainelFluig() {
     }
   };
 
+  // Mapa de tradução para responsáveis do Fluig
+  const RESPONSAVEL_LABELS: Record<string, string> = {
+    'Gestor Condominio': 'Gerência de Facilities',
+    'Gestor Condomínio': 'Gerência de Facilities',
+  };
+
   // Format name: remove "Para o Papel" prefix and Pool:Role suffix, first name only for personal names
   const formatName = (name: string | null) => {
     if (!name) return '-';
@@ -387,6 +393,11 @@ export default function PainelFluig() {
 
     // Remove ", Pool:Role:..." suffix (Fluig system metadata)
     cleaned = cleaned.replace(/,\s*Pool:Role:[^\s,]*/gi, '').trim();
+
+    // Verificar se existe tradução para este responsável
+    if (RESPONSAVEL_LABELS[cleaned]) {
+      return RESPONSAVEL_LABELS[cleaned];
+    }
 
     // For role/area names, keep full label (ex: "Gerência de Facilities")
     const normalized = cleaned
