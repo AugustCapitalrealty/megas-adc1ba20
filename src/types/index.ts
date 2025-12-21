@@ -173,7 +173,7 @@ export const TIPO_CONTRATACAO_LABELS: Record<TipoContratacao, string> = {
 };
 
 export const STATUS_LABELS: Record<RequestStatus, string> = {
-  recebido: 'Aguardando Análise',
+  recebido: 'Em Fila',
   em_analise: 'Em Análise pelo Backoffice',
   pendente_correcao: 'Correção Necessária',
   aprovado: 'Em Lançamento',
