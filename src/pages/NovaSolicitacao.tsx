@@ -28,12 +28,13 @@ import {
   type TipoGarantia,
   type Fornecedor,
 } from '@/types';
-import { ArrowLeft, ArrowRight, Check, Loader2, Search, AlertTriangle, ChevronDown, ChevronUp, FileText } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Loader2, Search, AlertTriangle, ChevronDown, ChevronUp, FileText, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MultiFileUpload, type UploadedFile } from '@/components/FileUpload';
 import { SupplierSearch } from '@/components/SupplierSearch';
 import { ClienteSelect } from '@/components/ClienteSelect';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useDescriptionValidation } from '@/hooks/useDescriptionValidation';
 
 type Step = 'empreendimento' | 'descricao' | 'tipo' | 'detalhes' | 'fornecedor' | 'anexos' | 'revisao';
 
@@ -176,6 +177,9 @@ export default function NovaSolicitacao() {
   const [justificativaSemChamado, setJustificativaSemChamado] = useState('');
   const [semMemorial, setSemMemorial] = useState(false);
   const [justificativaSemMemorial, setJustificativaSemMemorial] = useState('');
+  
+  // AI Description Validation
+  const { isValidating: isValidatingDescription, validationResult: descriptionValidation } = useDescriptionValidation(descricao);
   // Load fornecedor from duplicateFrom
   useEffect(() => {
     if (duplicateFrom?.fornecedor_id) {
@@ -639,7 +643,15 @@ export default function NovaSolicitacao() {
             {currentStep === 'descricao' && (
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="descricao">Descrição do serviço ou material</Label>
+                  <div className="flex items-center justify-between mb-1">
+                    <Label htmlFor="descricao">Descrição do serviço ou material</Label>
+                    {isValidatingDescription && (
+                      <span className="flex items-center gap-1 text-sm text-muted-foreground">
+                        <Sparkles className="h-3 w-3 animate-pulse" />
+                        Analisando...
+                      </span>
+                    )}
+                  </div>
                   <Textarea
                     id="descricao"
                     placeholder="Ex: Aquisição de 4 luminárias para troca das atuais que estão queimadas. Será 2 para a portaria, 1 para o quiosque e 1 sala administrativa.
@@ -649,6 +661,19 @@ Ex: Contratação de serviço de reparo do ar-condicionado da sala administrativ
                     onChange={(e) => setDescricao(e.target.value)}
                     rows={5}
                   />
+                  
+                  {/* AI Validation Alert */}
+                  {descriptionValidation?.isVague && !isValidatingDescription && (
+                    <Alert className="mt-3 bg-yellow-50 border-yellow-300 dark:bg-yellow-950/20 dark:border-yellow-800">
+                      <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-500" />
+                      <AlertDescription className="text-yellow-800 dark:text-yellow-200">
+                        <span className="font-medium">Descrição pode estar incompleta</span>
+                        <p className="text-sm mt-1 text-yellow-700 dark:text-yellow-300">
+                          {descriptionValidation.suggestion}
+                        </p>
+                      </AlertDescription>
+                    </Alert>
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="valor">Valor (R$)</Label>
