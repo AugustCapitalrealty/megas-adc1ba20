@@ -176,7 +176,7 @@ export const STATUS_LABELS: Record<RequestStatus, string> = {
   recebido: 'Aguardando Análise',
   em_analise: 'Em Análise pelo Backoffice',
   pendente_correcao: 'Correção Necessária',
-  aprovado: 'Aprovado',
+  aprovado: 'Em Lançamento',
   rejeitado: 'Não Aprovado',
   em_processamento: 'Em Aprovação',
   oc_ac_emitida: 'OC Enviada - Aguardando Aceite',

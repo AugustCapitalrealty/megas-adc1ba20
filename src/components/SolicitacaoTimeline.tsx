@@ -140,7 +140,7 @@ const getActionDetails = (acao: string, statusNovo: string | null): { icon: JSX.
   switch (statusNovo) {
     case 'aprovado': return { 
       icon: <CheckCircle className="h-4 w-4" />, 
-      label: 'Aprovado', 
+      label: 'Em Lançamento', 
       color: 'bg-success text-success-foreground' 
     };
     case 'rejeitado': return { 
