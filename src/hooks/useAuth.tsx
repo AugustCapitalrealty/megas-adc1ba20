@@ -11,6 +11,7 @@ interface AuthContextType {
   profile: Profile | null;
   roles: AppRole[];
   loading: boolean;
+  isApproved: boolean;
   signInWithGoogle: () => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   hasRole: (role: AppRole) => boolean;
@@ -42,6 +43,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isMasterUser = user?.email === MASTER_EMAIL;
   const isImpersonating = isMasterUser && impersonatedProfile !== null;
+
+  // Master user is always approved, others check profile
+  const isApproved = isMasterUser || (profile?.approved ?? false);
 
   // Effective profile/roles (impersonated or real)
   const effectiveProfile = isImpersonating ? impersonatedProfile : profile;
@@ -187,6 +191,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         profile,
         roles,
         loading,
+        isApproved,
         signInWithGoogle,
         signOut,
         hasRole,

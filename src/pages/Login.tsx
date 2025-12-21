@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import logoMega from '@/assets/logos/logo-mega.jpg';
 
 export default function Login() {
-  const { user, loading, signInWithGoogle } = useAuth();
+  const { user, loading, isApproved, isMasterUser, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   
@@ -16,9 +16,14 @@ export default function Login() {
 
   useEffect(() => {
     if (!loading && user) {
-      navigate('/');
+      // Check if user is approved (master user is always approved)
+      if (isApproved || isMasterUser) {
+        navigate('/');
+      } else {
+        navigate('/aguardando-aprovacao');
+      }
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, isApproved, isMasterUser, navigate]);
 
   const handleGoogleLogin = async () => {
     setIsSubmitting(true);

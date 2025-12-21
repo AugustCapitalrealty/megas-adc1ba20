@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import Login from "./pages/Login";
+import AwaitingApproval from "./pages/AwaitingApproval";
 import Dashboard from "./pages/Dashboard";
 import NovaSolicitacao from "./pages/NovaSolicitacao";
 import MinhasSolicitacoes from "./pages/MinhasSolicitacoes";
@@ -25,7 +26,7 @@ function ProtectedRoute({
   requireBackoffice?: boolean;
   requireAdmin?: boolean;
 }) {
-  const { user, loading, isBackofficeOrAdmin, isAdmin } = useAuth();
+  const { user, loading, isBackofficeOrAdmin, isAdmin, isApproved, isMasterUser } = useAuth();
 
   if (loading) {
     return (
@@ -37,6 +38,11 @@ function ProtectedRoute({
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Check if user is approved (master user is always approved)
+  if (!isApproved && !isMasterUser) {
+    return <Navigate to="/aguardando-aprovacao" replace />;
   }
 
   if (requireAdmin && !isAdmin) {
@@ -54,6 +60,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/aguardando-aprovacao" element={<AwaitingApproval />} />
       <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/nova-solicitacao" element={<ProtectedRoute><NovaSolicitacao /></ProtectedRoute>} />
       <Route path="/minhas-solicitacoes" element={<ProtectedRoute><MinhasSolicitacoes /></ProtectedRoute>} />

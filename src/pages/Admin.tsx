@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import { Loader2, Search, Shield, Users, UserCheck, UserCog, X, Building2 } from 'lucide-react';
+import { Loader2, Search, Shield, Users, UserCheck, UserCog, X, Building2, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { AppRole, ROLE_LABELS, Empreendimento, EMPREENDIMENTO_LABELS } from '@/types';
 
 const EMPREENDIMENTOS: Empreendimento[] = ['mega_curitiba', 'mega_itajai', 'mega_esteio', 'todos'];
@@ -19,6 +19,7 @@ interface UserWithRoles {
   id: string;
   email: string;
   full_name: string | null;
+  approved: boolean;
   created_at: string;
   roles: AppRole[];
   empreendimentos: Empreendimento[];
@@ -59,7 +60,7 @@ export default function Admin() {
       // Fetch all profiles
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select('id, email, full_name, created_at')
+        .select('id, email, full_name, approved, created_at')
         .order('created_at', { ascending: false });
 
       if (profilesError) throw profilesError;
@@ -184,6 +185,33 @@ export default function Admin() {
     }
   };
 
+  const handleApprovalChange = async (userId: string, approved: boolean) => {
+    setSavingUserId(userId);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ approved })
+        .eq('id', userId);
+
+      if (error) throw error;
+
+      toast.success(approved ? 'Usuário aprovado!' : 'Aprovação removida');
+
+      // Update local state
+      setUsers((prev) =>
+        prev.map((user) => {
+          if (user.id !== userId) return user;
+          return { ...user, approved };
+        })
+      );
+    } catch (error) {
+      console.error('Error updating approval:', error);
+      toast.error('Erro ao atualizar aprovação');
+    } finally {
+      setSavingUserId(null);
+    }
+  };
+
   const handleImpersonate = async (targetUser: UserWithRoles) => {
     if (!isMasterUser) return;
     if (targetUser.id === user?.id) {
@@ -219,6 +247,7 @@ export default function Admin() {
     total: users.length,
     admins: users.filter((u) => u.roles.includes('admin')).length,
     backoffice: users.filter((u) => u.roles.includes('backoffice')).length,
+    pending: users.filter((u) => !u.approved).length,
   };
 
   if (authLoading || loading) {
@@ -270,7 +299,7 @@ export default function Admin() {
         )}
 
         {/* Stats Cards */}
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total de Usuários</CardTitle>
@@ -278,6 +307,15 @@ export default function Admin() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.total}</div>
+            </CardContent>
+          </Card>
+          <Card className={stats.pending > 0 ? 'border-amber-500/50 bg-amber-50 dark:bg-amber-950/20' : ''}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Pendentes de Aprovação</CardTitle>
+              <Clock className="h-4 w-4 text-amber-600" />
+            </CardHeader>
+            <CardContent>
+              <div className={`text-2xl font-bold ${stats.pending > 0 ? 'text-amber-600' : ''}`}>{stats.pending}</div>
             </CardContent>
           </Card>
           <Card>
@@ -324,6 +362,7 @@ export default function Admin() {
                   <TableRow>
                     <TableHead>Usuário</TableHead>
                     <TableHead>E-mail</TableHead>
+                    <TableHead className="text-center">Aprovado</TableHead>
                     <TableHead className="text-center">Solicitante</TableHead>
                     <TableHead className="text-center">Backoffice</TableHead>
                     <TableHead className="text-center">Admin</TableHead>
@@ -334,7 +373,7 @@ export default function Admin() {
                 <TableBody>
                   {filteredUsers.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={isMasterUser ? 7 : 6} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={isMasterUser ? 8 : 7} className="text-center py-8 text-muted-foreground">
                         {searchTerm ? 'Nenhum usuário encontrado' : 'Nenhum usuário cadastrado'}
                       </TableCell>
                     </TableRow>
@@ -345,14 +384,42 @@ export default function Admin() {
                       const isImpersonatingThis = impersonatingUserId === targetUser.id;
                       
                       return (
-                        <TableRow key={targetUser.id} className={isCurrentUser ? 'bg-muted/50' : ''}>
+                        <TableRow key={targetUser.id} className={`${isCurrentUser ? 'bg-muted/50' : ''} ${!targetUser.approved ? 'bg-amber-50/50 dark:bg-amber-950/20' : ''}`}>
                           <TableCell className="font-medium">
-                            {targetUser.full_name || '-'}
-                            {isCurrentUser && (
-                              <Badge variant="outline" className="ml-2 text-xs">Você</Badge>
-                            )}
+                            <div className="flex items-center gap-2">
+                              {!targetUser.approved && (
+                                <Clock className="h-4 w-4 text-amber-500" />
+                              )}
+                              {targetUser.full_name || '-'}
+                              {isCurrentUser && (
+                                <Badge variant="outline" className="text-xs">Você</Badge>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell>{targetUser.email}</TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex justify-center">
+                              <Button
+                                variant={targetUser.approved ? "ghost" : "default"}
+                                size="sm"
+                                onClick={() => handleApprovalChange(targetUser.id, !targetUser.approved)}
+                                disabled={isSaving}
+                                className={`gap-1 ${targetUser.approved ? 'text-green-600 hover:text-green-700' : 'bg-amber-500 hover:bg-amber-600'}`}
+                              >
+                                {targetUser.approved ? (
+                                  <>
+                                    <CheckCircle className="h-4 w-4" />
+                                    <span className="hidden sm:inline">Aprovado</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <XCircle className="h-4 w-4" />
+                                    <span className="hidden sm:inline">Aprovar</span>
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+                          </TableCell>
                           <TableCell className="text-center">
                             <div className="flex justify-center">
                               <Checkbox
