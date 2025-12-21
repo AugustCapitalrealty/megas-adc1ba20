@@ -665,11 +665,14 @@ export default function Backoffice() {
             </Button>
             
             {/* Actions based on status */}
+{sol.status === 'recebido' && (
+              <Button size="sm" onClick={() => openAction(sol, 'assumir')}>
+                <CheckCircle className="h-4 w-4 mr-1" /> Assumir
+              </Button>
+            )}
+            
             {(sol.status === 'recebido' || sol.status === 'em_analise') && (
               <>
-                <Button size="sm" onClick={() => openAction(sol, 'assumir')}>
-                  <CheckCircle className="h-4 w-4 mr-1" /> Assumir
-                </Button>
                 <Button size="sm" variant="outline" onClick={() => openAction(sol, 'solicitar_ajuste')}>
                   <HelpCircle className="h-4 w-4 mr-1" /> Solicitar Ajuste
                 </Button>
