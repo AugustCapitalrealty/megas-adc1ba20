@@ -955,7 +955,7 @@ export default function MinhasSolicitacoes() {
                         size="sm" 
                         variant="secondary"
                         onClick={() => openEditModal(sol)}
-                        className="bg-background hover:bg-background/90"
+                        className="bg-white text-orange-700 hover:bg-white/90 border border-orange-300 shadow-sm"
                       >
                         <Edit className="h-4 w-4 mr-1" />
                         Corrigir Agora
@@ -975,7 +975,7 @@ export default function MinhasSolicitacoes() {
                         size="sm" 
                         variant="secondary"
                         onClick={() => openAceiteModal(sol)}
-                        className="bg-background hover:bg-background/90"
+                        className="bg-white text-green-700 hover:bg-white/90 border border-green-300 shadow-sm"
                       >
                         <CheckCircle className="h-4 w-4 mr-1" />
                         Revisar OC
@@ -995,7 +995,7 @@ export default function MinhasSolicitacoes() {
                         size="sm" 
                         variant="secondary"
                         onClick={() => openRespostaModal(sol)}
-                        className="bg-background hover:bg-background/90"
+                        className="bg-white text-blue-700 hover:bg-white/90 border border-blue-300 shadow-sm"
                       >
                         <MessageSquare className="h-4 w-4 mr-1" />
                         Responder
