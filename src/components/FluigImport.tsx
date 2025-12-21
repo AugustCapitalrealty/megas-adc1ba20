@@ -181,109 +181,113 @@ export function FluigImport({ onImportComplete }: FluigImportProps) {
               Preview da Importação
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
-              <div className="text-center p-4 bg-muted/50 rounded-lg">
-                <p className="text-2xl font-bold">{parseResult.totalRows}</p>
-                <p className="text-xs text-muted-foreground">Total de linhas</p>
-              </div>
-              <div className="text-center p-4 bg-emerald-500/10 rounded-lg">
-                <p className="text-2xl font-bold text-emerald-600">{parseResult.data.length}</p>
-                <p className="text-xs text-muted-foreground">Linhas válidas</p>
-              </div>
-              <div className="text-center p-4 bg-destructive/10 rounded-lg">
-                <p className="text-2xl font-bold text-destructive">{parseResult.invalidRows.length}</p>
-                <p className="text-xs text-muted-foreground">Sem Solicitação</p>
-              </div>
-            </div>
-
-            {parseResult.invalidRows.length > 0 && (
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Linhas inválidas</AlertTitle>
-                <AlertDescription>
-                  <ScrollArea className="h-24 mt-2">
-                    <ul className="text-xs space-y-1">
-                      {parseResult.invalidRows.slice(0, 20).map((inv, i) => (
-                        <li key={i}>Linha {inv.row}: {inv.reason}</li>
-                      ))}
-                      {parseResult.invalidRows.length > 20 && (
-                        <li className="font-medium">... e mais {parseResult.invalidRows.length - 20} linhas</li>
-                      )}
-                    </ul>
-                  </ScrollArea>
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {parseResult.data.length > 0 && (
-              <>
-                <Separator />
-                <div>
-                  <Label className="text-xs text-muted-foreground">Primeiras solicitações encontradas:</Label>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {parseResult.data.slice(0, 10).map((row, i) => (
-                      <Badge key={i} variant="outline">{row.solicitacao_fluig}</Badge>
-                    ))}
-                    {parseResult.data.length > 10 && (
-                      <Badge variant="secondary">+{parseResult.data.length - 10} mais</Badge>
-                    )}
+          <CardContent className="p-0">
+            <ScrollArea className="h-[60vh] max-h-[500px]">
+              <div className="p-6 space-y-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="text-center p-4 bg-muted/50 rounded-lg">
+                    <p className="text-2xl font-bold">{parseResult.totalRows}</p>
+                    <p className="text-xs text-muted-foreground">Total de linhas</p>
+                  </div>
+                  <div className="text-center p-4 bg-emerald-500/10 rounded-lg">
+                    <p className="text-2xl font-bold text-emerald-600">{parseResult.data.length}</p>
+                    <p className="text-xs text-muted-foreground">Linhas válidas</p>
+                  </div>
+                  <div className="text-center p-4 bg-destructive/10 rounded-lg">
+                    <p className="text-2xl font-bold text-destructive">{parseResult.invalidRows.length}</p>
+                    <p className="text-xs text-muted-foreground">Sem Solicitação</p>
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">Amostra (primeiras 5 linhas):</Label>
-                  <div className="rounded-lg border bg-muted/20">
-                    <div className="grid grid-cols-12 gap-2 px-3 py-2 text-[11px] text-muted-foreground font-medium">
-                      <div className="col-span-2">Solicitação</div>
-                      <div className="col-span-4">Empreendimento</div>
-                      <div className="col-span-3">Fornecedor</div>
-                      <div className="col-span-3">Descrição/Serviço</div>
-                    </div>
+                {parseResult.invalidRows.length > 0 && (
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Linhas inválidas</AlertTitle>
+                    <AlertDescription>
+                      <ScrollArea className="h-24 mt-2">
+                        <ul className="text-xs space-y-1">
+                          {parseResult.invalidRows.slice(0, 20).map((inv, i) => (
+                            <li key={i}>Linha {inv.row}: {inv.reason}</li>
+                          ))}
+                          {parseResult.invalidRows.length > 20 && (
+                            <li className="font-medium">... e mais {parseResult.invalidRows.length - 20} linhas</li>
+                          )}
+                        </ul>
+                      </ScrollArea>
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {parseResult.data.length > 0 && (
+                  <>
                     <Separator />
-                    <div className="divide-y">
-                      {parseResult.data.slice(0, 5).map((row, i) => (
-                        <div key={i} className="grid grid-cols-12 gap-2 px-3 py-2 text-xs">
-                          <div className="col-span-2 font-medium">{row.solicitacao_fluig}</div>
-                          <div className="col-span-4 truncate" title={row.empreendimento || undefined}>{row.empreendimento || '-'}</div>
-                          <div className="col-span-3 truncate" title={row.fornecedor || undefined}>{row.fornecedor || '-'}</div>
-                          <div className="col-span-3 truncate" title={row.servico || undefined}>{row.servico || '-'}</div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Primeiras solicitações encontradas:</Label>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {parseResult.data.slice(0, 10).map((row, i) => (
+                          <Badge key={i} variant="outline">{row.solicitacao_fluig}</Badge>
+                        ))}
+                        {parseResult.data.length > 10 && (
+                          <Badge variant="secondary">+{parseResult.data.length - 10} mais</Badge>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Amostra (primeiras 5 linhas):</Label>
+                      <div className="rounded-lg border bg-muted/20">
+                        <div className="grid grid-cols-12 gap-2 px-3 py-2 text-[11px] text-muted-foreground font-medium">
+                          <div className="col-span-2">Solicitação</div>
+                          <div className="col-span-4">Empreendimento</div>
+                          <div className="col-span-3">Fornecedor</div>
+                          <div className="col-span-3">Descrição/Serviço</div>
                         </div>
-                      ))}
+                        <Separator />
+                        <div className="divide-y">
+                          {parseResult.data.slice(0, 5).map((row, i) => (
+                            <div key={i} className="grid grid-cols-12 gap-2 px-3 py-2 text-xs">
+                              <div className="col-span-2 font-medium">{row.solicitacao_fluig}</div>
+                              <div className="col-span-4 truncate" title={row.empreendimento || undefined}>{row.empreendimento || '-'}</div>
+                              <div className="col-span-3 truncate" title={row.fornecedor || undefined}>{row.fornecedor || '-'}</div>
+                              <div className="col-span-3 truncate" title={row.servico || undefined}>{row.servico || '-'}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
 
-                <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">Headers detectados na planilha:</Label>
-                  <ScrollArea className="h-24 rounded-lg border bg-muted/20 p-3">
-                    <div className="flex flex-wrap gap-2">
-                      {parseResult.headers.filter(Boolean).map((h, i) => (
-                        <Badge key={i} variant="secondary" className="text-[10px] font-normal">{h}</Badge>
-                      ))}
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Headers detectados na planilha:</Label>
+                      <ScrollArea className="h-24 rounded-lg border bg-muted/20 p-3">
+                        <div className="flex flex-wrap gap-2">
+                          {parseResult.headers.filter(Boolean).map((h, i) => (
+                            <Badge key={i} variant="secondary" className="text-[10px] font-normal">{h}</Badge>
+                          ))}
+                        </div>
+                      </ScrollArea>
                     </div>
-                  </ScrollArea>
-                </div>
 
-                <Button 
-                  onClick={handleImport} 
-                  disabled={importing}
-                  className="w-full"
-                >
-                  {importing ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Importando...
-                    </>
-                  ) : (
-                    <>
-                      Importar {parseResult.data.length} registros
-                      <ArrowRight className="h-4 w-4 ml-2" />
-                    </>
-                  )}
-                </Button>
-              </>
-            )}
+                    <Button 
+                      onClick={handleImport} 
+                      disabled={importing}
+                      className="w-full"
+                    >
+                      {importing ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Importando...
+                        </>
+                      ) : (
+                        <>
+                          Importar {parseResult.data.length} registros
+                          <ArrowRight className="h-4 w-4 ml-2" />
+                        </>
+                      )}
+                    </Button>
+                  </>
+                )}
+              </div>
+            </ScrollArea>
           </CardContent>
         </Card>
       )}
