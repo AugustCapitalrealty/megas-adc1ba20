@@ -680,7 +680,7 @@ export default function Backoffice() {
             
             {sol.status === 'aprovado' && (
               <Button size="sm" onClick={() => openAction(sol, 'processar')}>
-                <Cog className="h-4 w-4 mr-1" /> Em Processamento
+                <Cog className="h-4 w-4 mr-1" /> Informar Lançamento
               </Button>
             )}
             
