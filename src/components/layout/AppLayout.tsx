@@ -83,7 +83,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       href: '/painel-fluig',
       label: 'Painel Fluig',
       icon: BarChart3,
-      show: isBackofficeOrAdmin,
+      show: true,
     },
     {
       href: '/admin/usuarios',
