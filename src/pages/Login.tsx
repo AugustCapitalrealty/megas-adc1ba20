@@ -3,8 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import logoMega from '@/assets/logos/logo-mega.jpg';
 
 export default function Login() {
@@ -13,10 +16,14 @@ export default function Login() {
   const { toast } = useToast();
   
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showEmailForm, setShowEmailForm] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
 
   useEffect(() => {
     if (!loading && user) {
-      // Check if user is approved (master user is always approved)
       if (isApproved || isMasterUser) {
         navigate('/');
       } else {
@@ -37,7 +44,68 @@ export default function Login() {
         description: error,
       });
     }
-    // Se não houver erro, o usuário será redirecionado automaticamente
+  };
+
+  const handleEmailAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    try {
+      if (isSignUp) {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/`,
+            data: {
+              full_name: fullName,
+            },
+          },
+        });
+
+        if (error) {
+          if (error.message.includes('already registered')) {
+            toast({
+              variant: 'destructive',
+              title: 'E-mail já cadastrado',
+              description: 'Este e-mail já possui uma conta. Tente fazer login.',
+            });
+          } else {
+            throw error;
+          }
+        } else {
+          toast({
+            title: 'Cadastro realizado!',
+            description: 'Seu cadastro será analisado pelo administrador.',
+          });
+        }
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (error) {
+          if (error.message.includes('Invalid login')) {
+            toast({
+              variant: 'destructive',
+              title: 'Credenciais inválidas',
+              description: 'E-mail ou senha incorretos.',
+            });
+          } else {
+            throw error;
+          }
+        }
+      }
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: error.message || 'Ocorreu um erro. Tente novamente.',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (loading) {
@@ -64,14 +132,14 @@ export default function Login() {
             Plataforma de Solicitação de AC e OC
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-4">
           <Button 
             onClick={handleGoogleLogin} 
             className="w-full h-12 font-semibold" 
             disabled={isSubmitting}
             variant="outline"
           >
-            {isSubmitting ? (
+            {isSubmitting && !showEmailForm ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Conectando...
@@ -104,6 +172,83 @@ export default function Login() {
           <p className="text-xs text-center text-muted-foreground">
             Use sua conta Google corporativa para acessar a plataforma
           </p>
+
+          {/* Discrete email option */}
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={() => setShowEmailForm(!showEmailForm)}
+              className="w-full flex items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors py-2"
+            >
+              {showEmailForm ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+              {showEmailForm ? 'Ocultar' : 'Outras opções de acesso'}
+            </button>
+
+            {showEmailForm && (
+              <form onSubmit={handleEmailAuth} className="space-y-3 pt-3 border-t border-border/50 mt-2">
+                {isSignUp && (
+                  <div className="space-y-1">
+                    <Label htmlFor="fullName" className="text-xs text-muted-foreground">Nome completo</Label>
+                    <Input
+                      id="fullName"
+                      type="text"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      placeholder="Seu nome"
+                      required={isSignUp}
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                )}
+                <div className="space-y-1">
+                  <Label htmlFor="email" className="text-xs text-muted-foreground">E-mail</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="seu@email.com"
+                    required
+                    className="h-9 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="password" className="text-xs text-muted-foreground">Senha</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                    minLength={6}
+                    className="h-9 text-sm"
+                  />
+                </div>
+                <Button 
+                  type="submit" 
+                  className="w-full h-9 text-sm" 
+                  disabled={isSubmitting}
+                  variant="secondary"
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : isSignUp ? (
+                    'Criar conta'
+                  ) : (
+                    'Entrar'
+                  )}
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => setIsSignUp(!isSignUp)}
+                  className="w-full text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {isSignUp ? 'Já tem conta? Faça login' : 'Não tem conta? Cadastre-se'}
+                </button>
+              </form>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>
