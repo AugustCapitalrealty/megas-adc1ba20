@@ -141,7 +141,8 @@ export default function Backoffice() {
 
     if (!error) {
       const acaoLabels: Record<string, string> = {
-        'aprovado': 'Assumido pelo backoffice',
+        'em_analise': 'Assumido pelo backoffice',
+        'aprovado': 'Aprovação da gerência',
         'rejeitado': 'Rejeição',
         'pendente_correcao': 'Devolução para correção',
         'em_processamento': 'Envio para processamento',
@@ -451,7 +452,7 @@ export default function Backoffice() {
     if (!selectedSolicitacao || !user) return;
     
     const statusMap: Record<string, RequestStatus> = {
-      'assumir': 'aprovado',
+      'assumir': 'em_analise',
       'rejeitar': 'rejeitado',
       'processar': 'em_processamento',
       'concluir': 'concluida',
