@@ -11,8 +11,7 @@ interface AuthContextType {
   profile: Profile | null;
   roles: AppRole[];
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
-  signUp: (email: string, password: string, fullName: string) => Promise<{ error: string | null }>;
+  signInWithGoogle: () => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   hasRole: (role: AppRole) => boolean;
   isBackofficeOrAdmin: boolean;
@@ -150,40 +149,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setImpersonatedRoles([]);
   };
 
-  const signIn = async (email: string, password: string): Promise<{ error: string | null }> => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (error) {
-      if (error.message.includes('Invalid login credentials')) {
-        return { error: 'Email ou senha inválidos' };
-      }
-      return { error: error.message };
-    }
-
-    return { error: null };
-  };
-
-  const signUp = async (email: string, password: string, fullName: string): Promise<{ error: string | null }> => {
-    const redirectUrl = `${window.location.origin}/`;
-    
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
+  const signInWithGoogle = async (): Promise<{ error: string | null }> => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
       options: {
-        emailRedirectTo: redirectUrl,
-        data: {
-          full_name: fullName,
-        },
+        redirectTo: `${window.location.origin}/`,
       },
     });
 
     if (error) {
-      if (error.message.includes('User already registered')) {
-        return { error: 'Este email já está cadastrado' };
-      }
       return { error: error.message };
     }
 
@@ -213,8 +187,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         profile,
         roles,
         loading,
-        signIn,
-        signUp,
+        signInWithGoogle,
         signOut,
         hasRole,
         isBackofficeOrAdmin,
