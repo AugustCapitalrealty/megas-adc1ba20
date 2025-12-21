@@ -117,7 +117,7 @@ const getActionDetails = (acao: string, statusNovo: string | null): { icon: JSX.
   };
   if (acao === 'Assumido pelo backoffice') return { 
     icon: <UserCheck className="h-4 w-4" />, 
-    label: 'Backoffice assumiu a análise', 
+    label: 'Backoffice assumiu a solicitação', 
     color: 'bg-primary text-primary-foreground' 
   };
   if (acao === 'Envio para processamento') return { 
