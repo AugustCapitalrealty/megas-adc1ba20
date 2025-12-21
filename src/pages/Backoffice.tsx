@@ -81,7 +81,7 @@ export default function Backoffice() {
   const [selectedSolicitacao, setSelectedSolicitacao] = useState<SolicitacaoBackoffice | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [actionOpen, setActionOpen] = useState(false);
-  const [actionType, setActionType] = useState<'assumir' | 'rejeitar' | 'processar' | 'concluir' | 'solicitar_ajuste'>('assumir');
+  const [actionType, setActionType] = useState<'assumir' | 'aprovar' | 'rejeitar' | 'processar' | 'concluir' | 'solicitar_ajuste'>('assumir');
   const [motivo, setMotivo] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<BackofficeTab>('recebidas');
@@ -453,6 +453,7 @@ export default function Backoffice() {
     
     const statusMap: Record<string, RequestStatus> = {
       'assumir': 'em_analise',
+      'aprovar': 'aprovado',
       'rejeitar': 'rejeitado',
       'processar': 'em_processamento',
       'concluir': 'concluida',
@@ -668,6 +669,12 @@ export default function Backoffice() {
 {sol.status === 'recebido' && (
               <Button size="sm" onClick={() => openAction(sol, 'assumir')}>
                 <CheckCircle className="h-4 w-4 mr-1" /> Assumir
+              </Button>
+            )}
+            
+{sol.status === 'em_analise' && (
+              <Button size="sm" onClick={() => openAction(sol, 'aprovar')}>
+                <CheckCircle className="h-4 w-4 mr-1" /> Enviar para Gerência
               </Button>
             )}
             
@@ -1299,13 +1306,15 @@ export default function Backoffice() {
           <DialogHeader>
             <DialogTitle>
               {actionType === 'assumir' && 'Assumir Solicitação'}
+              {actionType === 'aprovar' && 'Enviar para Gerência'}
               {actionType === 'rejeitar' && 'Rejeitar Solicitação'}
               {actionType === 'processar' && 'Enviar para Processamento'}
               {actionType === 'concluir' && 'Concluir Solicitação'}
               {actionType === 'solicitar_ajuste' && 'Solicitar Ajuste'}
             </DialogTitle>
             <DialogDescription>
-              {actionType === 'assumir' && 'A solicitação será assumida e seguirá para processamento.'}
+              {actionType === 'assumir' && 'A solicitação será assumida e seguirá para análise.'}
+              {actionType === 'aprovar' && 'A solicitação será enviada para aprovação da gerência.'}
               {actionType === 'rejeitar' && 'Informe o motivo da rejeição.'}
               {actionType === 'processar' && 'A solicitação será marcada como em processamento no Fluig/RM.'}
               {actionType === 'concluir' && 'A solicitação será marcada como concluída.'}
