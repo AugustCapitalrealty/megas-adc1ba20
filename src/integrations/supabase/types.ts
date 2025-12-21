@@ -791,6 +791,10 @@ export type Database = {
         Returns: boolean
       }
       is_backoffice_or_admin: { Args: { _user_id: string }; Returns: boolean }
+      user_can_view_fluig_empreendimento: {
+        Args: { fluig_empreendimento: string }
+        Returns: boolean
+      }
       user_has_empreendimento: {
         Args: {
           _empreendimento: Database["public"]["Enums"]["empreendimento"]

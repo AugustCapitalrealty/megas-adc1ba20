@@ -65,7 +65,7 @@ function AppRoutes() {
       <Route path="/nova-solicitacao" element={<ProtectedRoute><NovaSolicitacao /></ProtectedRoute>} />
       <Route path="/minhas-solicitacoes" element={<ProtectedRoute><MinhasSolicitacoes /></ProtectedRoute>} />
       <Route path="/backoffice" element={<ProtectedRoute requireBackoffice><Backoffice /></ProtectedRoute>} />
-      <Route path="/painel-fluig" element={<ProtectedRoute requireBackoffice><PainelFluig /></ProtectedRoute>} />
+      <Route path="/painel-fluig" element={<ProtectedRoute><PainelFluig /></ProtectedRoute>} />
       <Route path="/admin/usuarios" element={<ProtectedRoute requireAdmin><Admin /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
