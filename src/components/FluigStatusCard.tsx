@@ -32,7 +32,16 @@ const ETAPA_LABELS: Record<string, string> = {
   'Aprovação Nível 3': 'Diretoria',
 };
 
-const PROXIMA_ETAPA: Record<string, string> = {
+// Mapa: nome do responsável → próxima etapa
+const RESPONSAVEL_PROXIMA_ETAPA: Record<string, string> = {
+  'Jonatas Augusto Ferreira': 'Gerência Financeira',
+  'Kethli Pereira Bezerra': 'Diretoria',
+  'Thiago Demeterco Lucchesi': 'Conclusão',
+};
+
+// Fallback por localização (quando não há pessoa específica)
+const PROXIMA_ETAPA_FALLBACK: Record<string, string> = {
+  'Início': 'Gerência Financeira',
   'Para o Papel Gestor Condominio': 'Gerência Financeira',
   'Para o Papel Gestor Condomínio': 'Gerência Financeira',
   'Aprovação Nivel 1': 'Gerência Financeira',
@@ -41,6 +50,20 @@ const PROXIMA_ETAPA: Record<string, string> = {
   'Aprovação Nível 2': 'Diretoria',
   'Aprovação Nivel 3': 'Conclusão',
   'Aprovação Nível 3': 'Conclusão',
+};
+
+const getProximaEtapa = (responsavelAtual: string | null, localizacao: string | null): string => {
+  const responsavel = responsavelAtual || '';
+  
+  // Verifica se o responsável atual contém algum nome conhecido
+  for (const [nome, proximaEtapa] of Object.entries(RESPONSAVEL_PROXIMA_ETAPA)) {
+    if (responsavel.includes(nome)) {
+      return proximaEtapa;
+    }
+  }
+  
+  // Fallback: usa localização se não encontrar pelo nome
+  return PROXIMA_ETAPA_FALLBACK[localizacao || ''] || localizacao || '-';
 };
 
 export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
@@ -136,7 +159,7 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
           <div className="flex items-center gap-2">
             <MapPin className="h-3.5 w-3.5 text-blue-500" />
             <span className="text-muted-foreground">Próxima etapa:</span>
-            <span className="font-medium text-foreground">{PROXIMA_ETAPA[status.localizacao] || status.localizacao}</span>
+            <span className="font-medium text-foreground">{getProximaEtapa(status.responsavel_atual, status.localizacao)}</span>
           </div>
         )}
 
