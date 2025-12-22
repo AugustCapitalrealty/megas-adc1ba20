@@ -688,14 +688,10 @@ export default function Backoffice() {
             )}
             
             {(sol.status === 'aprovado' || sol.status === 'em_processamento') && (
-              <Button size="sm" variant="default" onClick={() => openRegistro(sol)}>
-                <FileCheck className="h-4 w-4 mr-1" /> Registrar OC
-              </Button>
-            )}
-
-            {/* Ações adicionais para Em Processamento */}
-            {sol.status === 'em_processamento' && (
               <>
+                <Button size="sm" variant="default" onClick={() => openRegistro(sol)}>
+                  <FileCheck className="h-4 w-4 mr-1" /> Registrar OC
+                </Button>
                 <Button size="sm" variant="outline" onClick={() => openAction(sol, 'solicitar_ajuste')}>
                   <HelpCircle className="h-4 w-4 mr-1" /> Solicitar Ajuste
                 </Button>
