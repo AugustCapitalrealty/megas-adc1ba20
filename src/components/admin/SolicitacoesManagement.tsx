@@ -57,7 +57,8 @@ export function SolicitacoesManagement() {
     try {
       setLoading(true);
       
-      const { data, error } = await supabase
+      // Buscar solicitações
+      const { data: solicitacoesData, error: solicitacoesError } = await supabase
         .from('solicitacoes')
         .select(`
           id,
@@ -68,27 +69,43 @@ export function SolicitacoesManagement() {
           valor,
           created_at,
           empreendimento,
-          profiles!solicitacoes_user_id_fkey (
-            full_name,
-            email
-          )
+          user_id
         `)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (solicitacoesError) throw solicitacoesError;
 
-      const formattedData: Solicitacao[] = (data || []).map((s: any) => ({
-        id: s.id,
-        protocolo: s.protocolo,
-        status: s.status,
-        tipo: s.tipo,
-        descricao: s.descricao,
-        valor: s.valor,
-        created_at: s.created_at,
-        empreendimento: s.empreendimento,
-        solicitante_nome: s.profiles?.full_name || null,
-        solicitante_email: s.profiles?.email || 'Desconhecido',
-      }));
+      if (!solicitacoesData || solicitacoesData.length === 0) {
+        setSolicitacoes([]);
+        return;
+      }
+
+      // Buscar profiles separadamente
+      const userIds = [...new Set(solicitacoesData.map(s => s.user_id))];
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .in('id', userIds);
+
+      const profilesMap = new Map(
+        (profilesData || []).map(p => [p.id, { full_name: p.full_name, email: p.email }])
+      );
+
+      const formattedData: Solicitacao[] = solicitacoesData.map((s) => {
+        const profile = profilesMap.get(s.user_id);
+        return {
+          id: s.id,
+          protocolo: s.protocolo,
+          status: s.status,
+          tipo: s.tipo,
+          descricao: s.descricao,
+          valor: s.valor,
+          created_at: s.created_at,
+          empreendimento: s.empreendimento,
+          solicitante_nome: profile?.full_name || null,
+          solicitante_email: profile?.email || 'Desconhecido',
+        };
+      });
 
       setSolicitacoes(formattedData);
     } catch (error) {
