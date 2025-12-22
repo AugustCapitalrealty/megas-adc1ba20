@@ -122,6 +122,29 @@ export function useFluigFilterOptions() {
   return { empreendimentos, situacoes, localizacoes, responsaveis, loading };
 }
 
+// Mapping for stage labels - consolidates different names for the same stage
+const ETAPA_LABELS: Record<string, string> = {
+  // Gerência de Facilities
+  'Para o Papel Gestor Condominio': 'Gerência de Facilities',
+  'Para o Papel Gestor Condomínio': 'Gerência de Facilities',
+  'Aprovação Nivel 1': 'Gerência de Facilities',
+  'Aprovação Nível 1': 'Gerência de Facilities',
+  'Jonatas Augusto Ferreira': 'Gerência de Facilities',
+  // Gerência Financeira
+  'Aprovação Nivel 2': 'Gerência Financeira',
+  'Aprovação Nível 2': 'Gerência Financeira',
+  'Kethli Pereira Bezerra': 'Gerência Financeira',
+  // Diretoria
+  'Aprovação Nivel 3': 'Diretoria',
+  'Aprovação Nível 3': 'Diretoria',
+  'Thiago Demeterco Lucchesi': 'Diretoria',
+};
+
+function getMappedLabel(value: string | null): string {
+  if (!value) return '';
+  return ETAPA_LABELS[value] || value;
+}
+
 export function useFluigImport() {
   const [importing, setImporting] = useState(false);
   const [parseResult, setParseResult] = useState<ParseResult | null>(null);
@@ -226,37 +249,86 @@ export function useFluigImport() {
             result.atualizadas++;
             
             // Check for changes and log events
-            const changes: { campo: string; anterior: string | null; novo: string | null }[] = [];
+            const rawChanges: { campo: string; anterior: string | null; novo: string | null }[] = [];
             
             if (existingRow.situacao !== row.situacao) {
-              changes.push({ campo: 'situacao', anterior: existingRow.situacao, novo: row.situacao });
+              rawChanges.push({ campo: 'situacao', anterior: existingRow.situacao, novo: row.situacao });
             }
             if (existingRow.localizacao !== row.localizacao) {
-              changes.push({ campo: 'localizacao', anterior: existingRow.localizacao, novo: row.localizacao });
+              rawChanges.push({ campo: 'localizacao', anterior: existingRow.localizacao, novo: row.localizacao });
             }
             if (existingRow.responsavel_atual !== row.responsavel_atual) {
-              changes.push({ campo: 'responsavel_atual', anterior: existingRow.responsavel_atual, novo: row.responsavel_atual });
+              rawChanges.push({ campo: 'responsavel_atual', anterior: existingRow.responsavel_atual, novo: row.responsavel_atual });
             }
             
             // Check approval stages
             if (!existingRow.gerencia_conclusao && row.gerencia_conclusao) {
-              changes.push({ campo: 'gerencia_conclusao', anterior: null, novo: row.gerencia_conclusao.toISOString() });
+              rawChanges.push({ campo: 'gerencia_conclusao', anterior: null, novo: row.gerencia_conclusao.toISOString() });
             }
             if (!existingRow.gerencia_facilities_conclusao && row.gerencia_facilities_conclusao) {
-              changes.push({ campo: 'gerencia_facilities_conclusao', anterior: null, novo: row.gerencia_facilities_conclusao.toISOString() });
+              rawChanges.push({ campo: 'gerencia_facilities_conclusao', anterior: null, novo: row.gerencia_facilities_conclusao.toISOString() });
             }
             if (!existingRow.gerencia_financeiro_conclusao && row.gerencia_financeiro_conclusao) {
-              changes.push({ campo: 'gerencia_financeiro_conclusao', anterior: null, novo: row.gerencia_financeiro_conclusao.toISOString() });
+              rawChanges.push({ campo: 'gerencia_financeiro_conclusao', anterior: null, novo: row.gerencia_financeiro_conclusao.toISOString() });
             }
             if (!existingRow.diretoria_conclusao && row.diretoria_conclusao) {
-              changes.push({ campo: 'diretoria_conclusao', anterior: null, novo: row.diretoria_conclusao.toISOString() });
+              rawChanges.push({ campo: 'diretoria_conclusao', anterior: null, novo: row.diretoria_conclusao.toISOString() });
             }
             
-            if (changes.length > 0) {
+            // Consolidate responsavel_atual and localizacao changes if they map to the same stage
+            const consolidatedChanges: typeof rawChanges = [];
+            const responsavelChange = rawChanges.find(c => c.campo === 'responsavel_atual');
+            const localizacaoChange = rawChanges.find(c => c.campo === 'localizacao');
+            
+            if (responsavelChange && localizacaoChange) {
+              // Both changed - check if they map to same stage
+              const etapaResponsavel = getMappedLabel(responsavelChange.novo);
+              const etapaLocalizacao = getMappedLabel(localizacaoChange.novo);
+              
+              if (etapaResponsavel === etapaLocalizacao) {
+                // Same stage - only register one event with the mapped label
+                consolidatedChanges.push({
+                  campo: 'responsavel_atual',
+                  anterior: responsavelChange.anterior,
+                  novo: etapaResponsavel,
+                });
+              } else {
+                // Different stages - keep both with mapping applied
+                consolidatedChanges.push({
+                  ...responsavelChange,
+                  novo: etapaResponsavel,
+                });
+                consolidatedChanges.push({
+                  ...localizacaoChange,
+                  novo: etapaLocalizacao,
+                });
+              }
+            } else {
+              // Only one changed - apply mapping
+              if (responsavelChange) {
+                consolidatedChanges.push({
+                  ...responsavelChange,
+                  novo: getMappedLabel(responsavelChange.novo),
+                });
+              }
+              if (localizacaoChange) {
+                consolidatedChanges.push({
+                  ...localizacaoChange,
+                  novo: getMappedLabel(localizacaoChange.novo),
+                });
+              }
+            }
+            
+            // Add other changes (situacao, conclusoes) - no mapping needed
+            rawChanges
+              .filter(c => c.campo !== 'responsavel_atual' && c.campo !== 'localizacao')
+              .forEach(c => consolidatedChanges.push(c));
+            
+            if (consolidatedChanges.length > 0) {
               result.comAlteracaoStatus++;
               
-              // Insert events into fluig_painel_eventos
-              for (const change of changes) {
+              // Insert events into fluig_painel_eventos (with raw values)
+              for (const change of rawChanges) {
                 await supabase.from('fluig_painel_eventos').insert({
                   solicitacao_fluig: row.solicitacao_fluig,
                   campo_alterado: change.campo,
@@ -266,15 +338,15 @@ export function useFluigImport() {
                 });
               }
               
-              // If linked to internal solicitation, also insert into historico_solicitacoes
+              // If linked to internal solicitation, insert CONSOLIDATED events into historico_solicitacoes
               if (validInternalId) {
-                for (const change of changes) {
+                for (const change of consolidatedChanges) {
                   let mensagem = '';
                   
                   if (change.campo === 'responsavel_atual') {
-                    mensagem = `Fluig: Responsável alterado para "${change.novo}"`;
+                    mensagem = `Fluig: Responsável alterado para ${change.novo}`;
                   } else if (change.campo === 'localizacao') {
-                    mensagem = `Fluig: Etapa alterada para "${change.novo}"`;
+                    mensagem = `Fluig: Etapa alterada para ${change.novo}`;
                   } else if (change.campo === 'situacao') {
                     mensagem = `Fluig: Situação alterada para "${change.novo}"`;
                   } else if (change.campo === 'gerencia_conclusao') {
