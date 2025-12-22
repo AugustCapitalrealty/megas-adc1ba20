@@ -126,6 +126,7 @@ export function useFluigImport() {
   const [importing, setImporting] = useState(false);
   const [parseResult, setParseResult] = useState<ParseResult | null>(null);
   const [importResult, setImportResult] = useState<FluigImportResult | null>(null);
+  const [progress, setProgress] = useState({ current: 0, total: 0, percentage: 0 });
 
   const parseFile = useCallback(async (file: File): Promise<ParseResult> => {
     const buffer = await file.arrayBuffer();
@@ -136,6 +137,8 @@ export function useFluigImport() {
 
   const importData = useCallback(async (data: FluigRowData[], userId: string): Promise<FluigImportResult> => {
     setImporting(true);
+    setProgress({ current: 0, total: data.length, percentage: 0 });
+    
     const result: FluigImportResult = {
       totalLinhas: data.length,
       linhasValidas: data.length,
@@ -154,7 +157,7 @@ export function useFluigImport() {
       
       const existingMap = new Map((existing || []).map(e => [e.solicitacao_fluig, e]));
       
-      // Get links to internal solicitations
+      // Get links to internal solicitations and create a Set of valid IDs
       const { data: internalLinks } = await supabase
         .from('solicitacoes')
         .select('id, numero_chamado_fluig')
@@ -162,10 +165,30 @@ export function useFluigImport() {
       
       const linkMap = new Map((internalLinks || []).map(l => [l.numero_chamado_fluig, l.id]));
       
-      for (const row of data) {
+      // Create a Set of valid solicitacao IDs for quick validation
+      const { data: validSolicitacoes } = await supabase
+        .from('solicitacoes')
+        .select('id');
+      
+      const validIds = new Set((validSolicitacoes || []).map(s => s.id));
+      
+      for (let i = 0; i < data.length; i++) {
+        const row = data[i];
+        
+        // Update progress
+        const currentProgress = i + 1;
+        setProgress({
+          current: currentProgress,
+          total: data.length,
+          percentage: Math.round((currentProgress / data.length) * 100),
+        });
+        
         try {
           const existingRow = existingMap.get(row.solicitacao_fluig);
           const internalId = linkMap.get(row.solicitacao_fluig) || null;
+          
+          // Validate that the internal ID still exists in the database
+          const validInternalId = internalId && validIds.has(internalId) ? internalId : null;
           
           const snapshotData = {
             solicitacao_fluig: row.solicitacao_fluig,
@@ -187,7 +210,7 @@ export function useFluigImport() {
             diretoria_conclusao: row.diretoria_conclusao?.toISOString() || null,
             data_inicio: row.data_inicio?.toISOString() || null,
             data_fim: row.data_fim?.toISOString() || null,
-            solicitacao_interna_id: internalId,
+            solicitacao_interna_id: validInternalId,
             importado_por: userId,
             importado_em: new Date().toISOString(),
           };
@@ -244,7 +267,7 @@ export function useFluigImport() {
               }
               
               // If linked to internal solicitation, also insert into historico_solicitacoes
-              if (internalId) {
+              if (validInternalId) {
                 for (const change of changes) {
                   let mensagem = '';
                   
@@ -266,7 +289,7 @@ export function useFluigImport() {
                   
                   if (mensagem) {
                     await supabase.from('historico_solicitacoes').insert({
-                      solicitacao_id: internalId,
+                      solicitacao_id: validInternalId,
                       user_id: userId,
                       acao: 'atualizacao_fluig',
                       motivo: mensagem,
@@ -293,6 +316,7 @@ export function useFluigImport() {
     } finally {
       setImporting(false);
       setImportResult(result);
+      setProgress({ current: 0, total: 0, percentage: 0 });
     }
 
     return result;
@@ -301,7 +325,8 @@ export function useFluigImport() {
   const reset = useCallback(() => {
     setParseResult(null);
     setImportResult(null);
+    setProgress({ current: 0, total: 0, percentage: 0 });
   }, []);
 
-  return { importing, parseResult, importResult, parseFile, importData, reset };
+  return { importing, parseResult, importResult, progress, parseFile, importData, reset };
 }

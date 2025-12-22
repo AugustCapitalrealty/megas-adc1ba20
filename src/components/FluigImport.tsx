@@ -7,6 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Progress } from '@/components/ui/progress';
 import { useFluigImport } from '@/hooks/useFluigDashboard';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -30,7 +31,7 @@ interface FluigImportProps {
 export function FluigImport({ onImportComplete }: FluigImportProps) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { importing, parseResult, importResult, parseFile, importData, reset } = useFluigImport();
+  const { importing, parseResult, importResult, progress, parseFile, importData, reset } = useFluigImport();
   
   const [file, setFile] = useState<File | null>(null);
   const [parsing, setParsing] = useState(false);
@@ -273,10 +274,14 @@ export function FluigImport({ onImportComplete }: FluigImportProps) {
                       className="w-full"
                     >
                       {importing ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Importando...
-                        </>
+                        <div className="flex flex-col items-center gap-2 w-full py-2">
+                          <div className="flex items-center gap-2">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span>Importando... {progress.current} de {progress.total}</span>
+                          </div>
+                          <Progress value={progress.percentage} className="w-full h-2" />
+                          <span className="text-xs text-muted-foreground">{progress.percentage}% concluído</span>
+                        </div>
                       ) : (
                         <>
                           Importar {parseResult.data.length} registros
