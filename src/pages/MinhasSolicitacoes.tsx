@@ -83,6 +83,7 @@ export default function MinhasSolicitacoes() {
   const [editValor, setEditValor] = useState('');
   const [editNaturezaOrcamentaria, setEditNaturezaOrcamentaria] = useState<NaturezaOrcamentaria | ''>('');
   const [editAnexos, setEditAnexos] = useState<Record<string, UploadedFile | null>>({});
+  const [existingAnexos, setExistingAnexos] = useState<Array<{ id: string; tipo: string; nome_arquivo: string }>>([]);
   const [submitting, setSubmitting] = useState(false);
 
   // Aceite OC modal state
@@ -301,13 +302,24 @@ export default function MinhasSolicitacoes() {
     setExpandedId(expandedId === id ? null : id);
   };
 
-  const openEditModal = (sol: Solicitacao) => {
+  const openEditModal = async (sol: Solicitacao) => {
     setEditingSolicitacao(sol);
     setEditDescricao(sol.descricao);
     setEditValor(String(Math.round(sol.valor * 100)));
     setEditNaturezaOrcamentaria(sol.natureza_orcamentaria);
     setEditAnexos({});
+    setExistingAnexos([]);
     setEditOpen(true);
+    
+    // Fetch existing attachments
+    const { data: anexosData } = await supabase
+      .from('anexos')
+      .select('id, tipo, nome_arquivo')
+      .eq('solicitacao_id', sol.id);
+    
+    if (anexosData) {
+      setExistingAnexos(anexosData);
+    }
   };
 
   const handleDuplicate = (sol: SolicitacaoComFornecedor) => {
@@ -1201,6 +1213,27 @@ export default function MinhasSolicitacoes() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Existing attachments */}
+              {existingAnexos.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Anexos já enviados</Label>
+                  <div className="space-y-2">
+                    {existingAnexos.map((anexo) => (
+                      <div key={anexo.id} className="flex items-center gap-2 p-2 bg-muted rounded">
+                        <FileCheck className="h-4 w-4 text-success" />
+                        <span className="text-sm flex-1">{anexo.nome_arquivo}</span>
+                        <Badge variant="outline" className="text-xs">
+                          {ATTACHMENT_TYPES[anexo.tipo as keyof typeof ATTACHMENT_TYPES] || anexo.tipo}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Estes anexos já foram enviados. Adicione novos apenas se necessário.
+                  </p>
+                </div>
+              )}
 
               <div>
                 <Label className="mb-2 block">Adicionar Novos Anexos (opcional)</Label>
