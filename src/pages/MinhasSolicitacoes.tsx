@@ -18,6 +18,7 @@ import {
   EMPREENDIMENTO_LABELS, 
   NATUREZA_ORCAMENTARIA_LABELS,
   TIPO_CONTRATACAO_LABELS,
+  ANEXO_LABELS,
   type Solicitacao,
   type NaturezaOrcamentaria,
   type Fornecedor,
@@ -56,12 +57,14 @@ interface RejectionInfo {
   solicitacao_id: string;
   motivo: string | null;
   created_at: string;
+  anexos_com_problema?: string[] | null;
 }
 
 interface InfoRequest {
   solicitacao_id: string;
   motivo: string | null;
   created_at: string;
+  anexos_com_problema?: string[] | null;
 }
 
 export default function MinhasSolicitacoes() {
@@ -155,17 +158,17 @@ export default function MinhasSolicitacoes() {
       
       setSolicitacoes(enrichedData);
       
-      // Fetch rejection reasons for rejected solicitações
-      const rejectedIds = data
-        .filter((s: any) => s.status === 'rejeitado')
+      // Fetch rejection reasons for rejected and pendente_correcao solicitações
+      const needsCorrectionIds = data
+        .filter((s: any) => s.status === 'rejeitado' || s.status === 'pendente_correcao')
         .map((s: any) => s.id);
       
-      if (rejectedIds.length > 0) {
+      if (needsCorrectionIds.length > 0) {
         const { data: histData } = await supabase
           .from('historico_solicitacoes')
-          .select('solicitacao_id, motivo, created_at')
-          .in('solicitacao_id', rejectedIds)
-          .eq('status_novo', 'rejeitado')
+          .select('solicitacao_id, motivo, created_at, anexos_com_problema')
+          .in('solicitacao_id', needsCorrectionIds)
+          .in('status_novo', ['rejeitado', 'pendente_correcao'])
           .order('created_at', { ascending: false });
         
         if (histData) {
@@ -187,7 +190,7 @@ export default function MinhasSolicitacoes() {
       if (infoIds.length > 0) {
         const { data: infoData } = await supabase
           .from('historico_solicitacoes')
-          .select('solicitacao_id, motivo, created_at')
+          .select('solicitacao_id, motivo, created_at, anexos_com_problema')
           .in('solicitacao_id', infoIds)
           .eq('status_novo', 'aguardando_informacoes')
           .order('created_at', { ascending: false });
@@ -1169,6 +1172,48 @@ export default function MinhasSolicitacoes() {
                   </p>
                 </div>
               )}
+
+              {/* Show correction request for pendente_correcao */}
+              {editingSolicitacao.status === 'pendente_correcao' && rejectionReasons[editingSolicitacao.id]?.motivo && (
+                <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+                  <p className="font-medium text-destructive mb-1">Observações do backoffice:</p>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                    {rejectionReasons[editingSolicitacao.id]?.motivo}
+                  </p>
+                </div>
+              )}
+
+              {/* Show flagged attachments that need correction */}
+              {(() => {
+                const anexosProblema = editingSolicitacao.status === 'aguardando_informacoes'
+                  ? infoRequests[editingSolicitacao.id]?.anexos_com_problema
+                  : rejectionReasons[editingSolicitacao.id]?.anexos_com_problema;
+                
+                if (anexosProblema && anexosProblema.length > 0) {
+                  return (
+                    <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
+                        <div>
+                          <p className="font-medium text-amber-700 dark:text-amber-500 mb-2">
+                            Anexos que precisam ser substituídos:
+                          </p>
+                          <ul className="space-y-1">
+                            {anexosProblema.map((tipo) => (
+                              <li key={tipo} className="text-sm flex items-center gap-2">
+                                <XCircle className="h-4 w-4 text-destructive" />
+                                <span>{ANEXO_LABELS[tipo] || tipo}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
               <div>
                 <Label>Descrição</Label>
                 <Textarea
@@ -1201,23 +1246,55 @@ export default function MinhasSolicitacoes() {
                 </Select>
               </div>
 
-              {/* Existing attachments */}
+              {/* Existing attachments - highlight those with problems */}
               {existingAnexos.length > 0 && (
                 <div className="space-y-2">
                   <Label>Anexos já enviados</Label>
                   <div className="space-y-2">
-                    {existingAnexos.map((anexo) => (
-                      <div key={anexo.id} className="flex items-center gap-2 p-2 bg-muted rounded">
-                        <FileCheck className="h-4 w-4 text-success" />
-                        <span className="text-sm flex-1">{anexo.nome_arquivo}</span>
-                        <Badge variant="outline" className="text-xs">
-                          {ATTACHMENT_TYPES[anexo.tipo as keyof typeof ATTACHMENT_TYPES] || anexo.tipo}
-                        </Badge>
-                      </div>
-                    ))}
+                    {(() => {
+                      const anexosProblema = editingSolicitacao.status === 'aguardando_informacoes'
+                        ? infoRequests[editingSolicitacao.id]?.anexos_com_problema || []
+                        : rejectionReasons[editingSolicitacao.id]?.anexos_com_problema || [];
+                      
+                      return existingAnexos.map((anexo) => {
+                        const hasProblema = anexosProblema.includes(anexo.tipo);
+                        return (
+                          <div 
+                            key={anexo.id} 
+                            className={cn(
+                              "flex items-center gap-2 p-2 rounded",
+                              hasProblema 
+                                ? "bg-destructive/10 border border-destructive/30" 
+                                : "bg-muted"
+                            )}
+                          >
+                            {hasProblema ? (
+                              <XCircle className="h-4 w-4 text-destructive" />
+                            ) : (
+                              <FileCheck className="h-4 w-4 text-success" />
+                            )}
+                            <span className="text-sm flex-1">{anexo.nome_arquivo}</span>
+                            <Badge 
+                              variant={hasProblema ? "destructive" : "outline"} 
+                              className="text-xs"
+                            >
+                              {hasProblema ? 'PRECISA CORREÇÃO' : (ATTACHMENT_TYPES[anexo.tipo as keyof typeof ATTACHMENT_TYPES] || anexo.tipo)}
+                            </Badge>
+                          </div>
+                        );
+                      });
+                    })()}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Estes anexos já foram enviados. Adicione novos apenas se necessário.
+                    {(() => {
+                      const anexosProblema = editingSolicitacao.status === 'aguardando_informacoes'
+                        ? infoRequests[editingSolicitacao.id]?.anexos_com_problema || []
+                        : rejectionReasons[editingSolicitacao.id]?.anexos_com_problema || [];
+                      
+                      return anexosProblema.length > 0
+                        ? 'Substitua os anexos sinalizados com problema abaixo.'
+                        : 'Estes anexos já foram enviados. Adicione novos apenas se necessário.';
+                    })()}
                   </p>
                 </div>
               )}
