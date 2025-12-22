@@ -14,6 +14,7 @@ export interface SolicitacaoBackoffice {
   descricao: string;
   emergencial: boolean;
   numero_chamado_fluig: string | null;
+  numero_projuris: string | null;
   fornecedor_cnpj: string | null;
   fornecedor_razao: string | null;
   solicitante_nome: string | null;
