@@ -804,6 +804,10 @@ export type Database = {
         Returns: boolean
       }
       is_backoffice_or_admin: { Args: { _user_id: string }; Returns: boolean }
+      user_can_access_solicitacao: {
+        Args: { _solicitacao_id: string }
+        Returns: boolean
+      }
       user_can_view_fluig_empreendimento: {
         Args: { fluig_empreendimento: string }
         Returns: boolean
