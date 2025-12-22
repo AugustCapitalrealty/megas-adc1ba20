@@ -365,46 +365,86 @@ export default function MinhasSolicitacoes() {
   };
 
   const uploadNewAnexos = async (solicitacaoId: string) => {
-    const uploadPromises = Object.entries(editAnexos)
-      .filter(([_, file]) => file !== null)
-      .map(async ([tipo, uploadedFile]) => {
-        if (!uploadedFile) return;
-        
-        const { file } = uploadedFile;
-        const fileExt = file.name.split('.').pop();
-        const filePath = `${solicitacaoId}/${tipo}_${Date.now()}.${fileExt}`;
-        
-        const { error: uploadError } = await supabase.storage
-          .from('anexos')
-          .upload(filePath, file);
-        
-        if (uploadError) throw uploadError;
-        
-        const { error: dbError } = await supabase
-          .from('anexos')
-          .insert({
-            solicitacao_id: solicitacaoId,
-            tipo,
-            nome_arquivo: file.name,
-            storage_path: filePath,
-            mime_type: file.type,
-            tamanho_bytes: file.size,
-          });
-        
-        if (dbError) throw dbError;
-      });
+    const filesToUpload = Object.entries(editAnexos).filter(([_, file]) => file !== null);
+    
+    console.log(`[uploadNewAnexos] Iniciando upload de ${filesToUpload.length} anexos para solicitação ${solicitacaoId}`);
+    
+    if (filesToUpload.length === 0) {
+      console.log('[uploadNewAnexos] Nenhum arquivo para upload');
+      return;
+    }
+    
+    const uploadPromises = filesToUpload.map(async ([tipo, uploadedFile]) => {
+      if (!uploadedFile) return;
+      
+      const { file } = uploadedFile;
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${solicitacaoId}/${tipo}_${Date.now()}.${fileExt}`;
+      
+      console.log(`[uploadNewAnexos] Uploading ${file.name} (${file.size} bytes) para bucket 'anexos' path: ${filePath}`);
+      
+      const { error: uploadError, data: uploadData } = await supabase.storage
+        .from('anexos')
+        .upload(filePath, file);
+      
+      if (uploadError) {
+        console.error(`[uploadNewAnexos] ERRO no storage upload de ${tipo}:`, {
+          message: uploadError.message,
+          error: uploadError,
+          filePath,
+          fileSize: file.size,
+          fileType: file.type
+        });
+        throw new Error(`Erro no upload de ${ATTACHMENT_TYPES[tipo as keyof typeof ATTACHMENT_TYPES] || tipo}: ${uploadError.message}`);
+      }
+      
+      console.log(`[uploadNewAnexos] Storage upload OK para ${tipo}:`, uploadData);
+      
+      const { error: dbError } = await supabase
+        .from('anexos')
+        .insert({
+          solicitacao_id: solicitacaoId,
+          tipo,
+          nome_arquivo: file.name,
+          storage_path: filePath,
+          mime_type: file.type,
+          tamanho_bytes: file.size,
+        });
+      
+      if (dbError) {
+        console.error(`[uploadNewAnexos] ERRO no insert DB de ${tipo}:`, {
+          message: dbError.message,
+          code: dbError.code,
+          details: dbError.details,
+          hint: dbError.hint
+        });
+        throw new Error(`Erro ao salvar registro de ${ATTACHMENT_TYPES[tipo as keyof typeof ATTACHMENT_TYPES] || tipo}: ${dbError.message}`);
+      }
+      
+      console.log(`[uploadNewAnexos] Insert DB OK para ${tipo}`);
+    });
     
     await Promise.all(uploadPromises);
+    console.log(`[uploadNewAnexos] Todos os ${filesToUpload.length} anexos enviados com sucesso`);
   };
 
   const handleResubmit = async () => {
     if (!editingSolicitacao || !user) return;
     
     setSubmitting(true);
+    console.log(`[handleResubmit] Iniciando reenvio da solicitação ${editingSolicitacao.protocolo} (${editingSolicitacao.id})`);
+    
     try {
       const valorNumerico = parseFloat(editValor.replace(/\D/g, '')) / 100 || 0;
       const statusAnterior = editingSolicitacao.status;
       
+      // PRIMEIRO: Upload dos anexos (ANTES de mudar status para evitar inconsistência)
+      console.log('[handleResubmit] Etapa 1: Upload de anexos...');
+      await uploadNewAnexos(editingSolicitacao.id);
+      console.log('[handleResubmit] Etapa 1 OK: Anexos enviados');
+      
+      // DEPOIS: Atualizar a solicitação
+      console.log('[handleResubmit] Etapa 2: Atualizando solicitação...');
       const { error: updateError } = await supabase
         .from('solicitacoes')
         .update({
@@ -415,17 +455,31 @@ export default function MinhasSolicitacoes() {
         })
         .eq('id', editingSolicitacao.id);
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error('[handleResubmit] ERRO ao atualizar solicitação:', {
+          message: updateError.message,
+          code: updateError.code,
+          details: updateError.details
+        });
+        throw new Error(`Erro ao atualizar solicitação: ${updateError.message}`);
+      }
+      console.log('[handleResubmit] Etapa 2 OK: Solicitação atualizada');
 
-      await uploadNewAnexos(editingSolicitacao.id);
-
-      await supabase.from('historico_solicitacoes').insert({
+      // Registrar no histórico
+      console.log('[handleResubmit] Etapa 3: Registrando histórico...');
+      const { error: histError } = await supabase.from('historico_solicitacoes').insert({
         solicitacao_id: editingSolicitacao.id,
         user_id: user.id,
         acao: statusAnterior === 'aguardando_informacoes' ? 'resposta_informacoes' : 'reenvio',
         status_anterior: statusAnterior,
         status_novo: 'recebido',
       });
+
+      if (histError) {
+        console.warn('[handleResubmit] Aviso: erro ao registrar histórico:', histError);
+        // Não lançar erro aqui pois o principal já foi feito
+      }
+      console.log('[handleResubmit] Etapa 3 OK: Histórico registrado');
 
       toast({
         title: 'Solicitação reenviada!',
@@ -434,11 +488,11 @@ export default function MinhasSolicitacoes() {
 
       setEditOpen(false);
       fetchSolicitacoes();
-    } catch (error) {
-      console.error('Error resubmitting:', error);
+    } catch (error: any) {
+      console.error('[handleResubmit] ERRO GERAL:', error);
       toast({
         title: 'Erro ao reenviar',
-        description: 'Tente novamente.',
+        description: error?.message || 'Erro desconhecido. Verifique o console para detalhes.',
         variant: 'destructive',
       });
     } finally {
@@ -602,19 +656,33 @@ export default function MinhasSolicitacoes() {
     }
 
     setNfBoletoLoading(true);
+    console.log(`[handleEnviarNfBoleto] Iniciando envio de NF/Boleto para solicitação ${nfBoletoSolicitacao.protocolo} (${nfBoletoSolicitacao.id})`);
+    
     try {
       // Upload NF (se existir)
       if (nfFile) {
         const nfExt = nfFile.name.split('.').pop();
         const nfPath = `${user.id}/${nfBoletoSolicitacao.id}/nf_${Date.now()}.${nfExt}`;
         
-        const { error: nfUploadError } = await supabase.storage
+        console.log(`[handleEnviarNfBoleto] Etapa 1: Upload NF ${nfFile.name} (${nfFile.size} bytes) para path: ${nfPath}`);
+        
+        const { error: nfUploadError, data: nfUploadData } = await supabase.storage
           .from('documentos-fiscais')
           .upload(nfPath, nfFile);
         
-        if (nfUploadError) throw nfUploadError;
+        if (nfUploadError) {
+          console.error('[handleEnviarNfBoleto] ERRO no storage upload da NF:', {
+            message: nfUploadError.message,
+            error: nfUploadError,
+            path: nfPath,
+            fileSize: nfFile.size,
+            fileType: nfFile.type
+          });
+          throw new Error(`Erro no upload da Nota Fiscal: ${nfUploadError.message}`);
+        }
+        console.log('[handleEnviarNfBoleto] Storage upload NF OK:', nfUploadData);
 
-        await supabase.from('documentos_fiscais').insert({
+        const { error: nfDbError } = await supabase.from('documentos_fiscais').insert({
           solicitacao_id: nfBoletoSolicitacao.id,
           tipo: 'nota_fiscal',
           storage_path: nfPath,
@@ -625,19 +693,41 @@ export default function MinhasSolicitacoes() {
           pagamento_antecipado: false,
           user_id: user.id,
         });
+
+        if (nfDbError) {
+          console.error('[handleEnviarNfBoleto] ERRO no insert DB da NF:', {
+            message: nfDbError.message,
+            code: nfDbError.code,
+            details: nfDbError.details
+          });
+          throw new Error(`Erro ao salvar registro da Nota Fiscal: ${nfDbError.message}`);
+        }
+        console.log('[handleEnviarNfBoleto] Insert DB NF OK');
       }
 
       // Upload Boleto
       const boletoExt = boletoFile.name.split('.').pop();
       const boletoPath = `${user.id}/${nfBoletoSolicitacao.id}/boleto_${Date.now()}.${boletoExt}`;
       
-      const { error: boletoUploadError } = await supabase.storage
+      console.log(`[handleEnviarNfBoleto] Etapa 2: Upload Boleto ${boletoFile.name} (${boletoFile.size} bytes) para path: ${boletoPath}`);
+      
+      const { error: boletoUploadError, data: boletoUploadData } = await supabase.storage
         .from('documentos-fiscais')
         .upload(boletoPath, boletoFile);
       
-      if (boletoUploadError) throw boletoUploadError;
+      if (boletoUploadError) {
+        console.error('[handleEnviarNfBoleto] ERRO no storage upload do Boleto:', {
+          message: boletoUploadError.message,
+          error: boletoUploadError,
+          path: boletoPath,
+          fileSize: boletoFile.size,
+          fileType: boletoFile.type
+        });
+        throw new Error(`Erro no upload do Boleto: ${boletoUploadError.message}`);
+      }
+      console.log('[handleEnviarNfBoleto] Storage upload Boleto OK:', boletoUploadData);
 
-      await supabase.from('documentos_fiscais').insert({
+      const { error: boletoDbError } = await supabase.from('documentos_fiscais').insert({
         solicitacao_id: nfBoletoSolicitacao.id,
         tipo: 'boleto',
         storage_path: boletoPath,
@@ -650,14 +740,32 @@ export default function MinhasSolicitacoes() {
         user_id: user.id,
       });
 
+      if (boletoDbError) {
+        console.error('[handleEnviarNfBoleto] ERRO no insert DB do Boleto:', {
+          message: boletoDbError.message,
+          code: boletoDbError.code,
+          details: boletoDbError.details
+        });
+        throw new Error(`Erro ao salvar registro do Boleto: ${boletoDbError.message}`);
+      }
+      console.log('[handleEnviarNfBoleto] Insert DB Boleto OK');
+
       // Update status
-      await supabase
+      console.log('[handleEnviarNfBoleto] Etapa 3: Atualizando status da solicitação...');
+      const { error: statusError } = await supabase
         .from('solicitacoes')
         .update({ status: 'nf_boleto_enviados' as any })
         .eq('id', nfBoletoSolicitacao.id);
 
+      if (statusError) {
+        console.error('[handleEnviarNfBoleto] ERRO ao atualizar status:', statusError);
+        throw new Error(`Erro ao atualizar status: ${statusError.message}`);
+      }
+      console.log('[handleEnviarNfBoleto] Status atualizado OK');
+
       // Create history entry
-      await supabase.from('historico_solicitacoes').insert({
+      console.log('[handleEnviarNfBoleto] Etapa 4: Registrando histórico...');
+      const { error: histError } = await supabase.from('historico_solicitacoes').insert({
         solicitacao_id: nfBoletoSolicitacao.id,
         user_id: user.id,
         acao: pagamentoAntecipado ? 'nf_boleto_enviado_antecipado' : 'nf_boleto_enviado',
@@ -666,6 +774,11 @@ export default function MinhasSolicitacoes() {
         motivo: pagamentoAntecipado ? `Pagamento antecipado: ${justificativaAntecipado}` : null,
       });
 
+      if (histError) {
+        console.warn('[handleEnviarNfBoleto] Aviso: erro ao registrar histórico:', histError);
+      }
+
+      console.log('[handleEnviarNfBoleto] SUCESSO: Todos os documentos enviados');
       toast({
         title: 'Documentos enviados!',
         description: 'NF e Boleto foram enviados para o financeiro.',
@@ -673,11 +786,11 @@ export default function MinhasSolicitacoes() {
 
       setNfBoletoOpen(false);
       fetchSolicitacoes();
-    } catch (error) {
-      console.error('Error uploading NF/Boleto:', error);
+    } catch (error: any) {
+      console.error('[handleEnviarNfBoleto] ERRO GERAL:', error);
       toast({
         title: 'Erro ao enviar documentos',
-        description: 'Tente novamente.',
+        description: error?.message || 'Erro desconhecido. Verifique o console para detalhes.',
         variant: 'destructive',
       });
     } finally {
