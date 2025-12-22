@@ -136,7 +136,8 @@ export const FLUIG_COLUMN_MAPPINGS = {
   diretoria_responsavel: ['atividade - con001 - autorizacao contratacao - condominios - aprovacao nivel 3 - responsavel'],
   diretoria_conclusao: ['atividade - con001 - autorizacao contratacao - condominios - aprovacao nivel 3 - conclusao'],
   
-  // Approval stages - Gerência Facilities (Aprovado)
-  gerencia_facilities_responsavel: ['atividade - con001 - autorizacao contratacao - condominios - aprovado - responsavel'],
-  gerencia_facilities_conclusao: ['atividade - con001 - autorizacao contratacao - condominios - aprovado - conclusao'],
+  // Approval stages - Gerência Facilities (Aprovação Nível 1 - mesmo que Gerência)
+  // Nota: Gerência de Facilities e Gerência usam a mesma etapa de aprovação (nivel 1)
+  gerencia_facilities_responsavel: ['atividade - con001 - autorizacao contratacao - condominios - aprovacao nivel 1 - responsavel'],
+  gerencia_facilities_conclusao: ['atividade - con001 - autorizacao contratacao - condominios - aprovacao nivel 1 - conclusao'],
 } as const;
