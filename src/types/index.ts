@@ -220,7 +220,7 @@ export const ROLE_LABELS: Record<AppRole, string> = {
 
 // Labels padronizados para anexos
 export const ANEXO_LABELS: Record<string, string> = {
-  chamado_preventiva: 'Chamado Técnico / Ordem de Serviço',
+  chamado_preventiva: 'Chamado Infraspeak',
   escopo_detalhado: 'Memorial Descritivo/Escopo',
   mapa_cotacao: 'Mapa Comparativo de Preços',
   orcamento_escolhido: 'Proposta do Fornecedor Selecionado',
