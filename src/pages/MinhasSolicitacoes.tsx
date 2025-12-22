@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,10 +9,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useAuth } from '@/hooks/useAuth';
+import { useUserEmpreendimentos } from '@/hooks/useUserEmpreendimentos';
 import { supabase } from '@/integrations/supabase/client';
 import { 
   EMPREENDIMENTO_LABELS, 
@@ -25,7 +26,7 @@ import {
   type DocumentoEmitido,
   type DocumentoFiscal,
 } from '@/types';
-import { Loader2, FileText, ChevronDown, ChevronUp, Edit, Send, History, AlertTriangle, Copy, XCircle, Download, FileCheck, CheckCircle, MessageSquare, RotateCcw, Receipt, Upload, CreditCard } from 'lucide-react';
+import { Loader2, FileText, ChevronDown, ChevronUp, Edit, Send, History, AlertTriangle, Copy, XCircle, Download, FileCheck, CheckCircle, MessageSquare, RotateCcw, Receipt, Upload, CreditCard, User, Building2 } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -51,7 +52,10 @@ interface SolicitacaoComFornecedor extends Solicitacao {
   fornecedor?: Fornecedor | null;
   documentoEmitido?: DocumentoEmitido | null;
   documentosFiscais?: DocumentoFiscal[];
+  solicitante_nome?: string | null;
 }
+
+type ViewMode = 'minhas' | 'empreendimento';
 
 interface RejectionInfo {
   solicitacao_id: string;
@@ -72,12 +76,19 @@ export default function MinhasSolicitacoes() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const effectiveUserId = (isImpersonating ? effectiveProfile?.id : user?.id) ?? user?.id;
+  
+  // User empreendimentos hook
+  const { empreendimentos: userEmpreendimentos, hasAllAccess } = useUserEmpreendimentos(effectiveUserId);
+  
   const [solicitacoes, setSolicitacoes] = useState<SolicitacaoComFornecedor[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<FilterTab>('todas');
   const [rejectionReasons, setRejectionReasons] = useState<Record<string, RejectionInfo>>({});
   const [infoRequests, setInfoRequests] = useState<Record<string, InfoRequest>>({});
+  
+  // View mode: minhas (own requests) or empreendimento (all from empreendimento)
+  const [viewMode, setViewMode] = useState<ViewMode>('minhas');
   
   // Edit modal state
   const [editOpen, setEditOpen] = useState(false);
@@ -106,29 +117,62 @@ export default function MinhasSolicitacoes() {
   const [justificativaAntecipado, setJustificativaAntecipado] = useState('');
   const [nfBoletoLoading, setNfBoletoLoading] = useState(false);
 
+  // Refetch when viewMode changes
   useEffect(() => {
     if (effectiveUserId) {
       fetchSolicitacoes();
     }
-  }, [effectiveUserId]);
+  }, [effectiveUserId, viewMode]);
 
   const fetchSolicitacoes = async () => {
     if (!effectiveUserId) return;
+    setLoading(true);
 
-    // Buscar apenas as solicitações do próprio usuário (não de todo o empreendimento)
-    // A página "Minhas Solicitações" mostra apenas o que o usuário criou
-    const query = supabase
+    // Build the query based on viewMode
+    let query = supabase
       .from('solicitacoes')
       .select(`
         *,
         fornecedor:fornecedores!solicitacoes_fornecedor_id_fkey(id, razao_social, nome_fantasia)
       `)
-      .eq('user_id', effectiveUserId)
       .order('created_at', { ascending: false });
+
+    if (viewMode === 'minhas') {
+      // Only user's own requests
+      query = query.eq('user_id', effectiveUserId);
+    } else {
+      // Empreendimento view - filter by user's allowed empreendimentos
+      // If user has 'todos', they can see all (RLS handles this)
+      // Otherwise filter by their specific empreendimentos
+      if (!hasAllAccess && userEmpreendimentos.length > 0) {
+        query = query.in('empreendimento', userEmpreendimentos);
+      }
+      // If hasAllAccess, don't add empreendimento filter (RLS handles it)
+    }
 
     const { data, error } = await query;
 
     if (!error && data) {
+      // Fetch owner profiles for empreendimento view
+      const userIds = viewMode === 'empreendimento' 
+        ? [...new Set(data.map((s: any) => s.user_id))]
+        : [];
+      
+      let profilesMap: Record<string, string> = {};
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', userIds);
+        
+        if (profiles) {
+          profilesMap = profiles.reduce((acc: Record<string, string>, p: any) => {
+            acc[p.id] = p.full_name || p.email || 'Usuário';
+            return acc;
+          }, {});
+        }
+      }
+
       // Enrich with documentos emitidos e fiscais
       const enrichedData = await Promise.all(
         data.map(async (sol: any) => {
@@ -152,7 +196,12 @@ export default function MinhasSolicitacoes() {
             .eq('solicitacao_id', sol.id);
           if (fiscaisData) documentosFiscais = fiscaisData as DocumentoFiscal[];
           
-          return { ...sol, documentoEmitido, documentosFiscais } as SolicitacaoComFornecedor;
+          return { 
+            ...sol, 
+            documentoEmitido, 
+            documentosFiscais,
+            solicitante_nome: profilesMap[sol.user_id] || null
+          } as SolicitacaoComFornecedor;
         })
       );
       
@@ -829,9 +878,44 @@ export default function MinhasSolicitacoes() {
   return (
     <AppLayout>
       <div className="space-y-6 animate-fade-in">
-        <div>
-          <h1 className="text-2xl font-bold">Minhas Solicitações</h1>
-          <p className="text-muted-foreground">Acompanhe o status das suas solicitações</p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold">
+              {viewMode === 'minhas' ? 'Minhas Solicitações' : 'Solicitações do Empreendimento'}
+            </h1>
+            <p className="text-muted-foreground">
+              {viewMode === 'minhas' 
+                ? 'Acompanhe o status das suas solicitações' 
+                : 'Visualize e colabore em solicitações do seu empreendimento'}
+            </p>
+          </div>
+          
+          {/* View mode toggle */}
+          {userEmpreendimentos.length > 0 && (
+            <ToggleGroup 
+              type="single" 
+              value={viewMode} 
+              onValueChange={(val) => val && setViewMode(val as ViewMode)}
+              className="bg-muted p-1 rounded-lg"
+            >
+              <ToggleGroupItem 
+                value="minhas" 
+                className="gap-2 data-[state=on]:bg-background data-[state=on]:shadow-sm px-3"
+                aria-label="Ver minhas solicitações"
+              >
+                <User className="h-4 w-4" />
+                <span className="hidden sm:inline">Minhas</span>
+              </ToggleGroupItem>
+              <ToggleGroupItem 
+                value="empreendimento" 
+                className="gap-2 data-[state=on]:bg-background data-[state=on]:shadow-sm px-3"
+                aria-label="Ver solicitações do empreendimento"
+              >
+                <Building2 className="h-4 w-4" />
+                <span className="hidden sm:inline">Empreendimento</span>
+              </ToggleGroupItem>
+            </ToggleGroup>
+          )}
         </div>
 
         {/* Grouped Filter Tabs */}
@@ -974,20 +1058,28 @@ export default function MinhasSolicitacoes() {
               const rejectionInfo = rejectionReasons[sol.id];
               const infoRequest = infoRequests[sol.id];
               
+              // Check if current user is the owner of this request
+              const isOwner = sol.user_id === effectiveUserId;
+              // In empreendimento view, show who created it if not the current user
+              const showOwnerBadge = viewMode === 'empreendimento' && !isOwner && sol.solicitante_nome;
+              // Only show action banners/buttons for owned requests
+              const canTakeAction = isOwner;
+              
               return (
                 <Card 
                   key={sol.id} 
                   className={cn(
                     'transition-all',
-                    isPendingCorrection && 'border-2 border-warning bg-warning/5 shadow-lg',
+                    isPendingCorrection && canTakeAction && 'border-2 border-warning bg-warning/5 shadow-lg',
                     isRejected && 'border-destructive/50',
-                    isAguardandoAceite && 'border-2 border-success bg-success/5 shadow-lg',
-                    isAguardandoInfo && 'border-2 border-info bg-info/5 shadow-lg',
-                    isAguardandoNfBoleto && 'border-2 border-[hsl(260,70%,50%)] bg-[hsl(260,70%,50%)]/5 shadow-lg'
+                    isAguardandoAceite && canTakeAction && 'border-2 border-success bg-success/5 shadow-lg',
+                    isAguardandoInfo && canTakeAction && 'border-2 border-info bg-info/5 shadow-lg',
+                    isAguardandoNfBoleto && canTakeAction && 'border-2 border-[hsl(260,70%,50%)] bg-[hsl(260,70%,50%)]/5 shadow-lg',
+                    !isOwner && viewMode === 'empreendimento' && 'opacity-90'
                   )}
                 >
-                  {/* Banner for NF/Boleto needed */}
-                  {isAguardandoNfBoleto && (
+                  {/* Banner for NF/Boleto needed - only for owner */}
+                  {isAguardandoNfBoleto && canTakeAction && (
                     <div className="bg-[hsl(260,70%,50%)] text-white px-4 py-2 flex items-center justify-between rounded-t-lg">
                       <div className="flex items-center gap-2">
                         <Receipt className="h-5 w-5" />
@@ -1006,8 +1098,8 @@ export default function MinhasSolicitacoes() {
                     </div>
                   )}
 
-                  {/* Action Required Banner for pending correction */}
-                  {isPendingCorrection && (
+                  {/* Action Required Banner for pending correction - only for owner */}
+                  {isPendingCorrection && canTakeAction && (
                     <div className="bg-warning text-warning-foreground px-4 py-2 flex items-center justify-between rounded-t-lg">
                       <div className="flex items-center gap-2">
                         <AlertTriangle className="h-5 w-5" />
@@ -1026,8 +1118,8 @@ export default function MinhasSolicitacoes() {
                     </div>
                   )}
 
-                  {/* Banner for OC awaiting acceptance */}
-                  {isAguardandoAceite && (
+                  {/* Banner for OC awaiting acceptance - only for owner */}
+                  {isAguardandoAceite && canTakeAction && (
                     <div className="bg-success text-success-foreground px-4 py-2 flex items-center justify-between rounded-t-lg">
                       <div className="flex items-center gap-2">
                         <CheckCircle className="h-5 w-5" />
@@ -1046,8 +1138,8 @@ export default function MinhasSolicitacoes() {
                     </div>
                   )}
 
-                  {/* Banner for info request */}
-                  {isAguardandoInfo && (
+                  {/* Banner for info request - only for owner */}
+                  {isAguardandoInfo && canTakeAction && (
                     <div className="bg-info text-info-foreground px-4 py-2 flex items-center justify-between rounded-t-lg">
                       <div className="flex items-center gap-2">
                         <MessageSquare className="h-5 w-5" />
@@ -1063,6 +1155,14 @@ export default function MinhasSolicitacoes() {
                         <Edit className="h-4 w-4 mr-1" />
                         Corrigir e Reenviar
                       </Button>
+                    </div>
+                  )}
+                  
+                  {/* Owner badge for empreendimento view */}
+                  {showOwnerBadge && (
+                    <div className="bg-muted/50 px-4 py-2 border-b flex items-center gap-2 text-sm text-muted-foreground">
+                      <User className="h-4 w-4" />
+                      <span>Solicitado por: <strong className="text-foreground">{sol.solicitante_nome}</strong></span>
                     </div>
                   )}
                   
