@@ -991,36 +991,6 @@ export default function MinhasSolicitacoes() {
                             Duplicar
                           </Button>
                         )}
-                        {isPendingCorrection && (
-                          <Button 
-                            variant="default" 
-                            size="sm" 
-                            onClick={() => openEditModal(sol)}
-                          >
-                            <Edit className="h-4 w-4 mr-1" />
-                            Corrigir
-                          </Button>
-                        )}
-                        {isAguardandoAceite && (
-                          <Button 
-                            variant="default" 
-                            size="sm" 
-                            onClick={() => openAceiteModal(sol)}
-                          >
-                            <CheckCircle className="h-4 w-4 mr-1" />
-                            Aceitar OC
-                          </Button>
-                        )}
-                        {isAguardandoInfo && (
-                          <Button 
-                            variant="default" 
-                            size="sm" 
-                            onClick={() => openEditModal(sol)}
-                          >
-                            <Edit className="h-4 w-4 mr-1" />
-                            Corrigir e Reenviar
-                          </Button>
-                        )}
                         <Button
                           variant="ghost"
                           size="sm"
