@@ -381,6 +381,7 @@ export type Database = {
       historico_solicitacoes: {
         Row: {
           acao: string
+          anexos_com_problema: Json | null
           created_at: string
           id: string
           motivo: string | null
@@ -391,6 +392,7 @@ export type Database = {
         }
         Insert: {
           acao: string
+          anexos_com_problema?: Json | null
           created_at?: string
           id?: string
           motivo?: string | null
@@ -401,6 +403,7 @@ export type Database = {
         }
         Update: {
           acao?: string
+          anexos_com_problema?: Json | null
           created_at?: string
           id?: string
           motivo?: string | null

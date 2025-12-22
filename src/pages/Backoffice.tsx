@@ -25,6 +25,7 @@ import {
   TIPO_CONTRATACAO_LABELS,
   TIPO_GARANTIA_LABELS,
   STATUS_LABELS,
+  ANEXO_LABELS,
   type RequestStatus,
   type DocumentoEmitido,
   type DocumentoFiscal
@@ -119,6 +120,10 @@ export default function Backoffice() {
   const [editFluigValue, setEditFluigValue] = useState('');
   const [editFluigLoading, setEditFluigLoading] = useState(false);
 
+  // Anexos com problema (para modal de solicitar ajuste)
+  const [anexosComProblema, setAnexosComProblema] = useState<string[]>([]);
+  const [anexosDisponiveis, setAnexosDisponiveis] = useState<Array<{ tipo: string; nome_arquivo: string }>>([]);
+
   // Fetch details when opening details modal
   useEffect(() => {
     if (detailsOpen && selectedSolicitacao) {
@@ -130,7 +135,7 @@ export default function Backoffice() {
 
   // Old N+1 fetch removed - now using useBackofficeSolicitacoes hook
 
-  const updateStatus = async (id: string, newStatus: RequestStatus, motivoText?: string) => {
+  const updateStatus = async (id: string, newStatus: RequestStatus, motivoText?: string, anexosProblema?: string[]) => {
     setActionLoading(true);
     const sol = solicitacoes.find(s => s.id === id);
     
@@ -149,14 +154,19 @@ export default function Backoffice() {
         'concluida': 'Conclusão',
       };
 
-      await supabase.from('historico_solicitacoes').insert({
+      // Prepare insert object with anexos_com_problema if provided
+      const historyInsert = {
         solicitacao_id: id,
         user_id: user!.id,
         acao: acaoLabels[newStatus] || 'Atualização de status',
         status_anterior: sol?.status,
         status_novo: newStatus,
         motivo: motivoText || null,
-      });
+        // Add flagged attachments if provided
+        ...(anexosProblema && anexosProblema.length > 0 && { anexos_com_problema: anexosProblema }),
+      };
+
+      await supabase.from('historico_solicitacoes').insert(historyInsert as any);
 
       toast({ 
         title: 'Status atualizado!',
@@ -435,10 +445,25 @@ export default function Backoffice() {
     setDetailsOpen(true);
   };
 
-  const openAction = (sol: SolicitacaoBackoffice, type: typeof actionType) => {
+  const openAction = async (sol: SolicitacaoBackoffice, type: typeof actionType) => {
     setSelectedSolicitacao(sol);
     setActionType(type);
     setMotivo('');
+    setAnexosComProblema([]);
+    setAnexosDisponiveis([]);
+    
+    // Se for solicitar ajuste, buscar anexos da solicitação
+    if (type === 'solicitar_ajuste') {
+      const { data: anexos } = await supabase
+        .from('anexos')
+        .select('tipo, nome_arquivo')
+        .eq('solicitacao_id', sol.id);
+      
+      if (anexos) {
+        setAnexosDisponiveis(anexos);
+      }
+    }
+    
     setActionOpen(true);
   };
 
@@ -479,8 +504,14 @@ export default function Backoffice() {
       });
     }
     
-    updateStatus(selectedSolicitacao.id, statusMap[actionType], motivo);
+    // Pass anexos com problema for solicitar_ajuste action
+    const anexosToPass = actionType === 'solicitar_ajuste' && anexosComProblema.length > 0 
+      ? anexosComProblema 
+      : undefined;
+    
+    updateStatus(selectedSolicitacao.id, statusMap[actionType], motivo, anexosToPass);
     setNumeroChamadoFluig('');
+    setAnexosComProblema([]);
   };
 
   // Filter solicitacoes - search already handled by RPC, but we can still do local filtering
@@ -1309,19 +1340,66 @@ export default function Backoffice() {
           </DialogHeader>
 
           {(actionType === 'rejeitar' || actionType === 'solicitar_ajuste') && (
-            <div className="space-y-2">
-              <Label htmlFor="motivo">
-                {actionType === 'solicitar_ajuste' ? 'Informações solicitadas *' : 'Motivo *'}
-              </Label>
-              <Textarea
-                id="motivo"
-                placeholder={actionType === 'solicitar_ajuste'
-                  ? "Descreva as informações ou ajustes necessários..." 
-                  : "Descreva o motivo..."}
-                value={motivo}
-                onChange={(e) => setMotivo(e.target.value)}
-                rows={4}
-              />
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="motivo">
+                  {actionType === 'solicitar_ajuste' ? 'Informações solicitadas *' : 'Motivo *'}
+                </Label>
+                <Textarea
+                  id="motivo"
+                  placeholder={actionType === 'solicitar_ajuste'
+                    ? "Descreva as informações ou ajustes necessários..." 
+                    : "Descreva o motivo..."}
+                  value={motivo}
+                  onChange={(e) => setMotivo(e.target.value)}
+                  rows={4}
+                />
+              </div>
+
+              {/* Checkboxes para sinalizar anexos com problema */}
+              {actionType === 'solicitar_ajuste' && anexosDisponiveis.length > 0 && (
+                <div className="space-y-2 p-4 bg-muted/50 rounded-lg border">
+                  <Label className="flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-muted-foreground" />
+                    Sinalizar anexos que precisam correção (opcional)
+                  </Label>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Marque os anexos que estão com problema para que o solicitante saiba quais substituir.
+                  </p>
+                  <div className="space-y-2">
+                    {anexosDisponiveis.map((anexo, idx) => (
+                      <div key={`${anexo.tipo}-${idx}`} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`anexo-${anexo.tipo}-${idx}`}
+                          checked={anexosComProblema.includes(anexo.tipo)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setAnexosComProblema(prev => [...prev, anexo.tipo]);
+                            } else {
+                              setAnexosComProblema(prev => prev.filter(t => t !== anexo.tipo));
+                            }
+                          }}
+                        />
+                        <Label 
+                          htmlFor={`anexo-${anexo.tipo}-${idx}`} 
+                          className="cursor-pointer text-sm flex items-center gap-2"
+                        >
+                          <span>{ANEXO_LABELS[anexo.tipo] || anexo.tipo}</span>
+                          <span className="text-xs text-muted-foreground">({anexo.nome_arquivo})</span>
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                  {anexosComProblema.length > 0 && (
+                    <div className="mt-3 p-2 bg-destructive/10 border border-destructive/20 rounded-md">
+                      <p className="text-xs text-destructive flex items-center gap-1">
+                        <AlertTriangle className="h-3 w-3" />
+                        {anexosComProblema.length} anexo(s) sinalizado(s) como problemático(s)
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
