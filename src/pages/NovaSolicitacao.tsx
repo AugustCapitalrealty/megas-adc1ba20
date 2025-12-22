@@ -35,7 +35,7 @@ import { SupplierSearch } from '@/components/SupplierSearch';
 import { ClienteSelect } from '@/components/ClienteSelect';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useDescriptionValidation } from '@/hooks/useDescriptionValidation';
-import { sendNotificationEmail, getUserEmail } from '@/hooks/useNotificationEmail';
+import { notifyBackofficeNewSolicitacao } from '@/hooks/useNotificationEmail';
 
 type Step = 'empreendimento' | 'descricao' | 'tipo' | 'detalhes' | 'fornecedor' | 'anexos' | 'revisao';
 
@@ -524,17 +524,23 @@ export default function NovaSolicitacao() {
         status_novo: 'recebido',
       });
 
-      // Send email notification to requester
-      const userEmail = await getUserEmail(user.id);
-      if (userEmail) {
-        sendNotificationEmail('nova_solicitacao', userEmail, {
-          protocolo: data.protocolo,
-          descricao: descricao.substring(0, 200),
-          valor: valorNumerico,
-          empreendimento: EMPREENDIMENTO_LABELS[empreendimento as Empreendimento],
-          solicitacao_id: data.id,
-        });
-      }
+      // Get current user profile for solicitante info
+      const { data: userProfile } = await supabase
+        .from('profiles')
+        .select('full_name, email')
+        .eq('id', user.id)
+        .single();
+
+      // Send email notification to backoffice users with email notifications enabled
+      notifyBackofficeNewSolicitacao({
+        protocolo: data.protocolo,
+        descricao: descricao.substring(0, 200),
+        valor: valorNumerico,
+        empreendimento: EMPREENDIMENTO_LABELS[empreendimento as Empreendimento],
+        solicitacao_id: data.id,
+        solicitante_nome: userProfile?.full_name || userProfile?.email || 'Solicitante',
+        solicitante_email: userProfile?.email || undefined,
+      });
 
       toast({
         title: 'Solicitação criada!',

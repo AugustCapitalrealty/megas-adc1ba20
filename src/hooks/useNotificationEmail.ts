@@ -1,37 +1,36 @@
 import { supabase } from '@/integrations/supabase/client';
 
 type EmailType = 
-  | 'nova_solicitacao'
-  | 'status_change'
-  | 'acao_requerida'
-  | 'documento_emitido'
-  | 'nova_mensagem'
-  | 'solicitacao_concluida';
+  | 'nova_solicitacao_backoffice'
+  | 'documento_oc_emitido';
 
 interface EmailData {
   protocolo: string;
   descricao?: string;
   valor?: number;
-  status?: string;
-  status_anterior?: string;
-  status_novo?: string;
-  motivo?: string;
+  empreendimento?: string;
   documento_numero?: string;
   documento_tipo?: string;
-  mensagem?: string;
-  remetente_nome?: string;
-  empreendimento?: string;
   solicitacao_id?: string;
+  solicitante_nome?: string;
+  solicitante_email?: string;
 }
 
 export async function sendNotificationEmail(
   type: EmailType,
-  to: string,
+  to: string | string[],
   data: EmailData
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    const recipients = Array.isArray(to) ? to : [to];
+    
+    if (recipients.length === 0) {
+      console.log('No recipients for email notification');
+      return { success: true };
+    }
+
     const { data: result, error } = await supabase.functions.invoke('send-notification-email', {
-      body: { type, to, data }
+      body: { type, to: recipients, data }
     });
 
     if (error) {
@@ -46,6 +45,21 @@ export async function sendNotificationEmail(
   }
 }
 
+// Get all users who should receive email notifications
+export async function getEmailRecipients(): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('email')
+    .eq('receber_notificacoes_email', true);
+  
+  if (error || !data) {
+    console.error('Error fetching email recipients:', error);
+    return [];
+  }
+  
+  return data.map(p => p.email);
+}
+
 // Helper to get user email from profiles table
 export async function getUserEmail(userId: string): Promise<string | null> {
   const { data, error } = await supabase
@@ -58,10 +72,23 @@ export async function getUserEmail(userId: string): Promise<string | null> {
   return data.email;
 }
 
-// Combined function to send email to solicitacao owner
-export async function notifySolicitacaoOwner(
+// Notify all users with email notifications enabled (for new solicitacao)
+export async function notifyBackofficeNewSolicitacao(
+  data: Omit<EmailData, 'solicitacao_id'> & { solicitacao_id: string }
+): Promise<{ success: boolean; error?: string }> {
+  const recipients = await getEmailRecipients();
+  
+  if (recipients.length === 0) {
+    console.log('No backoffice recipients configured for email notifications');
+    return { success: true };
+  }
+
+  return sendNotificationEmail('nova_solicitacao_backoffice', recipients, data);
+}
+
+// Notify solicitacao owner when OC is emitted
+export async function notifyOwnerOCEmitido(
   solicitacaoId: string,
-  type: EmailType,
   data: Omit<EmailData, 'solicitacao_id'>
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -83,7 +110,7 @@ export async function notifySolicitacaoOwner(
     }
 
     // Send email
-    return sendNotificationEmail(type, email, {
+    return sendNotificationEmail('documento_oc_emitido', email, {
       ...data,
       protocolo: data.protocolo || solicitacao.protocolo,
       solicitacao_id: solicitacaoId,

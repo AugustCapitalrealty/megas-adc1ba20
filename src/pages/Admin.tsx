@@ -11,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Loader2, Search, Shield, Users, UserCheck, UserCog, X, Building2, CheckCircle, XCircle, Clock, FileText } from 'lucide-react';
+import { Loader2, Search, Shield, Users, UserCheck, UserCog, X, Building2, CheckCircle, XCircle, Clock, FileText, Mail } from 'lucide-react';
 import { AppRole, ROLE_LABELS, Empreendimento, EMPREENDIMENTO_LABELS } from '@/types';
 import { SolicitacoesManagement } from '@/components/admin/SolicitacoesManagement';
 
@@ -25,6 +25,7 @@ interface UserWithRoles {
   created_at: string;
   roles: AppRole[];
   empreendimentos: Empreendimento[];
+  receber_notificacoes_email: boolean;
 }
 
 export default function Admin() {
@@ -66,7 +67,7 @@ export default function Admin() {
       // Fetch all profiles
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select('id, email, full_name, approved, created_at')
+        .select('id, email, full_name, approved, created_at, receber_notificacoes_email')
         .order('created_at', { ascending: false });
 
       if (profilesError) throw profilesError;
@@ -88,6 +89,7 @@ export default function Admin() {
       // Combine data
       const usersWithRoles: UserWithRoles[] = (profiles || []).map((profile) => ({
         ...profile,
+        receber_notificacoes_email: profile.receber_notificacoes_email ?? false,
         roles: (allRoles || [])
           .filter((r) => r.user_id === profile.id)
           .map((r) => r.role as AppRole),
@@ -213,6 +215,33 @@ export default function Admin() {
     } catch (error) {
       console.error('Error updating approval:', error);
       toast.error('Erro ao atualizar aprovação');
+    } finally {
+      setSavingUserId(null);
+    }
+  };
+
+  const handleEmailNotificationChange = async (userId: string, receberEmail: boolean) => {
+    setSavingUserId(userId);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ receber_notificacoes_email: receberEmail })
+        .eq('id', userId);
+
+      if (error) throw error;
+
+      toast.success(receberEmail ? 'Notificações por e-mail ativadas' : 'Notificações por e-mail desativadas');
+
+      // Update local state
+      setUsers((prev) =>
+        prev.map((user) => {
+          if (user.id !== userId) return user;
+          return { ...user, receber_notificacoes_email: receberEmail };
+        })
+      );
+    } catch (error) {
+      console.error('Error updating email notification:', error);
+      toast.error('Erro ao atualizar notificações por e-mail');
     } finally {
       setSavingUserId(null);
     }
@@ -386,6 +415,12 @@ export default function Admin() {
                     <TableHead className="text-center">Solicitante</TableHead>
                     <TableHead className="text-center">Backoffice</TableHead>
                     <TableHead className="text-center">Admin</TableHead>
+                    <TableHead className="text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <Mail className="h-3 w-3" />
+                        <span>E-mails</span>
+                      </div>
+                    </TableHead>
                     <TableHead>Empreendimentos</TableHead>
                     {isMasterUser && <TableHead className="text-center">Ações</TableHead>}
                   </TableRow>
@@ -393,7 +428,7 @@ export default function Admin() {
                 <TableBody>
                   {filteredUsers.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={isMasterUser ? 8 : 7} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={isMasterUser ? 9 : 8} className="text-center py-8 text-muted-foreground">
                         {searchTerm ? 'Nenhum usuário encontrado' : 'Nenhum usuário cadastrado'}
                       </TableCell>
                     </TableRow>
@@ -468,6 +503,17 @@ export default function Admin() {
                                 checked={targetUser.roles.includes('admin')}
                                 onCheckedChange={() =>
                                   handleRoleChange(targetUser.id, 'admin', targetUser.roles.includes('admin'))
+                                }
+                                disabled={isSaving}
+                              />
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex justify-center">
+                              <Checkbox
+                                checked={targetUser.receber_notificacoes_email}
+                                onCheckedChange={() =>
+                                  handleEmailNotificationChange(targetUser.id, !targetUser.receber_notificacoes_email)
                                 }
                                 disabled={isSaving}
                               />
