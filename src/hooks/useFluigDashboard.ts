@@ -163,7 +163,7 @@ export function useFluigImport() {
         .select('id, numero_chamado_fluig')
         .not('numero_chamado_fluig', 'is', null);
       
-      const linkMap = new Map((internalLinks || []).map(l => [l.numero_chamado_fluig, l.id]));
+      const linkMap = new Map((internalLinks || []).map(l => [l.numero_chamado_fluig?.trim(), l.id]));
       
       // Create a Set of valid solicitacao IDs for quick validation
       const { data: validSolicitacoes } = await supabase
