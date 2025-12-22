@@ -91,12 +91,6 @@ export default function MinhasSolicitacoes() {
   const [aceiteAjuste, setAceiteAjuste] = useState('');
   const [aceiteLoading, setAceiteLoading] = useState(false);
 
-  // Resposta informações modal state
-  const [respostaOpen, setRespostaOpen] = useState(false);
-  const [respostaSolicitacao, setRespostaSolicitacao] = useState<SolicitacaoComFornecedor | null>(null);
-  const [respostaTexto, setRespostaTexto] = useState('');
-  const [respostaLoading, setRespostaLoading] = useState(false);
-
   // NF/Boleto modal state
   const [nfBoletoOpen, setNfBoletoOpen] = useState(false);
   const [nfBoletoSolicitacao, setNfBoletoSolicitacao] = useState<SolicitacaoComFornecedor | null>(null);
@@ -407,6 +401,7 @@ export default function MinhasSolicitacoes() {
     setSubmitting(true);
     try {
       const valorNumerico = parseFloat(editValor.replace(/\D/g, '')) / 100 || 0;
+      const statusAnterior = editingSolicitacao.status;
       
       const { error: updateError } = await supabase
         .from('solicitacoes')
@@ -425,8 +420,8 @@ export default function MinhasSolicitacoes() {
       await supabase.from('historico_solicitacoes').insert({
         solicitacao_id: editingSolicitacao.id,
         user_id: user.id,
-        acao: 'reenvio',
-        status_anterior: 'pendente_correcao',
+        acao: statusAnterior === 'aguardando_informacoes' ? 'resposta_informacoes' : 'reenvio',
+        status_anterior: statusAnterior,
         status_novo: 'recebido',
       });
 
@@ -560,53 +555,6 @@ export default function MinhasSolicitacoes() {
     }
   };
 
-  // Resposta informações handlers
-  const openRespostaModal = (sol: SolicitacaoComFornecedor) => {
-    setRespostaSolicitacao(sol);
-    setRespostaTexto('');
-    setRespostaOpen(true);
-  };
-
-  const handleResponderInformacoes = async () => {
-    if (!respostaSolicitacao || !user || !respostaTexto.trim()) return;
-    
-    setRespostaLoading(true);
-    try {
-      await supabase
-        .from('solicitacoes')
-        .update({ 
-          status: 'em_processamento',
-          resposta_informacoes: respostaTexto,
-        })
-        .eq('id', respostaSolicitacao.id);
-
-      await supabase.from('historico_solicitacoes').insert({
-        solicitacao_id: respostaSolicitacao.id,
-        user_id: user.id,
-        acao: 'resposta_informacoes',
-        status_anterior: 'aguardando_informacoes',
-        status_novo: 'em_processamento',
-        motivo: respostaTexto,
-      });
-
-      toast({
-        title: 'Resposta enviada!',
-        description: 'Sua resposta foi enviada ao backoffice.',
-      });
-
-      setRespostaOpen(false);
-      fetchSolicitacoes();
-    } catch (error) {
-      console.error('Error responding:', error);
-      toast({
-        title: 'Erro ao enviar resposta',
-        description: 'Tente novamente.',
-        variant: 'destructive',
-      });
-    } finally {
-      setRespostaLoading(false);
-    }
-  };
 
   // NF/Boleto handlers
   const openNfBoletoModal = (sol: SolicitacaoComFornecedor) => {
@@ -994,11 +942,11 @@ export default function MinhasSolicitacoes() {
                       <Button 
                         size="sm" 
                         variant="secondary"
-                        onClick={() => openRespostaModal(sol)}
+                        onClick={() => openEditModal(sol)}
                         className="bg-white text-blue-700 hover:bg-white/90 border border-blue-300 shadow-sm"
                       >
-                        <MessageSquare className="h-4 w-4 mr-1" />
-                        Responder
+                        <Edit className="h-4 w-4 mr-1" />
+                        Corrigir e Reenviar
                       </Button>
                     </div>
                   )}
@@ -1065,10 +1013,10 @@ export default function MinhasSolicitacoes() {
                           <Button 
                             variant="default" 
                             size="sm" 
-                            onClick={() => openRespostaModal(sol)}
+                            onClick={() => openEditModal(sol)}
                           >
-                            <MessageSquare className="h-4 w-4 mr-1" />
-                            Responder
+                            <Edit className="h-4 w-4 mr-1" />
+                            Corrigir e Reenviar
                           </Button>
                         )}
                         <Button
@@ -1203,11 +1151,25 @@ export default function MinhasSolicitacoes() {
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Corrigir Solicitação #{editingSolicitacao?.protocolo}</DialogTitle>
+            <DialogTitle>
+              {editingSolicitacao?.status === 'aguardando_informacoes' 
+                ? `Responder Solicitação #${editingSolicitacao?.protocolo}`
+                : `Corrigir Solicitação #${editingSolicitacao?.protocolo}`
+              }
+            </DialogTitle>
           </DialogHeader>
           
           {editingSolicitacao && (
             <div className="space-y-4">
+              {/* Show info request message if applicable */}
+              {editingSolicitacao.status === 'aguardando_informacoes' && infoRequests[editingSolicitacao.id]?.motivo && (
+                <div className="p-4 bg-info/10 border border-info/20 rounded-lg">
+                  <p className="font-medium text-info mb-1">Informações solicitadas pelo backoffice:</p>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                    {infoRequests[editingSolicitacao.id]?.motivo}
+                  </p>
+                </div>
+              )}
               <div>
                 <Label>Descrição</Label>
                 <Textarea
@@ -1330,51 +1292,6 @@ export default function MinhasSolicitacoes() {
                 <CheckCircle className="h-4 w-4 mr-2" />
               )}
               Aceitar OC
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Resposta Informações Modal */}
-      <Dialog open={respostaOpen} onOpenChange={setRespostaOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Responder Solicitação #{respostaSolicitacao?.protocolo}</DialogTitle>
-          </DialogHeader>
-          
-          <div className="space-y-4">
-            {infoRequests[respostaSolicitacao?.id || '']?.motivo && (
-              <div className="p-4 bg-info/10 border border-info/20 rounded-lg">
-                <p className="font-medium text-info mb-1">Informações solicitadas:</p>
-                <p className="text-sm text-muted-foreground">
-                  {infoRequests[respostaSolicitacao?.id || '']?.motivo}
-                </p>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="resposta">Sua resposta *</Label>
-              <Textarea
-                id="resposta"
-                placeholder="Digite sua resposta às informações solicitadas..."
-                value={respostaTexto}
-                onChange={(e) => setRespostaTexto(e.target.value)}
-                rows={4}
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRespostaOpen(false)} disabled={respostaLoading}>
-              Cancelar
-            </Button>
-            <Button onClick={handleResponderInformacoes} disabled={respostaLoading || !respostaTexto.trim()}>
-              {respostaLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <Send className="h-4 w-4 mr-2" />
-              )}
-              Enviar Resposta
             </Button>
           </DialogFooter>
         </DialogContent>
