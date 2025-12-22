@@ -1257,7 +1257,51 @@ export default function Backoffice() {
                       <p className="font-medium text-primary">{formatCurrency(detalhes.solicitacao.valor)}</p>
                     </div>
                   )}
+                  
+                  {/* Data de Contratação (AC) */}
+                  {detalhes.solicitacao.tipo === 'AC' && (detalhes.solicitacao.data_inicio || detalhes.solicitacao.data_fim) && (
+                    <div className="col-span-2 grid grid-cols-2 gap-4 p-3 bg-muted/30 rounded-lg">
+                      <div>
+                        <Label className="text-muted-foreground">Data Início</Label>
+                        <p className="font-medium">
+                          {detalhes.solicitacao.data_inicio 
+                            ? format(new Date(detalhes.solicitacao.data_inicio + 'T00:00:00'), 'dd/MM/yyyy')
+                            : '—'}
+                        </p>
+                      </div>
+                      <div>
+                        <Label className="text-muted-foreground">Data Fim</Label>
+                        <p className="font-medium">
+                          {detalhes.solicitacao.data_fim 
+                            ? format(new Date(detalhes.solicitacao.data_fim + 'T00:00:00'), 'dd/MM/yyyy')
+                            : '—'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
+                
+                {/* Justificativa - Sem Chamado Infraspeak */}
+                {(detalhes.solicitacao as any).justificativa_sem_chamado && (
+                  <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+                    <Label className="text-muted-foreground font-medium flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-amber-600" />
+                      Justificativa - Sem Chamado Infraspeak
+                    </Label>
+                    <p className="mt-2 text-sm">{(detalhes.solicitacao as any).justificativa_sem_chamado}</p>
+                  </div>
+                )}
+                
+                {/* Justificativa - Sem Memorial */}
+                {(detalhes.solicitacao as any).justificativa_sem_memorial && (
+                  <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+                    <Label className="text-muted-foreground font-medium flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-amber-600" />
+                      Justificativa - Sem Memorial/Escopo
+                    </Label>
+                    <p className="mt-2 text-sm">{(detalhes.solicitacao as any).justificativa_sem_memorial}</p>
+                  </div>
+                )}
 
                 <Separator />
 

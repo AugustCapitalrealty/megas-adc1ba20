@@ -26,6 +26,8 @@ export interface SolicitacaoDetalhes {
     concorrente1_razao?: string;
     concorrente2_cnpj?: string;
     concorrente2_razao?: string;
+    justificativa_sem_chamado?: string;
+    justificativa_sem_memorial?: string;
   };
   solicitante: Profile | null;
   cliente: Cliente | null;

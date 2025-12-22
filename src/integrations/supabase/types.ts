@@ -546,6 +546,8 @@ export type Database = {
           fornecedor_id: string | null
           id: string
           justificativa_fornecedores: string | null
+          justificativa_sem_chamado: string | null
+          justificativa_sem_memorial: string | null
           natureza_orcamentaria: Database["public"]["Enums"]["natureza_orcamentaria"]
           numero_chamado_fluig: string | null
           numero_projuris: string | null
@@ -586,6 +588,8 @@ export type Database = {
           fornecedor_id?: string | null
           id?: string
           justificativa_fornecedores?: string | null
+          justificativa_sem_chamado?: string | null
+          justificativa_sem_memorial?: string | null
           natureza_orcamentaria: Database["public"]["Enums"]["natureza_orcamentaria"]
           numero_chamado_fluig?: string | null
           numero_projuris?: string | null
@@ -626,6 +630,8 @@ export type Database = {
           fornecedor_id?: string | null
           id?: string
           justificativa_fornecedores?: string | null
+          justificativa_sem_chamado?: string | null
+          justificativa_sem_memorial?: string | null
           natureza_orcamentaria?: Database["public"]["Enums"]["natureza_orcamentaria"]
           numero_chamado_fluig?: string | null
           numero_projuris?: string | null
