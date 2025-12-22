@@ -39,6 +39,23 @@ const RESPONSAVEL_PROXIMA_ETAPA: Record<string, string> = {
   'Thiago Demeterco Lucchesi': 'Conclusão',
 };
 
+// Mapa: nome do responsável → etapa atual (índice 0=facilities, 1=financeiro, 2=diretoria)
+const RESPONSAVEL_ETAPA_INDEX: Record<string, number> = {
+  'Jonatas Augusto Ferreira': 0,  // facilities
+  'Kethli Pereira Bezerra': 1,    // financeiro
+  'Thiago Demeterco Lucchesi': 2, // diretoria
+};
+
+const getEtapaAtualIndex = (responsavelAtual: string | null): number => {
+  if (!responsavelAtual) return -1;
+  for (const [nome, index] of Object.entries(RESPONSAVEL_ETAPA_INDEX)) {
+    if (responsavelAtual.includes(nome)) {
+      return index;
+    }
+  }
+  return -1;
+};
+
 // Fallback por localização (quando não há pessoa específica)
 const PROXIMA_ETAPA_FALLBACK: Record<string, string> = {
   'Início': 'Gerência Financeira',
@@ -115,16 +132,32 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
     ? differenceInDays(new Date(), new Date(status.data_lancamento))
     : 0;
 
-  // Determine approval stages
-  const approvalStages = [
-    { key: 'gerencia', label: 'Gerência', done: !!status.gerencia_conclusao },
-    { key: 'facilities', label: 'Facilities', done: !!status.gerencia_facilities_conclusao },
-    { key: 'financeiro', label: 'Financeiro', done: !!status.gerencia_financeiro_conclusao },
-    { key: 'diretoria', label: 'Diretoria', done: !!status.diretoria_conclusao },
-  ];
+  // Determine current stage based on responsavel_atual
+  const etapaAtualIndex = getEtapaAtualIndex(status.responsavel_atual);
 
-  const completedStages = approvalStages.filter(s => s.done).length;
-  const hasAnyApproval = completedStages > 0;
+  // Determine approval stages with 3 states: done (green), in_progress (yellow), pending (gray)
+  const approvalStages = [
+    { key: 'facilities', label: 'Facilities', conclusao: status.gerencia_facilities_conclusao },
+    { key: 'financeiro', label: 'Financeiro', conclusao: status.gerencia_financeiro_conclusao },
+    { key: 'diretoria', label: 'Diretoria', conclusao: status.diretoria_conclusao },
+  ].map((stage, index) => {
+    // If has conclusao date, it's done
+    if (stage.conclusao) {
+      return { ...stage, status: 'done' as const };
+    }
+    // If this is the current stage (based on responsavel), it's in progress
+    if (index === etapaAtualIndex) {
+      return { ...stage, status: 'in_progress' as const };
+    }
+    // If before the current stage, it's done (already passed)
+    if (etapaAtualIndex >= 0 && index < etapaAtualIndex) {
+      return { ...stage, status: 'done' as const };
+    }
+    // Otherwise pending
+    return { ...stage, status: 'pending' as const };
+  });
+
+  const hasAnyApproval = approvalStages.some(s => s.status !== 'pending');
 
   return (
     <div className="p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
@@ -180,10 +213,13 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
               {approvalStages.map((stage) => (
                 <Badge 
                   key={stage.key} 
-                  variant={stage.done ? 'default' : 'outline'}
-                  className={`text-xs ${stage.done 
-                    ? 'bg-green-500 hover:bg-green-500 text-white' 
-                    : 'bg-transparent text-muted-foreground border-muted-foreground/30'
+                  variant={stage.status === 'done' ? 'default' : 'outline'}
+                  className={`text-xs ${
+                    stage.status === 'done' 
+                      ? 'bg-green-500 hover:bg-green-500 text-white' 
+                      : stage.status === 'in_progress'
+                        ? 'bg-yellow-500 hover:bg-yellow-500 text-white border-yellow-500'
+                        : 'bg-transparent text-muted-foreground border-muted-foreground/30'
                   }`}
                 >
                   {stage.label}
