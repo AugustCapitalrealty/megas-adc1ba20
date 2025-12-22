@@ -167,10 +167,11 @@ export default function Backoffice() {
       setDetailsOpen(false);
       setMotivo('');
     } else {
+      console.error('Error updating status:', error);
       toast({ 
         variant: 'destructive',
         title: 'Erro ao atualizar',
-        description: 'Não foi possível atualizar o status',
+        description: `Não foi possível atualizar o status: ${error.message}`,
       });
     }
     setActionLoading(false);
