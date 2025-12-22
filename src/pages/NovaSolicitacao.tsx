@@ -172,6 +172,9 @@ export default function NovaSolicitacao() {
   // Checkbox para Chamado Infraspeak (OC)
   const [temChamadoInfraspeak, setTemChamadoInfraspeak] = useState(false);
   
+  // Flag para AC - "Chamado é uma corretiva?"
+  const [chamadoCorretiva, setChamadoCorretiva] = useState(false);
+  
   // Flags para AC - sem chamado/memorial com justificativa
   const [semChamado, setSemChamado] = useState(false);
   const [justificativaSemChamado, setJustificativaSemChamado] = useState('');
@@ -277,18 +280,24 @@ export default function NovaSolicitacao() {
     } else if (isAC) {
       if (!isNaturezaIsenta) {
         if (emergencial) {
-          // AC Emergencial: Chamado + 1 cotação
+          // AC Emergencial: Proposta obrigatória + Chamado Infraspeak se corretiva
           attachments = [
-            { tipo: 'chamado_preventiva', label: ANEXO_LABELS.chamado_preventiva, required: true },
             { tipo: 'orcamento_escolhido', label: ANEXO_LABELS.orcamento_escolhido, required: true },
           ];
+          // Só adiciona chamado se for corretiva
+          if (chamadoCorretiva) {
+            attachments.unshift({ tipo: 'chamado_preventiva', label: ANEXO_LABELS.chamado_preventiva, required: true });
+          }
         } else {
           // AC não emergencial: base attachments (Mapa de Cotação por último)
           attachments = [
-            { tipo: 'chamado_preventiva', label: ANEXO_LABELS.chamado_preventiva, required: !semChamado },
             { tipo: 'escopo_detalhado', label: ANEXO_LABELS.escopo_detalhado, required: !semMemorial },
             { tipo: 'orcamento_escolhido', label: ANEXO_LABELS.orcamento_escolhido, required: true },
           ];
+          // Só adiciona chamado se for corretiva
+          if (chamadoCorretiva) {
+            attachments.unshift({ tipo: 'chamado_preventiva', label: ANEXO_LABELS.chamado_preventiva, required: !semChamado });
+          }
           
           // Cotações concorrentes e mapa só aparecem se NÃO tem exceção de fornecedores
           if (!excecaoFornecedores) {
@@ -919,6 +928,18 @@ Ex: Contratação de serviço de reparo do ar-condicionado da sala administrativ
                         )}
                       </div>
                     )}
+                    {/* Flag: Chamado é uma corretiva? */}
+                    <div className="flex items-center space-x-2 p-3 rounded-lg border bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
+                      <Checkbox
+                        id="chamadoCorretiva"
+                        checked={chamadoCorretiva}
+                        onCheckedChange={(checked) => setChamadoCorretiva(!!checked)}
+                      />
+                      <Label htmlFor="chamadoCorretiva" className="cursor-pointer text-amber-800 dark:text-amber-200">
+                        Chamado é uma corretiva?
+                      </Label>
+                    </div>
+                    
                     <div>
                       <Label>Tipo de Garantia</Label>
                       <Select value={tipoGarantia} onValueChange={(v) => setTipoGarantia(v as TipoGarantia)}>
@@ -1094,31 +1115,33 @@ Ex: Contratação de serviço de reparo do ar-condicionado da sala administrativ
                       Anexe os documentos em formato PDF (máx. 100MB cada)
                     </p>
                     
-                    {/* Flag: Sem Chamado */}
-                    <div className="p-4 rounded-lg border bg-muted/20 space-y-3">
-                      <div className="flex items-center space-x-2">
-                        <Checkbox
-                          id="semChamado"
-                          checked={semChamado}
-                          onCheckedChange={(checked) => {
-                            setSemChamado(!!checked);
-                            if (!checked) setJustificativaSemChamado('');
-                          }}
-                        />
-                        <Label htmlFor="semChamado" className="cursor-pointer text-sm">
-                          Não tenho chamado/preventiva para esta solicitação
-                        </Label>
+                    {/* Flag: Sem Chamado - só aparece se marcou "Chamado é uma corretiva" */}
+                    {chamadoCorretiva && (
+                      <div className="p-4 rounded-lg border bg-muted/20 space-y-3">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="semChamado"
+                            checked={semChamado}
+                            onCheckedChange={(checked) => {
+                              setSemChamado(!!checked);
+                              if (!checked) setJustificativaSemChamado('');
+                            }}
+                          />
+                          <Label htmlFor="semChamado" className="cursor-pointer text-sm">
+                            Não tenho chamado Infraspeak para esta solicitação
+                          </Label>
+                        </div>
+                        {semChamado && (
+                          <Textarea
+                            placeholder="Justifique por que não possui chamado Infraspeak..."
+                            value={justificativaSemChamado}
+                            onChange={(e) => setJustificativaSemChamado(e.target.value)}
+                            rows={2}
+                            className="mt-2"
+                          />
+                        )}
                       </div>
-                      {semChamado && (
-                        <Textarea
-                          placeholder="Justifique por que não possui chamado/preventiva..."
-                          value={justificativaSemChamado}
-                          onChange={(e) => setJustificativaSemChamado(e.target.value)}
-                          rows={2}
-                          className="mt-2"
-                        />
-                      )}
-                    </div>
+                    )}
                     
                     {/* Flag: Sem Memorial */}
                     <div className="p-4 rounded-lg border bg-muted/20 space-y-3">
