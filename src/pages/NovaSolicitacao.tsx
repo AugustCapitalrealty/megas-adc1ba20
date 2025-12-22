@@ -30,7 +30,7 @@ import {
 } from '@/types';
 import { ArrowLeft, ArrowRight, Check, Loader2, Search, AlertTriangle, ChevronDown, ChevronUp, FileText, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { MultiFileUpload, type UploadedFile } from '@/components/FileUpload';
+import { MultiFileUpload, OtherFilesUpload, type UploadedFile } from '@/components/FileUpload';
 import { SupplierSearch } from '@/components/SupplierSearch';
 import { ClienteSelect } from '@/components/ClienteSelect';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -229,6 +229,7 @@ export default function NovaSolicitacao() {
 
   // Anexos
   const [anexos, setAnexos] = useState<Record<string, UploadedFile | null>>({});
+  const [outrosAnexos, setOutrosAnexos] = useState<UploadedFile[]>([]);
 
   // Derived values
   const valorNumerico = parseFloat(valor.replace(/\D/g, '')) / 100 || 0;
@@ -282,19 +283,19 @@ export default function NovaSolicitacao() {
             { tipo: 'orcamento_escolhido', label: ANEXO_LABELS.orcamento_escolhido, required: true },
           ];
         } else {
-          // AC não emergencial: base attachments
+          // AC não emergencial: base attachments (Mapa de Cotação por último)
           attachments = [
             { tipo: 'chamado_preventiva', label: ANEXO_LABELS.chamado_preventiva, required: !semChamado },
             { tipo: 'escopo_detalhado', label: ANEXO_LABELS.escopo_detalhado, required: !semMemorial },
             { tipo: 'orcamento_escolhido', label: ANEXO_LABELS.orcamento_escolhido, required: true },
           ];
           
-          // Mapa comparativo só aparece se NÃO tem exceção de fornecedores
+          // Cotações concorrentes e mapa só aparecem se NÃO tem exceção de fornecedores
           if (!excecaoFornecedores) {
             attachments.push(
-              { tipo: 'mapa_cotacao', label: ANEXO_LABELS.mapa_cotacao, required: true },
               { tipo: 'orcamento_concorrente_1', label: ANEXO_LABELS.orcamento_concorrente_1, required: true },
               { tipo: 'orcamento_concorrente_2', label: ANEXO_LABELS.orcamento_concorrente_2, required: true },
+              { tipo: 'mapa_cotacao', label: ANEXO_LABELS.mapa_cotacao, required: true }, // Mapa por último
             );
           } else {
             // Com justificativa, permite anexo de comprovação (opcional)
@@ -348,6 +349,7 @@ export default function NovaSolicitacao() {
   };
 
   const uploadAnexos = async (solicitacaoId: string) => {
+    // Upload anexos obrigatórios/padrão
     const uploadPromises = Object.entries(anexos)
       .filter(([_, file]) => file !== null)
       .map(async ([tipo, uploadedFile]) => {
@@ -377,7 +379,33 @@ export default function NovaSolicitacao() {
         if (dbError) throw dbError;
       });
     
-    await Promise.all(uploadPromises);
+    // Upload "outros anexos" (opcionais)
+    const outrosPromises = outrosAnexos.map(async (uploadedFile, index) => {
+      const { file } = uploadedFile;
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${solicitacaoId}/outros_${Date.now()}_${index}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('anexos')
+        .upload(filePath, file);
+      
+      if (uploadError) throw uploadError;
+      
+      const { error: dbError } = await supabase
+        .from('anexos')
+        .insert({
+          solicitacao_id: solicitacaoId,
+          tipo: 'outros',
+          nome_arquivo: file.name,
+          storage_path: filePath,
+          mime_type: file.type,
+          tamanho_bytes: file.size,
+        });
+      
+      if (dbError) throw dbError;
+    });
+    
+    await Promise.all([...uploadPromises, ...outrosPromises]);
   };
 
   const handleSubmit = async () => {
@@ -1104,12 +1132,12 @@ Ex: Contratação de serviço de reparo do ar-condicionado da sala administrativ
                           }}
                         />
                         <Label htmlFor="semMemorial" className="cursor-pointer text-sm">
-                          Não tenho memorial descritivo para esta solicitação
+                          Não tenho memorial descritivo/escopo para esta solicitação
                         </Label>
                       </div>
                       {semMemorial && (
                         <Textarea
-                          placeholder="Justifique por que não possui memorial descritivo..."
+                          placeholder="Justifique por que não possui memorial descritivo/escopo..."
                           value={justificativaSemMemorial}
                           onChange={(e) => setJustificativaSemMemorial(e.target.value)}
                           rows={2}
@@ -1149,6 +1177,13 @@ Ex: Contratação de serviço de reparo do ar-condicionado da sala administrativ
                   requirements={getRequiredAttachments()}
                   files={anexos}
                   onFilesChange={setAnexos}
+                />
+                
+                {/* Outros Anexos (opcional) */}
+                <OtherFilesUpload
+                  files={outrosAnexos}
+                  onFilesChange={setOutrosAnexos}
+                  maxFiles={5}
                 />
               </div>
             )}
