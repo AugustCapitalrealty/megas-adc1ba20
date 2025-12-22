@@ -19,7 +19,7 @@ import { ExpandableDescription } from '@/components/ExpandableDescription';
 import { supabase } from '@/integrations/supabase/client';
 import { useBackofficeSolicitacoes, type SolicitacaoBackoffice } from '@/hooks/useBackofficeSolicitacoes';
 import { useSolicitacaoDetalhes } from '@/hooks/useSolicitacaoDetalhes';
-import { notifySolicitacaoOwner } from '@/hooks/useNotificationEmail';
+import { notifyOwnerOCEmitido } from '@/hooks/useNotificationEmail';
 import { 
   EMPREENDIMENTO_LABELS, 
   NATUREZA_ORCAMENTARIA_LABELS,
@@ -174,18 +174,7 @@ export default function Backoffice() {
 
       await supabase.from('historico_solicitacoes').insert(historyInsert as any);
 
-      // Send email notification based on status change
-      const isActionRequired = ['pendente_correcao', 'aguardando_informacoes', 'aguardando_nf_boleto'].includes(newStatus);
-      const emailType = newStatus === 'concluida' ? 'solicitacao_concluida' : 
-                        newStatus === 'rejeitado' ? 'status_change' :
-                        isActionRequired ? 'acao_requerida' : 'status_change';
-      
-      notifySolicitacaoOwner(id, emailType, {
-        protocolo: sol?.protocolo || '',
-        status_anterior: sol?.status,
-        status_novo: newStatus,
-        motivo: motivoText,
-      });
+      // Email notifications removed - only send for OC emission
 
       toast({ 
         title: 'Status atualizado!',
@@ -254,8 +243,8 @@ export default function Backoffice() {
         motivo: `OC nº ${numeroDocumento} emitida`,
       });
 
-      // Send email notification for document issued
-      notifySolicitacaoOwner(selectedSolicitacao.id, 'documento_emitido', {
+      // Send email notification for OC issued
+      notifyOwnerOCEmitido(selectedSolicitacao.id, {
         protocolo: selectedSolicitacao.protocolo,
         documento_tipo: 'OC',
         documento_numero: numeroDocumento,
