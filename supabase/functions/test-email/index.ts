@@ -18,7 +18,7 @@ serve(async (req) => {
     console.log("Iniciando envio de e-mail de teste...");
     
     const emailResponse = await resend.emails.send({
-      from: "BA Chamados <noreply@bachamados.capitalrealty.com.br>",
+      from: "BA Chamados <onboarding@resend.dev>",
       to: ["guilherme.marques@capitalrealty.com.br"],
       subject: "🧪 Teste - Sistema de E-mails BA Chamados",
       html: `
