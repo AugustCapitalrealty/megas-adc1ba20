@@ -207,10 +207,12 @@ export default function Backoffice() {
       if (insertError) throw insertError;
 
       // Update status to aguardando_aceite (waiting for requester acceptance)
-      await supabase
+      const { error: updateError } = await supabase
         .from('solicitacoes')
         .update({ status: 'aguardando_aceite' as any })
         .eq('id', selectedSolicitacao.id);
+
+      if (updateError) throw updateError;
 
       // Create history entry
       await supabase.from('historico_solicitacoes').insert({
