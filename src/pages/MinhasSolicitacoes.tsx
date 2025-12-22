@@ -112,29 +112,16 @@ export default function MinhasSolicitacoes() {
   const fetchSolicitacoes = async () => {
     if (!effectiveUserId) return;
 
-    // First, fetch user's assigned empreendimentos
-    const { data: empData } = await supabase
-      .from('user_empreendimentos')
-      .select('empreendimento')
-      .eq('user_id', effectiveUserId);
-
-    const userEmps = empData?.map(e => e.empreendimento) || [];
-    const hasTodos = userEmps.includes('todos');
-
-    // Fetch solicitações - RLS cuida da permissão por empreendimento
-    // Usuários verão todas as solicitações dos empreendimentos aos quais estão vinculados
-    let query = supabase
+    // Buscar apenas as solicitações do próprio usuário (não de todo o empreendimento)
+    // A página "Minhas Solicitações" mostra apenas o que o usuário criou
+    const query = supabase
       .from('solicitacoes')
       .select(`
         *,
         fornecedor:fornecedores!solicitacoes_fornecedor_id_fkey(id, razao_social, nome_fantasia)
       `)
+      .eq('user_id', effectiveUserId)
       .order('created_at', { ascending: false });
-
-    // Filtro adicional por empreendimento no cliente (caso RLS permita mais do que necessário)
-    if (!hasTodos && userEmps.length > 0) {
-      query = query.in('empreendimento', userEmps);
-    }
 
     const { data, error } = await query;
 
