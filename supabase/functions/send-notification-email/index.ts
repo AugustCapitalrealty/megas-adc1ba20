@@ -31,7 +31,7 @@ const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 };
 
-const APP_URL = Deno.env.get("APP_URL") || "https://bachamados.capitalrealty.com.br";
+const APP_URL = Deno.env.get("APP_URL") || "https://megas.lovable.app";
 
 const getEmailContent = (type: EmailType, data: EmailRequest['data']): { subject: string; html: string } => {
   const baseStyles = `
