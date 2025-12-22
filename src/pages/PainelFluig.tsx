@@ -380,11 +380,21 @@ export default function PainelFluig() {
 
   // Mapa de tradução para responsáveis do Fluig
   const RESPONSAVEL_LABELS: Record<string, string> = {
+    // Gestor Condomínio variants
     'Gestor Condominio': 'Gerência de Facilities',
     'Gestor Condomínio': 'Gerência de Facilities',
+    // Nomes de pessoas que são Gerência de Facilities
+    'Jonatas Augusto Ferreira': 'Gerência de Facilities',
+    'Jonatas': 'Gerência de Facilities',
+    // Nomes de pessoas que são Gerência Financeira  
+    'Kethli Pereira Bezerra': 'Gerência Financeira',
+    'Kethli': 'Gerência Financeira',
+    // Nomes de pessoas que são Diretoria
+    'Thiago Demeterco Lucchesi': 'Diretoria',
+    'Thiago': 'Diretoria',
   };
 
-  // Format name: remove "Para o Papel" prefix and Pool:Role suffix, first name only for personal names
+  // Format name: remove "Para o Papel" prefix and Pool:Role suffix, map to department
   const formatName = (name: string | null) => {
     if (!name) return '-';
 
@@ -394,9 +404,15 @@ export default function PainelFluig() {
     // Remove ", Pool:Role:..." suffix (Fluig system metadata)
     cleaned = cleaned.replace(/,\s*Pool:Role:[^\s,]*/gi, '').trim();
 
-    // Verificar se existe tradução para este responsável
+    // Verificar se o nome completo existe no mapeamento
     if (RESPONSAVEL_LABELS[cleaned]) {
       return RESPONSAVEL_LABELS[cleaned];
+    }
+
+    // Verificar se o primeiro nome existe no mapeamento
+    const firstName = cleaned.split(' ')[0];
+    if (RESPONSAVEL_LABELS[firstName]) {
+      return RESPONSAVEL_LABELS[firstName];
     }
 
     // For role/area names, keep full label (ex: "Gerência de Facilities")
@@ -410,8 +426,8 @@ export default function PainelFluig() {
 
     if (isRole) return cleaned;
 
-    // Otherwise it's a person's name - get first name only
-    return cleaned.split(' ')[0];
+    // Otherwise it's a person's name - return first name only
+    return firstName;
   };
 
   // Build Fluig portal URL

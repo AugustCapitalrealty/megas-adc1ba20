@@ -26,7 +26,7 @@ export function useFluigSnapshots(filters?: FluigFilters) {
       let query = supabase
         .from('fluig_painel_snapshot')
         .select('*')
-        .order('data_lancamento', { ascending: false, nullsFirst: false });
+        .order('data_lancamento', { ascending: true, nullsFirst: false });
       
       if (filters?.search) {
         query = query.or(`solicitacao_fluig.ilike.%${filters.search}%,fornecedor.ilike.%${filters.search}%,servico.ilike.%${filters.search}%`);
