@@ -802,6 +802,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      user_owns_solicitacao: {
+        Args: { _solicitacao_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "solicitante" | "backoffice" | "admin"
