@@ -120,6 +120,11 @@ export default function Backoffice() {
   const [editFluigValue, setEditFluigValue] = useState('');
   const [editFluigLoading, setEditFluigLoading] = useState(false);
 
+  // Edit Projuris Modal
+  const [editProjurisOpen, setEditProjurisOpen] = useState(false);
+  const [editProjurisValue, setEditProjurisValue] = useState('');
+  const [editProjurisLoading, setEditProjurisLoading] = useState(false);
+
   // Anexos com problema (para modal de solicitar ajuste)
   const [anexosComProblema, setAnexosComProblema] = useState<string[]>([]);
   const [anexosDisponiveis, setAnexosDisponiveis] = useState<Array<{ tipo: string; nome_arquivo: string }>>([]);
@@ -436,6 +441,72 @@ export default function Backoffice() {
     }
   };
 
+  const openEditProjuris = (sol: SolicitacaoBackoffice) => {
+    setSelectedSolicitacao(sol);
+    setEditProjurisValue(sol.numero_projuris || '');
+    setEditProjurisOpen(true);
+  };
+
+  const handleSaveProjuris = async () => {
+    if (!selectedSolicitacao || !user) return;
+    
+    setEditProjurisLoading(true);
+    try {
+      const previousValue = selectedSolicitacao.numero_projuris;
+      const newValue = editProjurisValue || null;
+      
+      const { error } = await supabase
+        .from('solicitacoes')
+        .update({ numero_projuris: newValue })
+        .eq('id', selectedSolicitacao.id);
+
+      if (error) throw error;
+
+      // Register in history when Projuris number is added or changed
+      if (newValue !== previousValue) {
+        let acao = '';
+        let motivo = '';
+        
+        if (!previousValue && newValue) {
+          acao = 'numero_projuris_adicionado';
+          motivo = `Número Projuris #${newValue} adicionado`;
+        } else if (previousValue && newValue) {
+          acao = 'numero_projuris_alterado';
+          motivo = `Número Projuris alterado de ${previousValue} para ${newValue}`;
+        } else if (previousValue && !newValue) {
+          acao = 'numero_projuris_removido';
+          motivo = `Número Projuris ${previousValue} removido`;
+        }
+        
+        await supabase.from('historico_solicitacoes').insert({
+          solicitacao_id: selectedSolicitacao.id,
+          user_id: user.id,
+          acao,
+          motivo,
+          status_anterior: selectedSolicitacao.status,
+          status_novo: selectedSolicitacao.status,
+        });
+      }
+
+      toast({
+        title: 'Projuris atualizado',
+        description: editProjurisValue ? `Atualizado para: ${editProjurisValue}` : 'Campo removido',
+      });
+
+      setEditProjurisOpen(false);
+      fetchSolicitacoes();
+    } catch (error) {
+      console.error('Error updating Projuris:', error);
+      toast({
+        title: 'Erro ao atualizar',
+        description: 'Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setEditProjurisLoading(false);
+    }
+  };
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   };
@@ -596,7 +667,7 @@ export default function Backoffice() {
         
         {/* Awaiting OC Banner */}
         {awaitingOC && (
-          <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-1.5 flex items-center gap-2">
+          <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-1.5 flex items-center gap-2 flex-wrap">
             <Cog className="h-4 w-4 text-amber-600 animate-spin" />
             <span className="text-xs font-medium text-amber-700 dark:text-amber-400">AGUARDANDO EMISSÃO DE OC</span>
             <Badge 
@@ -607,6 +678,25 @@ export default function Backoffice() {
               {sol.numero_chamado_fluig === 'RM' ? 'RM' : `Fluig: ${sol.numero_chamado_fluig}`}
               <Edit className="h-3 w-3 ml-1" />
             </Badge>
+            {sol.numero_projuris && (
+              <Badge 
+                variant="outline" 
+                className="text-xs cursor-pointer hover:bg-accent bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-700"
+                onClick={() => openEditProjuris(sol)}
+              >
+                Projuris: {sol.numero_projuris}
+                <Edit className="h-3 w-3 ml-1" />
+              </Badge>
+            )}
+            {!sol.numero_projuris && (
+              <Badge 
+                variant="outline" 
+                className="text-xs cursor-pointer hover:bg-accent bg-purple-50/50 text-purple-600 border-dashed border-purple-200 dark:bg-purple-900/10 dark:text-purple-400 dark:border-purple-700"
+                onClick={() => openEditProjuris(sol)}
+              >
+                + Projuris
+              </Badge>
+            )}
           </div>
         )}
 
@@ -1678,6 +1768,42 @@ export default function Backoffice() {
             </Button>
             <Button onClick={handleSaveFluig} disabled={editFluigLoading}>
               {editFluigLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Projuris Modal */}
+      <Dialog open={editProjurisOpen} onOpenChange={setEditProjurisOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar Número Projuris</DialogTitle>
+            <DialogDescription>
+              Informe o número do processo no Projuris
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-projuris">Número do Projuris</Label>
+              <Input
+                id="edit-projuris"
+                placeholder="Ex: PROJ-2024-001234"
+                value={editProjurisValue}
+                onChange={(e) => setEditProjurisValue(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditProjurisOpen(false)} disabled={editProjurisLoading}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveProjuris} disabled={editProjurisLoading}>
+              {editProjurisLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : null}
               Salvar
