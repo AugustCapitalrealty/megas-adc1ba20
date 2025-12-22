@@ -34,16 +34,26 @@ const ETAPA_LABELS: Record<string, string> = {
 
 // Mapa: nome do responsável → próxima etapa
 const RESPONSAVEL_PROXIMA_ETAPA: Record<string, string> = {
+  // Início → Facilities
+  'Laureane Bransin': 'Gerência de Facilities',
+  'Paloma Correa Grigoletto': 'Gerência de Facilities',
+  'Roberta Gonçalves Pires da Costa': 'Gerência de Facilities',
+  // Facilities → Financeiro
   'Jonatas Augusto Ferreira': 'Gerência Financeira',
+  // Financeiro → Diretoria
   'Kethli Pereira Bezerra': 'Diretoria',
+  // Diretoria → Conclusão
   'Thiago Demeterco Lucchesi': 'Conclusão',
 };
 
-// Mapa: nome do responsável → etapa atual (índice 0=facilities, 1=financeiro, 2=diretoria)
+// Mapa: nome do responsável → etapa atual (índice -1=início, 0=facilities, 1=financeiro, 2=diretoria)
 const RESPONSAVEL_ETAPA_INDEX: Record<string, number> = {
-  'Jonatas Augusto Ferreira': 0,  // facilities
-  'Kethli Pereira Bezerra': 1,    // financeiro
-  'Thiago Demeterco Lucchesi': 2, // diretoria
+  'Laureane Bransin': -1,                    // início
+  'Paloma Correa Grigoletto': -1,            // início
+  'Roberta Gonçalves Pires da Costa': -1,    // início
+  'Jonatas Augusto Ferreira': 0,             // facilities
+  'Kethli Pereira Bezerra': 1,               // financeiro
+  'Thiago Demeterco Lucchesi': 2,            // diretoria
 };
 
 const getEtapaAtualIndex = (responsavelAtual: string | null): number => {
@@ -58,11 +68,12 @@ const getEtapaAtualIndex = (responsavelAtual: string | null): number => {
 
 // Fallback por localização (quando não há pessoa específica)
 const PROXIMA_ETAPA_FALLBACK: Record<string, string> = {
-  'Início': 'Gerência Financeira',
+  'Início': 'Gerência de Facilities',
   'Para o Papel Gestor Condominio': 'Gerência Financeira',
   'Para o Papel Gestor Condomínio': 'Gerência Financeira',
   'Aprovação Nivel 1': 'Gerência Financeira',
   'Aprovação Nível 1': 'Gerência Financeira',
+  'Aprovação Financeiro': 'Diretoria',
   'Aprovação Nivel 2': 'Diretoria',
   'Aprovação Nível 2': 'Diretoria',
   'Aprovação Nivel 3': 'Conclusão',
