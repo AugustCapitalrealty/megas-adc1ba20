@@ -500,6 +500,8 @@ export default function NovaSolicitacao() {
         dias_garantia_produto: tipoGarantia === 'ambos' && diasGarantiaProduto ? parseInt(diasGarantiaProduto) : null,
         custo_cliente: custoCliente,
         emergencial,
+        justificativa_sem_chamado: semChamado && justificativaSemChamado.trim() ? justificativaSemChamado.trim() : null,
+        justificativa_sem_memorial: semMemorial && justificativaSemMemorial.trim() ? justificativaSemMemorial.trim() : null,
       };
       
       const { data, error } = await supabase
@@ -940,50 +942,54 @@ Ex: Contratação de serviço de reparo do ar-condicionado da sala administrativ
                       </Label>
                     </div>
                     
-                    <div>
-                      <Label>Tipo de Garantia</Label>
+                    {/* Tipo de Garantia - Estilizado com tema âmbar */}
+                    <div className="p-3 rounded-lg border bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 space-y-3">
+                      <Label className="text-amber-800 dark:text-amber-200">Tipo de Garantia</Label>
                       <Select value={tipoGarantia} onValueChange={(v) => setTipoGarantia(v as TipoGarantia)}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           {Object.entries(TIPO_GARANTIA_LABELS).map(([value, label]) => (
                             <SelectItem key={value} value={value}>{label}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                    </div>
-                    {tipoGarantia !== 'nenhuma' && tipoGarantia !== 'ambos' && (
-                      <div>
-                        <Label>Dias de Garantia</Label>
-                        <Input
-                          type="number"
-                          value={diasGarantia}
-                          onChange={(e) => setDiasGarantia(e.target.value)}
-                          placeholder="Ex: 90"
-                        />
-                      </div>
-                    )}
-                    {tipoGarantia === 'ambos' && (
-                      <div className="grid grid-cols-2 gap-4">
+                      {tipoGarantia !== 'nenhuma' && tipoGarantia !== 'ambos' && (
                         <div>
-                          <Label>Dias de Garantia (Serviço)</Label>
+                          <Label className="text-amber-800 dark:text-amber-200">Dias de Garantia</Label>
                           <Input
                             type="number"
-                            value={diasGarantiaServico}
-                            onChange={(e) => setDiasGarantiaServico(e.target.value)}
+                            value={diasGarantia}
+                            onChange={(e) => setDiasGarantia(e.target.value)}
                             placeholder="Ex: 90"
+                            className="bg-background"
                           />
                         </div>
-                        <div>
-                          <Label>Dias de Garantia (Produto)</Label>
-                          <Input
-                            type="number"
-                            value={diasGarantiaProduto}
-                            onChange={(e) => setDiasGarantiaProduto(e.target.value)}
-                            placeholder="Ex: 365"
-                          />
+                      )}
+                      {tipoGarantia === 'ambos' && (
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label className="text-amber-800 dark:text-amber-200">Dias de Garantia (Serviço)</Label>
+                            <Input
+                              type="number"
+                              value={diasGarantiaServico}
+                              onChange={(e) => setDiasGarantiaServico(e.target.value)}
+                              placeholder="Ex: 90"
+                              className="bg-background"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-amber-800 dark:text-amber-200">Dias de Garantia (Produto)</Label>
+                            <Input
+                              type="number"
+                              value={diasGarantiaProduto}
+                              onChange={(e) => setDiasGarantiaProduto(e.target.value)}
+                              placeholder="Ex: 365"
+                              className="bg-background"
+                            />
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </>
                 )}
               </div>
