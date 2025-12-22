@@ -7,6 +7,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { MessageSquare, Send, User, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { notifySolicitacaoOwner, getUserEmail, sendNotificationEmail } from '@/hooks/useNotificationEmail';
 
 interface Message {
   id: string;
@@ -76,6 +77,33 @@ export function SolicitacaoMessages({ solicitacaoId }: SolicitacaoMessagesProps)
         });
 
       if (error) throw error;
+
+      // Get solicitacao info to send email to owner
+      const { data: solicitacao } = await supabase
+        .from('solicitacoes')
+        .select('user_id, protocolo')
+        .eq('id', solicitacaoId)
+        .single();
+
+      // Get sender name
+      const { data: senderProfile } = await supabase
+        .from('profiles')
+        .select('full_name, email')
+        .eq('id', user.id)
+        .single();
+
+      // Only send email if the message is from someone other than the owner
+      if (solicitacao && solicitacao.user_id !== user.id) {
+        const ownerEmail = await getUserEmail(solicitacao.user_id);
+        if (ownerEmail) {
+          sendNotificationEmail('nova_mensagem', ownerEmail, {
+            protocolo: solicitacao.protocolo,
+            mensagem: newMessage.trim(),
+            remetente_nome: senderProfile?.full_name || senderProfile?.email || 'Backoffice',
+            solicitacao_id: solicitacaoId,
+          });
+        }
+      }
 
       setNewMessage('');
       fetchMessages();

@@ -35,6 +35,7 @@ import { SupplierSearch } from '@/components/SupplierSearch';
 import { ClienteSelect } from '@/components/ClienteSelect';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useDescriptionValidation } from '@/hooks/useDescriptionValidation';
+import { sendNotificationEmail, getUserEmail } from '@/hooks/useNotificationEmail';
 
 type Step = 'empreendimento' | 'descricao' | 'tipo' | 'detalhes' | 'fornecedor' | 'anexos' | 'revisao';
 
@@ -523,7 +524,17 @@ export default function NovaSolicitacao() {
         status_novo: 'recebido',
       });
 
-      // Create notification for backoffice users would happen via trigger/edge function
+      // Send email notification to requester
+      const userEmail = await getUserEmail(user.id);
+      if (userEmail) {
+        sendNotificationEmail('nova_solicitacao', userEmail, {
+          protocolo: data.protocolo,
+          descricao: descricao.substring(0, 200),
+          valor: valorNumerico,
+          empreendimento: EMPREENDIMENTO_LABELS[empreendimento as Empreendimento],
+          solicitacao_id: data.id,
+        });
+      }
 
       toast({
         title: 'Solicitação criada!',

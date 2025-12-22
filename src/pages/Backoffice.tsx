@@ -19,6 +19,7 @@ import { ExpandableDescription } from '@/components/ExpandableDescription';
 import { supabase } from '@/integrations/supabase/client';
 import { useBackofficeSolicitacoes, type SolicitacaoBackoffice } from '@/hooks/useBackofficeSolicitacoes';
 import { useSolicitacaoDetalhes } from '@/hooks/useSolicitacaoDetalhes';
+import { notifySolicitacaoOwner } from '@/hooks/useNotificationEmail';
 import { 
   EMPREENDIMENTO_LABELS, 
   NATUREZA_ORCAMENTARIA_LABELS,
@@ -173,6 +174,19 @@ export default function Backoffice() {
 
       await supabase.from('historico_solicitacoes').insert(historyInsert as any);
 
+      // Send email notification based on status change
+      const isActionRequired = ['pendente_correcao', 'aguardando_informacoes', 'aguardando_nf_boleto'].includes(newStatus);
+      const emailType = newStatus === 'concluida' ? 'solicitacao_concluida' : 
+                        newStatus === 'rejeitado' ? 'status_change' :
+                        isActionRequired ? 'acao_requerida' : 'status_change';
+      
+      notifySolicitacaoOwner(id, emailType, {
+        protocolo: sol?.protocolo || '',
+        status_anterior: sol?.status,
+        status_novo: newStatus,
+        motivo: motivoText,
+      });
+
       toast({ 
         title: 'Status atualizado!',
         description: `Solicitação ${STATUS_LABELS[newStatus].toLowerCase()}`,
@@ -238,6 +252,13 @@ export default function Backoffice() {
         status_anterior: selectedSolicitacao.status,
         status_novo: 'aguardando_aceite',
         motivo: `OC nº ${numeroDocumento} emitida`,
+      });
+
+      // Send email notification for document issued
+      notifySolicitacaoOwner(selectedSolicitacao.id, 'documento_emitido', {
+        protocolo: selectedSolicitacao.protocolo,
+        documento_tipo: 'OC',
+        documento_numero: numeroDocumento,
       });
 
       toast({
