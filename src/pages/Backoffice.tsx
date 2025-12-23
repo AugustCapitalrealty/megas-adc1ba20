@@ -13,9 +13,11 @@ import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { SolicitacaoTimeline } from '@/components/SolicitacaoTimeline';
 import { FluigStatusCard } from '@/components/FluigStatusCard';
 import { ExpandableDescription } from '@/components/ExpandableDescription';
+import { AnexoCard } from '@/components/AnexoCard';
 import { supabase } from '@/integrations/supabase/client';
 import { useBackofficeSolicitacoes, type SolicitacaoBackoffice } from '@/hooks/useBackofficeSolicitacoes';
 import { useSolicitacaoDetalhes } from '@/hooks/useSolicitacaoDetalhes';
@@ -1114,13 +1116,15 @@ export default function Backoffice() {
       <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh]">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-3">
               <Badge variant={selectedSolicitacao?.tipo === 'AC' ? 'default' : 'secondary'}>
                 {selectedSolicitacao?.tipo}
               </Badge>
-              #{selectedSolicitacao?.protocolo}
+              <span className="font-mono">#{selectedSolicitacao?.protocolo}</span>
+              {selectedSolicitacao && (
+                <StatusBadge status={selectedSolicitacao.status} className="ml-auto" />
+              )}
             </DialogTitle>
-            <DialogDescription>Detalhes completos da solicitação</DialogDescription>
           </DialogHeader>
           
           {detalhesLoading ? (
@@ -1129,20 +1133,20 @@ export default function Backoffice() {
             </div>
           ) : detalhes?.solicitacao ? (
             <ScrollArea className="max-h-[60vh]">
+              <TooltipProvider>
               <div className="space-y-6 pr-4">
-                {/* Status e SLA */}
+                {/* SLA Info */}
                 <div className="flex items-center justify-between flex-wrap gap-2">
-                  <StatusBadge status={detalhes.solicitacao.status} />
                   {detalhes.solicitacao.emergencial && (
-                    <Badge variant="destructive">
-                      <AlertTriangle className="h-3 w-3 mr-1" />
+                    <Badge variant="destructive" className="gap-1">
+                      <AlertTriangle className="h-3 w-3" />
                       Emergencial
                     </Badge>
                   )}
                   {selectedSolicitacao && (() => {
                     const sla = getSLAInfo(selectedSolicitacao);
                     return (
-                      <div className="flex gap-2 text-xs">
+                      <div className="flex gap-2 text-xs ml-auto">
                         <Badge variant={sla.atrasadoAnalise ? "destructive" : "outline"}>
                           {sla.tempoDesdeAbertura} desde abertura
                         </Badge>
@@ -1315,43 +1319,35 @@ export default function Backoffice() {
 
                 <Separator />
 
-                {/* Anexos */}
+                {/* Anexos - Redesigned */}
                 {detalhes.anexos && detalhes.anexos.length > 0 && (
                   <>
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-semibold flex items-center gap-2">
-                          <Archive className="h-4 w-4" /> Anexos ({detalhes.anexos.length})
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-semibold flex items-center gap-2 text-sm uppercase tracking-wide text-muted-foreground">
+                          <Archive className="h-4 w-4" /> 
+                          Anexos 
+                          <Badge variant="secondary" className="ml-1">{detalhes.anexos.length}</Badge>
                         </h4>
                         <Button 
                           size="sm" 
-                          variant="outline"
                           onClick={() => downloadAnexosZip(detalhes.solicitacao.id, detalhes.anexos, detalhes.solicitacao.protocolo)}
                           disabled={downloadingZip}
+                          className="gap-1.5"
                         >
                           {downloadingZip ? (
-                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                            <Loader2 className="h-4 w-4 animate-spin" />
                           ) : (
-                            <Download className="h-4 w-4 mr-1" />
+                            <Download className="h-4 w-4" />
                           )}
                           Baixar Todos (ZIP)
                         </Button>
                       </div>
-                      <div className="space-y-2">
+                      
+                      {/* Anexos Grid */}
+                      <div className="grid gap-2">
                         {detalhes.anexos.map((anexo) => (
-                          <div key={anexo.id} className="flex items-center justify-between p-2 bg-muted/50 rounded text-sm">
-                            <span className="truncate flex-1">{anexo.nome_arquivo}</span>
-                            <Button 
-                              size="sm" 
-                              variant="ghost"
-                              onClick={async () => {
-                                const { data } = await supabase.storage.from('anexos').download(anexo.storage_path);
-                                if (data) saveAs(data, anexo.nome_arquivo);
-                              }}
-                            >
-                              <Download className="h-4 w-4" />
-                            </Button>
-                          </div>
+                          <AnexoCard key={anexo.id} anexo={anexo} />
                         ))}
                       </div>
                     </div>
@@ -1428,6 +1424,7 @@ export default function Backoffice() {
                   <p>Atualizado em: {format(new Date(detalhes.solicitacao.updated_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
                 </div>
               </div>
+              </TooltipProvider>
             </ScrollArea>
           ) : null}
 
