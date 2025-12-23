@@ -47,17 +47,26 @@ export async function sendNotificationEmail(
 
 // Get all users who should receive email notifications
 export async function getEmailRecipients(): Promise<string[]> {
+  console.log('[EMAIL] Buscando destinatários com notificações ativadas...');
+  
   const { data, error } = await supabase
     .from('profiles')
-    .select('email')
+    .select('email, full_name, receber_notificacoes_email')
     .eq('receber_notificacoes_email', true);
   
-  if (error || !data) {
-    console.error('Error fetching email recipients:', error);
+  if (error) {
+    console.error('[EMAIL] Erro ao buscar destinatários:', error);
     return [];
   }
   
-  return data.map(p => p.email);
+  if (!data || data.length === 0) {
+    console.warn('[EMAIL] Nenhum destinatário encontrado com notificações ativadas');
+    return [];
+  }
+  
+  const emails = data.map(p => p.email);
+  console.log('[EMAIL] Destinatários encontrados:', emails);
+  return emails;
 }
 
 // Helper to get user email from profiles table
