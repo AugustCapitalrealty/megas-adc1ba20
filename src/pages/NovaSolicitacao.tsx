@@ -573,13 +573,13 @@ export default function NovaSolicitacao() {
   };
 
   const steps: { id: Step; label: string; show: boolean }[] = [
-    { id: 'empreendimento', label: 'Empreendimento', show: true },
-    { id: 'descricao', label: 'Descrição e Valor', show: true },
+    { id: 'empreendimento', label: 'Local', show: true },
+    { id: 'descricao', label: 'Descrição', show: true },
     { id: 'tipo', label: 'Tipo', show: valorNumerico > 1000 },
     { id: 'detalhes', label: 'Detalhes', show: true },
     { id: 'fornecedor', label: 'Fornecedor', show: true },
     { id: 'anexos', label: 'Anexos', show: true },
-    { id: 'revisao', label: 'Revisão', show: true },
+    { id: 'revisao', label: 'Enviar', show: true },
   ];
 
   const visibleSteps = steps.filter((s) => s.show);
