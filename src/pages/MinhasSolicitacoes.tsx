@@ -1,9 +1,8 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { StatusBadge } from '@/components/ui/status-badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -16,9 +15,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useUserEmpreendimentos } from '@/hooks/useUserEmpreendimentos';
 import { supabase } from '@/integrations/supabase/client';
 import { 
-  EMPREENDIMENTO_LABELS, 
   NATUREZA_ORCAMENTARIA_LABELS,
-  TIPO_CONTRATACAO_LABELS,
   ANEXO_LABELS,
   type Solicitacao,
   type NaturezaOrcamentaria,
@@ -26,16 +23,18 @@ import {
   type DocumentoEmitido,
   type DocumentoFiscal,
 } from '@/types';
-import { Loader2, FileText, ChevronDown, ChevronUp, Edit, Send, History, AlertTriangle, Copy, XCircle, Download, FileCheck, CheckCircle, MessageSquare, RotateCcw, Receipt, Upload, CreditCard, User, Building2 } from 'lucide-react';
+import { Loader2, FileText, Edit, Send, AlertTriangle, Copy, XCircle, Download, FileCheck, CheckCircle, MessageSquare, RotateCcw, Receipt, Upload, User, Building2 } from 'lucide-react';
 import { saveAs } from 'file-saver';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { SolicitacaoTimeline } from '@/components/SolicitacaoTimeline';
 import { FluigStatusCard } from '@/components/FluigStatusCard';
-import { ExpandableDescription } from '@/components/ExpandableDescription';
 import { MultiFileUpload, type UploadedFile } from '@/components/FileUpload';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+
+// Design System Components
+import { SolicitacaoCard, type SolicitacaoWithDetails } from '@/components/ui/SolicitacaoCard';
+import { FilterBar, FilterBarSeparator, type TabGroup } from '@/components/ui/FilterBar';
+import { ActionModal } from '@/components/ui/ActionModal';
 
 const ATTACHMENT_TYPES = {
   chamado_preventiva: 'Chamado / Preventiva (Infraspeak)',
@@ -77,7 +76,6 @@ export default function MinhasSolicitacoes() {
   const navigate = useNavigate();
   const effectiveUserId = (isImpersonating ? effectiveProfile?.id : user?.id) ?? user?.id;
   
-  // User empreendimentos hook
   const { empreendimentos: userEmpreendimentos, hasAllAccess } = useUserEmpreendimentos(effectiveUserId);
   
   const [solicitacoes, setSolicitacoes] = useState<SolicitacaoComFornecedor[]>([]);
@@ -86,8 +84,6 @@ export default function MinhasSolicitacoes() {
   const [activeTab, setActiveTab] = useState<FilterTab>('todas');
   const [rejectionReasons, setRejectionReasons] = useState<Record<string, RejectionInfo>>({});
   const [infoRequests, setInfoRequests] = useState<Record<string, InfoRequest>>({});
-  
-  // View mode: minhas (own requests) or empreendimento (all from empreendimento)
   const [viewMode, setViewMode] = useState<ViewMode>('minhas');
   
   // Edit modal state
@@ -117,7 +113,6 @@ export default function MinhasSolicitacoes() {
   const [justificativaAntecipado, setJustificativaAntecipado] = useState('');
   const [nfBoletoLoading, setNfBoletoLoading] = useState(false);
 
-  // Refetch when viewMode changes
   useEffect(() => {
     if (effectiveUserId) {
       fetchSolicitacoes();
@@ -128,7 +123,6 @@ export default function MinhasSolicitacoes() {
     if (!effectiveUserId) return;
     setLoading(true);
 
-    // Build the query based on viewMode
     let query = supabase
       .from('solicitacoes')
       .select(`
@@ -138,22 +132,16 @@ export default function MinhasSolicitacoes() {
       .order('created_at', { ascending: false });
 
     if (viewMode === 'minhas') {
-      // Only user's own requests
       query = query.eq('user_id', effectiveUserId);
     } else {
-      // Empreendimento view - filter by user's allowed empreendimentos
-      // If user has 'todos', they can see all (RLS handles this)
-      // Otherwise filter by their specific empreendimentos
       if (!hasAllAccess && userEmpreendimentos.length > 0) {
         query = query.in('empreendimento', userEmpreendimentos);
       }
-      // If hasAllAccess, don't add empreendimento filter (RLS handles it)
     }
 
     const { data, error } = await query;
 
     if (!error && data) {
-      // Fetch owner profiles for empreendimento view
       const userIds = viewMode === 'empreendimento' 
         ? [...new Set(data.map((s: any) => s.user_id))]
         : [];
@@ -173,13 +161,11 @@ export default function MinhasSolicitacoes() {
         }
       }
 
-      // Enrich with documentos emitidos e fiscais
       const enrichedData = await Promise.all(
         data.map(async (sol: any) => {
           let documentoEmitido = null;
           let documentosFiscais: DocumentoFiscal[] = [];
           
-          // Fetch documento emitido if status allows
           if (['oc_ac_emitida', 'concluida', 'aguardando_aceite', 'aguardando_nf_boleto', 'nf_boleto_enviados', 'enviado_pagamento'].includes(sol.status)) {
             const { data: docData } = await supabase
               .from('documentos_emitidos')
@@ -189,7 +175,6 @@ export default function MinhasSolicitacoes() {
             documentoEmitido = docData;
           }
 
-          // Fetch documentos fiscais if they exist
           const { data: fiscaisData } = await supabase
             .from('documentos_fiscais')
             .select('*')
@@ -207,7 +192,6 @@ export default function MinhasSolicitacoes() {
       
       setSolicitacoes(enrichedData);
       
-      // Fetch rejection reasons for rejected and pendente_correcao solicitações
       const needsCorrectionIds = data
         .filter((s: any) => s.status === 'rejeitado' || s.status === 'pendente_correcao')
         .map((s: any) => s.id);
@@ -231,7 +215,6 @@ export default function MinhasSolicitacoes() {
         }
       }
 
-      // Fetch info requests for aguardando_informacoes
       const infoIds = data
         .filter((s: any) => s.status === 'aguardando_informacoes')
         .map((s: any) => s.id);
@@ -258,31 +241,25 @@ export default function MinhasSolicitacoes() {
     setLoading(false);
   };
 
-  // Sort and filter solicitações
   const sortedAndFilteredSolicitacoes = useMemo(() => {
     let filtered = [...solicitacoes];
     
-    // Filter by tab
     switch (activeTab) {
       case 'com_backoffice':
-        // Solicitações que estão com o backoffice (em análise ou processamento)
         filtered = filtered.filter(s => 
           s.status === 'recebido' || s.status === 'em_analise' || 
           s.status === 'aprovado' || s.status === 'em_processamento'
         );
         break;
       case 'correcoes':
-        // Solicitações que precisam de ação do solicitante
         filtered = filtered.filter(s => 
           s.status === 'pendente_correcao' || s.status === 'aguardando_informacoes'
         );
         break;
       case 'oc_emitida':
-        // OC emitida aguardando aceite
         filtered = filtered.filter(s => s.status === 'aguardando_aceite');
         break;
       case 'aguardando_nf':
-        // Aguardando NF/Boleto ou já enviados
         filtered = filtered.filter(s => 
           s.status === 'aguardando_nf_boleto' || s.status === 'nf_boleto_enviados' || s.status === 'enviado_pagamento'
         );
@@ -295,7 +272,6 @@ export default function MinhasSolicitacoes() {
         break;
     }
     
-    // Sort: action required first, then by date
     filtered.sort((a, b) => {
       const priorityStatuses = ['pendente_correcao', 'aguardando_informacoes', 'aguardando_aceite', 'aguardando_nf_boleto'];
       const aPriority = priorityStatuses.includes(a.status) ? 0 : 1;
@@ -307,7 +283,6 @@ export default function MinhasSolicitacoes() {
     return filtered;
   }, [solicitacoes, activeTab]);
 
-  // Count by status for tabs
   const statusCounts = useMemo(() => {
     return {
       todas: solicitacoes.length,
@@ -326,10 +301,6 @@ export default function MinhasSolicitacoes() {
       concluidas: solicitacoes.filter(s => s.status === 'concluida').length,
     };
   }, [solicitacoes]);
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-  };
 
   const formatCurrencyInput = (value: string) => {
     const digits = value.replace(/\D/g, '');
@@ -350,7 +321,6 @@ export default function MinhasSolicitacoes() {
     setExistingAnexos([]);
     setEditOpen(true);
     
-    // Fetch existing attachments
     const { data: anexosData } = await supabase
       .from('anexos')
       .select('id, tipo, nome_arquivo')
@@ -362,7 +332,6 @@ export default function MinhasSolicitacoes() {
   };
 
   const handleDuplicate = (sol: SolicitacaoComFornecedor) => {
-    // Navigate to NovaSolicitacao with pre-filled data
     navigate('/nova-solicitacao', { 
       state: { 
         duplicateFrom: {
@@ -416,12 +385,7 @@ export default function MinhasSolicitacoes() {
   const uploadNewAnexos = async (solicitacaoId: string) => {
     const filesToUpload = Object.entries(editAnexos).filter(([_, file]) => file !== null);
     
-    console.log(`[uploadNewAnexos] Iniciando upload de ${filesToUpload.length} anexos para solicitação ${solicitacaoId}`);
-    
-    if (filesToUpload.length === 0) {
-      console.log('[uploadNewAnexos] Nenhum arquivo para upload');
-      return;
-    }
+    if (filesToUpload.length === 0) return;
     
     const uploadPromises = filesToUpload.map(async ([tipo, uploadedFile]) => {
       if (!uploadedFile) return;
@@ -430,24 +394,13 @@ export default function MinhasSolicitacoes() {
       const fileExt = file.name.split('.').pop();
       const filePath = `${solicitacaoId}/${tipo}_${Date.now()}.${fileExt}`;
       
-      console.log(`[uploadNewAnexos] Uploading ${file.name} (${file.size} bytes) para bucket 'anexos' path: ${filePath}`);
-      
-      const { error: uploadError, data: uploadData } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('anexos')
         .upload(filePath, file);
       
       if (uploadError) {
-        console.error(`[uploadNewAnexos] ERRO no storage upload de ${tipo}:`, {
-          message: uploadError.message,
-          error: uploadError,
-          filePath,
-          fileSize: file.size,
-          fileType: file.type
-        });
         throw new Error(`Erro no upload de ${ATTACHMENT_TYPES[tipo as keyof typeof ATTACHMENT_TYPES] || tipo}: ${uploadError.message}`);
       }
-      
-      console.log(`[uploadNewAnexos] Storage upload OK para ${tipo}:`, uploadData);
       
       const { error: dbError } = await supabase
         .from('anexos')
@@ -461,39 +414,24 @@ export default function MinhasSolicitacoes() {
         });
       
       if (dbError) {
-        console.error(`[uploadNewAnexos] ERRO no insert DB de ${tipo}:`, {
-          message: dbError.message,
-          code: dbError.code,
-          details: dbError.details,
-          hint: dbError.hint
-        });
         throw new Error(`Erro ao salvar registro de ${ATTACHMENT_TYPES[tipo as keyof typeof ATTACHMENT_TYPES] || tipo}: ${dbError.message}`);
       }
-      
-      console.log(`[uploadNewAnexos] Insert DB OK para ${tipo}`);
     });
     
     await Promise.all(uploadPromises);
-    console.log(`[uploadNewAnexos] Todos os ${filesToUpload.length} anexos enviados com sucesso`);
   };
 
   const handleResubmit = async () => {
     if (!editingSolicitacao || !user) return;
     
     setSubmitting(true);
-    console.log(`[handleResubmit] Iniciando reenvio da solicitação ${editingSolicitacao.protocolo} (${editingSolicitacao.id})`);
     
     try {
       const valorNumerico = parseFloat(editValor.replace(/\D/g, '')) / 100 || 0;
       const statusAnterior = editingSolicitacao.status;
       
-      // PRIMEIRO: Upload dos anexos (ANTES de mudar status para evitar inconsistência)
-      console.log('[handleResubmit] Etapa 1: Upload de anexos...');
       await uploadNewAnexos(editingSolicitacao.id);
-      console.log('[handleResubmit] Etapa 1 OK: Anexos enviados');
       
-      // DEPOIS: Atualizar a solicitação
-      console.log('[handleResubmit] Etapa 2: Atualizando solicitação...');
       const { error: updateError } = await supabase
         .from('solicitacoes')
         .update({
@@ -504,31 +442,15 @@ export default function MinhasSolicitacoes() {
         })
         .eq('id', editingSolicitacao.id);
 
-      if (updateError) {
-        console.error('[handleResubmit] ERRO ao atualizar solicitação:', {
-          message: updateError.message,
-          code: updateError.code,
-          details: updateError.details
-        });
-        throw new Error(`Erro ao atualizar solicitação: ${updateError.message}`);
-      }
-      console.log('[handleResubmit] Etapa 2 OK: Solicitação atualizada');
+      if (updateError) throw new Error(`Erro ao atualizar solicitação: ${updateError.message}`);
 
-      // Registrar no histórico
-      console.log('[handleResubmit] Etapa 3: Registrando histórico...');
-      const { error: histError } = await supabase.from('historico_solicitacoes').insert({
+      await supabase.from('historico_solicitacoes').insert({
         solicitacao_id: editingSolicitacao.id,
         user_id: user.id,
         acao: statusAnterior === 'aguardando_informacoes' ? 'resposta_informacoes' : 'reenvio',
         status_anterior: statusAnterior,
         status_novo: 'recebido',
       });
-
-      if (histError) {
-        console.warn('[handleResubmit] Aviso: erro ao registrar histórico:', histError);
-        // Não lançar erro aqui pois o principal já foi feito
-      }
-      console.log('[handleResubmit] Etapa 3 OK: Histórico registrado');
 
       toast({
         title: 'Solicitação reenviada!',
@@ -538,25 +460,14 @@ export default function MinhasSolicitacoes() {
       setEditOpen(false);
       fetchSolicitacoes();
     } catch (error: any) {
-      console.error('[handleResubmit] ERRO GERAL:', error);
       toast({
         title: 'Erro ao reenviar',
-        description: error?.message || 'Erro desconhecido. Verifique o console para detalhes.',
+        description: error?.message || 'Erro desconhecido.',
         variant: 'destructive',
       });
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const getFornecedorNome = (sol: SolicitacaoComFornecedor) => {
-    if (!sol.fornecedor) return null;
-    return sol.fornecedor.nome_fantasia || sol.fornecedor.razao_social || null;
-  };
-
-  const truncateDescription = (desc: string, maxLength = 80) => {
-    if (desc.length <= maxLength) return desc;
-    return desc.substring(0, maxLength).trim() + '...';
   };
 
   const downloadDocumentoEmitido = async (doc: DocumentoEmitido) => {
@@ -568,7 +479,6 @@ export default function MinhasSolicitacoes() {
       if (error) throw error;
       if (data) saveAs(data, doc.nome_arquivo);
     } catch (error) {
-      console.error('Error downloading document:', error);
       toast({
         title: 'Erro ao baixar documento',
         description: 'Tente novamente.',
@@ -577,7 +487,6 @@ export default function MinhasSolicitacoes() {
     }
   };
 
-  // Aceite OC handlers
   const openAceiteModal = (sol: SolicitacaoComFornecedor) => {
     setAceiteSolicitacao(sol);
     setAceiteAjuste('');
@@ -589,7 +498,6 @@ export default function MinhasSolicitacoes() {
     
     setAceiteLoading(true);
     try {
-      // Muda para aguardando_nf_boleto em vez de concluida
       await supabase
         .from('solicitacoes')
         .update({ status: 'aguardando_nf_boleto' as any })
@@ -611,7 +519,6 @@ export default function MinhasSolicitacoes() {
       setAceiteOpen(false);
       fetchSolicitacoes();
     } catch (error) {
-      console.error('Error accepting OC:', error);
       toast({
         title: 'Erro ao aceitar OC',
         description: 'Tente novamente.',
@@ -649,7 +556,6 @@ export default function MinhasSolicitacoes() {
       setAceiteOpen(false);
       fetchSolicitacoes();
     } catch (error) {
-      console.error('Error requesting adjustment:', error);
       toast({
         title: 'Erro ao solicitar ajuste',
         description: 'Tente novamente.',
@@ -660,8 +566,6 @@ export default function MinhasSolicitacoes() {
     }
   };
 
-
-  // NF/Boleto handlers
   const openNfBoletoModal = (sol: SolicitacaoComFornecedor) => {
     setNfBoletoSolicitacao(sol);
     setNfFile(null);
@@ -676,60 +580,33 @@ export default function MinhasSolicitacoes() {
   const handleEnviarNfBoleto = async () => {
     if (!nfBoletoSolicitacao || !user) return;
     
-    // Validação: precisa de boleto sempre, NF apenas se não for pagamento antecipado
     if (!boletoFile) {
-      toast({
-        title: 'Boleto obrigatório',
-        description: 'É necessário anexar o boleto.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Boleto obrigatório', description: 'É necessário anexar o boleto.', variant: 'destructive' });
       return;
     }
 
     if (!pagamentoAntecipado && !nfFile) {
-      toast({
-        title: 'Nota Fiscal obrigatória',
-        description: 'É necessário anexar a Nota Fiscal (ou marcar como pagamento antecipado).',
-        variant: 'destructive',
-      });
+      toast({ title: 'Nota Fiscal obrigatória', description: 'É necessário anexar a Nota Fiscal (ou marcar como pagamento antecipado).', variant: 'destructive' });
       return;
     }
 
     if (!dataVencimentoBoleto) {
-      toast({
-        title: 'Data de vencimento obrigatória',
-        description: 'Informe a data de vencimento do boleto.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Data de vencimento obrigatória', description: 'Informe a data de vencimento do boleto.', variant: 'destructive' });
       return;
     }
 
     setNfBoletoLoading(true);
-    console.log(`[handleEnviarNfBoleto] Iniciando envio de NF/Boleto para solicitação ${nfBoletoSolicitacao.protocolo} (${nfBoletoSolicitacao.id})`);
     
     try {
-      // Upload NF (se existir)
       if (nfFile) {
         const nfExt = nfFile.name.split('.').pop();
         const nfPath = `${user.id}/${nfBoletoSolicitacao.id}/nf_${Date.now()}.${nfExt}`;
         
-        console.log(`[handleEnviarNfBoleto] Etapa 1: Upload NF ${nfFile.name} (${nfFile.size} bytes) para path: ${nfPath}`);
-        
-        const { error: nfUploadError, data: nfUploadData } = await supabase.storage
+        const { error: nfUploadError } = await supabase.storage
           .from('documentos-fiscais')
           .upload(nfPath, nfFile);
         
-        if (nfUploadError) {
-          console.error('[handleEnviarNfBoleto] ERRO no storage upload da NF:', {
-            message: nfUploadError.message,
-            error: nfUploadError,
-            path: nfPath,
-            fileSize: nfFile.size,
-            fileType: nfFile.type
-          });
-          throw new Error(`Erro no upload da Nota Fiscal: ${nfUploadError.message}`);
-        }
-        console.log('[handleEnviarNfBoleto] Storage upload NF OK:', nfUploadData);
+        if (nfUploadError) throw new Error(`Erro no upload da Nota Fiscal: ${nfUploadError.message}`);
 
         const { error: nfDbError } = await supabase.from('documentos_fiscais').insert({
           solicitacao_id: nfBoletoSolicitacao.id,
@@ -743,38 +620,17 @@ export default function MinhasSolicitacoes() {
           user_id: user.id,
         });
 
-        if (nfDbError) {
-          console.error('[handleEnviarNfBoleto] ERRO no insert DB da NF:', {
-            message: nfDbError.message,
-            code: nfDbError.code,
-            details: nfDbError.details
-          });
-          throw new Error(`Erro ao salvar registro da Nota Fiscal: ${nfDbError.message}`);
-        }
-        console.log('[handleEnviarNfBoleto] Insert DB NF OK');
+        if (nfDbError) throw new Error(`Erro ao salvar registro da Nota Fiscal: ${nfDbError.message}`);
       }
 
-      // Upload Boleto
       const boletoExt = boletoFile.name.split('.').pop();
       const boletoPath = `${user.id}/${nfBoletoSolicitacao.id}/boleto_${Date.now()}.${boletoExt}`;
       
-      console.log(`[handleEnviarNfBoleto] Etapa 2: Upload Boleto ${boletoFile.name} (${boletoFile.size} bytes) para path: ${boletoPath}`);
-      
-      const { error: boletoUploadError, data: boletoUploadData } = await supabase.storage
+      const { error: boletoUploadError } = await supabase.storage
         .from('documentos-fiscais')
         .upload(boletoPath, boletoFile);
       
-      if (boletoUploadError) {
-        console.error('[handleEnviarNfBoleto] ERRO no storage upload do Boleto:', {
-          message: boletoUploadError.message,
-          error: boletoUploadError,
-          path: boletoPath,
-          fileSize: boletoFile.size,
-          fileType: boletoFile.type
-        });
-        throw new Error(`Erro no upload do Boleto: ${boletoUploadError.message}`);
-      }
-      console.log('[handleEnviarNfBoleto] Storage upload Boleto OK:', boletoUploadData);
+      if (boletoUploadError) throw new Error(`Erro no upload do Boleto: ${boletoUploadError.message}`);
 
       const { error: boletoDbError } = await supabase.from('documentos_fiscais').insert({
         solicitacao_id: nfBoletoSolicitacao.id,
@@ -789,32 +645,16 @@ export default function MinhasSolicitacoes() {
         user_id: user.id,
       });
 
-      if (boletoDbError) {
-        console.error('[handleEnviarNfBoleto] ERRO no insert DB do Boleto:', {
-          message: boletoDbError.message,
-          code: boletoDbError.code,
-          details: boletoDbError.details
-        });
-        throw new Error(`Erro ao salvar registro do Boleto: ${boletoDbError.message}`);
-      }
-      console.log('[handleEnviarNfBoleto] Insert DB Boleto OK');
+      if (boletoDbError) throw new Error(`Erro ao salvar registro do Boleto: ${boletoDbError.message}`);
 
-      // Update status
-      console.log('[handleEnviarNfBoleto] Etapa 3: Atualizando status da solicitação...');
       const { error: statusError } = await supabase
         .from('solicitacoes')
         .update({ status: 'nf_boleto_enviados' as any })
         .eq('id', nfBoletoSolicitacao.id);
 
-      if (statusError) {
-        console.error('[handleEnviarNfBoleto] ERRO ao atualizar status:', statusError);
-        throw new Error(`Erro ao atualizar status: ${statusError.message}`);
-      }
-      console.log('[handleEnviarNfBoleto] Status atualizado OK');
+      if (statusError) throw new Error(`Erro ao atualizar status: ${statusError.message}`);
 
-      // Create history entry
-      console.log('[handleEnviarNfBoleto] Etapa 4: Registrando histórico...');
-      const { error: histError } = await supabase.from('historico_solicitacoes').insert({
+      await supabase.from('historico_solicitacoes').insert({
         solicitacao_id: nfBoletoSolicitacao.id,
         user_id: user.id,
         acao: pagamentoAntecipado ? 'nf_boleto_enviado_antecipado' : 'nf_boleto_enviado',
@@ -823,11 +663,6 @@ export default function MinhasSolicitacoes() {
         motivo: pagamentoAntecipado ? `Pagamento antecipado: ${justificativaAntecipado}` : null,
       });
 
-      if (histError) {
-        console.warn('[handleEnviarNfBoleto] Aviso: erro ao registrar histórico:', histError);
-      }
-
-      console.log('[handleEnviarNfBoleto] SUCESSO: Todos os documentos enviados');
       toast({
         title: 'Documentos enviados!',
         description: 'NF e Boleto foram enviados para o financeiro.',
@@ -836,10 +671,9 @@ export default function MinhasSolicitacoes() {
       setNfBoletoOpen(false);
       fetchSolicitacoes();
     } catch (error: any) {
-      console.error('[handleEnviarNfBoleto] ERRO GERAL:', error);
       toast({
         title: 'Erro ao enviar documentos',
-        description: error?.message || 'Erro desconhecido. Verifique o console para detalhes.',
+        description: error?.message || 'Erro desconhecido.',
         variant: 'destructive',
       });
     } finally {
@@ -856,13 +690,276 @@ export default function MinhasSolicitacoes() {
       if (error) throw error;
       if (data) saveAs(data, doc.nome_arquivo);
     } catch (error) {
-      console.error('Error downloading fiscal document:', error);
       toast({
         title: 'Erro ao baixar documento',
         description: 'Tente novamente.',
         variant: 'destructive',
       });
     }
+  };
+
+  // Filter bar configuration using design system
+  const tabGroups: TabGroup[] = [
+    {
+      id: 'em_andamento',
+      label: 'Em Andamento',
+      tabs: [
+        { id: 'todas', label: 'Todas', count: statusCounts.todas },
+        { id: 'com_backoffice', label: 'Backoffice', count: statusCounts.com_backoffice },
+        { id: 'oc_emitida', label: 'OC Emitida', count: statusCounts.oc_emitida, variant: 'success', showCountWhenZero: false },
+        { id: 'aguardando_nf', label: 'NF/Boleto', count: statusCounts.aguardando_nf, variant: 'purple', showCountWhenZero: false },
+      ],
+    },
+    {
+      id: 'acoes_pendentes',
+      label: 'Ações Pendentes',
+      icon: <AlertTriangle className="h-3 w-3" />,
+      labelClassName: 'text-destructive',
+      tabs: [
+        { id: 'correcoes', label: 'Correções', count: statusCounts.correcoes, variant: 'destructive', pulseWhenActive: true },
+      ],
+    },
+    {
+      id: 'finalizadas',
+      label: 'Finalizadas',
+      tabs: [
+        { id: 'reprovadas', label: 'Reprovadas', count: statusCounts.reprovadas },
+        { id: 'concluidas', label: 'Concluídas', count: statusCounts.concluidas },
+      ],
+    },
+  ];
+
+  // Render action banner for a solicitacao
+  const renderActionBanner = (sol: SolicitacaoComFornecedor, canTakeAction: boolean) => {
+    if (!canTakeAction) return null;
+    
+    if (sol.status === 'aguardando_nf_boleto') {
+      return (
+        <div className="bg-[hsl(260,70%,50%)] text-white px-4 py-2 flex items-center justify-between rounded-t-lg">
+          <div className="flex items-center gap-2">
+            <Receipt className="h-5 w-5" />
+            <span className="font-semibold">INCLUIR NF E BOLETO</span>
+            <span className="text-sm opacity-90">- Anexe a Nota Fiscal e o Boleto</span>
+          </div>
+          <Button 
+            size="sm" 
+            variant="secondary"
+            onClick={() => openNfBoletoModal(sol)}
+            className="bg-background hover:bg-background/90 text-foreground"
+          >
+            <Upload className="h-4 w-4 mr-1" />
+            Incluir Documentos
+          </Button>
+        </div>
+      );
+    }
+    
+    if (sol.status === 'pendente_correcao') {
+      return (
+        <div className="bg-warning text-warning-foreground px-4 py-2 flex items-center justify-between rounded-t-lg">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5" />
+            <span className="font-semibold">AÇÃO NECESSÁRIA</span>
+            <span className="text-sm opacity-90">- Esta solicitação precisa de correção</span>
+          </div>
+          <Button 
+            size="sm" 
+            variant="secondary"
+            onClick={() => openEditModal(sol)}
+            className="bg-white text-orange-700 hover:bg-white/90 border border-orange-300 shadow-sm"
+          >
+            <Edit className="h-4 w-4 mr-1" />
+            Corrigir Agora
+          </Button>
+        </div>
+      );
+    }
+    
+    if (sol.status === 'aguardando_aceite') {
+      return (
+        <div className="bg-success text-success-foreground px-4 py-2 flex items-center justify-between rounded-t-lg">
+          <div className="flex items-center gap-2">
+            <CheckCircle className="h-5 w-5" />
+            <span className="font-semibold">OC DISPONÍVEL</span>
+            <span className="text-sm opacity-90">- Revise e aceite ou solicite ajuste</span>
+          </div>
+          <Button 
+            size="sm" 
+            variant="secondary"
+            onClick={() => openAceiteModal(sol)}
+            className="bg-white text-green-700 hover:bg-white/90 border border-green-300 shadow-sm"
+          >
+            <CheckCircle className="h-4 w-4 mr-1" />
+            Revisar OC
+          </Button>
+        </div>
+      );
+    }
+    
+    if (sol.status === 'aguardando_informacoes') {
+      return (
+        <div className="bg-info text-info-foreground px-4 py-2 flex items-center justify-between rounded-t-lg">
+          <div className="flex items-center gap-2">
+            <MessageSquare className="h-5 w-5" />
+            <span className="font-semibold">INFORMAÇÕES SOLICITADAS</span>
+            <span className="text-sm opacity-90">- O backoffice precisa de mais informações</span>
+          </div>
+          <Button 
+            size="sm" 
+            variant="secondary"
+            onClick={() => openEditModal(sol)}
+            className="bg-white text-blue-700 hover:bg-white/90 border border-blue-300 shadow-sm"
+          >
+            <Edit className="h-4 w-4 mr-1" />
+            Corrigir e Reenviar
+          </Button>
+        </div>
+      );
+    }
+    
+    return null;
+  };
+
+  // Render info alert for a solicitacao
+  const renderInfoAlert = (sol: SolicitacaoComFornecedor) => {
+    const rejectionInfo = rejectionReasons[sol.id];
+    const infoRequest = infoRequests[sol.id];
+    
+    if (sol.status === 'rejeitado' && rejectionInfo?.motivo) {
+      return (
+        <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+          <div className="flex items-start gap-2">
+            <XCircle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
+            <div>
+              <p className="font-medium text-destructive">Motivo da Reprovação:</p>
+              <p className="text-sm text-muted-foreground mt-1">{rejectionInfo.motivo}</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    if (sol.status === 'aguardando_informacoes' && infoRequest?.motivo) {
+      return (
+        <div className="mb-4 p-3 bg-info/10 border border-info/20 rounded-lg">
+          <div className="flex items-start gap-2">
+            <MessageSquare className="h-5 w-5 text-info mt-0.5 shrink-0" />
+            <div>
+              <p className="font-medium text-info">Informações solicitadas:</p>
+              <p className="text-sm text-muted-foreground mt-1">{infoRequest.motivo}</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    return null;
+  };
+
+  // Render header actions for a solicitacao
+  const renderHeaderActions = (sol: SolicitacaoComFornecedor) => {
+    if (sol.status === 'rejeitado') {
+      return (
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => handleDuplicate(sol)}
+          className="text-primary"
+        >
+          <Copy className="h-4 w-4 mr-1" />
+          Duplicar
+        </Button>
+      );
+    }
+    return null;
+  };
+
+  // Render expanded content for a solicitacao
+  const renderExpandedContent = (sol: SolicitacaoComFornecedor) => {
+    const fiscalNf = sol.documentosFiscais?.find(d => d.tipo === 'nota_fiscal');
+    const fiscalBoleto = sol.documentosFiscais?.find(d => d.tipo === 'boleto');
+    
+    return (
+      <>
+        {/* Download OC/AC if available */}
+        {sol.documentoEmitido && (
+          <div className="p-3 bg-success/10 border border-success/20 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileCheck className="h-5 w-5 text-success" />
+                <span className="font-medium">
+                  {sol.documentoEmitido.tipo_documento} #{sol.documentoEmitido.numero_documento}
+                </span>
+              </div>
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={() => downloadDocumentoEmitido(sol.documentoEmitido!)}
+              >
+                <Download className="h-4 w-4 mr-1" /> Baixar
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Fiscal documents info */}
+        {(fiscalNf || fiscalBoleto) && (
+          <div className="p-3 bg-muted rounded-lg space-y-2">
+            <p className="font-medium text-sm">Documentos Fiscais Enviados:</p>
+            {fiscalNf && (
+              <div className="flex items-center justify-between text-sm">
+                <span>Nota Fiscal: {fiscalNf.nome_arquivo}</span>
+                <Button size="sm" variant="ghost" onClick={() => downloadDocumentoFiscal(fiscalNf)}>
+                  <Download className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+            {fiscalBoleto && (
+              <div className="flex items-center justify-between text-sm">
+                <span>Boleto: {fiscalBoleto.nome_arquivo}</span>
+                <Button size="sm" variant="ghost" onClick={() => downloadDocumentoFiscal(fiscalBoleto)}>
+                  <Download className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Timeline */}
+        <SolicitacaoTimeline solicitacaoId={sol.id} />
+        
+        {/* Fluig Status */}
+        {sol.numero_chamado_fluig && sol.numero_chamado_fluig !== 'RM' && (
+          <FluigStatusCard numeroChamadoFluig={sol.numero_chamado_fluig} />
+        )}
+      </>
+    );
+  };
+
+  // Get card className based on status
+  const getCardClassName = (sol: SolicitacaoComFornecedor, isOwner: boolean) => {
+    const canTakeAction = isOwner;
+    
+    if (sol.status === 'pendente_correcao' && canTakeAction) {
+      return 'border-2 border-warning bg-warning/5 shadow-lg';
+    }
+    if (sol.status === 'rejeitado') {
+      return 'border-destructive/50';
+    }
+    if (sol.status === 'aguardando_aceite' && canTakeAction) {
+      return 'border-2 border-success bg-success/5 shadow-lg';
+    }
+    if (sol.status === 'aguardando_informacoes' && canTakeAction) {
+      return 'border-2 border-info bg-info/5 shadow-lg';
+    }
+    if (sol.status === 'aguardando_nf_boleto' && canTakeAction) {
+      return 'border-2 border-[hsl(260,70%,50%)] bg-[hsl(260,70%,50%)]/5 shadow-lg';
+    }
+    if (!isOwner && viewMode === 'empreendimento') {
+      return 'opacity-90';
+    }
+    
+    return '';
   };
 
   if (loading) {
@@ -878,6 +975,7 @@ export default function MinhasSolicitacoes() {
   return (
     <AppLayout>
       <div className="space-y-6 animate-fade-in">
+        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold">
@@ -890,7 +988,6 @@ export default function MinhasSolicitacoes() {
             </p>
           </div>
           
-          {/* View mode toggle */}
           {userEmpreendimentos.length > 0 && (
             <ToggleGroup 
               type="single" 
@@ -918,113 +1015,74 @@ export default function MinhasSolicitacoes() {
           )}
         </div>
 
-        {/* Grouped Filter Tabs */}
+        {/* Filter Bar with Design System */}
         <div className="flex flex-col lg:flex-row gap-3 lg:gap-2 lg:items-center">
-          {/* Em Andamento */}
-          <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1">Em Andamento</span>
-            <div className="flex gap-1">
-              <Button
-                variant={activeTab === 'todas' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setActiveTab('todas')}
-                className="gap-1 text-xs h-8"
-              >
-                Todas
-                <Badge variant="secondary" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center">{statusCounts.todas}</Badge>
-              </Button>
-              <Button
-                variant={activeTab === 'com_backoffice' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setActiveTab('com_backoffice')}
-                className="gap-1 text-xs h-8"
-              >
-                Backoffice
-                <Badge variant="secondary" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center">{statusCounts.com_backoffice}</Badge>
-              </Button>
-              <Button
-                variant={activeTab === 'oc_emitida' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setActiveTab('oc_emitida')}
-                className="gap-1 text-xs h-8"
-              >
-                OC Emitida
-                {statusCounts.oc_emitida > 0 && (
-                  <Badge variant="default" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center bg-success">{statusCounts.oc_emitida}</Badge>
-                )}
-              </Button>
-              <Button
-                variant={activeTab === 'aguardando_nf' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setActiveTab('aguardando_nf')}
-                className="gap-1 text-xs h-8"
-              >
-                NF/Boleto
-                {statusCounts.aguardando_nf > 0 && (
-                  <Badge variant="default" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center bg-[hsl(260,70%,50%)]">{statusCounts.aguardando_nf}</Badge>
-                )}
-              </Button>
+          {tabGroups.map((group, groupIndex) => (
+            <div key={group.id} className="flex flex-col gap-1.5">
+              <span className={cn(
+                "text-xs font-medium uppercase tracking-wider px-1 flex items-center gap-1",
+                group.labelClassName || "text-muted-foreground"
+              )}>
+                {group.icon}
+                {group.label}
+              </span>
+              <div className="flex gap-1 flex-wrap">
+                {group.tabs.map((tab) => {
+                  const isActive = activeTab === tab.id;
+                  const showBadge = tab.showCountWhenZero !== false || tab.count > 0;
+                  
+                  let buttonVariant: 'default' | 'outline' | 'destructive' = 'outline';
+                  if (isActive) {
+                    buttonVariant = tab.variant === 'destructive' ? 'destructive' : 'default';
+                  }
+                  
+                  const getBadgeClassName = () => {
+                    if (!isActive && tab.count > 0) {
+                      if (tab.variant === 'success') return 'bg-success text-success-foreground';
+                      if (tab.variant === 'purple') return 'bg-[hsl(260,70%,50%)] text-white';
+                      if (tab.variant === 'destructive') return cn('bg-destructive text-destructive-foreground', tab.pulseWhenActive && 'animate-pulse');
+                    }
+                    return '';
+                  };
+                  
+                  const getBorderClassName = () => {
+                    if (!isActive && tab.count > 0 && tab.variant === 'destructive') {
+                      return 'border-destructive text-destructive hover:bg-destructive/10';
+                    }
+                    return '';
+                  };
+                  
+                  return (
+                    <Button
+                      key={tab.id}
+                      variant={buttonVariant}
+                      size="sm"
+                      onClick={() => setActiveTab(tab.id as FilterTab)}
+                      className={cn("gap-1 text-xs h-8", getBorderClassName())}
+                    >
+                      {tab.label}
+                      {showBadge && (
+                        <Badge 
+                          variant={isActive ? 'secondary' : (tab.variant === 'destructive' && tab.count > 0 ? 'destructive' : 'secondary')}
+                          className={cn(
+                            "ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center",
+                            getBadgeClassName()
+                          )}
+                        >
+                          {tab.count}
+                        </Badge>
+                      )}
+                    </Button>
+                  );
+                })}
+              </div>
+              
+              {groupIndex < tabGroups.length - 1 && <FilterBarSeparator />}
             </div>
-          </div>
-
-          {/* Separator */}
-          <div className="hidden lg:block w-px h-12 bg-border mx-2" />
-          <div className="lg:hidden h-px w-full bg-border" />
-
-          {/* Ações Pendentes */}
-          <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium text-destructive uppercase tracking-wider px-1 flex items-center gap-1">
-              <AlertTriangle className="h-3 w-3" />
-              Ações Pendentes
-            </span>
-            <div className="flex gap-1">
-              <Button
-                variant={activeTab === 'correcoes' ? 'destructive' : 'outline'}
-                size="sm"
-                onClick={() => setActiveTab('correcoes')}
-                className={cn(
-                  "gap-1 text-xs h-8",
-                  activeTab !== 'correcoes' && statusCounts.correcoes > 0 && "border-destructive text-destructive hover:bg-destructive/10"
-                )}
-              >
-                Correções
-                {statusCounts.correcoes > 0 && (
-                  <Badge variant="destructive" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center animate-pulse">{statusCounts.correcoes}</Badge>
-                )}
-              </Button>
-            </div>
-          </div>
-
-          {/* Separator */}
-          <div className="hidden lg:block w-px h-12 bg-border mx-2" />
-          <div className="lg:hidden h-px w-full bg-border" />
-
-          {/* Finalizadas */}
-          <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-1">Finalizadas</span>
-            <div className="flex gap-1">
-              <Button
-                variant={activeTab === 'reprovadas' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setActiveTab('reprovadas')}
-                className="gap-1 text-xs h-8"
-              >
-                Reprovadas
-                <Badge variant="secondary" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center">{statusCounts.reprovadas}</Badge>
-              </Button>
-              <Button
-                variant={activeTab === 'concluidas' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setActiveTab('concluidas')}
-                className="gap-1 text-xs h-8"
-              >
-                Concluídas
-                <Badge variant="secondary" className="ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center">{statusCounts.concluidas}</Badge>
-              </Button>
-            </div>
-          </div>
+          ))}
         </div>
 
+        {/* Empty State */}
         {sortedAndFilteredSolicitacoes.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
@@ -1048,354 +1106,65 @@ export default function MinhasSolicitacoes() {
         ) : (
           <div className="space-y-4">
             {sortedAndFilteredSolicitacoes.map((sol) => {
-              const isPendingCorrection = sol.status === 'pendente_correcao';
-              const isRejected = sol.status === 'rejeitado';
-              const isAguardandoAceite = sol.status === 'aguardando_aceite';
-              const isAguardandoInfo = sol.status === 'aguardando_informacoes';
-              const isAguardandoNfBoleto = sol.status === 'aguardando_nf_boleto';
-              const isNfBoletoEnviados = sol.status === 'nf_boleto_enviados' || sol.status === 'enviado_pagamento';
-              const fornecedorNome = getFornecedorNome(sol);
-              const rejectionInfo = rejectionReasons[sol.id];
-              const infoRequest = infoRequests[sol.id];
-              
-              // Check if current user is the owner of this request
               const isOwner = sol.user_id === effectiveUserId;
-              // In empreendimento view, show who created it if not the current user
-              const showOwnerBadge = viewMode === 'empreendimento' && !isOwner && sol.solicitante_nome;
-              // Only show action banners/buttons for owned requests
+              const showOwnerBadge = viewMode === 'empreendimento' && !isOwner;
               const canTakeAction = isOwner;
               
               return (
-                <Card 
-                  key={sol.id} 
-                  className={cn(
-                    'transition-all',
-                    isPendingCorrection && canTakeAction && 'border-2 border-warning bg-warning/5 shadow-lg',
-                    isRejected && 'border-destructive/50',
-                    isAguardandoAceite && canTakeAction && 'border-2 border-success bg-success/5 shadow-lg',
-                    isAguardandoInfo && canTakeAction && 'border-2 border-info bg-info/5 shadow-lg',
-                    isAguardandoNfBoleto && canTakeAction && 'border-2 border-[hsl(260,70%,50%)] bg-[hsl(260,70%,50%)]/5 shadow-lg',
-                    !isOwner && viewMode === 'empreendimento' && 'opacity-90'
-                  )}
-                >
-                  {/* Banner for NF/Boleto needed - only for owner */}
-                  {isAguardandoNfBoleto && canTakeAction && (
-                    <div className="bg-[hsl(260,70%,50%)] text-white px-4 py-2 flex items-center justify-between rounded-t-lg">
-                      <div className="flex items-center gap-2">
-                        <Receipt className="h-5 w-5" />
-                        <span className="font-semibold">INCLUIR NF E BOLETO</span>
-                        <span className="text-sm opacity-90">- Anexe a Nota Fiscal e o Boleto</span>
-                      </div>
-                      <Button 
-                        size="sm" 
-                        variant="secondary"
-                        onClick={() => openNfBoletoModal(sol)}
-                        className="bg-background hover:bg-background/90 text-foreground"
-                      >
-                        <Upload className="h-4 w-4 mr-1" />
-                        Incluir Documentos
-                      </Button>
-                    </div>
-                  )}
-
-                  {/* Action Required Banner for pending correction - only for owner */}
-                  {isPendingCorrection && canTakeAction && (
-                    <div className="bg-warning text-warning-foreground px-4 py-2 flex items-center justify-between rounded-t-lg">
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle className="h-5 w-5" />
-                        <span className="font-semibold">AÇÃO NECESSÁRIA</span>
-                        <span className="text-sm opacity-90">- Esta solicitação precisa de correção</span>
-                      </div>
-                      <Button 
-                        size="sm" 
-                        variant="secondary"
-                        onClick={() => openEditModal(sol)}
-                        className="bg-white text-orange-700 hover:bg-white/90 border border-orange-300 shadow-sm"
-                      >
-                        <Edit className="h-4 w-4 mr-1" />
-                        Corrigir Agora
-                      </Button>
-                    </div>
-                  )}
-
-                  {/* Banner for OC awaiting acceptance - only for owner */}
-                  {isAguardandoAceite && canTakeAction && (
-                    <div className="bg-success text-success-foreground px-4 py-2 flex items-center justify-between rounded-t-lg">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="h-5 w-5" />
-                        <span className="font-semibold">OC DISPONÍVEL</span>
-                        <span className="text-sm opacity-90">- Revise e aceite ou solicite ajuste</span>
-                      </div>
-                      <Button 
-                        size="sm" 
-                        variant="secondary"
-                        onClick={() => openAceiteModal(sol)}
-                        className="bg-white text-green-700 hover:bg-white/90 border border-green-300 shadow-sm"
-                      >
-                        <CheckCircle className="h-4 w-4 mr-1" />
-                        Revisar OC
-                      </Button>
-                    </div>
-                  )}
-
-                  {/* Banner for info request - only for owner */}
-                  {isAguardandoInfo && canTakeAction && (
-                    <div className="bg-info text-info-foreground px-4 py-2 flex items-center justify-between rounded-t-lg">
-                      <div className="flex items-center gap-2">
-                        <MessageSquare className="h-5 w-5" />
-                        <span className="font-semibold">INFORMAÇÕES SOLICITADAS</span>
-                        <span className="text-sm opacity-90">- O backoffice precisa de mais informações</span>
-                      </div>
-                      <Button 
-                        size="sm" 
-                        variant="secondary"
-                        onClick={() => openEditModal(sol)}
-                        className="bg-white text-blue-700 hover:bg-white/90 border border-blue-300 shadow-sm"
-                      >
-                        <Edit className="h-4 w-4 mr-1" />
-                        Corrigir e Reenviar
-                      </Button>
-                    </div>
-                  )}
-                  
-                  {/* Owner badge for empreendimento view */}
-                  {showOwnerBadge && (
-                    <div className="bg-muted/50 px-4 py-2 border-b flex items-center gap-2 text-sm text-muted-foreground">
-                      <User className="h-4 w-4" />
-                      <span>Solicitado por: <strong className="text-foreground">{sol.solicitante_nome}</strong></span>
-                    </div>
-                  )}
-                  
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <CardTitle className="text-lg">#{sol.protocolo}</CardTitle>
-                        <StatusBadge status={sol.status} />
-                        {sol.emergencial && (
-                          <span className="text-xs bg-destructive/10 text-destructive px-2 py-0.5 rounded">
-                            Emergencial
-                          </span>
-                        )}
-                        {sol.numero_chamado_fluig && sol.numero_chamado_fluig === 'RM' && (
-                          <Badge variant="outline" className="text-xs bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800">
-                            RM
-                          </Badge>
-                        )}
-                        {sol.numero_chamado_fluig && sol.numero_chamado_fluig !== 'RM' && (
-                          <Badge variant="outline" className="text-xs bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800">
-                            Fluig: {sol.numero_chamado_fluig}
-                          </Badge>
-                        )}
-                        {sol.tipo_contratacao && (
-                          <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded">
-                            {TIPO_CONTRATACAO_LABELS[sol.tipo_contratacao]}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {isRejected && (
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={() => handleDuplicate(sol)}
-                            className="text-primary"
-                          >
-                            <Copy className="h-4 w-4 mr-1" />
-                            Duplicar
-                          </Button>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => toggleExpand(sol.id)}
-                        >
-                          {expandedId === sol.id ? (
-                            <ChevronUp className="h-4 w-4" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    {/* Rejection reason banner */}
-                    {isRejected && rejectionInfo?.motivo && (
-                      <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
-                        <div className="flex items-start gap-2">
-                          <XCircle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
-                          <div>
-                            <p className="font-medium text-destructive">Motivo da Reprovação:</p>
-                            <p className="text-sm text-muted-foreground mt-1">{rejectionInfo.motivo}</p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Info request banner */}
-                    {isAguardandoInfo && infoRequest?.motivo && (
-                      <div className="mb-4 p-3 bg-info/10 border border-info/20 rounded-lg">
-                        <div className="flex items-start gap-2">
-                          <MessageSquare className="h-5 w-5 text-info mt-0.5 shrink-0" />
-                          <div>
-                            <p className="font-medium text-info">Informações solicitadas:</p>
-                            <p className="text-sm text-muted-foreground mt-1">{infoRequest.motivo}</p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    
-                    <div className="grid gap-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Tipo</span>
-                        <span className="font-medium">{sol.tipo}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Empreendimento</span>
-                        <span>{EMPREENDIMENTO_LABELS[sol.empreendimento]}</span>
-                      </div>
-                      {fornecedorNome && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Fornecedor</span>
-                          <span className="text-right max-w-[60%] truncate">{fornecedorNome}</span>
-                        </div>
-                      )}
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Valor Total</span>
-                        <span className="font-medium">
-                          {sol.faturamento_direto && sol.valor_servico !== null && sol.valor_material !== null
-                            ? formatCurrency((sol.valor_servico || 0) + (sol.valor_material || 0))
-                            : formatCurrency(sol.valor)
-                          }
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Data</span>
-                        <span>{format(new Date(sol.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</span>
-                      </div>
-                      <div className="pt-2 border-t mt-2">
-                        <ExpandableDescription 
-                          description={sol.descricao} 
-                          maxLength={100}
-                          className="text-muted-foreground"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Documento Emitido - OC disponível para download */}
-                    {sol.documentoEmitido && (
-                      <div className="mt-4 p-3 bg-success/10 border border-success/20 rounded-lg">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <FileCheck className="h-5 w-5 text-success" />
-                            <div>
-                              <p className="font-medium text-success">
-                                {sol.documentoEmitido.tipo_documento} #{sol.documentoEmitido.numero_documento}
-                              </p>
-                              <p className="text-xs text-muted-foreground">Documento disponível para download</p>
-                            </div>
-                          </div>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => downloadDocumentoEmitido(sol.documentoEmitido!)}
-                          >
-                            <Download className="h-4 w-4 mr-1" /> Baixar
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Expanded content - Fluig Status + Timeline */}
-                    {expandedId === sol.id && (
-                      <div className="mt-6 pt-4 border-t space-y-6">
-                        {/* Fluig Status Card */}
-                        {sol.numero_chamado_fluig && sol.numero_chamado_fluig !== 'RM' && (
-                          <FluigStatusCard numeroChamadoFluig={sol.numero_chamado_fluig} />
-                        )}
-
-                        {/* Timeline */}
-                        <div>
-                          <div className="flex items-center gap-2 mb-4">
-                            <History className="h-4 w-4 text-muted-foreground" />
-                            <h4 className="font-medium">Histórico</h4>
-                          </div>
-                          <SolicitacaoTimeline solicitacaoId={sol.id} />
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+                <SolicitacaoCard
+                  key={sol.id}
+                  solicitacao={sol as SolicitacaoWithDetails}
+                  variant="detailed"
+                  isExpanded={expandedId === sol.id}
+                  onToggleExpand={() => toggleExpand(sol.id)}
+                  showOwnerBadge={showOwnerBadge}
+                  actionBanner={renderActionBanner(sol, canTakeAction)}
+                  headerActions={renderHeaderActions(sol)}
+                  infoAlert={renderInfoAlert(sol)}
+                  expandedContent={renderExpandedContent(sol)}
+                  className={getCardClassName(sol, isOwner)}
+                />
               );
             })}
           </div>
         )}
       </div>
 
-      {/* Edit Modal for Returned Requests */}
+      {/* Edit Modal */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingSolicitacao?.status === 'aguardando_informacoes' 
-                ? `Responder Solicitação #${editingSolicitacao?.protocolo}`
-                : `Corrigir Solicitação #${editingSolicitacao?.protocolo}`
+                ? 'Responder Solicitação de Informações'
+                : 'Corrigir e Reenviar Solicitação'
               }
             </DialogTitle>
           </DialogHeader>
           
           {editingSolicitacao && (
-            <div className="space-y-4">
-              {/* Show info request message if applicable */}
-              {editingSolicitacao.status === 'aguardando_informacoes' && infoRequests[editingSolicitacao.id]?.motivo && (
-                <div className="p-4 bg-info/10 border border-info/20 rounded-lg">
-                  <p className="font-medium text-info mb-1">Informações solicitadas pelo backoffice:</p>
-                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                    {infoRequests[editingSolicitacao.id]?.motivo}
-                  </p>
-                </div>
-              )}
-
-              {/* Show correction request for pendente_correcao */}
+            <div className="space-y-4 py-2">
+              {/* Correction reason */}
               {editingSolicitacao.status === 'pendente_correcao' && rejectionReasons[editingSolicitacao.id]?.motivo && (
-                <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
-                  <p className="font-medium text-destructive mb-1">Observações do backoffice:</p>
-                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                    {rejectionReasons[editingSolicitacao.id]?.motivo}
+                <div className="p-3 bg-warning/10 border border-warning/20 rounded-lg">
+                  <p className="font-medium text-warning flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4" />
+                    Motivo da correção:
                   </p>
+                  <p className="text-sm mt-1">{rejectionReasons[editingSolicitacao.id].motivo}</p>
                 </div>
               )}
 
-              {/* Show flagged attachments that need correction */}
-              {(() => {
-                const anexosProblema = editingSolicitacao.status === 'aguardando_informacoes'
-                  ? infoRequests[editingSolicitacao.id]?.anexos_com_problema
-                  : rejectionReasons[editingSolicitacao.id]?.anexos_com_problema;
-                
-                if (anexosProblema && anexosProblema.length > 0) {
-                  return (
-                    <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                      <div className="flex items-start gap-2">
-                        <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 shrink-0" />
-                        <div>
-                          <p className="font-medium text-amber-700 dark:text-amber-500 mb-2">
-                            Anexos que precisam ser substituídos:
-                          </p>
-                          <ul className="space-y-1">
-                            {anexosProblema.map((tipo) => (
-                              <li key={tipo} className="text-sm flex items-center gap-2">
-                                <XCircle className="h-4 w-4 text-destructive" />
-                                <span>{ANEXO_LABELS[tipo] || tipo}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                }
-                return null;
-              })()}
+              {/* Info request reason */}
+              {editingSolicitacao.status === 'aguardando_informacoes' && infoRequests[editingSolicitacao.id]?.motivo && (
+                <div className="p-3 bg-info/10 border border-info/20 rounded-lg">
+                  <p className="font-medium text-info flex items-center gap-2">
+                    <MessageSquare className="h-4 w-4" />
+                    Informações solicitadas:
+                  </p>
+                  <p className="text-sm mt-1">{infoRequests[editingSolicitacao.id].motivo}</p>
+                </div>
+              )}
 
               <div>
                 <Label>Descrição</Label>
@@ -1429,7 +1198,7 @@ export default function MinhasSolicitacoes() {
                 </Select>
               </div>
 
-              {/* Existing attachments - highlight those with problems */}
+              {/* Existing attachments */}
               {existingAnexos.length > 0 && (
                 <div className="space-y-2">
                   <Label>Anexos já enviados</Label>
@@ -1512,43 +1281,14 @@ export default function MinhasSolicitacoes() {
         </DialogContent>
       </Dialog>
 
-      {/* Aceite OC Modal */}
-      <Dialog open={aceiteOpen} onOpenChange={setAceiteOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Revisar OC #{aceiteSolicitacao?.protocolo}</DialogTitle>
-          </DialogHeader>
-          
-          {aceiteSolicitacao?.documentoEmitido && (
-            <div className="space-y-4">
-              <div className="p-4 bg-success/10 border border-success/20 rounded-lg">
-                <div className="flex items-center gap-2 mb-2">
-                  <FileCheck className="h-5 w-5 text-success" />
-                  <span className="font-medium text-success">
-                    {aceiteSolicitacao.documentoEmitido.tipo_documento} #{aceiteSolicitacao.documentoEmitido.numero_documento}
-                  </span>
-                </div>
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  onClick={() => downloadDocumentoEmitido(aceiteSolicitacao.documentoEmitido!)}
-                >
-                  <Download className="h-4 w-4 mr-1" /> Baixar OC
-                </Button>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Precisa de algum ajuste? (obrigatório para solicitar ajuste)</Label>
-                <Textarea
-                  placeholder="Descreva o ajuste necessário..."
-                  value={aceiteAjuste}
-                  onChange={(e) => setAceiteAjuste(e.target.value)}
-                  rows={3}
-                />
-              </div>
-            </div>
-          )}
-
+      {/* Aceite OC Modal - Using ActionModal */}
+      <ActionModal
+        open={aceiteOpen}
+        onOpenChange={setAceiteOpen}
+        title={`Revisar OC #${aceiteSolicitacao?.protocolo}`}
+        variant="confirm"
+        loading={aceiteLoading}
+        footer={
           <DialogFooter className="flex flex-col sm:flex-row gap-2">
             <Button variant="outline" onClick={() => setAceiteOpen(false)} disabled={aceiteLoading}>
               Cancelar
@@ -1558,114 +1298,122 @@ export default function MinhasSolicitacoes() {
               onClick={handleSolicitarAjuste} 
               disabled={aceiteLoading || !aceiteAjuste.trim()}
             >
-              {aceiteLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <RotateCcw className="h-4 w-4 mr-2" />
-              )}
+              {aceiteLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RotateCcw className="h-4 w-4 mr-2" />}
               Solicitar Ajuste
             </Button>
             <Button onClick={handleAceitarOC} disabled={aceiteLoading}>
-              {aceiteLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <CheckCircle className="h-4 w-4 mr-2" />
-              )}
+              {aceiteLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle className="h-4 w-4 mr-2" />}
               Aceitar OC
             </Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* NF/Boleto Modal */}
-      <Dialog open={nfBoletoOpen} onOpenChange={setNfBoletoOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Receipt className="h-5 w-5" />
-              Incluir NF e Boleto - #{nfBoletoSolicitacao?.protocolo}
-            </DialogTitle>
-          </DialogHeader>
-          
+        }
+      >
+        {aceiteSolicitacao?.documentoEmitido && (
           <div className="space-y-4">
-            {/* Pagamento Antecipado */}
-            <div className="flex items-center space-x-2 p-3 bg-muted rounded-lg">
-              <Checkbox
-                id="pagamento_antecipado"
-                checked={pagamentoAntecipado}
-                onCheckedChange={(checked) => setPagamentoAntecipado(checked === true)}
-              />
-              <Label htmlFor="pagamento_antecipado" className="text-sm cursor-pointer">
-                Pagamento antecipado (adiantamento)
-              </Label>
+            <div className="p-4 bg-success/10 border border-success/20 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <FileCheck className="h-5 w-5 text-success" />
+                <span className="font-medium text-success">
+                  {aceiteSolicitacao.documentoEmitido.tipo_documento} #{aceiteSolicitacao.documentoEmitido.numero_documento}
+                </span>
+              </div>
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={() => downloadDocumentoEmitido(aceiteSolicitacao.documentoEmitido!)}
+              >
+                <Download className="h-4 w-4 mr-1" /> Baixar OC
+              </Button>
             </div>
 
-            {pagamentoAntecipado && (
-              <div className="space-y-2">
-                <Label>Justificativa do pagamento antecipado</Label>
-                <Textarea
-                  placeholder="Explique o motivo do pagamento antecipado..."
-                  value={justificativaAntecipado}
-                  onChange={(e) => setJustificativaAntecipado(e.target.value)}
-                  rows={2}
-                />
-              </div>
-            )}
-
-            {/* Nota Fiscal */}
-            {!pagamentoAntecipado && (
-              <div className="space-y-2">
-                <Label>Nota Fiscal (PDF/XML) *</Label>
-                <Input
-                  type="file"
-                  accept=".pdf,.xml"
-                  onChange={(e) => setNfFile(e.target.files?.[0] || null)}
-                />
-                <div className="space-y-2">
-                  <Label>Data de emissão da NF</Label>
-                  <Input
-                    type="date"
-                    value={dataEmissaoNF}
-                    onChange={(e) => setDataEmissaoNF(e.target.value)}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Boleto */}
             <div className="space-y-2">
-              <Label>Boleto (PDF) *</Label>
-              <Input
-                type="file"
-                accept=".pdf"
-                onChange={(e) => setBoletoFile(e.target.files?.[0] || null)}
+              <Label>Precisa de algum ajuste? (obrigatório para solicitar ajuste)</Label>
+              <Textarea
+                placeholder="Descreva o ajuste necessário..."
+                value={aceiteAjuste}
+                onChange={(e) => setAceiteAjuste(e.target.value)}
+                rows={3}
               />
-              <div className="space-y-2">
-                <Label>Data de vencimento do boleto *</Label>
-                <Input
-                  type="date"
-                  value={dataVencimentoBoleto}
-                  onChange={(e) => setDataVencimentoBoleto(e.target.value)}
-                />
-              </div>
             </div>
           </div>
+        )}
+      </ActionModal>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setNfBoletoOpen(false)} disabled={nfBoletoLoading}>
-              Cancelar
-            </Button>
-            <Button onClick={handleEnviarNfBoleto} disabled={nfBoletoLoading}>
-              {nfBoletoLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <Send className="h-4 w-4 mr-2" />
-              )}
-              Enviar Documentos
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* NF/Boleto Modal - Using ActionModal */}
+      <ActionModal
+        open={nfBoletoOpen}
+        onOpenChange={setNfBoletoOpen}
+        title={`Incluir NF e Boleto - #${nfBoletoSolicitacao?.protocolo}`}
+        icon={Receipt}
+        variant="form"
+        loading={nfBoletoLoading}
+        onConfirm={handleEnviarNfBoleto}
+        confirmText="Enviar Documentos"
+      >
+        <div className="space-y-4">
+          {/* Pagamento Antecipado */}
+          <div className="flex items-center space-x-2 p-3 bg-muted rounded-lg">
+            <Checkbox
+              id="pagamento_antecipado"
+              checked={pagamentoAntecipado}
+              onCheckedChange={(checked) => setPagamentoAntecipado(checked === true)}
+            />
+            <Label htmlFor="pagamento_antecipado" className="text-sm cursor-pointer">
+              Pagamento antecipado (adiantamento)
+            </Label>
+          </div>
+
+          {pagamentoAntecipado && (
+            <div className="space-y-2">
+              <Label>Justificativa do pagamento antecipado</Label>
+              <Textarea
+                placeholder="Explique o motivo do pagamento antecipado..."
+                value={justificativaAntecipado}
+                onChange={(e) => setJustificativaAntecipado(e.target.value)}
+                rows={2}
+              />
+            </div>
+          )}
+
+          {/* Nota Fiscal */}
+          {!pagamentoAntecipado && (
+            <div className="space-y-2">
+              <Label>Nota Fiscal (PDF/XML) *</Label>
+              <Input
+                type="file"
+                accept=".pdf,.xml"
+                onChange={(e) => setNfFile(e.target.files?.[0] || null)}
+              />
+              <div className="space-y-2">
+                <Label>Data de emissão da NF</Label>
+                <Input
+                  type="date"
+                  value={dataEmissaoNF}
+                  onChange={(e) => setDataEmissaoNF(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Boleto */}
+          <div className="space-y-2">
+            <Label>Boleto (PDF) *</Label>
+            <Input
+              type="file"
+              accept=".pdf"
+              onChange={(e) => setBoletoFile(e.target.files?.[0] || null)}
+            />
+            <div className="space-y-2">
+              <Label>Data de vencimento do boleto *</Label>
+              <Input
+                type="date"
+                value={dataVencimentoBoleto}
+                onChange={(e) => setDataVencimentoBoleto(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+      </ActionModal>
     </AppLayout>
   );
 }
