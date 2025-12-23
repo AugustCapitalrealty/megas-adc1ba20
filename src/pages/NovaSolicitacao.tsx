@@ -532,15 +532,25 @@ export default function NovaSolicitacao() {
         .single();
 
       // Send email notification to backoffice users with email notifications enabled
-      notifyBackofficeNewSolicitacao({
-        protocolo: data.protocolo,
-        descricao: descricao.substring(0, 200),
-        valor: valorNumerico,
-        empreendimento: EMPREENDIMENTO_LABELS[empreendimento as Empreendimento],
-        solicitacao_id: data.id,
-        solicitante_nome: userProfile?.full_name || userProfile?.email || 'Solicitante',
-        solicitante_email: userProfile?.email || undefined,
-      });
+      try {
+        console.log('[EMAIL] Iniciando envio de e-mail para backoffice...');
+        const emailResult = await notifyBackofficeNewSolicitacao({
+          protocolo: data.protocolo,
+          descricao: descricao.substring(0, 200),
+          valor: valorNumerico,
+          empreendimento: EMPREENDIMENTO_LABELS[empreendimento as Empreendimento],
+          solicitacao_id: data.id,
+          solicitante_nome: userProfile?.full_name || userProfile?.email || 'Solicitante',
+          solicitante_email: userProfile?.email || undefined,
+        });
+        console.log('[EMAIL] Resultado do envio:', emailResult);
+        
+        if (!emailResult.success) {
+          console.error('[EMAIL] Falha ao enviar e-mail:', emailResult.error);
+        }
+      } catch (emailError) {
+        console.error('[EMAIL] Erro ao enviar notificação:', emailError);
+      }
 
       toast({
         title: 'Solicitação criada!',

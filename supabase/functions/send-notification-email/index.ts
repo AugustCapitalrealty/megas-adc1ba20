@@ -165,17 +165,28 @@ const getEmailContent = (type: EmailType, data: EmailRequest['data']): { subject
 };
 
 serve(async (req) => {
+  console.log("=== SEND-NOTIFICATION-EMAIL FUNCTION CALLED ===");
+  console.log("Method:", req.method);
+  console.log("Timestamp:", new Date().toISOString());
+  
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
+    console.log("Handling CORS preflight request");
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { type, to, data } = await req.json() as EmailRequest;
+    const body = await req.json();
+    console.log("Request body received:", JSON.stringify(body, null, 2));
     
-    console.log(`Sending ${type} email to ${to}...`, data);
+    const { type, to, data } = body as EmailRequest;
+    
+    console.log(`[EMAIL] Type: ${type}`);
+    console.log(`[EMAIL] To: ${JSON.stringify(to)}`);
+    console.log(`[EMAIL] Data:`, JSON.stringify(data, null, 2));
     
     if (!type || !to || !data) {
+      console.error("[EMAIL] Missing required fields:", { type: !!type, to: !!to, data: !!data });
       throw new Error("Missing required fields: type, to, data");
     }
 
@@ -184,8 +195,11 @@ serve(async (req) => {
     // FIX: Handle both string and array, avoid double-wrapping
     const recipients = Array.isArray(to) ? to : [to];
     
-    console.log(`Recipients (${recipients.length}):`, recipients);
+    console.log(`[EMAIL] Subject: ${subject}`);
+    console.log(`[EMAIL] Recipients (${recipients.length}):`, recipients);
+    console.log(`[EMAIL] RESEND_API_KEY configured:`, !!Deno.env.get("RESEND_API_KEY"));
     
+    console.log("[EMAIL] Calling resend.emails.send...");
     const emailResponse = await resend.emails.send({
       from: "BA Chamados <onboarding@resend.dev>",
       to: recipients,
@@ -193,7 +207,7 @@ serve(async (req) => {
       html,
     });
 
-    console.log("Email sent successfully:", emailResponse);
+    console.log("[EMAIL] Resend response:", JSON.stringify(emailResponse, null, 2));
 
     return new Response(
       JSON.stringify({ success: true, data: emailResponse }),
@@ -203,7 +217,8 @@ serve(async (req) => {
       }
     );
   } catch (error: any) {
-    console.error("Error sending email:", error);
+    console.error("[EMAIL] ERROR:", error.message);
+    console.error("[EMAIL] Error stack:", error.stack);
     return new Response(
       JSON.stringify({ success: false, error: error.message }),
       {
