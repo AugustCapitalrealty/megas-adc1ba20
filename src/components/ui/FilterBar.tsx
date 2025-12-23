@@ -3,7 +3,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, AlertTriangle } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export interface FilterOption {
@@ -32,7 +33,7 @@ export interface StatusTabConfig {
 
 export interface TabGroup {
   id: string;
-  label: string;
+  label?: string;
   icon?: ReactNode;
   labelClassName?: string;
   tabs: StatusTabConfig[];
@@ -111,118 +112,102 @@ export function FilterBar({
         </div>
       )}
       
-      {/* Tab groups */}
+      {/* Tab groups - horizontal layout */}
       {tabGroups.length > 0 && onTabChange && (
-        <div className="flex flex-col lg:flex-row gap-3 lg:gap-2 lg:items-center">
+        <div className="flex flex-wrap items-center gap-1.5">
           {tabGroups.map((group, groupIndex) => (
-            <div key={group.id} className="flex flex-col gap-1.5">
-              {/* Group label */}
-              <span className={cn(
-                "text-xs font-medium uppercase tracking-wider px-1 flex items-center gap-1",
-                group.labelClassName || "text-muted-foreground"
-              )}>
-                {group.icon}
-                {group.label}
-              </span>
+            <div key={group.id} className="contents">
+              {/* Visual separator between groups */}
+              {groupIndex > 0 && (
+                <Separator orientation="vertical" className="h-6 mx-1.5" />
+              )}
+              
+              {/* Group icon (if any) */}
+              {group.icon && (
+                <span className={cn("flex items-center", group.labelClassName)}>
+                  {group.icon}
+                </span>
+              )}
               
               {/* Tabs */}
-              <div className="flex gap-1 flex-wrap">
-                {group.tabs.map((tab) => {
-                  const isActive = activeTab === tab.id;
-                  const showBadge = tab.showCountWhenZero !== false || tab.count > 0;
-                  
-                  // Determine button variant
-                  let buttonVariant: 'default' | 'outline' | 'destructive' = 'outline';
-                  if (isActive) {
-                    buttonVariant = tab.variant === 'destructive' ? 'destructive' : 'default';
+              {group.tabs.map((tab) => {
+                const isActive = activeTab === tab.id;
+                const showBadge = tab.showCountWhenZero !== false || tab.count > 0;
+                
+                // Determine button variant
+                let buttonVariant: 'default' | 'outline' | 'destructive' = 'outline';
+                if (isActive) {
+                  buttonVariant = tab.variant === 'destructive' ? 'destructive' : 'default';
+                }
+                
+                // Determine badge color based on variant when not active
+                const getBadgeStyle = () => {
+                  if (!isActive && tab.count > 0) {
+                    switch (tab.variant) {
+                      case 'destructive':
+                        return 'border-destructive text-destructive hover:bg-destructive/10';
+                      case 'success':
+                        return '';
+                      case 'purple':
+                        return '';
+                      default:
+                        return '';
+                    }
                   }
-                  
-                  // Determine badge color based on variant when not active
-                  const getBadgeStyle = () => {
-                    if (!isActive && tab.count > 0) {
-                      switch (tab.variant) {
-                        case 'destructive':
-                          return 'border-destructive text-destructive hover:bg-destructive/10';
-                        case 'success':
-                          return '';
-                        case 'purple':
-                          return '';
-                        default:
-                          return '';
-                      }
-                    }
-                    return '';
-                  };
-                  
-                  const getBadgeClassName = () => {
-                    if (tab.variant === 'success' && tab.count > 0) {
-                      return 'bg-success text-success-foreground';
-                    }
-                    if (tab.variant === 'purple' && tab.count > 0) {
-                      return 'bg-[hsl(260,70%,50%)] text-white';
-                    }
-                    if (tab.variant === 'destructive' && tab.count > 0) {
-                      return cn(
-                        'bg-destructive text-destructive-foreground',
-                        tab.pulseWhenActive && 'animate-pulse'
-                      );
-                    }
-                    return '';
-                  };
-                  
-                  return (
-                    <Button
-                      key={tab.id}
-                      variant={buttonVariant}
-                      size="sm"
-                      onClick={() => onTabChange(tab.id)}
-                      className={cn(
-                        "gap-1 text-xs h-8",
-                        !isActive && getBadgeStyle()
-                      )}
-                    >
-                      {tab.label}
-                      {showBadge && (
-                        <Badge 
-                          variant={isActive ? 'secondary' : (tab.variant === 'destructive' && tab.count > 0 ? 'destructive' : 'secondary')}
-                          className={cn(
-                            "ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center",
-                            !isActive && getBadgeClassName()
-                          )}
-                        >
-                          {tab.count}
-                        </Badge>
-                      )}
-                    </Button>
-                  );
-                })}
-              </div>
-              
-              {/* Separator between groups */}
-              {groupIndex < tabGroups.length - 1 && (
-                <>
-                  <div className="hidden lg:block w-px h-12 bg-border mx-2 absolute" style={{ display: 'none' }} />
-                </>
-              )}
+                  return '';
+                };
+                
+                const getBadgeClassName = () => {
+                  if (tab.variant === 'success' && tab.count > 0) {
+                    return 'bg-success text-success-foreground';
+                  }
+                  if (tab.variant === 'purple' && tab.count > 0) {
+                    return 'bg-[hsl(260,70%,50%)] text-white';
+                  }
+                  if (tab.variant === 'destructive' && tab.count > 0) {
+                    return cn(
+                      'bg-destructive text-destructive-foreground',
+                      tab.pulseWhenActive && 'animate-pulse'
+                    );
+                  }
+                  return '';
+                };
+                
+                return (
+                  <Button
+                    key={tab.id}
+                    variant={buttonVariant}
+                    size="sm"
+                    onClick={() => onTabChange(tab.id)}
+                    className={cn(
+                      "gap-1 text-xs h-8",
+                      !isActive && getBadgeStyle()
+                    )}
+                  >
+                    {tab.label}
+                    {showBadge && (
+                      <Badge 
+                        variant={isActive ? 'secondary' : (tab.variant === 'destructive' && tab.count > 0 ? 'destructive' : 'secondary')}
+                        className={cn(
+                          "ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center",
+                          !isActive && getBadgeClassName()
+                        )}
+                      >
+                        {tab.count}
+                      </Badge>
+                    )}
+                  </Button>
+                );
+              })}
             </div>
           ))}
-          
-          {/* Group separators */}
-          {tabGroups.length > 1 && (
-            <style>{`
-              .flex.flex-col.lg\\:flex-row > div:not(:last-child)::after {
-                content: '';
-                display: block;
-              }
-            `}</style>
-          )}
         </div>
       )}
     </div>
   );
 }
 
-// Helper component for tab group separator
+// Helper component for tab group separator (deprecated, now built-in)
 export function FilterBarSeparator() {
   return (
     <>
