@@ -96,11 +96,10 @@ export function AnexoCard({ anexo, showTipo = true }: AnexoCardProps) {
 
   const tipoLabel = ANEXO_LABELS[anexo.tipo] || anexo.tipo;
   const fileSize = formatFileSize(anexo.tamanho_bytes);
-  const isLongName = anexo.nome_arquivo.length > 35;
 
   return (
     <div className={cn(
-      "group flex items-center gap-3 p-3 rounded-lg border transition-all duration-200",
+      "group flex items-center gap-3 p-3 rounded-lg border transition-all duration-200 w-full",
       "hover:shadow-sm cursor-pointer",
       // Visual hierarchy based on importance
       importancia === 'primary' && "bg-primary/5 border-primary/30 hover:bg-primary/10 hover:border-primary/50",
@@ -123,7 +122,7 @@ export function AnexoCard({ anexo, showTipo = true }: AnexoCardProps) {
       </div>
 
       {/* File Info */}
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 overflow-hidden">
         <div className="flex items-center gap-2">
           {showTipo && (
             <Badge 
@@ -140,18 +139,13 @@ export function AnexoCard({ anexo, showTipo = true }: AnexoCardProps) {
         </div>
         <Tooltip>
           <TooltipTrigger asChild>
-            <p className={cn(
-              "text-sm font-medium truncate mt-0.5",
-              isLongName && "cursor-help"
-            )}>
+            <p className="text-sm font-medium truncate mt-0.5 max-w-full cursor-help">
               {anexo.nome_arquivo}
             </p>
           </TooltipTrigger>
-          {isLongName && (
-            <TooltipContent side="top" className="max-w-[400px] break-all">
-              {anexo.nome_arquivo}
-            </TooltipContent>
-          )}
+          <TooltipContent side="top" className="max-w-[400px] break-all">
+            {anexo.nome_arquivo}
+          </TooltipContent>
         </Tooltip>
         {fileSize && (
           <p className="text-xs text-muted-foreground">{fileSize}</p>
