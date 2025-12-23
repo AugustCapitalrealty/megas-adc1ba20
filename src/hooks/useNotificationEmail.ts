@@ -1,6 +1,9 @@
 import { supabase } from '@/integrations/supabase/client';
 
-type EmailType = 
+// Flag temporária - alterar para true quando o DNS estiver configurado no Resend
+const EMAIL_NOTIFICATIONS_ENABLED = false;
+
+type EmailType =
   | 'nova_solicitacao_backoffice'
   | 'documento_oc_emitido';
 
@@ -21,6 +24,12 @@ export async function sendNotificationEmail(
   to: string | string[],
   data: EmailData
 ): Promise<{ success: boolean; error?: string }> {
+  // Verificar se notificações por email estão ativas
+  if (!EMAIL_NOTIFICATIONS_ENABLED) {
+    console.log('[EMAIL] Notificações por email desativadas temporariamente');
+    return { success: true };
+  }
+
   try {
     const recipients = Array.isArray(to) ? to : [to];
     
