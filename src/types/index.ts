@@ -19,7 +19,7 @@ export type NaturezaOrcamentaria =
   | 'manutencao_maquinas_equipamentos'
   | 'despesas_pessoal'
   | 'despesas_administrador';
-export type TipoContratacao = 'servicos' | 'material_construcao' | 'material_consumo' | 'combustivel' | 'taxas';
+export type TipoContratacao = 'servicos' | 'material_construcao' | 'material_consumo' | 'combustivel' | 'taxas' | 'agua' | 'energia';
 export type OrigemCusto = 'empreendimento' | 'cliente';
 export type TipoGarantia = 'servico' | 'produto' | 'nenhuma' | 'ambos';
 export type TipoDocumentoFiscal = 'nota_fiscal' | 'boleto';
@@ -170,6 +170,8 @@ export const TIPO_CONTRATACAO_LABELS: Record<TipoContratacao, string> = {
   material_consumo: 'Material de Consumo (OC)',
   combustivel: 'Combustível (OC)',
   taxas: 'Taxas e Tributos (OC)',
+  agua: 'Água (OC)',
+  energia: 'Energia (OC)',
 };
 
 export const STATUS_LABELS: Record<RequestStatus, string> = {

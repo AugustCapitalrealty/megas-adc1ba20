@@ -869,6 +869,8 @@ export type Database = {
         | "material_consumo"
         | "combustivel"
         | "taxas"
+        | "agua"
+        | "energia"
       tipo_garantia: "servico" | "produto" | "nenhuma" | "ambos"
     }
     CompositeTypes: {
@@ -1040,6 +1042,8 @@ export const Constants = {
         "material_consumo",
         "combustivel",
         "taxas",
+        "agua",
+        "energia",
       ],
       tipo_garantia: ["servico", "produto", "nenhuma", "ambos"],
     },

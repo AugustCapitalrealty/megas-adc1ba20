@@ -57,6 +57,8 @@ const TIPO_TO_NATUREZA: Record<string, NaturezaOrcamentaria> = {
   material_consumo: 'material_consumo',
   combustivel: 'servicos_diversos',
   taxas: 'taxa_impostos',
+  agua: 'agua',
+  energia: 'energia_eletrica',
 };
 
 interface DuplicateData {
