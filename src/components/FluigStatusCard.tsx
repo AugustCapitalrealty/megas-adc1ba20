@@ -106,7 +106,7 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
     const { data, error } = await supabase
       .from('fluig_painel_snapshot')
       .select('solicitacao_fluig, responsavel_atual, localizacao, situacao, data_lancamento, gerencia_conclusao, gerencia_facilities_conclusao, gerencia_financeiro_conclusao, diretoria_conclusao')
-      .eq('solicitacao_fluig', numeroChamadoFluig)
+      .eq('solicitacao_fluig', numeroChamadoFluig.trim())
       .maybeSingle();
 
     if (!error && data) {
