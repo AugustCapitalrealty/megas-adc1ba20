@@ -356,9 +356,9 @@ export function FluigImport({ onImportComplete }: FluigImportProps) {
           </CardHeader>
           <CardContent className="p-0">
             <div className="p-6 space-y-6">
-              {/* Statistics Cards */}
+              {/* Statistics Cards - Improved with action context */}
               <div className="grid grid-cols-3 gap-4">
-                <div className="relative overflow-hidden rounded-xl border bg-gradient-to-br from-muted/50 to-muted/30 p-4">
+                <div className="relative overflow-hidden rounded-xl border bg-gradient-to-br from-muted/50 to-muted/30 p-4 transition-all hover:shadow-md">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-xl bg-foreground/5 flex items-center justify-center">
                       <FileText className="h-6 w-6 text-foreground/70" />
@@ -370,44 +370,77 @@ export function FluigImport({ onImportComplete }: FluigImportProps) {
                   </div>
                 </div>
 
-                <div className="relative overflow-hidden rounded-xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 p-4">
+                <div className="relative overflow-hidden rounded-xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 p-4 transition-all hover:shadow-md hover:border-emerald-500/50">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-xl bg-emerald-500/20 flex items-center justify-center">
                       <CheckCircle className="h-6 w-6 text-emerald-600" />
                     </div>
                     <div>
                       <p className="text-3xl font-bold text-emerald-600">{parseResult.data.length}</p>
-                      <p className="text-xs text-muted-foreground">Linhas válidas</p>
+                      <p className="text-xs text-muted-foreground">Prontas para importar</p>
                     </div>
                   </div>
                 </div>
 
-                <div className="relative overflow-hidden rounded-xl border border-destructive/30 bg-gradient-to-br from-destructive/10 to-destructive/5 p-4">
+                <div className={cn(
+                  "relative overflow-hidden rounded-xl border p-4 transition-all hover:shadow-md",
+                  parseResult.invalidRows.length > 0 
+                    ? "border-destructive/30 bg-gradient-to-br from-destructive/10 to-destructive/5 hover:border-destructive/50"
+                    : "border-muted bg-gradient-to-br from-muted/50 to-muted/30"
+                )}>
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-destructive/20 flex items-center justify-center">
-                      <XCircle className="h-6 w-6 text-destructive" />
+                    <div className={cn(
+                      "w-12 h-12 rounded-xl flex items-center justify-center",
+                      parseResult.invalidRows.length > 0 ? "bg-destructive/20" : "bg-muted"
+                    )}>
+                      <XCircle className={cn(
+                        "h-6 w-6",
+                        parseResult.invalidRows.length > 0 ? "text-destructive" : "text-muted-foreground"
+                      )} />
                     </div>
                     <div>
-                      <p className="text-3xl font-bold text-destructive">{parseResult.invalidRows.length}</p>
-                      <p className="text-xs text-muted-foreground">Sem solicitação</p>
+                      <p className={cn(
+                        "text-3xl font-bold",
+                        parseResult.invalidRows.length > 0 ? "text-destructive" : "text-muted-foreground"
+                      )}>
+                        {parseResult.invalidRows.length}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {parseResult.invalidRows.length > 0 ? 'Precisam de correção' : 'Sem problemas'}
+                      </p>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Invalid Rows Warning */}
+              {/* Invalid Rows Warning - More actionable */}
               {parseResult.invalidRows.length > 0 && (
                 <Alert className="border-amber-500/50 bg-amber-500/5">
                   <AlertCircle className="h-4 w-4 text-amber-500" />
-                  <AlertTitle className="text-amber-700 dark:text-amber-400">Linhas ignoradas</AlertTitle>
+                  <AlertTitle className="text-amber-700 dark:text-amber-400 flex items-center justify-between">
+                    <span>Linhas ignoradas na importação</span>
+                    <Badge variant="outline" className="ml-2 text-amber-600 border-amber-500/50">
+                      {parseResult.invalidRows.length} {parseResult.invalidRows.length === 1 ? 'linha' : 'linhas'}
+                    </Badge>
+                  </AlertTitle>
                   <AlertDescription>
-                    <ScrollArea className="h-20 mt-2">
-                      <ul className="text-xs space-y-1 text-muted-foreground">
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Estas linhas não possuem número de solicitação e serão ignoradas durante a importação:
+                    </p>
+                    <ScrollArea className="h-24 rounded-md border border-amber-500/20 bg-amber-500/5 p-2">
+                      <ul className="text-xs space-y-1">
                         {parseResult.invalidRows.slice(0, 15).map((inv, i) => (
-                          <li key={i}>Linha {inv.row}: {inv.reason}</li>
+                          <li key={i} className="flex items-center gap-2 py-0.5">
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-mono">
+                              Linha {inv.row}
+                            </Badge>
+                            <span className="text-muted-foreground">{inv.reason}</span>
+                          </li>
                         ))}
                         {parseResult.invalidRows.length > 15 && (
-                          <li className="font-medium text-amber-600">... e mais {parseResult.invalidRows.length - 15} linhas</li>
+                          <li className="font-medium text-amber-600 pt-1">
+                            ... e mais {parseResult.invalidRows.length - 15} linhas com problemas similares
+                          </li>
                         )}
                       </ul>
                     </ScrollArea>
@@ -464,81 +497,94 @@ export function FluigImport({ onImportComplete }: FluigImportProps) {
 
                   <Separator />
 
-                  {/* Sample Table */}
+                  {/* Sample Table - Improved with sticky header */}
                   <div className="space-y-3">
-                    <Label className="text-xs text-muted-foreground">
-                      Amostra dos dados (primeiras 5 linhas)
-                    </Label>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs text-muted-foreground">
+                        Amostra dos dados (primeiras 5 linhas)
+                      </Label>
+                      <Badge variant="outline" className="text-[10px]">
+                        {parseResult.data.length} registros válidos
+                      </Badge>
+                    </div>
                     <TooltipProvider>
-                      <div className="rounded-xl border overflow-hidden">
-                        <Table>
-                          <TableHeader>
-                            <TableRow className="bg-muted/50 hover:bg-muted/50">
-                              <TableHead className="w-[100px] text-xs font-semibold">Solicitação</TableHead>
-                              <TableHead className="text-xs font-semibold">Empreendimento</TableHead>
-                              <TableHead className="text-xs font-semibold">Fornecedor</TableHead>
-                              <TableHead className="w-[100px] text-xs font-semibold text-right">Valor</TableHead>
-                              <TableHead className="w-[120px] text-xs font-semibold text-center">Situação</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {parseResult.data.slice(0, 5).map((row, i) => (
-                              <TableRow key={i} className={cn(i % 2 === 0 ? 'bg-background' : 'bg-muted/20')}>
-                                <TableCell className="font-mono font-medium text-xs">
-                                  {row.solicitacao_fluig}
-                                </TableCell>
-                                <TableCell className="text-xs">
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <span className="block truncate max-w-[180px] cursor-default">
-                                        {row.empreendimento || '-'}
-                                      </span>
-                                    </TooltipTrigger>
-                                    {row.empreendimento && (
-                                      <TooltipContent side="top" className="max-w-[300px]">
-                                        {row.empreendimento}
-                                      </TooltipContent>
-                                    )}
-                                  </Tooltip>
-                                </TableCell>
-                                <TableCell className="text-xs">
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <span className="block truncate max-w-[150px] cursor-default">
-                                        {row.fornecedor || '-'}
-                                      </span>
-                                    </TooltipTrigger>
-                                    {row.fornecedor && (
-                                      <TooltipContent side="top" className="max-w-[300px]">
-                                        {row.fornecedor}
-                                      </TooltipContent>
-                                    )}
-                                  </Tooltip>
-                                </TableCell>
-                                <TableCell className="text-xs text-right font-medium">
-                                  {formatCurrency(row.valor)}
-                                </TableCell>
-                                <TableCell className="text-center">
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <span className={cn(
-                                        'inline-block px-2 py-0.5 rounded-full text-[10px] font-medium truncate max-w-[100px] cursor-default',
-                                        getSituacaoColor(row.situacao)
-                                      )}>
-                                        {row.situacao || '-'}
-                                      </span>
-                                    </TooltipTrigger>
-                                    {row.situacao && (
-                                      <TooltipContent side="top">
-                                        {row.situacao}
-                                      </TooltipContent>
-                                    )}
-                                  </Tooltip>
-                                </TableCell>
+                      <div className="rounded-xl border overflow-hidden bg-card">
+                        <div className="max-h-[280px] overflow-auto">
+                          <Table>
+                            <TableHeader className="sticky top-0 z-10">
+                              <TableRow className="bg-muted hover:bg-muted border-b">
+                                <TableHead className="w-[100px] text-xs font-semibold">Solicitação</TableHead>
+                                <TableHead className="text-xs font-semibold">Empreendimento</TableHead>
+                                <TableHead className="text-xs font-semibold">Fornecedor</TableHead>
+                                <TableHead className="w-[100px] text-xs font-semibold text-right">Valor</TableHead>
+                                <TableHead className="w-[130px] text-xs font-semibold text-center">Situação</TableHead>
                               </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
+                            </TableHeader>
+                            <TableBody>
+                              {parseResult.data.slice(0, 5).map((row, i) => (
+                                <TableRow 
+                                  key={i} 
+                                  className={cn(
+                                    "transition-colors",
+                                    i % 2 === 0 ? 'bg-background' : 'bg-muted/30'
+                                  )}
+                                >
+                                  <TableCell className="font-mono font-semibold text-xs text-primary">
+                                    {row.solicitacao_fluig}
+                                  </TableCell>
+                                  <TableCell className="text-xs">
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className="block truncate max-w-[180px] cursor-default">
+                                          {row.empreendimento || '-'}
+                                        </span>
+                                      </TooltipTrigger>
+                                      {row.empreendimento && (
+                                        <TooltipContent side="top" className="max-w-[300px]">
+                                          {row.empreendimento}
+                                        </TooltipContent>
+                                      )}
+                                    </Tooltip>
+                                  </TableCell>
+                                  <TableCell className="text-xs">
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className="block truncate max-w-[150px] cursor-default">
+                                          {row.fornecedor || '-'}
+                                        </span>
+                                      </TooltipTrigger>
+                                      {row.fornecedor && (
+                                        <TooltipContent side="top" className="max-w-[300px]">
+                                          {row.fornecedor}
+                                        </TooltipContent>
+                                      )}
+                                    </Tooltip>
+                                  </TableCell>
+                                  <TableCell className="text-xs text-right font-medium">
+                                    {formatCurrency(row.valor)}
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className={cn(
+                                          'inline-flex items-center justify-center px-2.5 py-1 rounded-full text-[10px] font-medium truncate max-w-[120px] cursor-default',
+                                          getSituacaoColor(row.situacao)
+                                        )}>
+                                          {row.situacao || '-'}
+                                        </span>
+                                      </TooltipTrigger>
+                                      {row.situacao && (
+                                        <TooltipContent side="top">
+                                          {row.situacao}
+                                        </TooltipContent>
+                                      )}
+                                    </Tooltip>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
                       </div>
                     </TooltipProvider>
                   </div>
