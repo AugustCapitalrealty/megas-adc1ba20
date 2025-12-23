@@ -702,6 +702,7 @@ export default function MinhasSolicitacoes() {
   const tabGroups: TabGroup[] = [
     {
       id: 'em_andamento',
+      label: 'EM ANDAMENTO',
       tabs: [
         { id: 'todas', label: 'Todas', count: statusCounts.todas },
         { id: 'com_backoffice', label: 'Backoffice', count: statusCounts.com_backoffice },
@@ -711,6 +712,7 @@ export default function MinhasSolicitacoes() {
     },
     {
       id: 'acoes_pendentes',
+      label: 'AÇÕES PENDENTES',
       icon: <AlertTriangle className="h-3.5 w-3.5 text-destructive" />,
       tabs: [
         { id: 'correcoes', label: 'Correções', count: statusCounts.correcoes, variant: 'destructive', pulseWhenActive: true },
@@ -718,6 +720,7 @@ export default function MinhasSolicitacoes() {
     },
     {
       id: 'finalizadas',
+      label: 'FINALIZADAS',
       tabs: [
         { id: 'reprovadas', label: 'Reprovadas', count: statusCounts.reprovadas },
         { id: 'concluidas', label: 'Concluídas', count: statusCounts.concluidas },
