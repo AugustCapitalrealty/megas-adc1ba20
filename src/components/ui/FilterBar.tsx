@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import React, { ReactNode } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -114,92 +114,95 @@ export function FilterBar({
       
       {/* Tab groups - horizontal layout */}
       {tabGroups.length > 0 && onTabChange && (
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex items-center gap-2 flex-wrap">
           {tabGroups.map((group, groupIndex) => (
-            <div key={group.id} className="contents">
+            <React.Fragment key={group.id}>
               {/* Visual separator between groups */}
               {groupIndex > 0 && (
-                <Separator orientation="vertical" className="h-6 mx-1.5" />
+                <div className="h-6 w-px bg-border shrink-0" />
               )}
               
-              {/* Group icon (if any) */}
-              {group.icon && (
-                <span className={cn("flex items-center", group.labelClassName)}>
-                  {group.icon}
-                </span>
-              )}
-              
-              {/* Tabs */}
-              {group.tabs.map((tab) => {
-                const isActive = activeTab === tab.id;
-                const showBadge = tab.showCountWhenZero !== false || tab.count > 0;
+              {/* Group with icon + tabs */}
+              <div className="flex items-center gap-1.5">
+                {/* Group icon (if any) */}
+                {group.icon && (
+                  <span className={cn("flex items-center mr-0.5", group.labelClassName)}>
+                    {group.icon}
+                  </span>
+                )}
                 
-                // Determine button variant
-                let buttonVariant: 'default' | 'outline' | 'destructive' = 'outline';
-                if (isActive) {
-                  buttonVariant = tab.variant === 'destructive' ? 'destructive' : 'default';
-                }
-                
-                // Determine badge color based on variant when not active
-                const getBadgeStyle = () => {
-                  if (!isActive && tab.count > 0) {
-                    switch (tab.variant) {
-                      case 'destructive':
-                        return 'border-destructive text-destructive hover:bg-destructive/10';
-                      case 'success':
-                        return '';
-                      case 'purple':
-                        return '';
-                      default:
-                        return '';
+                {/* Tabs */}
+                {group.tabs.map((tab) => {
+                  const isActive = activeTab === tab.id;
+                  const showBadge = tab.showCountWhenZero !== false || tab.count > 0;
+                  
+                  // Determine button variant
+                  let buttonVariant: 'default' | 'outline' | 'destructive' = 'outline';
+                  if (isActive) {
+                    buttonVariant = tab.variant === 'destructive' ? 'destructive' : 'default';
+                  }
+                  
+                  // Determine badge color based on variant when not active
+                  const getBadgeStyle = () => {
+                    if (!isActive && tab.count > 0) {
+                      switch (tab.variant) {
+                        case 'destructive':
+                          return 'border-destructive text-destructive hover:bg-destructive/10';
+                        case 'success':
+                          return '';
+                        case 'purple':
+                          return '';
+                        default:
+                          return '';
+                      }
                     }
-                  }
-                  return '';
-                };
-                
-                const getBadgeClassName = () => {
-                  if (tab.variant === 'success' && tab.count > 0) {
-                    return 'bg-success text-success-foreground';
-                  }
-                  if (tab.variant === 'purple' && tab.count > 0) {
-                    return 'bg-[hsl(260,70%,50%)] text-white';
-                  }
-                  if (tab.variant === 'destructive' && tab.count > 0) {
-                    return cn(
-                      'bg-destructive text-destructive-foreground',
-                      tab.pulseWhenActive && 'animate-pulse'
-                    );
-                  }
-                  return '';
-                };
-                
-                return (
-                  <Button
-                    key={tab.id}
-                    variant={buttonVariant}
-                    size="sm"
-                    onClick={() => onTabChange(tab.id)}
-                    className={cn(
-                      "gap-1 text-xs h-8",
-                      !isActive && getBadgeStyle()
-                    )}
-                  >
-                    {tab.label}
-                    {showBadge && (
-                      <Badge 
-                        variant={isActive ? 'secondary' : (tab.variant === 'destructive' && tab.count > 0 ? 'destructive' : 'secondary')}
-                        className={cn(
-                          "ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center",
-                          !isActive && getBadgeClassName()
-                        )}
-                      >
-                        {tab.count}
-                      </Badge>
-                    )}
-                  </Button>
-                );
-              })}
-            </div>
+                    return '';
+                  };
+                  
+                  const getBadgeClassName = () => {
+                    if (tab.variant === 'success' && tab.count > 0) {
+                      return 'bg-success text-success-foreground';
+                    }
+                    if (tab.variant === 'purple' && tab.count > 0) {
+                      return 'bg-[hsl(260,70%,50%)] text-white';
+                    }
+                    if (tab.variant === 'destructive' && tab.count > 0) {
+                      return cn(
+                        'bg-destructive text-destructive-foreground',
+                        tab.pulseWhenActive && 'animate-pulse'
+                      );
+                    }
+                    return '';
+                  };
+                  
+                  return (
+                    <Button
+                      key={tab.id}
+                      variant={buttonVariant}
+                      size="sm"
+                      onClick={() => onTabChange(tab.id)}
+                      className={cn(
+                        "gap-1 text-xs h-8",
+                        !isActive && getBadgeStyle()
+                      )}
+                    >
+                      {tab.label}
+                      {showBadge && (
+                        <Badge 
+                          variant={isActive ? 'secondary' : (tab.variant === 'destructive' && tab.count > 0 ? 'destructive' : 'secondary')}
+                          className={cn(
+                            "ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center",
+                            !isActive && getBadgeClassName()
+                          )}
+                        >
+                          {tab.count}
+                        </Badge>
+                      )}
+                    </Button>
+                  );
+                })}
+              </div>
+            </React.Fragment>
           ))}
         </div>
       )}
