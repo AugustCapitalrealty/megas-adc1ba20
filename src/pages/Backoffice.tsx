@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { SolicitacaoTimeline } from '@/components/SolicitacaoTimeline';
@@ -1114,53 +1115,57 @@ export default function Backoffice() {
 
       {/* Details Modal */}
       <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-3">
-              <Badge variant={selectedSolicitacao?.tipo === 'AC' ? 'default' : 'secondary'}>
-                {selectedSolicitacao?.tipo}
-              </Badge>
-              <span className="font-mono">#{selectedSolicitacao?.protocolo}</span>
-              {selectedSolicitacao && (
-                <StatusBadge status={selectedSolicitacao.status} className="ml-auto" />
-              )}
-            </DialogTitle>
+        <DialogContent className="max-w-4xl w-[95vw] h-[90vh] flex flex-col p-0 gap-0">
+          {/* Header Fixo */}
+          <DialogHeader className="flex-shrink-0 border-b px-6 py-4 bg-background">
+            <div className="flex items-center justify-between gap-4">
+              <DialogTitle className="flex items-center gap-3 flex-wrap">
+                <Badge variant={selectedSolicitacao?.tipo === 'AC' ? 'default' : 'secondary'} className="text-sm">
+                  {selectedSolicitacao?.tipo}
+                </Badge>
+                <span className="font-mono text-lg">#{selectedSolicitacao?.protocolo}</span>
+                {selectedSolicitacao && (
+                  <StatusBadge status={selectedSolicitacao.status} />
+                )}
+                {detalhes?.solicitacao?.emergencial && (
+                  <Badge variant="destructive" className="gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    Emergencial
+                  </Badge>
+                )}
+              </DialogTitle>
+              <span className="text-2xl font-bold text-primary whitespace-nowrap">
+                {selectedSolicitacao?.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+              </span>
+            </div>
+            {/* SLA Badges */}
+            {selectedSolicitacao && (() => {
+              const sla = getSLAInfo(selectedSolicitacao);
+              return (
+                <div className="flex gap-2 text-xs mt-2">
+                  <Badge variant={sla.atrasadoAnalise ? "destructive" : "outline"}>
+                    <Clock className="h-3 w-3 mr-1" />
+                    {sla.tempoDesdeAbertura} desde abertura
+                  </Badge>
+                  {sla.tempoDesdeAprovacao !== null && (
+                    <Badge variant={sla.atrasadoEmissao ? "destructive" : "outline"}>
+                      {sla.tempoDesdeAprovacao} desde assumido
+                    </Badge>
+                  )}
+                </div>
+              );
+            })()}
           </DialogHeader>
           
+          {/* Corpo Scrollável */}
           {detalhesLoading ? (
-            <div className="flex items-center justify-center py-12">
+            <div className="flex-1 flex items-center justify-center">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : detalhes?.solicitacao ? (
-            <ScrollArea className="max-h-[60vh]">
+            <div className="flex-1 overflow-y-auto px-6 py-6">
               <TooltipProvider>
-              <div className="space-y-6 pr-4">
-                {/* SLA Info */}
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  {detalhes.solicitacao.emergencial && (
-                    <Badge variant="destructive" className="gap-1">
-                      <AlertTriangle className="h-3 w-3" />
-                      Emergencial
-                    </Badge>
-                  )}
-                  {selectedSolicitacao && (() => {
-                    const sla = getSLAInfo(selectedSolicitacao);
-                    return (
-                      <div className="flex gap-2 text-xs ml-auto">
-                        <Badge variant={sla.atrasadoAnalise ? "destructive" : "outline"}>
-                          {sla.tempoDesdeAbertura} desde abertura
-                        </Badge>
-                        {sla.tempoDesdeAprovacao !== null && (
-                          <Badge variant={sla.atrasadoEmissao ? "destructive" : "outline"}>
-                            {sla.tempoDesdeAprovacao} desde assumido
-                          </Badge>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </div>
-
-                <Separator />
+              <div className="space-y-6">
 
                 {/* Documento Emitido (se existir) */}
                 {detalhes.documentos_emitidos && detalhes.documentos_emitidos.length > 0 && (
@@ -1440,13 +1445,20 @@ export default function Backoffice() {
                   )}
                 </div>
 
-                {/* Histórico / Timeline */}
-                <div>
-                  <h4 className="font-semibold mb-3 flex items-center gap-2">
-                    <Clock className="h-4 w-4" /> Histórico
-                  </h4>
-                  <SolicitacaoTimeline solicitacaoId={detalhes.solicitacao.id} />
-                </div>
+                {/* Histórico / Timeline - Collapsible */}
+                <Collapsible defaultOpen={false}>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" className="w-full justify-between px-0 hover:bg-transparent">
+                      <span className="font-semibold flex items-center gap-2">
+                        <History className="h-4 w-4" /> Histórico
+                      </span>
+                      <ChevronDown className="h-4 w-4 transition-transform duration-200 [[data-state=open]>svg&]:rotate-180" />
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pt-3">
+                    <SolicitacaoTimeline solicitacaoId={detalhes.solicitacao.id} />
+                  </CollapsibleContent>
+                </Collapsible>
 
                 <Separator />
 
@@ -1457,37 +1469,45 @@ export default function Backoffice() {
                 </div>
               </div>
               </TooltipProvider>
-            </ScrollArea>
+            </div>
           ) : null}
 
-          <DialogFooter className="flex-col sm:flex-row gap-2">
-            {selectedSolicitacao && (
-              <>
-                {(selectedSolicitacao.status === 'recebido' || selectedSolicitacao.status === 'em_analise') && (
+          {/* Footer Fixo */}
+          <DialogFooter className="flex-shrink-0 border-t px-6 py-4 bg-background">
+            <div className="flex items-center justify-between w-full gap-2 flex-wrap">
+              <Button variant="ghost" size="sm" onClick={() => setDetailsOpen(false)}>
+                Fechar
+              </Button>
+              <div className="flex gap-2 flex-wrap">
+                {selectedSolicitacao && (
                   <>
-                    <Button onClick={() => { setDetailsOpen(false); openAction(selectedSolicitacao, 'assumir'); }}>
-                      <CheckCircle className="h-4 w-4 mr-1" /> Assumir
-                    </Button>
-                    <Button variant="outline" onClick={() => { setDetailsOpen(false); openAction(selectedSolicitacao, 'solicitar_ajuste'); }}>
-                      <HelpCircle className="h-4 w-4 mr-1" /> Solicitar Ajuste
-                    </Button>
-                    <Button variant="destructive" onClick={() => { setDetailsOpen(false); openAction(selectedSolicitacao, 'rejeitar'); }}>
-                      <XCircle className="h-4 w-4 mr-1" /> Rejeitar
-                    </Button>
+                    {(selectedSolicitacao.status === 'recebido' || selectedSolicitacao.status === 'em_analise') && (
+                      <>
+                        <Button variant="destructive" size="sm" onClick={() => { setDetailsOpen(false); openAction(selectedSolicitacao, 'rejeitar'); }}>
+                          <XCircle className="h-4 w-4 mr-1" /> Rejeitar
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => { setDetailsOpen(false); openAction(selectedSolicitacao, 'solicitar_ajuste'); }}>
+                          <HelpCircle className="h-4 w-4 mr-1" /> Solicitar Ajuste
+                        </Button>
+                        <Button onClick={() => { setDetailsOpen(false); openAction(selectedSolicitacao, 'assumir'); }}>
+                          <CheckCircle className="h-4 w-4 mr-1" /> Assumir
+                        </Button>
+                      </>
+                    )}
+                    {(selectedSolicitacao.status === 'aprovado' || selectedSolicitacao.status === 'em_processamento') && (
+                      <Button onClick={() => { setDetailsOpen(false); openRegistro(selectedSolicitacao); }}>
+                        <FileCheck className="h-4 w-4 mr-1" /> Registrar OC
+                      </Button>
+                    )}
+                    {selectedSolicitacao.status === 'oc_ac_emitida' && (
+                      <Button onClick={() => { setDetailsOpen(false); openAction(selectedSolicitacao, 'concluir'); }}>
+                        <CheckCheck className="h-4 w-4 mr-1" /> Concluir
+                      </Button>
+                    )}
                   </>
                 )}
-                {(selectedSolicitacao.status === 'aprovado' || selectedSolicitacao.status === 'em_processamento') && (
-                  <Button onClick={() => { setDetailsOpen(false); openRegistro(selectedSolicitacao); }}>
-                    <FileCheck className="h-4 w-4 mr-1" /> Registrar OC
-                  </Button>
-                )}
-                {selectedSolicitacao.status === 'oc_ac_emitida' && (
-                  <Button onClick={() => { setDetailsOpen(false); openAction(selectedSolicitacao, 'concluir'); }}>
-                    <CheckCheck className="h-4 w-4 mr-1" /> Concluir
-                  </Button>
-                )}
-              </>
-            )}
+              </div>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
