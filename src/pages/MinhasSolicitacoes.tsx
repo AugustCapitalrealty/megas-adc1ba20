@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useAuth } from '@/hooks/useAuth';
@@ -33,8 +33,9 @@ import { cn } from '@/lib/utils';
 
 // Design System Components
 import { SolicitacaoCard, type SolicitacaoWithDetails } from '@/components/ui/SolicitacaoCard';
-import { FilterBar, FilterBarSeparator, type TabGroup } from '@/components/ui/FilterBar';
+import { FilterBar, type StatusTabConfig } from '@/components/ui/FilterBar';
 import { ActionModal } from '@/components/ui/ActionModal';
+import { PendingActionsCard } from '@/components/PendingActionsCard';
 
 const ATTACHMENT_TYPES = {
   chamado_preventiva: 'Chamado / Preventiva (Infraspeak)',
@@ -698,34 +699,23 @@ export default function MinhasSolicitacoes() {
     }
   };
 
-  // Filter bar configuration using design system
-  const tabGroups: TabGroup[] = [
-    {
-      id: 'em_andamento',
-      label: 'EM ANDAMENTO',
-      tabs: [
-        { id: 'todas', label: 'Todas', count: statusCounts.todas },
-        { id: 'com_backoffice', label: 'Backoffice', count: statusCounts.com_backoffice },
-        { id: 'oc_emitida', label: 'OC Emitida', count: statusCounts.oc_emitida, variant: 'success', showCountWhenZero: false },
-        { id: 'aguardando_nf', label: 'NF/Boleto', count: statusCounts.aguardando_nf, variant: 'purple', showCountWhenZero: false },
-      ],
-    },
-    {
-      id: 'acoes_pendentes',
-      label: 'AÇÕES PENDENTES',
-      icon: <AlertTriangle className="h-3.5 w-3.5 text-destructive" />,
-      tabs: [
-        { id: 'correcoes', label: 'Correções', count: statusCounts.correcoes, variant: 'destructive', pulseWhenActive: true },
-      ],
-    },
-    {
-      id: 'finalizadas',
-      label: 'FINALIZADAS',
-      tabs: [
-        { id: 'reprovadas', label: 'Reprovadas', count: statusCounts.reprovadas },
-        { id: 'concluidas', label: 'Concluídas', count: statusCounts.concluidas },
-      ],
-    },
+  // Pending actions counts for the card
+  const pendingCounts = useMemo(() => ({
+    corrections: solicitacoes.filter(s => 
+      s.status === 'pendente_correcao' || s.status === 'aguardando_informacoes'
+    ).length,
+    acceptance: solicitacoes.filter(s => s.status === 'aguardando_aceite').length,
+    nfBoleto: solicitacoes.filter(s => s.status === 'aguardando_nf_boleto').length,
+  }), [solicitacoes]);
+
+  // Simplified flat tabs for filter bar
+  const filterTabs: StatusTabConfig[] = [
+    { id: 'todas', label: 'Todas', count: statusCounts.todas, icon: <FileText className="h-3.5 w-3.5" /> },
+    { id: 'com_backoffice', label: 'Com Backoffice', count: statusCounts.com_backoffice },
+    { id: 'oc_emitida', label: 'OC/AC Emitida', count: statusCounts.oc_emitida, variant: 'success' as const, showCountWhenZero: false },
+    { id: 'aguardando_nf', label: 'NF/Boleto', count: statusCounts.aguardando_nf, variant: 'purple' as const, showCountWhenZero: false },
+    { id: 'reprovadas', label: 'Não Aprovadas', count: statusCounts.reprovadas, showCountWhenZero: false },
+    { id: 'concluidas', label: 'Finalizadas', count: statusCounts.concluidas, variant: 'success' as const, showCountWhenZero: false },
   ];
 
   // Render action banner for a solicitacao
@@ -974,112 +964,59 @@ export default function MinhasSolicitacoes() {
   return (
     <AppLayout>
       <div className="space-y-6 animate-fade-in">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold">
-              {viewMode === 'minhas' ? 'Minhas Solicitações' : 'Solicitações do Empreendimento'}
-            </h1>
-            <p className="text-muted-foreground">
-              {viewMode === 'minhas' 
-                ? 'Acompanhe o status das suas solicitações' 
-                : 'Visualize e colabore em solicitações do seu empreendimento'}
-            </p>
+        {/* Header with improved view selector */}
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold">Solicitações</h1>
+              <p className="text-muted-foreground text-sm">
+                Acompanhe o andamento e tome ações nas suas solicitações
+              </p>
+            </div>
           </div>
           
+          {/* Improved View Mode Selector - more prominent */}
           {userEmpreendimentos.length > 0 && (
-            <ToggleGroup 
-              type="single" 
-              value={viewMode} 
-              onValueChange={(val) => val && setViewMode(val as ViewMode)}
-              className="bg-muted p-1 rounded-lg"
-            >
-              <ToggleGroupItem 
-                value="minhas" 
-                className="gap-2 data-[state=on]:bg-background data-[state=on]:shadow-sm px-3"
-                aria-label="Ver minhas solicitações"
+            <div className="flex gap-2">
+              <Button 
+                variant={viewMode === 'minhas' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('minhas')}
+                className="gap-2"
               >
                 <User className="h-4 w-4" />
-                <span className="hidden sm:inline">Minhas</span>
-              </ToggleGroupItem>
-              <ToggleGroupItem 
-                value="empreendimento" 
-                className="gap-2 data-[state=on]:bg-background data-[state=on]:shadow-sm px-3"
-                aria-label="Ver solicitações do empreendimento"
+                Minhas Solicitações
+              </Button>
+              <Button 
+                variant={viewMode === 'empreendimento' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('empreendimento')}
+                className="gap-2"
               >
                 <Building2 className="h-4 w-4" />
-                <span className="hidden sm:inline">Empreendimento</span>
-              </ToggleGroupItem>
-            </ToggleGroup>
+                Por Empreendimento
+              </Button>
+            </div>
           )}
         </div>
 
-        {/* Filter Bar with Design System */}
-        <div className="flex flex-col lg:flex-row gap-3 lg:gap-2 lg:items-center">
-          {tabGroups.map((group, groupIndex) => (
-            <div key={group.id} className="flex flex-col gap-1.5">
-              <span className={cn(
-                "text-xs font-medium uppercase tracking-wider px-1 flex items-center gap-1",
-                group.labelClassName || "text-muted-foreground"
-              )}>
-                {group.icon}
-                {group.label}
-              </span>
-              <div className="flex gap-1 flex-wrap">
-                {group.tabs.map((tab) => {
-                  const isActive = activeTab === tab.id;
-                  const showBadge = tab.showCountWhenZero !== false || tab.count > 0;
-                  
-                  let buttonVariant: 'default' | 'outline' | 'destructive' = 'outline';
-                  if (isActive) {
-                    buttonVariant = tab.variant === 'destructive' ? 'destructive' : 'default';
-                  }
-                  
-                  const getBadgeClassName = () => {
-                    if (!isActive && tab.count > 0) {
-                      if (tab.variant === 'success') return 'bg-success text-success-foreground';
-                      if (tab.variant === 'purple') return 'bg-[hsl(260,70%,50%)] text-white';
-                      if (tab.variant === 'destructive') return cn('bg-destructive text-destructive-foreground', tab.pulseWhenActive && 'animate-pulse');
-                    }
-                    return '';
-                  };
-                  
-                  const getBorderClassName = () => {
-                    if (!isActive && tab.count > 0 && tab.variant === 'destructive') {
-                      return 'border-destructive text-destructive hover:bg-destructive/10';
-                    }
-                    return '';
-                  };
-                  
-                  return (
-                    <Button
-                      key={tab.id}
-                      variant={buttonVariant}
-                      size="sm"
-                      onClick={() => setActiveTab(tab.id as FilterTab)}
-                      className={cn("gap-1 text-xs h-8", getBorderClassName())}
-                    >
-                      {tab.label}
-                      {showBadge && (
-                        <Badge 
-                          variant={isActive ? 'secondary' : (tab.variant === 'destructive' && tab.count > 0 ? 'destructive' : 'secondary')}
-                          className={cn(
-                            "ml-1 h-5 min-w-5 p-0 text-xs flex items-center justify-center",
-                            getBadgeClassName()
-                          )}
-                        >
-                          {tab.count}
-                        </Badge>
-                      )}
-                    </Button>
-                  );
-                })}
-              </div>
-              
-              {groupIndex < tabGroups.length - 1 && <FilterBarSeparator />}
-            </div>
-          ))}
-        </div>
+        {/* Pending Actions Card - only shows when there are pending actions */}
+        {viewMode === 'minhas' && (
+          <PendingActionsCard
+            pendingCorrections={pendingCounts.corrections}
+            pendingAcceptance={pendingCounts.acceptance}
+            pendingNfBoleto={pendingCounts.nfBoleto}
+            onViewPending={(filter) => setActiveTab(filter as FilterTab)}
+          />
+        )}
+
+        {/* Simplified Filter Bar */}
+        <FilterBar
+          tabs={filterTabs}
+          activeTab={activeTab}
+          onTabChange={(tab) => setActiveTab(tab as FilterTab)}
+          tabsLabel="Filtrar por status"
+        />
 
         {/* Empty State */}
         {sortedAndFilteredSolicitacoes.length === 0 ? (
