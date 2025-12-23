@@ -14,7 +14,8 @@ import {
   FileImage, 
   FileSpreadsheet,
   File,
-  Loader2
+  Loader2,
+  Star
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -32,6 +33,20 @@ interface AnexoCardProps {
   anexo: Anexo;
   showTipo?: boolean;
 }
+
+// Classificar anexos por importância para hierarquia visual
+const ANEXO_IMPORTANCIA: Record<string, 'primary' | 'secondary' | 'default'> = {
+  orcamento_escolhido: 'primary',
+  mapa_cotacao: 'primary',
+  escopo_detalhado: 'primary',
+  orcamento_concorrente_1: 'secondary',
+  orcamento_concorrente_2: 'secondary',
+  chamado_preventiva: 'secondary',
+  comunicado_cliente: 'secondary',
+  rateio: 'default',
+  outros: 'default',
+  justificativa_anexo: 'default',
+};
 
 function getFileIcon(mimeType: string | null | undefined, fileName: string) {
   const ext = fileName.split('.').pop()?.toLowerCase();
@@ -60,6 +75,7 @@ function formatFileSize(bytes: number | null | undefined): string {
 
 export function AnexoCard({ anexo, showTipo = true }: AnexoCardProps) {
   const [downloading, setDownloading] = useState(false);
+  const importancia = ANEXO_IMPORTANCIA[anexo.tipo] || 'default';
 
   const handleDownload = async () => {
     setDownloading(true);
@@ -84,11 +100,25 @@ export function AnexoCard({ anexo, showTipo = true }: AnexoCardProps) {
 
   return (
     <div className={cn(
-      "group flex items-center gap-3 p-3 rounded-lg border bg-card",
-      "transition-all duration-200 hover:bg-accent/50 hover:border-accent-foreground/20 hover:shadow-sm"
-    )}>
+      "group flex items-center gap-3 p-3 rounded-lg border transition-all duration-200",
+      "hover:shadow-sm cursor-pointer",
+      // Visual hierarchy based on importance
+      importancia === 'primary' && "bg-primary/5 border-primary/30 hover:bg-primary/10 hover:border-primary/50",
+      importancia === 'secondary' && "bg-muted/50 border-border hover:bg-muted hover:border-muted-foreground/20",
+      importancia === 'default' && "bg-card border-border hover:bg-accent/50 hover:border-accent-foreground/20"
+    )}
+    onClick={handleDownload}
+    role="button"
+    tabIndex={0}
+    onKeyDown={(e) => e.key === 'Enter' && handleDownload()}
+    >
       {/* File Icon */}
-      <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+      <div className={cn(
+        "flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center",
+        importancia === 'primary' && "bg-primary/10",
+        importancia === 'secondary' && "bg-muted",
+        importancia === 'default' && "bg-muted"
+      )}>
         {getFileIcon(anexo.mime_type, anexo.nome_arquivo)}
       </div>
 
@@ -96,7 +126,14 @@ export function AnexoCard({ anexo, showTipo = true }: AnexoCardProps) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           {showTipo && (
-            <Badge variant="secondary" className="text-[10px] font-medium flex-shrink-0">
+            <Badge 
+              variant={importancia === 'primary' ? 'default' : 'secondary'} 
+              className={cn(
+                "text-[10px] font-medium flex-shrink-0",
+                importancia === 'primary' && "bg-primary text-primary-foreground"
+              )}
+            >
+              {importancia === 'primary' && <Star className="h-2.5 w-2.5 mr-1" />}
               {tipoLabel}
             </Badge>
           )}
@@ -124,10 +161,16 @@ export function AnexoCard({ anexo, showTipo = true }: AnexoCardProps) {
       {/* Download Button */}
       <Button
         size="sm"
-        variant="outline"
-        onClick={handleDownload}
+        variant={importancia === 'primary' ? 'default' : 'outline'}
+        onClick={(e) => {
+          e.stopPropagation();
+          handleDownload();
+        }}
         disabled={downloading}
-        className="flex-shrink-0 gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity"
+        className={cn(
+          "flex-shrink-0 gap-1.5 transition-opacity",
+          importancia !== 'primary' && "opacity-80 group-hover:opacity-100"
+        )}
       >
         {downloading ? (
           <Loader2 className="h-3.5 w-3.5 animate-spin" />

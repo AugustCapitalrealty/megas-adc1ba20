@@ -23,7 +23,7 @@ export function ExpandableDescription({
 
   return (
     <div className={cn("space-y-1", className)}>
-      <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
+      <p className="whitespace-pre-wrap break-words leading-relaxed">
         {displayText}
       </p>
       {shouldTruncate && (

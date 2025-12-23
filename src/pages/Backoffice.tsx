@@ -1213,62 +1213,88 @@ export default function Backoffice() {
                   </>
                 )}
 
-                {/* Descrição */}
-                <div>
-                  <h4 className="font-semibold mb-2 flex items-center gap-2">
-                    <FileText className="h-4 w-4" /> Descrição
-                  </h4>
-                  <ExpandableDescription 
-                    description={detalhes.solicitacao.descricao} 
-                    maxLength={150}
-                  />
-                </div>
+                {/* Descrição - Card Destacado */}
+                <Card className="bg-slate-50 dark:bg-slate-900/50 border-l-4 border-l-primary shadow-sm">
+                  <CardHeader className="pb-2 pt-3">
+                    <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground flex items-center gap-2 font-medium">
+                      <FileText className="h-4 w-4" />
+                      Resumo da Solicitação
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pb-4">
+                    <ExpandableDescription 
+                      description={detalhes.solicitacao.descricao} 
+                      maxLength={200}
+                      className="text-base"
+                    />
+                  </CardContent>
+                </Card>
 
-                <Separator />
-
-                {/* Informações Gerais */}
+                {/* Informações Gerais - Grid Reorganizado */}
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-muted-foreground">Empreendimento</Label>
-                    <p className="font-medium">{EMPREENDIMENTO_LABELS[detalhes.solicitacao.empreendimento]}</p>
+                  <div className="p-3 bg-muted/30 rounded-lg">
+                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">Empreendimento</Label>
+                    <p className="font-medium mt-1">{EMPREENDIMENTO_LABELS[detalhes.solicitacao.empreendimento]}</p>
                   </div>
-                  <div>
-                    <Label className="text-muted-foreground">Natureza Orçamentária</Label>
-                    <p className="font-medium">{NATUREZA_ORCAMENTARIA_LABELS[detalhes.solicitacao.natureza_orcamentaria]}</p>
+                  
+                  {/* Natureza Orçamentária - Redesigned */}
+                  <div className="col-span-2 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
+                    <div className="flex items-center gap-1.5">
+                      <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                        Classificação Orçamentária
+                      </Label>
+                      <TooltipProvider>
+                        <Badge 
+                          variant="outline" 
+                          className="h-4 w-4 p-0 rounded-full border-muted-foreground/30 cursor-help"
+                        >
+                          <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                        </Badge>
+                      </TooltipProvider>
+                    </div>
+                    <Badge 
+                      variant="secondary" 
+                      className="mt-2 px-3 py-1.5 text-sm font-medium whitespace-normal text-left bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 border-amber-300 dark:border-amber-700"
+                    >
+                      {NATUREZA_ORCAMENTARIA_LABELS[detalhes.solicitacao.natureza_orcamentaria]}
+                    </Badge>
+                    <p className="text-xs text-muted-foreground mt-1.5">Define centro de custo e fluxo de aprovação</p>
                   </div>
-                  <div>
-                    <Label className="text-muted-foreground">Origem do Custo</Label>
-                    <p className="font-medium">
+                  
+                  <div className="p-3 bg-muted/30 rounded-lg">
+                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">Quem Paga?</Label>
+                    <p className="font-medium mt-1">
                       {detalhes.solicitacao.origem_custo === 'empreendimento' ? 'Área comum' : 'Cliente'}
                       {detalhes.cliente && (
                         <span className="text-primary"> ({detalhes.cliente.nome})</span>
                       )}
                     </p>
                   </div>
+                  
                   {detalhes.solicitacao.faturamento_direto ? (
-                    <div className="col-span-2 p-3 bg-muted/30 rounded-lg space-y-2">
-                      <Label className="text-muted-foreground font-medium">Valores (Faturamento Direto)</Label>
+                    <div className="col-span-2 p-3 bg-primary/5 border border-primary/20 rounded-lg space-y-2">
+                      <Label className="text-xs uppercase tracking-wide text-muted-foreground font-medium">Valores (Faturamento Direto)</Label>
                       <div className="grid grid-cols-3 gap-4 mt-2">
                         <div>
                           <Label className="text-xs text-muted-foreground">Valor Material</Label>
-                          <p className="font-medium">{formatCurrency(detalhes.solicitacao.valor_material || 0)}</p>
+                          <p className="font-semibold text-lg">{formatCurrency(detalhes.solicitacao.valor_material || 0)}</p>
                         </div>
                         <div>
                           <Label className="text-xs text-muted-foreground">Valor Serviço</Label>
-                          <p className="font-medium">{formatCurrency(detalhes.solicitacao.valor_servico || 0)}</p>
+                          <p className="font-semibold text-lg">{formatCurrency(detalhes.solicitacao.valor_servico || 0)}</p>
                         </div>
                         <div>
                           <Label className="text-xs text-muted-foreground">Valor Total</Label>
-                          <p className="font-medium text-primary">
+                          <p className="font-bold text-xl text-primary">
                             {formatCurrency((detalhes.solicitacao.valor_servico || 0) + (detalhes.solicitacao.valor_material || 0))}
                           </p>
                         </div>
                       </div>
                     </div>
                   ) : (
-                    <div>
-                      <Label className="text-muted-foreground">Valor</Label>
-                      <p className="font-medium text-primary">{formatCurrency(detalhes.solicitacao.valor)}</p>
+                    <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg">
+                      <Label className="text-xs uppercase tracking-wide text-muted-foreground">Valor Total</Label>
+                      <p className="font-bold text-xl text-primary mt-1">{formatCurrency(detalhes.solicitacao.valor)}</p>
                     </div>
                   )}
                   
@@ -1276,16 +1302,22 @@ export default function Backoffice() {
                   {detalhes.solicitacao.tipo === 'AC' && (detalhes.solicitacao.data_inicio || detalhes.solicitacao.data_fim) && (
                     <div className="col-span-2 grid grid-cols-2 gap-4 p-3 bg-muted/30 rounded-lg">
                       <div>
-                        <Label className="text-muted-foreground">Data Início</Label>
-                        <p className="font-medium">
+                        <Label className="text-xs uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          Data Início
+                        </Label>
+                        <p className="font-medium mt-1">
                           {detalhes.solicitacao.data_inicio 
                             ? format(new Date(detalhes.solicitacao.data_inicio + 'T00:00:00'), 'dd/MM/yyyy')
                             : '—'}
                         </p>
                       </div>
                       <div>
-                        <Label className="text-muted-foreground">Data Fim</Label>
-                        <p className="font-medium">
+                        <Label className="text-xs uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          Data Fim
+                        </Label>
+                        <p className="font-medium mt-1">
                           {detalhes.solicitacao.data_fim 
                             ? format(new Date(detalhes.solicitacao.data_fim + 'T00:00:00'), 'dd/MM/yyyy')
                             : '—'}
