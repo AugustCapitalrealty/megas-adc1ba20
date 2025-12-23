@@ -400,7 +400,7 @@ export default function Backoffice() {
     setEditFluigLoading(true);
     try {
       const previousValue = selectedSolicitacao.numero_chamado_fluig;
-      const newValue = editFluigValue || null;
+      const newValue = editFluigValue.trim() || null;
       
       const { error } = await supabase
         .from('solicitacoes')
