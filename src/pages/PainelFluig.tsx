@@ -167,11 +167,25 @@ export default function PainelFluig() {
     return userEmpreendimentos.includes(empMap[emp]);
   };
 
+  // Mapeamento de usuário para papéis que ele assume no Fluig
+  const USER_FLUIG_ROLES: Record<string, string[]> = {
+    'jonatas': ['gestor condominio', 'gestor condomínio', 'gerência de facilities', 'gerencia de facilities'],
+    'kethli': ['gerência financeira', 'gerencia financeira', 'financeiro'],
+    'thiago': ['diretoria', 'diretor'],
+  };
+
   // Check if current user (or impersonated user) is the responsible for a snapshot
   const isCurrentUserResponsible = (responsavelAtual: string | null) => {
     if (!effectiveProfile?.full_name || !responsavelAtual) return false;
     const userFirstName = effectiveProfile.full_name.split(' ')[0].toLowerCase();
-    return responsavelAtual.toLowerCase().includes(userFirstName);
+    const responsavelLower = responsavelAtual.toLowerCase();
+    
+    // Verifica se o nome do usuário está no responsável
+    if (responsavelLower.includes(userFirstName)) return true;
+    
+    // Verifica se algum dos papéis do usuário está no responsável
+    const userRoles = USER_FLUIG_ROLES[userFirstName] || [];
+    return userRoles.some(role => responsavelLower.includes(role));
   };
 
   // Business rule: valor <= 2500 doesn't need Diretoria approval
@@ -258,14 +272,13 @@ export default function PainelFluig() {
     };
   }, [allSnapshots]);
 
-  // Get user's pending items (where they are responsible)
+  // Get user's pending items (where they are responsible or assigned to their role)
   const minhasPendenciasList = useMemo(() => {
     if (!effectiveProfile?.full_name) return [];
-    const userFirstName = effectiveProfile.full_name.split(' ')[0].toLowerCase();
     return allSnapshots.filter(s => {
       // Only count open items
       if (isCancelado(s) || isFechado(s)) return false;
-      return s.responsavel_atual?.toLowerCase().includes(userFirstName);
+      return isCurrentUserResponsible(s.responsavel_atual);
     });
   }, [allSnapshots, effectiveProfile?.full_name]);
 
