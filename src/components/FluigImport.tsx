@@ -49,7 +49,10 @@ import {
   Sparkles,
   TrendingUp,
   Clock,
+  Wrench,
+  FileQuestion,
 } from 'lucide-react';
+import { ImportImpactSummary } from './ImportImpactSummary';
 import { cn } from '@/lib/utils';
 
 interface FluigImportProps {
@@ -416,34 +419,44 @@ export function FluigImport({ onImportComplete }: FluigImportProps) {
               {/* Invalid Rows Warning - More actionable */}
               {parseResult.invalidRows.length > 0 && (
                 <Alert className="border-amber-500/50 bg-amber-500/5">
-                  <AlertCircle className="h-4 w-4 text-amber-500" />
+                  <FileQuestion className="h-4 w-4 text-amber-500" />
                   <AlertTitle className="text-amber-700 dark:text-amber-400 flex items-center justify-between">
-                    <span>Linhas ignoradas na importação</span>
+                    <span>Linhas ignoradas</span>
                     <Badge variant="outline" className="ml-2 text-amber-600 border-amber-500/50">
                       {parseResult.invalidRows.length} {parseResult.invalidRows.length === 1 ? 'linha' : 'linhas'}
                     </Badge>
                   </AlertTitle>
                   <AlertDescription>
-                    <p className="text-xs text-muted-foreground mb-2">
-                      Estas linhas não possuem número de solicitação e serão ignoradas durante a importação:
-                    </p>
-                    <ScrollArea className="h-24 rounded-md border border-amber-500/20 bg-amber-500/5 p-2">
-                      <ul className="text-xs space-y-1">
-                        {parseResult.invalidRows.slice(0, 15).map((inv, i) => (
-                          <li key={i} className="flex items-center gap-2 py-0.5">
-                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-mono">
-                              Linha {inv.row}
-                            </Badge>
-                            <span className="text-muted-foreground">{inv.reason}</span>
-                          </li>
-                        ))}
-                        {parseResult.invalidRows.length > 15 && (
-                          <li className="font-medium text-amber-600 pt-1">
-                            ... e mais {parseResult.invalidRows.length - 15} linhas com problemas similares
-                          </li>
-                        )}
-                      </ul>
-                    </ScrollArea>
+                    <div className="space-y-3 mt-2">
+                      <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                        <p className="text-sm font-medium text-amber-800 dark:text-amber-200 flex items-center gap-2">
+                          <Wrench className="h-4 w-4" />
+                          Como corrigir?
+                        </p>
+                        <ul className="text-xs text-muted-foreground mt-2 space-y-1 list-disc list-inside">
+                          <li>Abra a planilha original no Excel</li>
+                          <li>Verifique se as linhas abaixo possuem o número da <strong>Solicitação</strong> preenchido</li>
+                          <li>Salve e importe novamente</li>
+                        </ul>
+                      </div>
+                      <ScrollArea className="h-20 rounded-md border border-amber-500/20 bg-amber-500/5 p-2">
+                        <ul className="text-xs space-y-1">
+                          {parseResult.invalidRows.slice(0, 15).map((inv, i) => (
+                            <li key={i} className="flex items-center gap-2 py-0.5">
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-mono">
+                                Linha {inv.row}
+                              </Badge>
+                              <span className="text-muted-foreground">{inv.reason}</span>
+                            </li>
+                          ))}
+                          {parseResult.invalidRows.length > 15 && (
+                            <li className="font-medium text-amber-600 pt-1">
+                              ... e mais {parseResult.invalidRows.length - 15} linhas com problemas
+                            </li>
+                          )}
+                        </ul>
+                      </ScrollArea>
+                    </div>
                   </AlertDescription>
                 </Alert>
               )}
@@ -589,6 +602,9 @@ export function FluigImport({ onImportComplete }: FluigImportProps) {
                     </TooltipProvider>
                   </div>
 
+                  {/* Impact Summary before import */}
+                  <ImportImpactSummary data={parseResult.data} className="mt-4" />
+
                   {/* Import Button */}
                   <Button 
                     onClick={handleImport} 
@@ -656,13 +672,29 @@ export function FluigImport({ onImportComplete }: FluigImportProps) {
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle>Erros durante importação</AlertTitle>
                 <AlertDescription>
-                  <ScrollArea className="h-24 mt-2">
-                    <ul className="text-xs space-y-1">
-                      {importResult.erros.map((err, i) => (
-                        <li key={i}>{err}</li>
-                      ))}
-                    </ul>
-                  </ScrollArea>
+                  <div className="space-y-3 mt-2">
+                    <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                      <p className="text-sm font-medium flex items-center gap-2">
+                        <Wrench className="h-4 w-4" />
+                        O que fazer?
+                      </p>
+                      <ul className="text-xs mt-2 space-y-1 list-disc list-inside">
+                        <li>Verifique se a planilha está no formato correto do Fluig</li>
+                        <li>Certifique-se de que as colunas obrigatórias estão preenchidas</li>
+                        <li>Tente importar novamente após corrigir os dados</li>
+                      </ul>
+                    </div>
+                    <ScrollArea className="h-24">
+                      <ul className="text-xs space-y-1">
+                        {importResult.erros.map((err, i) => (
+                          <li key={i} className="flex items-start gap-2 py-1">
+                            <XCircle className="h-3.5 w-3.5 shrink-0 mt-0.5 text-destructive" />
+                            <span>{err}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </ScrollArea>
+                  </div>
                 </AlertDescription>
               </Alert>
             )}

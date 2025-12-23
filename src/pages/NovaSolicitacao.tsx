@@ -36,6 +36,7 @@ import { ClienteSelect } from '@/components/ClienteSelect';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useDescriptionValidation } from '@/hooks/useDescriptionValidation';
 import { notifyBackofficeNewSolicitacao } from '@/hooks/useNotificationEmail';
+import { StepIndicator, type Step as StepIndicatorStep } from '@/components/StepIndicator';
 
 type Step = 'empreendimento' | 'descricao' | 'tipo' | 'detalhes' | 'fornecedor' | 'anexos' | 'revisao';
 
@@ -640,27 +641,20 @@ export default function NovaSolicitacao() {
           <p className="text-muted-foreground">Preencha os dados para criar uma solicitação</p>
         </div>
 
-        {/* Step Indicator */}
-        <div className="flex items-center justify-between overflow-x-auto pb-2">
-          {visibleSteps.map((step, i) => (
-            <div key={step.id} className="flex items-center">
-              <div className={cn(
-                'step-indicator',
-                i < currentIndex && 'step-indicator-completed',
-                i === currentIndex && 'step-indicator-active',
-                i > currentIndex && 'step-indicator-pending'
-              )}>
-                {i < currentIndex ? <Check className="h-4 w-4" /> : i + 1}
-              </div>
-              {i < visibleSteps.length - 1 && (
-                <div className={cn(
-                  'h-0.5 w-6 sm:w-12 mx-1 sm:mx-2',
-                  i < currentIndex ? 'bg-success' : 'bg-muted'
-                )} />
-              )}
-            </div>
-          ))}
-        </div>
+        {/* Step Indicator - Novo componente melhorado */}
+        <StepIndicator
+          steps={visibleSteps.map(s => ({ 
+            id: s.id, 
+            label: s.label 
+          })) as StepIndicatorStep[]}
+          currentStepIndex={currentIndex}
+          onStepClick={(index) => {
+            // Permite navegar apenas para passos anteriores já concluídos
+            if (index < currentIndex) {
+              setCurrentStep(visibleSteps[index].id);
+            }
+          }}
+        />
 
         <Card>
           <CardHeader>
