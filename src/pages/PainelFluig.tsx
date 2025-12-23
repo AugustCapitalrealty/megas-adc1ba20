@@ -556,11 +556,13 @@ export default function PainelFluig() {
                     Importar
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-lg">
-                  <DialogHeader>
+                <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col p-0">
+                  <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
                     <DialogTitle>Importar Planilha Fluig</DialogTitle>
                   </DialogHeader>
-                  <FluigImport onImportComplete={handleImportComplete} />
+                  <div className="flex-1 min-h-0 overflow-hidden">
+                    <FluigImport onImportComplete={handleImportComplete} />
+                  </div>
                 </DialogContent>
               </Dialog>
             </div>
