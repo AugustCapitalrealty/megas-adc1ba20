@@ -197,7 +197,14 @@ export default function NovaSolicitacao() {
           .eq('id', duplicateFrom.fornecedor_id)
           .single();
         if (data) {
-          setFornecedor(data as Fornecedor);
+          // Import dbRowToFornecedor is needed - using inline conversion
+          const fornecedor = {
+            ...data,
+            cnaes_secundarios: Array.isArray(data.cnaes_secundarios) 
+              ? data.cnaes_secundarios.map((item: any) => ({ codigo: item.codigo ?? 0, descricao: item.descricao ?? '' }))
+              : null
+          } as Fornecedor;
+          setFornecedor(fornecedor);
         }
       };
       fetchFornecedor();

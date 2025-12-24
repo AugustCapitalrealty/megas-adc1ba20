@@ -1,27 +1,31 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent } from '@/components/ui/card';
-import { useCNPJ } from '@/hooks/useCNPJ';
+import { useCNPJ, dbRowToFornecedor } from '@/hooks/useCNPJ';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Search, X, Building2 } from 'lucide-react';
+import { Loader2, Search, Building2, RefreshCw } from 'lucide-react';
 import { type Fornecedor } from '@/types';
 import { cn } from '@/lib/utils';
+import { FornecedorCard } from './FornecedorCard';
+import { useToast } from '@/hooks/use-toast';
 
 interface SupplierSearchProps {
   label: string;
   required?: boolean;
   value: Fornecedor | null;
   onChange: (fornecedor: Fornecedor | null) => void;
+  compact?: boolean;
 }
 
-export function SupplierSearch({ label, required = false, value, onChange }: SupplierSearchProps) {
+export function SupplierSearch({ label, required = false, value, onChange, compact = false }: SupplierSearchProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [suggestions, setSuggestions] = useState<Fornecedor[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const { formatCNPJ, lookupCNPJ, loading: cnpjLoading, error } = useCNPJ();
+  const { toast } = useToast();
 
   // Debounced search for suggestions
   useEffect(() => {
@@ -54,7 +58,7 @@ export function SupplierSearch({ label, required = false, value, onChange }: Sup
       const { data, error } = await query;
 
       if (!error && data) {
-        setSuggestions(data as Fornecedor[]);
+        setSuggestions(data.map(dbRowToFornecedor));
       }
       setSearchLoading(false);
     };
@@ -73,11 +77,70 @@ export function SupplierSearch({ label, required = false, value, onChange }: Sup
       setSearchTerm('');
       setSuggestions([]);
       setShowSuggestions(false);
+      
+      // Mostrar alerta se fornecedor com situação irregular
+      if (result.situacao_cadastral_descricao && 
+          !result.situacao_cadastral_descricao.toUpperCase().includes('ATIVA')) {
+        toast({
+          title: '⚠️ Atenção: Fornecedor com status irregular',
+          description: `Situação: ${result.situacao_cadastral_descricao}. Verifique antes de prosseguir.`,
+          variant: 'destructive',
+        });
+      }
     }
   };
 
-  const handleSelectSuggestion = (fornecedor: Fornecedor) => {
-    onChange(fornecedor);
+  const handleRefresh = async () => {
+    if (!value) return;
+    
+    setRefreshing(true);
+    const result = await lookupCNPJ(value.cnpj, true); // Force refresh
+    if (result) {
+      onChange(result);
+      toast({
+        title: 'Dados atualizados',
+        description: 'Os dados do fornecedor foram atualizados da Receita Federal.',
+      });
+    }
+    setRefreshing(false);
+  };
+
+  const handleSelectSuggestion = async (fornecedor: Fornecedor) => {
+    // Se não tem dados enriquecidos, tenta buscar da API
+    if (!fornecedor.ultima_atualizacao_api) {
+      setSearchLoading(true);
+      const enrichedFornecedor = await lookupCNPJ(fornecedor.cnpj);
+      setSearchLoading(false);
+      
+      if (enrichedFornecedor) {
+        onChange(enrichedFornecedor);
+        
+        // Mostrar alerta se fornecedor com situação irregular
+        if (enrichedFornecedor.situacao_cadastral_descricao && 
+            !enrichedFornecedor.situacao_cadastral_descricao.toUpperCase().includes('ATIVA')) {
+          toast({
+            title: '⚠️ Atenção: Fornecedor com status irregular',
+            description: `Situação: ${enrichedFornecedor.situacao_cadastral_descricao}. Verifique antes de prosseguir.`,
+            variant: 'destructive',
+          });
+        }
+      } else {
+        onChange(fornecedor);
+      }
+    } else {
+      onChange(fornecedor);
+      
+      // Mostrar alerta se fornecedor com situação irregular
+      if (fornecedor.situacao_cadastral_descricao && 
+          !fornecedor.situacao_cadastral_descricao.toUpperCase().includes('ATIVA')) {
+        toast({
+          title: '⚠️ Atenção: Fornecedor com status irregular',
+          description: `Situação: ${fornecedor.situacao_cadastral_descricao}. Verifique antes de prosseguir.`,
+          variant: 'destructive',
+        });
+      }
+    }
+    
     setSearchTerm('');
     setSuggestions([]);
     setShowSuggestions(false);
@@ -110,27 +173,31 @@ export function SupplierSearch({ label, required = false, value, onChange }: Sup
       </Label>
       
       {value ? (
-        <Card className="bg-accent/50">
-          <CardContent className="p-3 flex items-center justify-between">
-            <div>
-              <p className="font-medium text-sm">{value.razao_social || value.nome_fantasia || 'Sem nome'}</p>
-              {value.nome_fantasia && value.razao_social && (
-                <p className="text-xs text-muted-foreground">{value.nome_fantasia}</p>
+        <div className="space-y-2">
+          <FornecedorCard 
+            fornecedor={value}
+            onClear={handleClear}
+            showClearButton={true}
+            compact={compact}
+            formatCNPJ={formatCNPJ}
+          />
+          {!compact && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="w-full"
+            >
+              {refreshing ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-2" />
               )}
-              <p className="text-xs text-muted-foreground">
-                {formatCNPJ(value.cnpj)} • {value.cidade}/{value.uf}
-              </p>
-              {value.is_mei && (
-                <span className="text-xs bg-warning/20 text-warning px-2 py-0.5 rounded mt-1 inline-block">
-                  MEI
-                </span>
-              )}
-            </div>
-            <Button variant="ghost" size="icon" onClick={handleClear}>
-              <X className="h-4 w-4" />
+              Atualizar dados da Receita Federal
             </Button>
-          </CardContent>
-        </Card>
+          )}
+        </div>
       ) : (
         <div className="relative">
           <div className="flex gap-2">
@@ -151,14 +218,17 @@ export function SupplierSearch({ label, required = false, value, onChange }: Sup
                   }
                 }}
               />
-              {searchLoading && (
-                <Loader2 className="h-4 w-4 animate-spin absolute right-3 top-3 text-muted-foreground" />
+              {(searchLoading || cnpjLoading) && (
+                <div className="absolute right-3 top-2.5 flex items-center gap-1 text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-xs">Buscando...</span>
+                </div>
               )}
             </div>
             <Button 
               onClick={handleSearch} 
               disabled={cnpjLoading || !isCNPJComplete}
-              title={!isCNPJComplete ? 'Digite um CNPJ completo para buscar na BrasilAPI' : 'Buscar CNPJ na BrasilAPI'}
+              title={!isCNPJComplete ? 'Digite um CNPJ completo para buscar na Receita Federal' : 'Buscar CNPJ na Receita Federal'}
             >
               {cnpjLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
             </Button>
@@ -181,14 +251,31 @@ export function SupplierSearch({ label, required = false, value, onChange }: Sup
                     onClick={() => handleSelectSuggestion(fornecedor)}
                   >
                     <Building2 className="h-4 w-4 mt-0.5 text-muted-foreground flex-shrink-0" />
-                    <div className="min-w-0">
-                      <p className="font-medium text-sm truncate">
-                        {fornecedor.razao_social || fornecedor.nome_fantasia || 'Sem nome'}
-                      </p>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <p className="font-medium text-sm truncate">
+                          {fornecedor.razao_social || fornecedor.nome_fantasia || 'Sem nome'}
+                        </p>
+                        {fornecedor.situacao_cadastral_descricao && (
+                          <span className={cn(
+                            "text-xs px-1.5 py-0.5 rounded",
+                            fornecedor.situacao_cadastral_descricao.toUpperCase().includes('ATIVA')
+                              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                              : "bg-destructive/10 text-destructive"
+                          )}>
+                            {fornecedor.situacao_cadastral_descricao}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         {formatCNPJ(fornecedor.cnpj)}
                         {fornecedor.cidade && ` • ${fornecedor.cidade}/${fornecedor.uf}`}
                       </p>
+                      {fornecedor.cnae_principal_descricao && (
+                        <p className="text-xs text-muted-foreground truncate">
+                          CNAE: {fornecedor.cnae_principal_codigo}
+                        </p>
+                      )}
                     </div>
                   </button>
                 ))}
@@ -201,7 +288,7 @@ export function SupplierSearch({ label, required = false, value, onChange }: Sup
             <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg p-3">
               <p className="text-sm text-muted-foreground text-center">
                 {isCNPJComplete 
-                  ? 'CNPJ não encontrado. Clique no botão de busca para consultar na BrasilAPI.'
+                  ? 'CNPJ não encontrado. Clique no botão de busca para consultar na Receita Federal.'
                   : 'Nenhum fornecedor encontrado. Digite um CNPJ completo para cadastrar.'}
               </p>
             </div>
