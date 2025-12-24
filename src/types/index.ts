@@ -252,6 +252,7 @@ export const ANEXO_LABELS: Record<string, string> = {
   orcamento_concorrente_2: 'Proposta Concorrente 2',
   comunicado_cliente: 'Comunicado ao Cliente',
   rateio: 'Planilha de Rateio',
+  fatura_agua_energia: 'Fatura de Água/Energia',
   outros: 'Outros Anexos',
 };
 
