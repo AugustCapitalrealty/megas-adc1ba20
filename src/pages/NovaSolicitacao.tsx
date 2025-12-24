@@ -276,9 +276,10 @@ export default function NovaSolicitacao() {
     let attachments: { tipo: string; label: string; required: boolean }[] = [];
     
     if (isOC) {
-      // OC - Água e Energia: apenas rateio opcional
+      // OC - Água e Energia: fatura obrigatória + rateio opcional
       if (isAguaEnergia) {
         attachments = [
+          { tipo: 'fatura_agua_energia', label: ANEXO_LABELS.fatura_agua_energia, required: true },
           { tipo: 'rateio', label: ANEXO_LABELS.rateio, required: false },
         ];
       } else {
@@ -328,9 +329,12 @@ export default function NovaSolicitacao() {
         }
       }
       
-      // Rateio opcional para naturezas Água ou Energia (AC)
+      // Fatura obrigatória + Rateio opcional para naturezas Água ou Energia (AC)
       if (isAguaEnergia) {
-        attachments.push({ tipo: 'rateio', label: ANEXO_LABELS.rateio, required: false });
+        attachments.push(
+          { tipo: 'fatura_agua_energia', label: ANEXO_LABELS.fatura_agua_energia, required: true },
+          { tipo: 'rateio', label: ANEXO_LABELS.rateio, required: false }
+        );
       }
     }
     
@@ -1186,7 +1190,7 @@ export default function NovaSolicitacao() {
                   <Alert>
                     <FileText className="h-4 w-4" />
                     <AlertDescription>
-                      <strong>Água/Energia:</strong> Você pode anexar a planilha de rateio (opcional).
+                      <strong>Água/Energia:</strong> Anexe a fatura (obrigatório) e a planilha de rateio (opcional).
                     </AlertDescription>
                   </Alert>
                 )}
@@ -1292,12 +1296,12 @@ export default function NovaSolicitacao() {
                   </p>
                 )}
                 
-                {/* AC - Água/Energia rateio */}
+                {/* AC - Água/Energia fatura obrigatória + rateio opcional */}
                 {isAC && (naturezaOrcamentaria === 'agua' || naturezaOrcamentaria === 'energia_eletrica') && (
                   <Alert>
                     <FileText className="h-4 w-4" />
                     <AlertDescription>
-                      <strong>Rateio:</strong> Para solicitações de Água ou Energia, você pode anexar a planilha de rateio (opcional).
+                      <strong>Água/Energia:</strong> Anexe a fatura (obrigatório) e a planilha de rateio (opcional).
                     </AlertDescription>
                   </Alert>
                 )}
@@ -1450,6 +1454,28 @@ export default function NovaSolicitacao() {
                     <span className="text-muted-foreground">Fornecedor</span>
                     <span>{fornecedor?.razao_social || fornecedor?.cnpj}</span>
                   </div>
+
+                  {/* Badge de compatibilidade CNAE na revisão */}
+                  {fornecedor && fornecedor.cnae_principal_codigo && descricao.length >= 20 && (
+                    <div className="py-3 border-t">
+                      <span className="text-muted-foreground text-sm block mb-2">Validação CNAE</span>
+                      <CNAECompatibilityBadge
+                        descricao={descricao}
+                        fornecedor={fornecedor}
+                        enabled={true}
+                      />
+                    </div>
+                  )}
+
+                  {/* Alerta MEI na revisão */}
+                  {fornecedor?.is_mei && (
+                    <div className="py-3 border-t">
+                      <MEIAlertBadge 
+                        showInlineAlert 
+                        valorTotal={valorNumerico}
+                      />
+                    </div>
+                  )}
                   {requires3CNPJs && (
                     <>
                       {fornecedorConcorrente1 && (
