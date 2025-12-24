@@ -1387,14 +1387,22 @@ export default function Backoffice() {
                         formatCNPJ={formatCNPJ}
                       />
                       
-                      {/* CNAE Compatibility Analysis */}
+                      {/* CNAE Compatibility Analysis - Prominent */}
                       {detalhes.solicitacao.fornecedor_cnae_principal_codigo && (
-                        <CNAECompatibilityBadge
-                          descricao={detalhes.solicitacao.descricao}
-                          fornecedor={buildFornecedorFromDetalhes(detalhes.solicitacao)}
-                          enabled={true}
-                          className="mt-3"
-                        />
+                        <div className="p-4 rounded-lg border-2 border-primary/30 bg-primary/5 mt-3">
+                          <div className="flex items-center gap-2 mb-2">
+                            <AlertTriangle className="h-4 w-4 text-primary" />
+                            <span className="font-semibold text-sm text-primary">Análise de Compatibilidade CNAE</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mb-3">
+                            Verificação se a descrição está alinhada com as atividades do fornecedor.
+                          </p>
+                          <CNAECompatibilityBadge
+                            descricao={detalhes.solicitacao.descricao}
+                            fornecedor={buildFornecedorFromDetalhes(detalhes.solicitacao)}
+                            enabled={true}
+                          />
+                        </div>
                       )}
                     </div>
                     <Separator />
