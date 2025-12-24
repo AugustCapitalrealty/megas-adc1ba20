@@ -54,9 +54,9 @@ serve(async (req) => {
       });
     }
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      console.error('LOVABLE_API_KEY não configurada');
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    if (!GEMINI_API_KEY) {
+      console.error('GEMINI_API_KEY não configurada');
       return new Response(JSON.stringify({
         status: 'insuficiente',
         score_confianca: 0,
@@ -84,7 +84,7 @@ Regras de classificação:
 
 Seja pragmático: muitas empresas têm CNAEs secundários amplos. Se houver razoável possibilidade de compatibilidade, classifique como COMPATIVEL.
 
-IMPORTANTE: Retorne APENAS usando a função fornecida, não adicione texto explicativo fora da função.`;
+IMPORTANTE: Responda APENAS com um JSON válido no formato especificado, sem texto adicional.`;
 
     const userPrompt = `Analise a compatibilidade:
 
@@ -96,66 +96,39 @@ ${cnaesSecundariosFormatted || 'Nenhum'}
 **Descrição da Solicitação:**
 "${descricao}"
 
-Avalie e retorne o resultado usando a função validate_cnae_compatibility.`;
+Retorne um JSON com:
+{
+  "status": "compativel" | "incompativel" | "insuficiente",
+  "score_confianca": número de 0 a 100,
+  "justificativa_curta": "texto explicando o resultado em até 2 linhas",
+  "itens_extraidos": ["palavras-chave extraídas da descrição"],
+  "cnaes_considerados": ["códigos CNAE considerados"]
+}`;
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        tools: [
+        contents: [
           {
-            type: 'function',
-            function: {
-              name: 'validate_cnae_compatibility',
-              description: 'Retorna o resultado da validação de compatibilidade entre descrição e CNAE.',
-              parameters: {
-                type: 'object',
-                properties: {
-                  status: {
-                    type: 'string',
-                    enum: ['compativel', 'incompativel', 'insuficiente'],
-                    description: 'Resultado da validação'
-                  },
-                  score_confianca: {
-                    type: 'number',
-                    description: 'Score de confiança de 0 a 100'
-                  },
-                  justificativa_curta: {
-                    type: 'string',
-                    description: 'Justificativa em até 2 linhas explicando o resultado'
-                  },
-                  itens_extraidos: {
-                    type: 'array',
-                    items: { type: 'string' },
-                    description: 'Palavras-chave extraídas da descrição (ex: instalação elétrica, manutenção, pintura)'
-                  },
-                  cnaes_considerados: {
-                    type: 'array',
-                    items: { type: 'string' },
-                    description: 'Códigos CNAE considerados na análise (principal e/ou secundários)'
-                  }
-                },
-                required: ['status', 'score_confianca', 'justificativa_curta', 'itens_extraidos', 'cnaes_considerados'],
-                additionalProperties: false
-              }
-            }
+            role: 'user',
+            parts: [{ text: userPrompt }]
           }
         ],
-        tool_choice: { type: 'function', function: { name: 'validate_cnae_compatibility' } }
+        systemInstruction: {
+          parts: [{ text: systemPrompt }]
+        },
+        generationConfig: {
+          responseMimeType: 'application/json'
+        }
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('AI Gateway error:', response.status, errorText);
+      console.error('Gemini API error:', response.status, errorText);
       
       if (response.status === 429) {
         return new Response(JSON.stringify({ 
@@ -163,16 +136,6 @@ Avalie e retorne o resultado usando a função validate_cnae_compatibility.`;
           message: 'Limite de validações atingido. Tente novamente em alguns segundos.' 
         }), {
           status: 429,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-      
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ 
-          error: 'payment_required',
-          message: 'Créditos insuficientes para validação.' 
-        }), {
-          status: 402,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
@@ -189,19 +152,18 @@ Avalie e retorne o resultado usando a função validate_cnae_compatibility.`;
     }
 
     const data = await response.json();
-    console.log('AI Response:', JSON.stringify(data, null, 2));
+    console.log('Gemini Response:', JSON.stringify(data, null, 2));
 
-    // Extrair resultado do tool call
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-    if (toolCall && toolCall.function?.arguments) {
-      try {
-        const result: ValidationResult = JSON.parse(toolCall.function.arguments);
-        return new Response(JSON.stringify(result), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      } catch (parseError) {
-        console.error('Erro ao parsear resultado:', parseError);
-      }
+    // Extrair resultado da resposta do Gemini
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    
+    try {
+      const result: ValidationResult = JSON.parse(content.trim());
+      return new Response(JSON.stringify(result), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    } catch (parseError) {
+      console.error('Erro ao parsear resultado:', parseError, 'Content:', content);
     }
 
     // Fallback se não conseguir extrair
