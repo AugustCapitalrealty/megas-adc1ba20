@@ -122,6 +122,13 @@ export function useFluigFilterOptions() {
   return { empreendimentos, situacoes, localizacoes, responsaveis, loading };
 }
 
+// Pessoas do "Início" - quando responsável muda para uma delas, significa retorno para correção
+const PESSOAS_INICIO = [
+  'Laureane Bransin',
+  'Paloma Correa Grigoletto',
+  'Roberta Gonçalves Pires da Costa',
+];
+
 // Mapping for stage labels - consolidates different names for the same stage
 const ETAPA_LABELS: Record<string, string> = {
   // Gerência de Facilities
@@ -143,6 +150,12 @@ const ETAPA_LABELS: Record<string, string> = {
 function getMappedLabel(value: string | null): string {
   if (!value) return '';
   return ETAPA_LABELS[value] || value;
+}
+
+// Verifica se o novo responsável é uma pessoa do Início (retorno para correção)
+function isRetornoParaCorrecao(novoResponsavel: string | null): boolean {
+  if (!novoResponsavel) return false;
+  return PESSOAS_INICIO.some(nome => novoResponsavel.includes(nome));
 }
 
 export function useFluigImport() {
@@ -338,34 +351,49 @@ export function useFluigImport() {
                 });
               }
               
-              // If linked to internal solicitation, insert CONSOLIDATED events into historico_solicitacoes
+              // If linked to internal solicitation, insert events into historico_solicitacoes
               if (validInternalId) {
-                for (const change of consolidatedChanges) {
-                  let mensagem = '';
-                  
-                  if (change.campo === 'responsavel_atual') {
-                    mensagem = `Fluig: Responsável alterado para ${change.novo}`;
-                  } else if (change.campo === 'localizacao') {
-                    mensagem = `Fluig: Etapa alterada para ${change.novo}`;
-                  } else if (change.campo === 'situacao') {
-                    mensagem = `Fluig: Situação alterada para "${change.novo}"`;
-                  } else if (change.campo === 'gerencia_conclusao') {
-                    mensagem = `Fluig: Aprovado pela Gerência`;
-                  } else if (change.campo === 'gerencia_facilities_conclusao') {
-                    mensagem = `Fluig: Aprovado pela Gerência de Facilities`;
-                  } else if (change.campo === 'gerencia_financeiro_conclusao') {
-                    mensagem = `Fluig: Aprovado pela Gerência Financeira`;
-                  } else if (change.campo === 'diretoria_conclusao') {
-                    mensagem = `Fluig: Aprovado pela Diretoria`;
-                  }
-                  
-                  if (mensagem) {
-                    await supabase.from('historico_solicitacoes').insert({
-                      solicitacao_id: validInternalId,
-                      user_id: userId,
-                      acao: 'atualizacao_fluig',
-                      motivo: mensagem,
-                    });
+                // Verificar se é um retorno para correção (responsável mudou para pessoa do Início)
+                const novoResponsavel = row.responsavel_atual || '';
+                const ehRetorno = isRetornoParaCorrecao(novoResponsavel);
+                
+                if (ehRetorno) {
+                  // Apenas uma mensagem de retorno - ignora outras mudanças
+                  await supabase.from('historico_solicitacoes').insert({
+                    solicitacao_id: validInternalId,
+                    user_id: userId,
+                    acao: 'atualizacao_fluig',
+                    motivo: `Fluig: Retornado para ${novoResponsavel}`,
+                  });
+                } else {
+                  // Lógica normal para outros casos
+                  for (const change of consolidatedChanges) {
+                    let mensagem = '';
+                    
+                    if (change.campo === 'responsavel_atual') {
+                      mensagem = `Fluig: Responsável alterado para ${change.novo}`;
+                    } else if (change.campo === 'localizacao') {
+                      mensagem = `Fluig: Etapa alterada para ${change.novo}`;
+                    } else if (change.campo === 'situacao') {
+                      mensagem = `Fluig: Situação alterada para "${change.novo}"`;
+                    } else if (change.campo === 'gerencia_conclusao') {
+                      mensagem = `Fluig: Aprovado pela Gerência`;
+                    } else if (change.campo === 'gerencia_facilities_conclusao') {
+                      mensagem = `Fluig: Aprovado pela Gerência de Facilities`;
+                    } else if (change.campo === 'gerencia_financeiro_conclusao') {
+                      mensagem = `Fluig: Aprovado pela Gerência Financeira`;
+                    } else if (change.campo === 'diretoria_conclusao') {
+                      mensagem = `Fluig: Aprovado pela Diretoria`;
+                    }
+                    
+                    if (mensagem) {
+                      await supabase.from('historico_solicitacoes').insert({
+                        solicitacao_id: validInternalId,
+                        user_id: userId,
+                        acao: 'atualizacao_fluig',
+                        motivo: mensagem,
+                      });
+                    }
                   }
                 }
               }
