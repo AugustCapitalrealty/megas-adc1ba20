@@ -1,3 +1,4 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -24,9 +25,9 @@ serve(async (req) => {
       );
     }
 
-    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-    if (!GEMINI_API_KEY) {
-      console.error('GEMINI_API_KEY não está configurada');
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
+      console.error('LOVABLE_API_KEY não está configurada');
       return new Response(
         JSON.stringify({ isVague: false, suggestion: '' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -56,37 +57,41 @@ Exemplos de descrições CLARAS:
 Responda APENAS com um JSON válido no formato:
 {"isVague": boolean, "suggestion": "string com sugestão de melhoria se isVague for true, ou string vazia se for false"}`;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
+    console.log('Calling Lovable AI Gateway for description validation...');
+
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: `Analise esta descrição de solicitação:\n\n"${descricao}"` }]
-          }
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `Analise esta descrição de solicitação:\n\n"${descricao}"` }
         ],
-        systemInstruction: {
-          parts: [{ text: systemPrompt }]
-        },
-        generationConfig: {
-          responseMimeType: 'application/json'
-        }
       }),
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Lovable AI Gateway error:', response.status, errorText);
+      
       if (response.status === 429) {
-        console.error('Rate limit exceeded');
         return new Response(
           JSON.stringify({ isVague: false, suggestion: '', error: 'Rate limit exceeded' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      const errorText = await response.text();
-      console.error('Gemini API error:', response.status, errorText);
+      
+      if (response.status === 402) {
+        return new Response(
+          JSON.stringify({ isVague: false, suggestion: '', error: 'Payment required' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
       return new Response(
         JSON.stringify({ isVague: false, suggestion: '' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -94,13 +99,25 @@ Responda APENAS com um JSON válido no formato:
     }
 
     const data = await response.json();
-    const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const content = data.choices?.[0]?.message?.content || '';
     
-    console.log('Gemini response content:', content);
+    console.log('Lovable AI response content:', content);
 
-    // Parse the JSON response from Gemini
+    // Parse the JSON response, cleaning markdown code blocks if present
     try {
-      const result = JSON.parse(content.trim());
+      let jsonContent = content.trim();
+      if (jsonContent.startsWith('```json')) {
+        jsonContent = jsonContent.slice(7);
+      }
+      if (jsonContent.startsWith('```')) {
+        jsonContent = jsonContent.slice(3);
+      }
+      if (jsonContent.endsWith('```')) {
+        jsonContent = jsonContent.slice(0, -3);
+      }
+      
+      const result = JSON.parse(jsonContent.trim());
+      console.log('Description validation result:', result.isVague ? 'vague' : 'clear');
       
       return new Response(
         JSON.stringify({
@@ -110,7 +127,7 @@ Responda APENAS com um JSON válido no formato:
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } catch (parseError) {
-      console.error('Error parsing Gemini response:', parseError, 'Content:', content);
+      console.error('Error parsing Lovable AI response:', parseError, 'Content:', content);
       return new Response(
         JSON.stringify({ isVague: false, suggestion: '' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
