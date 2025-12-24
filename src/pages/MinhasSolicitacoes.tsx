@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserEmpreendimentos } from '@/hooks/useUserEmpreendimentos';
+import { useDebounce } from '@/hooks/useDebounce';
 import { supabase } from '@/integrations/supabase/client';
 import { 
   NATUREZA_ORCAMENTARIA_LABELS,
@@ -86,6 +87,10 @@ export default function MinhasSolicitacoes() {
   const [rejectionReasons, setRejectionReasons] = useState<Record<string, RejectionInfo>>({});
   const [infoRequests, setInfoRequests] = useState<Record<string, InfoRequest>>({});
   const [viewMode, setViewMode] = useState<ViewMode>('minhas');
+  
+  // Search state with debounce
+  const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 300);
   
   // Edit modal state
   const [editOpen, setEditOpen] = useState(false);
@@ -245,6 +250,18 @@ export default function MinhasSolicitacoes() {
   const sortedAndFilteredSolicitacoes = useMemo(() => {
     let filtered = [...solicitacoes];
     
+    // Apply search filter (local filter with debounced value)
+    if (debouncedSearch.trim()) {
+      const searchLower = debouncedSearch.toLowerCase();
+      filtered = filtered.filter(s => 
+        s.protocolo.toLowerCase().includes(searchLower) ||
+        s.descricao.toLowerCase().includes(searchLower) ||
+        s.fornecedor?.razao_social?.toLowerCase().includes(searchLower) ||
+        s.fornecedor?.nome_fantasia?.toLowerCase().includes(searchLower)
+      );
+    }
+    
+    // Apply tab filter
     switch (activeTab) {
       case 'com_backoffice':
         filtered = filtered.filter(s => 
@@ -282,7 +299,7 @@ export default function MinhasSolicitacoes() {
     });
     
     return filtered;
-  }, [solicitacoes, activeTab]);
+  }, [solicitacoes, activeTab, debouncedSearch]);
 
   const statusCounts = useMemo(() => {
     return {
@@ -1031,8 +1048,12 @@ export default function MinhasSolicitacoes() {
           />
         )}
 
-        {/* Unified Filter Bar with Groups */}
+        {/* Unified Filter Bar with Groups and Search */}
         <FilterBar
+          showSearch
+          searchPlaceholder="Buscar por protocolo, descrição ou fornecedor..."
+          searchValue={searchTerm}
+          onSearchChange={setSearchTerm}
           tabGroups={filterTabGroups}
           activeTab={activeTab}
           onTabChange={(tab) => setActiveTab(tab as FilterTab)}
