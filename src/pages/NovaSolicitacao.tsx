@@ -1091,21 +1091,26 @@ export default function NovaSolicitacao() {
                   onChange={setFornecedor}
                 />
 
-                {/* MEI Alert */}
-                {fornecedor?.is_mei && (
-                  <MEIAlertBadge 
-                    showInlineAlert 
-                    valorTotal={valorNumerico}
-                  />
-                )}
+                {/* Validações do Fornecedor */}
+                {fornecedor && (
+                  <div className="space-y-3 mt-4">
+                    {/* MEI Alert */}
+                    {fornecedor.is_mei && (
+                      <MEIAlertBadge 
+                        showInlineAlert 
+                        valorTotal={valorNumerico}
+                      />
+                    )}
 
-                {/* CNAE Compatibility Badge */}
-                {fornecedor && fornecedor.cnae_principal_codigo && (
-                  <CNAECompatibilityBadge
-                    descricao={descricao}
-                    fornecedor={fornecedor}
-                    enabled={descricao.length >= 20}
-                  />
+                    {/* CNAE Compatibility Badge */}
+                    {fornecedor.cnae_principal_codigo && (
+                      <CNAECompatibilityBadge
+                        descricao={descricao}
+                        fornecedor={fornecedor}
+                        enabled={descricao.length >= 20}
+                      />
+                    )}
+                  </div>
                 )}
 
                 {requires3CNPJs && (

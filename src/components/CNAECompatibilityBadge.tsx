@@ -102,32 +102,48 @@ export function CNAECompatibilityBadge({
   const Icon = config.icon;
   
   return (
-    <div className={cn("space-y-2", className)}>
+    <div className={cn(
+      "p-3 rounded-lg border-2 transition-colors",
+      status === 'compativel' && "bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800",
+      status === 'incompativel' && "bg-amber-50 dark:bg-amber-950/20 border-amber-300 dark:border-amber-800",
+      status === 'insuficiente' && "bg-muted/30 border-border",
+      className
+    )}>
       <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
-        <CollapsibleTrigger asChild>
-          <Button
-            variant="ghost"
-            className="h-auto p-0 hover:bg-transparent"
-          >
-            <Badge 
-              variant="outline" 
-              className={cn(
-                "cursor-pointer hover:opacity-80 transition-opacity",
-                config.badgeClass
-              )}
-            >
-              <Icon className={cn("h-3.5 w-3.5 mr-1.5", config.iconClass)} />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Icon className={cn("h-5 w-5", config.iconClass)} />
+            <span className={cn(
+              "font-medium text-sm",
+              status === 'compativel' && "text-green-800 dark:text-green-300",
+              status === 'incompativel' && "text-amber-800 dark:text-amber-300",
+              status === 'insuficiente' && "text-muted-foreground"
+            )}>
               {config.label}
-              {status !== 'compativel' && (
-                isExpanded ? (
-                  <ChevronUp className="h-3 w-3 ml-1.5" />
+            </span>
+            {score_confianca > 0 && status === 'compativel' && (
+              <Badge variant="secondary" className="text-xs bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300">
+                {score_confianca}% confiança
+              </Badge>
+            )}
+          </div>
+          {status !== 'compativel' && (
+            <CollapsibleTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 hover:bg-transparent"
+              >
+                <span className="text-xs text-muted-foreground mr-1">Ver detalhes</span>
+                {isExpanded ? (
+                  <ChevronUp className="h-3.5 w-3.5" />
                 ) : (
-                  <ChevronDown className="h-3 w-3 ml-1.5" />
-                )
-              )}
-            </Badge>
-          </Button>
-        </CollapsibleTrigger>
+                  <ChevronDown className="h-3.5 w-3.5" />
+                )}
+              </Button>
+            </CollapsibleTrigger>
+          )}
+        </div>
         
         {status !== 'compativel' && (
           <CollapsibleContent className="pt-2">
@@ -191,10 +207,11 @@ export function CNAECompatibilityBadge({
         )}
       </Collapsible>
       
-      {/* Badge de compatível mostra tooltip inline */}
-      {status === 'compativel' && score_confianca >= 80 && (
-        <p className="text-xs text-green-600 dark:text-green-400 ml-1">
-          ✓ A descrição parece compatível com o CNAE do fornecedor
+      {/* Mensagem de compatibilidade */}
+      {status === 'compativel' && (
+        <p className="text-xs text-green-700 dark:text-green-400 mt-2 flex items-center gap-1.5">
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          A descrição parece compatível com o CNAE do fornecedor
         </p>
       )}
     </div>

@@ -21,6 +21,8 @@ import { FluigStatusCard } from '@/components/FluigStatusCard';
 import { ExpandableDescription } from '@/components/ExpandableDescription';
 import { AnexoCard } from '@/components/AnexoCard';
 import { FornecedorCard } from '@/components/FornecedorCard';
+import { CNAECompatibilityBadge } from '@/components/CNAECompatibilityBadge';
+import { MEIAlertBadge } from '@/components/MEIAlertBadge';
 import { type Fornecedor, type CNAESecundario } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useBackofficeSolicitacoes, type SolicitacaoBackoffice } from '@/hooks/useBackofficeSolicitacoes';
@@ -1375,8 +1377,8 @@ export default function Backoffice() {
                 {/* Fornecedor - Card Enriquecido */}
                 {detalhes.solicitacao.fornecedor_cnpj && (
                   <>
-                    <div>
-                      <h4 className="font-semibold mb-3 flex items-center gap-2">
+                    <div className="space-y-4">
+                      <h4 className="font-semibold flex items-center gap-2">
                         <Truck className="h-4 w-4" /> Fornecedor
                       </h4>
                       <FornecedorCard 
@@ -1385,6 +1387,23 @@ export default function Backoffice() {
                         compact={false}
                         formatCNPJ={formatCNPJ}
                       />
+                      
+                      {/* MEI Alert no Backoffice */}
+                      {buildFornecedorFromDetalhes(detalhes.solicitacao)?.is_mei && (
+                        <MEIAlertBadge 
+                          showInlineAlert 
+                          valorTotal={detalhes.solicitacao.valor}
+                        />
+                      )}
+                      
+                      {/* CNAE Compatibility Badge no Backoffice */}
+                      {buildFornecedorFromDetalhes(detalhes.solicitacao)?.cnae_principal_codigo && (
+                        <CNAECompatibilityBadge
+                          descricao={detalhes.solicitacao.descricao}
+                          fornecedor={buildFornecedorFromDetalhes(detalhes.solicitacao)}
+                          enabled={detalhes.solicitacao.descricao.length >= 20}
+                        />
+                      )}
                     </div>
                     <Separator />
                   </>
