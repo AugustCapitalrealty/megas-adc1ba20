@@ -24,6 +24,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useBackofficeSolicitacoes, type SolicitacaoBackoffice } from '@/hooks/useBackofficeSolicitacoes';
 import { useSolicitacaoDetalhes } from '@/hooks/useSolicitacaoDetalhes';
 import { notifyOwnerOCEmitido } from '@/hooks/useNotificationEmail';
+import { useDebounce } from '@/hooks/useDebounce';
 import { 
   EMPREENDIMENTO_LABELS, 
   NATUREZA_ORCAMENTARIA_LABELS,
@@ -83,6 +84,7 @@ export default function Backoffice() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 500);
   const [selectedEmpreendimento, setSelectedEmpreendimento] = useState<string>('todos');
   const [selectedSolicitacao, setSelectedSolicitacao] = useState<SolicitacaoBackoffice | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -94,9 +96,9 @@ export default function Backoffice() {
   const [numeroChamadoFluig, setNumeroChamadoFluig] = useState('');
   const [showOnlyMine, setShowOnlyMine] = useState(false);
 
-  // Use RPC-based hook for fetching
+  // Use RPC-based hook for fetching with debounced search
   const { solicitacoes, loading, refetch: fetchSolicitacoes } = useBackofficeSolicitacoes({
-    search: searchTerm || undefined,
+    search: debouncedSearch || undefined,
     empreendimento: selectedEmpreendimento !== 'todos' ? selectedEmpreendimento as any : undefined,
   });
 
