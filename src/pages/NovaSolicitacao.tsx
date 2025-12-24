@@ -1103,13 +1103,22 @@ export default function NovaSolicitacao() {
                   />
                 )}
 
-                {/* CNAE Compatibility Badge */}
+                {/* CNAE Compatibility Analysis - Prominent Alert */}
                 {fornecedor && fornecedor.cnae_principal_codigo && (
-                  <CNAECompatibilityBadge
-                    descricao={descricao}
-                    fornecedor={fornecedor}
-                    enabled={descricao.length >= 20}
-                  />
+                  <div className="p-4 rounded-lg border-2 border-primary/30 bg-primary/5">
+                    <div className="flex items-center gap-2 mb-2">
+                      <AlertTriangle className="h-4 w-4 text-primary" />
+                      <span className="font-semibold text-sm text-primary">Análise de Compatibilidade CNAE</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Verificamos se a descrição do serviço/produto está alinhada com as atividades do fornecedor.
+                    </p>
+                    <CNAECompatibilityBadge
+                      descricao={descricao}
+                      fornecedor={fornecedor}
+                      enabled={descricao.length >= 20}
+                    />
+                  </div>
                 )}
 
                 {requires3CNPJs && (

@@ -21,6 +21,7 @@ import { FluigStatusCard } from '@/components/FluigStatusCard';
 import { ExpandableDescription } from '@/components/ExpandableDescription';
 import { AnexoCard } from '@/components/AnexoCard';
 import { FornecedorCard } from '@/components/FornecedorCard';
+import { CNAECompatibilityBadge } from '@/components/CNAECompatibilityBadge';
 import { type Fornecedor, type CNAESecundario } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useBackofficeSolicitacoes, type SolicitacaoBackoffice } from '@/hooks/useBackofficeSolicitacoes';
@@ -1385,6 +1386,16 @@ export default function Backoffice() {
                         compact={false}
                         formatCNPJ={formatCNPJ}
                       />
+                      
+                      {/* CNAE Compatibility Analysis */}
+                      {detalhes.solicitacao.fornecedor_cnae_principal_codigo && (
+                        <CNAECompatibilityBadge
+                          descricao={detalhes.solicitacao.descricao}
+                          fornecedor={buildFornecedorFromDetalhes(detalhes.solicitacao)}
+                          enabled={true}
+                          className="mt-3"
+                        />
+                      )}
                     </div>
                     <Separator />
                   </>
