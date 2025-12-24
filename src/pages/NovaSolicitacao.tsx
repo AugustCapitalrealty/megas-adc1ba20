@@ -276,10 +276,9 @@ export default function NovaSolicitacao() {
     let attachments: { tipo: string; label: string; required: boolean }[] = [];
     
     if (isOC) {
-      // OC - Água e Energia: fatura + rateio opcionais
+      // OC - Água e Energia: apenas rateio opcional
       if (isAguaEnergia) {
         attachments = [
-          { tipo: 'fatura_agua_energia', label: ANEXO_LABELS.fatura_agua_energia, required: false },
           { tipo: 'rateio', label: ANEXO_LABELS.rateio, required: false },
         ];
       } else {
@@ -329,12 +328,9 @@ export default function NovaSolicitacao() {
         }
       }
       
-      // Fatura e Rateio opcionais para naturezas Água ou Energia (AC)
+      // Rateio opcional para naturezas Água ou Energia (AC)
       if (isAguaEnergia) {
-        attachments.push(
-          { tipo: 'fatura_agua_energia', label: ANEXO_LABELS.fatura_agua_energia, required: false },
-          { tipo: 'rateio', label: ANEXO_LABELS.rateio, required: false }
-        );
+        attachments.push({ tipo: 'rateio', label: ANEXO_LABELS.rateio, required: false });
       }
     }
     

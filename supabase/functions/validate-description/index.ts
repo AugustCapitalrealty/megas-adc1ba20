@@ -1,4 +1,3 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -57,8 +56,6 @@ Exemplos de descrições CLARAS:
 Responda APENAS com um JSON válido no formato:
 {"isVague": boolean, "suggestion": "string com sugestão de melhoria se isVague for true, ou string vazia se for false"}`;
 
-    console.log('Calling Lovable AI Gateway for description validation...');
-
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -75,23 +72,22 @@ Responda APENAS com um JSON válido no formato:
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Lovable AI Gateway error:', response.status, errorText);
-      
       if (response.status === 429) {
+        console.error('Rate limit exceeded');
         return new Response(
           JSON.stringify({ isVague: false, suggestion: '', error: 'Rate limit exceeded' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      
       if (response.status === 402) {
+        console.error('Payment required');
         return new Response(
           JSON.stringify({ isVague: false, suggestion: '', error: 'Payment required' }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      
+      const errorText = await response.text();
+      console.error('AI gateway error:', response.status, errorText);
       return new Response(
         JSON.stringify({ isVague: false, suggestion: '' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -101,10 +97,11 @@ Responda APENAS com um JSON válido no formato:
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || '';
     
-    console.log('Lovable AI response content:', content);
+    console.log('AI response content:', content);
 
-    // Parse the JSON response, cleaning markdown code blocks if present
+    // Parse the JSON response from the AI
     try {
+      // Remove markdown code blocks if present
       let jsonContent = content.trim();
       if (jsonContent.startsWith('```json')) {
         jsonContent = jsonContent.slice(7);
@@ -115,9 +112,9 @@ Responda APENAS com um JSON válido no formato:
       if (jsonContent.endsWith('```')) {
         jsonContent = jsonContent.slice(0, -3);
       }
-      
-      const result = JSON.parse(jsonContent.trim());
-      console.log('Description validation result:', result.isVague ? 'vague' : 'clear');
+      jsonContent = jsonContent.trim();
+
+      const result = JSON.parse(jsonContent);
       
       return new Response(
         JSON.stringify({
@@ -127,7 +124,8 @@ Responda APENAS com um JSON válido no formato:
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } catch (parseError) {
-      console.error('Error parsing Lovable AI response:', parseError, 'Content:', content);
+      console.error('Error parsing AI response:', parseError, 'Content:', content);
+      // If we can't parse, assume description is okay
       return new Response(
         JSON.stringify({ isVague: false, suggestion: '' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

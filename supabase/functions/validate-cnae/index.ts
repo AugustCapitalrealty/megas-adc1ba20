@@ -1,4 +1,3 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -85,7 +84,7 @@ Regras de classificação:
 
 Seja pragmático: muitas empresas têm CNAEs secundários amplos. Se houver razoável possibilidade de compatibilidade, classifique como COMPATIVEL.
 
-IMPORTANTE: Responda APENAS com um JSON válido no formato especificado, sem texto adicional.`;
+IMPORTANTE: Retorne APENAS usando a função fornecida, não adicione texto explicativo fora da função.`;
 
     const userPrompt = `Analise a compatibilidade:
 
@@ -97,16 +96,7 @@ ${cnaesSecundariosFormatted || 'Nenhum'}
 **Descrição da Solicitação:**
 "${descricao}"
 
-Retorne um JSON com:
-{
-  "status": "compativel" | "incompativel" | "insuficiente",
-  "score_confianca": número de 0 a 100,
-  "justificativa_curta": "texto explicando o resultado em até 2 linhas",
-  "itens_extraidos": ["palavras-chave extraídas da descrição"],
-  "cnaes_considerados": ["códigos CNAE considerados"]
-}`;
-
-    console.log('Calling Lovable AI Gateway for CNAE validation...');
+Avalie e retorne o resultado usando a função validate_cnae_compatibility.`;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -120,12 +110,52 @@ Retorne um JSON com:
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
+        tools: [
+          {
+            type: 'function',
+            function: {
+              name: 'validate_cnae_compatibility',
+              description: 'Retorna o resultado da validação de compatibilidade entre descrição e CNAE.',
+              parameters: {
+                type: 'object',
+                properties: {
+                  status: {
+                    type: 'string',
+                    enum: ['compativel', 'incompativel', 'insuficiente'],
+                    description: 'Resultado da validação'
+                  },
+                  score_confianca: {
+                    type: 'number',
+                    description: 'Score de confiança de 0 a 100'
+                  },
+                  justificativa_curta: {
+                    type: 'string',
+                    description: 'Justificativa em até 2 linhas explicando o resultado'
+                  },
+                  itens_extraidos: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    description: 'Palavras-chave extraídas da descrição (ex: instalação elétrica, manutenção, pintura)'
+                  },
+                  cnaes_considerados: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    description: 'Códigos CNAE considerados na análise (principal e/ou secundários)'
+                  }
+                },
+                required: ['status', 'score_confianca', 'justificativa_curta', 'itens_extraidos', 'cnaes_considerados'],
+                additionalProperties: false
+              }
+            }
+          }
+        ],
+        tool_choice: { type: 'function', function: { name: 'validate_cnae_compatibility' } }
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Lovable AI Gateway error:', response.status, errorText);
+      console.error('AI Gateway error:', response.status, errorText);
       
       if (response.status === 429) {
         return new Response(JSON.stringify({ 
@@ -136,11 +166,11 @@ Retorne um JSON com:
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
-
+      
       if (response.status === 402) {
         return new Response(JSON.stringify({ 
           error: 'payment_required',
-          message: 'Créditos de IA esgotados.' 
+          message: 'Créditos insuficientes para validação.' 
         }), {
           status: 402,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -159,34 +189,19 @@ Retorne um JSON com:
     }
 
     const data = await response.json();
-    console.log('Lovable AI Response received');
+    console.log('AI Response:', JSON.stringify(data, null, 2));
 
-    // Extrair resultado da resposta do OpenAI-compatible format
-    const content = data.choices?.[0]?.message?.content || '';
-    
-    try {
-      // Limpar possíveis markdown code blocks
-      let jsonContent = content.trim();
-      if (jsonContent.startsWith('```json')) {
-        jsonContent = jsonContent.slice(7);
+    // Extrair resultado do tool call
+    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    if (toolCall && toolCall.function?.arguments) {
+      try {
+        const result: ValidationResult = JSON.parse(toolCall.function.arguments);
+        return new Response(JSON.stringify(result), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      } catch (parseError) {
+        console.error('Erro ao parsear resultado:', parseError);
       }
-      if (jsonContent.startsWith('```')) {
-        jsonContent = jsonContent.slice(3);
-      }
-      if (jsonContent.endsWith('```')) {
-        jsonContent = jsonContent.slice(0, -3);
-      }
-      
-      const result: ValidationResult = JSON.parse(jsonContent.trim());
-      // Normalizar status para minúsculas (a IA pode retornar em maiúsculas)
-      result.status = result.status.toLowerCase() as ValidationResult['status'];
-      console.log('CNAE validation result:', result.status);
-      
-      return new Response(JSON.stringify(result), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    } catch (parseError) {
-      console.error('Erro ao parsear resultado:', parseError, 'Content:', content);
     }
 
     // Fallback se não conseguir extrair

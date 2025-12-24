@@ -60,17 +60,10 @@ export function CNAECompatibilityBadge({
     );
   }
   
-  // Erro - mostra badge discreto
+  // Erro - não mostra badge, apenas log
   if (error) {
     console.warn('CNAE validation error:', error);
-    return (
-      <div className={cn("flex items-center gap-2", className)}>
-        <Badge variant="outline" className="bg-muted/50 text-muted-foreground border-muted">
-          <HelpCircle className="h-3 w-3 mr-1.5" />
-          Análise CNAE indisponível
-        </Badge>
-      </div>
-    );
+    return null;
   }
   
   // Sem resultado
