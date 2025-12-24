@@ -33,7 +33,7 @@ import { cn } from '@/lib/utils';
 
 // Design System Components
 import { SolicitacaoCard, type SolicitacaoWithDetails } from '@/components/ui/SolicitacaoCard';
-import { FilterBar, type StatusTabConfig } from '@/components/ui/FilterBar';
+import { FilterBar, type StatusTabConfig, type TabGroup } from '@/components/ui/FilterBar';
 import { ActionModal } from '@/components/ui/ActionModal';
 import { PendingActionsCard } from '@/components/PendingActionsCard';
 
@@ -708,15 +708,35 @@ export default function MinhasSolicitacoes() {
     nfBoleto: solicitacoes.filter(s => s.status === 'aguardando_nf_boleto').length,
   }), [solicitacoes]);
 
-  // Simplified flat tabs for filter bar
-  const filterTabs: StatusTabConfig[] = [
-    { id: 'todas', label: 'Todas', count: statusCounts.todas, icon: <FileText className="h-3.5 w-3.5" /> },
-    { id: 'com_backoffice', label: 'Com Backoffice', count: statusCounts.com_backoffice },
-    { id: 'correcoes', label: 'Correções', count: statusCounts.correcoes, variant: 'warning' as const, icon: <AlertTriangle className="h-3.5 w-3.5" />, showCountWhenZero: false },
-    { id: 'oc_emitida', label: 'OC/AC Emitida', count: statusCounts.oc_emitida, variant: 'success' as const, showCountWhenZero: false },
-    { id: 'aguardando_nf', label: 'NF/Boleto', count: statusCounts.aguardando_nf, variant: 'purple' as const, showCountWhenZero: false },
-    { id: 'reprovadas', label: 'Não Aprovadas', count: statusCounts.reprovadas, showCountWhenZero: false },
-    { id: 'concluidas', label: 'Finalizadas', count: statusCounts.concluidas, variant: 'success' as const, showCountWhenZero: false },
+  // Tab groups for organized filter bar with visual separation
+  const filterTabGroups: TabGroup[] = [
+    {
+      id: 'em_andamento',
+      label: 'Em Andamento',
+      tabs: [
+        { id: 'todas', label: 'Todas', count: statusCounts.todas, icon: <FileText className="h-3.5 w-3.5" /> },
+        { id: 'com_backoffice', label: 'Com Backoffice', count: statusCounts.com_backoffice },
+      ],
+    },
+    {
+      id: 'acoes_pendentes',
+      label: 'Ações Pendentes',
+      icon: <AlertTriangle className="h-3 w-3" />,
+      labelClassName: 'text-warning',
+      tabs: [
+        { id: 'correcoes', label: 'Correções', count: statusCounts.correcoes, variant: 'warning' as const, icon: <AlertTriangle className="h-3.5 w-3.5" />, showCountWhenZero: false },
+        { id: 'oc_emitida', label: 'OC/AC Emitida', count: statusCounts.oc_emitida, variant: 'success' as const, showCountWhenZero: false },
+        { id: 'aguardando_nf', label: 'NF/Boleto', count: statusCounts.aguardando_nf, variant: 'purple' as const, showCountWhenZero: false },
+      ],
+    },
+    {
+      id: 'finalizadas',
+      label: 'Finalizadas',
+      tabs: [
+        { id: 'reprovadas', label: 'Não Aprovadas', count: statusCounts.reprovadas, showCountWhenZero: false },
+        { id: 'concluidas', label: 'Finalizadas', count: statusCounts.concluidas, variant: 'success' as const, showCountWhenZero: false },
+      ],
+    },
   ];
 
   // Render action banner for a solicitacao
@@ -1011,12 +1031,11 @@ export default function MinhasSolicitacoes() {
           />
         )}
 
-        {/* Simplified Filter Bar */}
+        {/* Unified Filter Bar with Groups */}
         <FilterBar
-          tabs={filterTabs}
+          tabGroups={filterTabGroups}
           activeTab={activeTab}
           onTabChange={(tab) => setActiveTab(tab as FilterTab)}
-          tabsLabel="Filtrar por status"
         />
 
         {/* Empty State */}
