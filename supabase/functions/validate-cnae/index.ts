@@ -1,3 +1,4 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -54,9 +55,9 @@ serve(async (req) => {
       });
     }
 
-    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-    if (!GEMINI_API_KEY) {
-      console.error('GEMINI_API_KEY não configurada');
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
+      console.error('LOVABLE_API_KEY não configurada');
       return new Response(JSON.stringify({
         status: 'insuficiente',
         score_confianca: 0,
@@ -105,30 +106,26 @@ Retorne um JSON com:
   "cnaes_considerados": ["códigos CNAE considerados"]
 }`;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
+    console.log('Calling Lovable AI Gateway for CNAE validation...');
+
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: userPrompt }]
-          }
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
         ],
-        systemInstruction: {
-          parts: [{ text: systemPrompt }]
-        },
-        generationConfig: {
-          responseMimeType: 'application/json'
-        }
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Gemini API error:', response.status, errorText);
+      console.error('Lovable AI Gateway error:', response.status, errorText);
       
       if (response.status === 429) {
         return new Response(JSON.stringify({ 
@@ -136,6 +133,16 @@ Retorne um JSON com:
           message: 'Limite de validações atingido. Tente novamente em alguns segundos.' 
         }), {
           status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      if (response.status === 402) {
+        return new Response(JSON.stringify({ 
+          error: 'payment_required',
+          message: 'Créditos de IA esgotados.' 
+        }), {
+          status: 402,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
@@ -152,13 +159,27 @@ Retorne um JSON com:
     }
 
     const data = await response.json();
-    console.log('Gemini Response:', JSON.stringify(data, null, 2));
+    console.log('Lovable AI Response received');
 
-    // Extrair resultado da resposta do Gemini
-    const content = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    // Extrair resultado da resposta do OpenAI-compatible format
+    const content = data.choices?.[0]?.message?.content || '';
     
     try {
-      const result: ValidationResult = JSON.parse(content.trim());
+      // Limpar possíveis markdown code blocks
+      let jsonContent = content.trim();
+      if (jsonContent.startsWith('```json')) {
+        jsonContent = jsonContent.slice(7);
+      }
+      if (jsonContent.startsWith('```')) {
+        jsonContent = jsonContent.slice(3);
+      }
+      if (jsonContent.endsWith('```')) {
+        jsonContent = jsonContent.slice(0, -3);
+      }
+      
+      const result: ValidationResult = JSON.parse(jsonContent.trim());
+      console.log('CNAE validation result:', result.status);
+      
       return new Response(JSON.stringify(result), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
