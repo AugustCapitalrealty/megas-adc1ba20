@@ -335,45 +335,93 @@ export type Database = {
       }
       fornecedores: {
         Row: {
+          bairro: string | null
+          capital_social: number | null
+          cep: string | null
           cidade: string | null
+          cnae_principal_codigo: number | null
+          cnae_principal_descricao: string | null
+          cnaes_secundarios: Json | null
           cnpj: string
+          complemento: string | null
           created_at: string
+          data_inicio_atividade: string | null
+          data_situacao_cadastral: string | null
           email: string | null
           endereco: string | null
           id: string
           is_mei: boolean | null
+          logradouro: string | null
+          natureza_juridica: string | null
           nome_fantasia: string | null
+          numero: string | null
+          porte: string | null
           razao_social: string | null
+          situacao_cadastral: number | null
+          situacao_cadastral_descricao: string | null
           telefone: string | null
           uf: string | null
+          ultima_atualizacao_api: string | null
           updated_at: string
         }
         Insert: {
+          bairro?: string | null
+          capital_social?: number | null
+          cep?: string | null
           cidade?: string | null
+          cnae_principal_codigo?: number | null
+          cnae_principal_descricao?: string | null
+          cnaes_secundarios?: Json | null
           cnpj: string
+          complemento?: string | null
           created_at?: string
+          data_inicio_atividade?: string | null
+          data_situacao_cadastral?: string | null
           email?: string | null
           endereco?: string | null
           id?: string
           is_mei?: boolean | null
+          logradouro?: string | null
+          natureza_juridica?: string | null
           nome_fantasia?: string | null
+          numero?: string | null
+          porte?: string | null
           razao_social?: string | null
+          situacao_cadastral?: number | null
+          situacao_cadastral_descricao?: string | null
           telefone?: string | null
           uf?: string | null
+          ultima_atualizacao_api?: string | null
           updated_at?: string
         }
         Update: {
+          bairro?: string | null
+          capital_social?: number | null
+          cep?: string | null
           cidade?: string | null
+          cnae_principal_codigo?: number | null
+          cnae_principal_descricao?: string | null
+          cnaes_secundarios?: Json | null
           cnpj?: string
+          complemento?: string | null
           created_at?: string
+          data_inicio_atividade?: string | null
+          data_situacao_cadastral?: string | null
           email?: string | null
           endereco?: string | null
           id?: string
           is_mei?: boolean | null
+          logradouro?: string | null
+          natureza_juridica?: string | null
           nome_fantasia?: string | null
+          numero?: string | null
+          porte?: string | null
           razao_social?: string | null
+          situacao_cadastral?: number | null
+          situacao_cadastral_descricao?: string | null
           telefone?: string | null
           uf?: string | null
+          ultima_atualizacao_api?: string | null
           updated_at?: string
         }
         Relationships: []

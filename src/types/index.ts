@@ -41,6 +41,11 @@ export interface UserRole {
   created_at: string;
 }
 
+export interface CNAESecundario {
+  codigo: number;
+  descricao: string;
+}
+
 export interface Fornecedor {
   id: string;
   cnpj: string;
@@ -54,6 +59,23 @@ export interface Fornecedor {
   is_mei: boolean;
   created_at: string;
   updated_at: string;
+  // Campos de enriquecimento
+  cnae_principal_codigo: number | null;
+  cnae_principal_descricao: string | null;
+  cnaes_secundarios: CNAESecundario[] | null;
+  situacao_cadastral: number | null;
+  situacao_cadastral_descricao: string | null;
+  data_situacao_cadastral: string | null;
+  natureza_juridica: string | null;
+  porte: string | null;
+  capital_social: number | null;
+  data_inicio_atividade: string | null;
+  cep: string | null;
+  bairro: string | null;
+  numero: string | null;
+  complemento: string | null;
+  logradouro: string | null;
+  ultima_atualizacao_api: string | null;
 }
 
 export interface Cliente {
