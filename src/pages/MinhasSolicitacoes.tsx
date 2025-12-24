@@ -712,6 +712,7 @@ export default function MinhasSolicitacoes() {
   const filterTabs: StatusTabConfig[] = [
     { id: 'todas', label: 'Todas', count: statusCounts.todas, icon: <FileText className="h-3.5 w-3.5" /> },
     { id: 'com_backoffice', label: 'Com Backoffice', count: statusCounts.com_backoffice },
+    { id: 'correcoes', label: 'Correções', count: statusCounts.correcoes, variant: 'warning' as const, icon: <AlertTriangle className="h-3.5 w-3.5" />, showCountWhenZero: false },
     { id: 'oc_emitida', label: 'OC/AC Emitida', count: statusCounts.oc_emitida, variant: 'success' as const, showCountWhenZero: false },
     { id: 'aguardando_nf', label: 'NF/Boleto', count: statusCounts.aguardando_nf, variant: 'purple' as const, showCountWhenZero: false },
     { id: 'reprovadas', label: 'Não Aprovadas', count: statusCounts.reprovadas, showCountWhenZero: false },
