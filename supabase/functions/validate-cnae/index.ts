@@ -178,6 +178,8 @@ Retorne um JSON com:
       }
       
       const result: ValidationResult = JSON.parse(jsonContent.trim());
+      // Normalizar status para minúsculas (a IA pode retornar em maiúsculas)
+      result.status = result.status.toLowerCase() as ValidationResult['status'];
       console.log('CNAE validation result:', result.status);
       
       return new Response(JSON.stringify(result), {
