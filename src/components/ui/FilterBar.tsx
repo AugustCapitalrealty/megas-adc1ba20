@@ -26,7 +26,7 @@ export interface StatusTabConfig {
   label: string;
   count: number;
   icon?: ReactNode;
-  variant?: 'default' | 'destructive' | 'success' | 'purple';
+  variant?: 'default' | 'destructive' | 'success' | 'purple' | 'warning';
   showCountWhenZero?: boolean;
 }
 
@@ -153,6 +153,7 @@ export function FilterBar({
                     if (tab.variant === 'success') return 'bg-success text-success-foreground';
                     if (tab.variant === 'purple') return 'bg-[hsl(260,70%,50%)] text-white';
                     if (tab.variant === 'destructive') return 'bg-destructive text-destructive-foreground';
+                    if (tab.variant === 'warning') return 'bg-warning text-warning-foreground';
                   }
                   return '';
                 };
@@ -162,6 +163,7 @@ export function FilterBar({
                     if (tab.variant === 'destructive') return 'border-destructive/50 text-destructive hover:bg-destructive/10';
                     if (tab.variant === 'success') return 'border-success/50 text-success hover:bg-success/10';
                     if (tab.variant === 'purple') return 'border-[hsl(260,70%,50%)]/50 text-[hsl(260,70%,50%)] hover:bg-[hsl(260,70%,50%)]/10';
+                    if (tab.variant === 'warning') return 'border-warning/50 text-warning hover:bg-warning/10';
                   }
                   return '';
                 };
