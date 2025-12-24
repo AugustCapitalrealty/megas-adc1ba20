@@ -37,6 +37,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useDescriptionValidation } from '@/hooks/useDescriptionValidation';
 import { notifyBackofficeNewSolicitacao } from '@/hooks/useNotificationEmail';
 import { StepIndicator, type Step as StepIndicatorStep } from '@/components/StepIndicator';
+import { CNAECompatibilityBadge } from '@/components/CNAECompatibilityBadge';
+import { MEIAlertBadge } from '@/components/MEIAlertBadge';
 
 type Step = 'empreendimento' | 'descricao' | 'tipo' | 'detalhes' | 'fornecedor' | 'anexos' | 'revisao';
 
@@ -1088,6 +1090,23 @@ export default function NovaSolicitacao() {
                   value={fornecedor}
                   onChange={setFornecedor}
                 />
+
+                {/* MEI Alert */}
+                {fornecedor?.is_mei && (
+                  <MEIAlertBadge 
+                    showInlineAlert 
+                    valorTotal={valorNumerico}
+                  />
+                )}
+
+                {/* CNAE Compatibility Badge */}
+                {fornecedor && fornecedor.cnae_principal_codigo && (
+                  <CNAECompatibilityBadge
+                    descricao={descricao}
+                    fornecedor={fornecedor}
+                    enabled={descricao.length >= 20}
+                  />
+                )}
 
                 {requires3CNPJs && (
                   <div className="p-4 rounded-lg bg-muted/30 border space-y-4">

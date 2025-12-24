@@ -3,6 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { 
   Building2, 
   MapPin, 
@@ -15,7 +16,8 @@ import {
   Copy, 
   Check,
   AlertTriangle,
-  Loader2
+  Loader2,
+  Info
 } from 'lucide-react';
 import { type Fornecedor } from '@/types';
 import { cn } from '@/lib/utils';
@@ -107,7 +109,28 @@ export function FornecedorCard({
                 </Badge>
               )}
               {fornecedor.is_mei && (
-                <Badge variant="secondary" className="text-xs">MEI</Badge>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge 
+                        className={cn(
+                          "text-xs cursor-help",
+                          "bg-orange-100 text-orange-800 border-orange-300",
+                          "dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-700"
+                        )}
+                      >
+                        <AlertTriangle className="h-3 w-3 mr-1" />
+                        MEI
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p className="font-medium text-sm">Fornecedor MEI</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Pode ter impactos tributários e limites de faturamento.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )}
             </div>
             {fornecedor.nome_fantasia && fornecedor.razao_social && (
@@ -188,7 +211,37 @@ export function FornecedorCard({
                 </Badge>
               )}
               {fornecedor.is_mei && (
-                <Badge variant="secondary">MEI</Badge>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge 
+                        className={cn(
+                          "cursor-help transition-colors",
+                          "bg-orange-100 text-orange-800 border-orange-300",
+                          "hover:bg-orange-200",
+                          "dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-700"
+                        )}
+                      >
+                        <AlertTriangle className="h-3 w-3 mr-1" />
+                        MEI
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs p-3">
+                      <div className="space-y-2">
+                        <p className="font-medium text-sm flex items-center gap-1.5">
+                          <Info className="h-4 w-4" />
+                          Fornecedor MEI
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Microempreendedor Individual pode ter impactos tributários e limites de faturamento anual (R$ 81.000).
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Valide as regras internas antes de prosseguir.
+                        </p>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )}
               {fornecedor.porte && (
                 <Badge variant="outline" className="text-muted-foreground">
