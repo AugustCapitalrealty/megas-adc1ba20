@@ -20,6 +20,8 @@ import { SolicitacaoTimeline } from '@/components/SolicitacaoTimeline';
 import { FluigStatusCard } from '@/components/FluigStatusCard';
 import { ExpandableDescription } from '@/components/ExpandableDescription';
 import { AnexoCard } from '@/components/AnexoCard';
+import { FornecedorCard } from '@/components/FornecedorCard';
+import { type Fornecedor, type CNAESecundario } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useBackofficeSolicitacoes, type SolicitacaoBackoffice } from '@/hooks/useBackofficeSolicitacoes';
 import { useSolicitacaoDetalhes } from '@/hooks/useSolicitacaoDetalhes';
@@ -525,6 +527,53 @@ export default function Backoffice() {
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+  };
+
+  const formatCNPJ = (cnpj: string) => {
+    const cleaned = cnpj.replace(/\D/g, '');
+    return cleaned.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+  };
+
+  // Helper to build a Fornecedor object from solicitacao details for FornecedorCard
+  const buildFornecedorFromDetalhes = (sol: NonNullable<typeof detalhes>['solicitacao']): Fornecedor => {
+    // Parse cnaes_secundarios if it's a JSON string
+    let cnaesSecundarios: CNAESecundario[] = [];
+    if (sol.fornecedor_cnaes_secundarios) {
+      if (Array.isArray(sol.fornecedor_cnaes_secundarios)) {
+        cnaesSecundarios = sol.fornecedor_cnaes_secundarios;
+      }
+    }
+
+    return {
+      id: sol.fornecedor_id || '',
+      cnpj: sol.fornecedor_cnpj || '',
+      razao_social: sol.fornecedor_razao || null,
+      nome_fantasia: sol.fornecedor_nome_fantasia || null,
+      email: sol.fornecedor_email || null,
+      telefone: sol.fornecedor_telefone || null,
+      endereco: sol.fornecedor_endereco || null,
+      cidade: sol.fornecedor_cidade || null,
+      uf: sol.fornecedor_uf || null,
+      is_mei: sol.fornecedor_is_mei || null,
+      cep: sol.fornecedor_cep || null,
+      bairro: sol.fornecedor_bairro || null,
+      logradouro: sol.fornecedor_logradouro || null,
+      numero: sol.fornecedor_numero || null,
+      complemento: sol.fornecedor_complemento || null,
+      cnae_principal_codigo: sol.fornecedor_cnae_principal_codigo || null,
+      cnae_principal_descricao: sol.fornecedor_cnae_principal_descricao || null,
+      cnaes_secundarios: cnaesSecundarios,
+      situacao_cadastral: sol.fornecedor_situacao_cadastral || null,
+      situacao_cadastral_descricao: sol.fornecedor_situacao_cadastral_descricao || null,
+      data_situacao_cadastral: sol.fornecedor_data_situacao_cadastral || null,
+      natureza_juridica: sol.fornecedor_natureza_juridica || null,
+      porte: sol.fornecedor_porte || null,
+      capital_social: sol.fornecedor_capital_social || null,
+      data_inicio_atividade: sol.fornecedor_data_inicio_atividade || null,
+      ultima_atualizacao_api: null,
+      created_at: '',
+      updated_at: '',
+    };
   };
 
   const openDetails = (sol: SolicitacaoBackoffice) => {
@@ -1323,23 +1372,19 @@ export default function Backoffice() {
                   </>
                 )}
 
-                {/* Fornecedor */}
+                {/* Fornecedor - Card Enriquecido */}
                 {detalhes.solicitacao.fornecedor_cnpj && (
                   <>
                     <div>
-                      <h4 className="font-semibold mb-2 flex items-center gap-2">
+                      <h4 className="font-semibold mb-3 flex items-center gap-2">
                         <Truck className="h-4 w-4" /> Fornecedor
                       </h4>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label className="text-muted-foreground">Razão Social</Label>
-                          <p className="font-medium">{detalhes.solicitacao.fornecedor_razao || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <Label className="text-muted-foreground">CNPJ</Label>
-                          <p className="font-medium">{detalhes.solicitacao.fornecedor_cnpj}</p>
-                        </div>
-                      </div>
+                      <FornecedorCard 
+                        fornecedor={buildFornecedorFromDetalhes(detalhes.solicitacao)}
+                        showClearButton={false}
+                        compact={false}
+                        formatCNPJ={formatCNPJ}
+                      />
                     </div>
                     <Separator />
                   </>
