@@ -66,6 +66,31 @@ const getEtapaAtualIndex = (responsavelAtual: string | null): number => {
   return -1;
 };
 
+// Mapa: localização → ordem no fluxo (para detectar reprovação)
+const LOCALIZACAO_ORDER: Record<string, number> = {
+  'Início': 0,
+  'Para o Papel Gestor Condominio': 1,
+  'Para o Papel Gestor Condomínio': 1,
+  'Aprovação Nivel 1': 1,
+  'Aprovação Nível 1': 1,
+  'Aprovação Nivel 2': 2,
+  'Aprovação Nível 2': 2,
+  'Aprovação Nivel 3': 3,
+  'Aprovação Nível 3': 3,
+};
+
+// Detecta se uma etapa foi REPROVADA (voltou para etapa anterior)
+const isStageRejected = (stageOrder: number, conclusaoDate: string | null, localizacaoAtual: string | null): boolean => {
+  // Se não tem data de conclusão, não foi processada ainda
+  if (!conclusaoDate) return false;
+  
+  // Ordem da localização atual
+  const currentOrder = LOCALIZACAO_ORDER[localizacaoAtual || ''] ?? -1;
+  
+  // Se a localização atual é ANTERIOR à etapa, e a etapa tem conclusão, foi REPROVADO
+  return currentOrder < stageOrder;
+};
+
 // Fallback por localização (quando não há pessoa específica)
 const PROXIMA_ETAPA_FALLBACK: Record<string, string> = {
   'Início': 'Gerência de Facilities',
@@ -146,13 +171,17 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
   // Determine current stage based on responsavel_atual
   const etapaAtualIndex = getEtapaAtualIndex(status.responsavel_atual);
 
-  // Determine approval stages with 3 states: done (green), in_progress (yellow), pending (gray)
+  // Determine approval stages with 4 states: done (green), rejected (red), in_progress (yellow), pending (gray)
   const approvalStages = [
-    { key: 'facilities', label: 'Facilities', conclusao: status.gerencia_facilities_conclusao },
-    { key: 'financeiro', label: 'Financeiro', conclusao: status.gerencia_financeiro_conclusao },
-    { key: 'diretoria', label: 'Diretoria', conclusao: status.diretoria_conclusao },
+    { key: 'facilities', label: 'Facilities', conclusao: status.gerencia_facilities_conclusao, stageOrder: 1 },
+    { key: 'financeiro', label: 'Financeiro', conclusao: status.gerencia_financeiro_conclusao, stageOrder: 2 },
+    { key: 'diretoria', label: 'Diretoria', conclusao: status.diretoria_conclusao, stageOrder: 3 },
   ].map((stage, index) => {
-    // If has conclusao date, it's done
+    // Check if REJECTED (returned to earlier stage)
+    if (isStageRejected(stage.stageOrder, stage.conclusao, status.localizacao)) {
+      return { ...stage, status: 'rejected' as const };
+    }
+    // If has conclusao date and not rejected, it's approved
     if (stage.conclusao) {
       return { ...stage, status: 'done' as const };
     }
@@ -226,11 +255,13 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
                   key={stage.key} 
                   variant={stage.status === 'done' ? 'default' : 'outline'}
                   className={`text-xs ${
-                    stage.status === 'done' 
-                      ? 'bg-green-500 hover:bg-green-500 text-white' 
-                      : stage.status === 'in_progress'
-                        ? 'bg-yellow-500 hover:bg-yellow-500 text-white border-yellow-500'
-                        : 'bg-transparent text-muted-foreground border-muted-foreground/30'
+                    stage.status === 'rejected'
+                      ? 'bg-red-500 hover:bg-red-500 text-white border-red-500'
+                      : stage.status === 'done' 
+                        ? 'bg-green-500 hover:bg-green-500 text-white' 
+                        : stage.status === 'in_progress'
+                          ? 'bg-yellow-500 hover:bg-yellow-500 text-white border-yellow-500'
+                          : 'bg-transparent text-muted-foreground border-muted-foreground/30'
                   }`}
                 >
                   {stage.label}
