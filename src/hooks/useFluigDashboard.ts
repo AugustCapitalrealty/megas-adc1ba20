@@ -298,19 +298,22 @@ export function useFluigImport() {
               const etapaResponsavel = getMappedLabel(responsavelChange.novo);
               const etapaLocalizacao = getMappedLabel(localizacaoChange.novo);
               
-              if (etapaResponsavel === etapaLocalizacao) {
-                // Same stage - only register one event with the mapped label
+              if (etapaResponsavel === etapaLocalizacao && etapaResponsavel !== responsavelChange.novo) {
+                // Same stage AND it's a mapped stage (not just same raw values)
+                // Register ONE consolidated event with "Movido para [Etapa]"
                 consolidatedChanges.push({
-                  campo: 'responsavel_atual',
-                  anterior: responsavelChange.anterior,
+                  campo: 'etapa_consolidada',
+                  anterior: null,
                   novo: etapaResponsavel,
+                });
+              } else if (etapaResponsavel === etapaLocalizacao) {
+                // Same raw values but not mapped - just use localizacao
+                consolidatedChanges.push({
+                  ...localizacaoChange,
+                  novo: etapaLocalizacao,
                 });
               } else {
-                // Different stages - keep both with mapping applied
-                consolidatedChanges.push({
-                  ...responsavelChange,
-                  novo: etapaResponsavel,
-                });
+                // Different stages - keep only localizacao (more representative)
                 consolidatedChanges.push({
                   ...localizacaoChange,
                   novo: etapaLocalizacao,
@@ -319,10 +322,15 @@ export function useFluigImport() {
             } else {
               // Only one changed - apply mapping
               if (responsavelChange) {
-                consolidatedChanges.push({
-                  ...responsavelChange,
-                  novo: getMappedLabel(responsavelChange.novo),
-                });
+                const etapa = getMappedLabel(responsavelChange.novo);
+                // Only add if it maps to a known stage, otherwise ignore responsavel_atual
+                if (etapa !== responsavelChange.novo) {
+                  consolidatedChanges.push({
+                    campo: 'etapa_consolidada',
+                    anterior: null,
+                    novo: etapa,
+                  });
+                }
               }
               if (localizacaoChange) {
                 consolidatedChanges.push({
@@ -332,10 +340,30 @@ export function useFluigImport() {
               }
             }
             
-            // Add other changes (situacao, conclusoes) - no mapping needed
+            // Add situacao changes
             rawChanges
-              .filter(c => c.campo !== 'responsavel_atual' && c.campo !== 'localizacao')
+              .filter(c => c.campo === 'situacao')
               .forEach(c => consolidatedChanges.push(c));
+            
+            // Consolidate approval changes - avoid duplicates
+            const approvalChanges = rawChanges.filter(c => c.campo.includes('_conclusao'));
+            const registeredApprovals = new Set<string>();
+            
+            // Map approval fields to their display names
+            const approvalLabels: Record<string, string> = {
+              'gerencia_conclusao': 'Gerência',
+              'gerencia_facilities_conclusao': 'Gerência de Facilities',
+              'gerencia_financeiro_conclusao': 'Gerência Financeira',
+              'diretoria_conclusao': 'Diretoria',
+            };
+            
+            for (const approval of approvalChanges) {
+              const label = approvalLabels[approval.campo];
+              if (label && !registeredApprovals.has(label)) {
+                registeredApprovals.add(label);
+                consolidatedChanges.push(approval);
+              }
+            }
             
             if (consolidatedChanges.length > 0) {
               result.comAlteracaoStatus++;
@@ -366,14 +394,14 @@ export function useFluigImport() {
                     motivo: `Fluig: Retornado para ${novoResponsavel}`,
                   });
                 } else {
-                  // Lógica normal para outros casos
+                  // Lógica normal para outros casos - apenas eventos consolidados
                   for (const change of consolidatedChanges) {
                     let mensagem = '';
                     
-                    if (change.campo === 'responsavel_atual') {
-                      mensagem = `Fluig: Responsável alterado para ${change.novo}`;
+                    if (change.campo === 'etapa_consolidada') {
+                      mensagem = `Fluig: Movido para ${change.novo}`;
                     } else if (change.campo === 'localizacao') {
-                      mensagem = `Fluig: Etapa alterada para ${change.novo}`;
+                      mensagem = `Fluig: Etapa alterada para "${change.novo}"`;
                     } else if (change.campo === 'situacao') {
                       mensagem = `Fluig: Situação alterada para "${change.novo}"`;
                     } else if (change.campo === 'gerencia_conclusao') {
