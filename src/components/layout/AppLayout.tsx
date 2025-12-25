@@ -25,7 +25,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { NotificationBell } from '@/components/NotificationBell';
-import logoMega from '@/assets/logos/logo-mega.jpg';
+import logoMega from '@/assets/logos/logo-mega.png';
 
 interface AppLayoutProps {
   children: ReactNode;
