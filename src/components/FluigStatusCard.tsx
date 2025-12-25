@@ -15,6 +15,7 @@ interface FluigStatus {
   gerencia_facilities_conclusao: string | null;
   gerencia_financeiro_conclusao: string | null;
   diretoria_conclusao: string | null;
+  ultima_movimentacao: string | null;
 }
 
 interface FluigStatusCardProps {
@@ -128,14 +129,27 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
   }, [numeroChamadoFluig]);
 
   const fetchFluigStatus = async () => {
-    const { data, error } = await supabase
+    // Fetch snapshot data
+    const { data: snapshotData, error: snapshotError } = await supabase
       .from('fluig_painel_snapshot')
       .select('solicitacao_fluig, responsavel_atual, localizacao, situacao, data_lancamento, gerencia_conclusao, gerencia_facilities_conclusao, gerencia_financeiro_conclusao, diretoria_conclusao')
       .eq('solicitacao_fluig', numeroChamadoFluig.trim())
       .maybeSingle();
 
-    if (!error && data) {
-      setStatus(data);
+    if (!snapshotError && snapshotData) {
+      // Fetch last event date from eventos table
+      const { data: eventData } = await supabase
+        .from('fluig_painel_eventos')
+        .select('created_at')
+        .eq('solicitacao_fluig', numeroChamadoFluig.trim())
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      setStatus({
+        ...snapshotData,
+        ultima_movimentacao: eventData?.created_at || snapshotData.data_lancamento,
+      });
     }
     setLoading(false);
   };
@@ -163,9 +177,9 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
     ? format(new Date(status.data_lancamento), "dd/MM/yyyy", { locale: ptBR })
     : null;
 
-  // Calculate days with current responsible
-  const diasComResponsavel = status.data_lancamento
-    ? differenceInDays(new Date(), new Date(status.data_lancamento))
+  // Calculate days with current responsible - use ultima_movimentacao instead of data_lancamento
+  const diasComResponsavel = status.ultima_movimentacao
+    ? differenceInDays(new Date(), new Date(status.ultima_movimentacao))
     : 0;
 
   // Determine current stage based on responsavel_atual
