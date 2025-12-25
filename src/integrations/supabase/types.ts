@@ -584,6 +584,7 @@ export type Database = {
           custo_cliente: boolean | null
           data_fim: string | null
           data_inicio: string | null
+          data_pendente_correcao: string | null
           descricao: string
           dias_garantia: number | null
           dias_garantia_produto: number | null
@@ -626,6 +627,7 @@ export type Database = {
           custo_cliente?: boolean | null
           data_fim?: string | null
           data_inicio?: string | null
+          data_pendente_correcao?: string | null
           descricao: string
           dias_garantia?: number | null
           dias_garantia_produto?: number | null
@@ -668,6 +670,7 @@ export type Database = {
           custo_cliente?: boolean | null
           data_fim?: string | null
           data_inicio?: string | null
+          data_pendente_correcao?: string | null
           descricao?: string
           dias_garantia?: number | null
           dias_garantia_produto?: number | null

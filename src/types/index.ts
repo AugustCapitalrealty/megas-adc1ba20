@@ -126,6 +126,7 @@ export interface Solicitacao {
   numero_chamado_fluig: string | null;
   excecao_fornecedores: boolean;
   resposta_informacoes: string | null;
+  data_pendente_correcao: string | null;
   created_at: string;
   updated_at: string;
   // Joined data

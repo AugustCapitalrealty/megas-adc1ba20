@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Badge } from '@/components/ui/badge';
 import { ExpandableDescription } from '@/components/ExpandableDescription';
+import { CorrectionDeadlineBadge } from '@/components/CorrectionDeadlineBadge';
 import { 
   EMPREENDIMENTO_LABELS, 
   TIPO_CONTRATACAO_LABELS,
@@ -80,6 +81,10 @@ export function SolicitacaoCard({
           <div className="flex items-center gap-3 flex-wrap">
             <CardTitle className="text-lg">#{sol.protocolo}</CardTitle>
             <StatusBadge status={sol.status} />
+            <CorrectionDeadlineBadge 
+              dataPendenteCorrecao={sol.data_pendente_correcao} 
+              status={sol.status} 
+            />
             {sol.emergencial && (
               <span className="text-xs bg-destructive/10 text-destructive px-2 py-0.5 rounded">
                 Emergencial

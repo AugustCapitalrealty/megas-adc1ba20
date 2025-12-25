@@ -8,8 +8,12 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Email types supported (simplified)
-type EmailType = 'nova_solicitacao_backoffice' | 'documento_oc_emitido';
+// Email types supported
+type EmailType = 
+  | 'nova_solicitacao_backoffice' 
+  | 'documento_oc_emitido'
+  | 'prazo_correcao_expirando'
+  | 'prazo_correcao_expirado';
 
 interface EmailRequest {
   type: EmailType;
@@ -24,6 +28,7 @@ interface EmailRequest {
     solicitante_email?: string;
     documento_numero?: string;
     documento_tipo?: string;
+    dias_restantes?: number;
   };
 }
 
@@ -134,6 +139,56 @@ const getEmailContent = (type: EmailType, data: EmailRequest['data']): { subject
                 ${data.empreendimento ? `<p style="margin: 10px 0 0 0;"><strong>Empreendimento:</strong> ${data.empreendimento}</p>` : ''}
               `, '#22c55e')}
               <p>Acesse o sistema para visualizar e baixar o documento.</p>
+              ${buttonSolicitanteHtml}
+            </div>
+            ${footerHtml}
+          </body>
+          </html>
+        `,
+      };
+
+    case 'prazo_correcao_expirando':
+      return {
+        subject: `⚠️ URGENTE: ${data.dias_restantes} dias para corrigir - Solicitação ${data.protocolo}`,
+        html: `
+          <!DOCTYPE html>
+          <html>
+          <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+          <body style="${baseStyles}">
+            ${headerHtml}
+            <div style="background: #f8fafc; padding: 30px; border: 1px solid #e2e8f0; border-top: none;">
+              <h2 style="color: #f59e0b; margin-top: 0;">⚠️ Prazo de Correção Expirando</h2>
+              <p>Sua solicitação <strong>${data.protocolo}</strong> está aguardando correções.</p>
+              ${infoBoxHtml(`
+                <p style="margin: 0; font-size: 18px;"><strong>Prazo restante: ${data.dias_restantes} dias</strong></p>
+                <p style="margin: 10px 0 0 0;">Se não for corrigida até lá, será <strong>encerrada automaticamente</strong>.</p>
+              `, '#f59e0b')}
+              <p>Acesse o sistema agora para fazer as correções necessárias:</p>
+              ${buttonSolicitanteHtml}
+            </div>
+            ${footerHtml}
+          </body>
+          </html>
+        `,
+      };
+
+    case 'prazo_correcao_expirado':
+      return {
+        subject: `❌ Solicitação ${data.protocolo} encerrada - Prazo expirado`,
+        html: `
+          <!DOCTYPE html>
+          <html>
+          <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+          <body style="${baseStyles}">
+            ${headerHtml}
+            <div style="background: #f8fafc; padding: 30px; border: 1px solid #e2e8f0; border-top: none;">
+              <h2 style="color: #ef4444; margin-top: 0;">❌ Solicitação Encerrada</h2>
+              <p>Sua solicitação <strong>${data.protocolo}</strong> foi encerrada automaticamente.</p>
+              ${infoBoxHtml(`
+                <p style="margin: 0;"><strong>Motivo:</strong> Prazo de 30 dias para correção expirou.</p>
+                <p style="margin: 10px 0 0 0;">A solicitação permaneceu pendente de correção sem atualização.</p>
+              `, '#ef4444')}
+              <p>Se ainda precisar deste serviço, você pode criar uma nova solicitação:</p>
               ${buttonSolicitanteHtml}
             </div>
             ${footerHtml}
