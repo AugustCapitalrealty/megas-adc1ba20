@@ -5,7 +5,9 @@ const EMAIL_NOTIFICATIONS_ENABLED = false;
 
 type EmailType =
   | 'nova_solicitacao_backoffice'
-  | 'documento_oc_emitido';
+  | 'documento_oc_emitido'
+  | 'prazo_correcao_expirando'
+  | 'prazo_correcao_expirado';
 
 interface EmailData {
   protocolo: string;
@@ -17,6 +19,7 @@ interface EmailData {
   solicitacao_id?: string;
   solicitante_nome?: string;
   solicitante_email?: string;
+  dias_restantes?: number;
 }
 
 export async function sendNotificationEmail(

@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.validate-cnae]
 verify_jwt = false
+
+[functions.check-correction-deadline]
+verify_jwt = false
