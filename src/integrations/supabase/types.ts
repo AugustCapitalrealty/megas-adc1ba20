@@ -818,6 +818,7 @@ export type Database = {
         Returns: {
           cliente_nome: string
           created_at: string
+          data_pendente_correcao: string
           descricao: string
           emergencial: boolean
           empreendimento: Database["public"]["Enums"]["empreendimento"]
