@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { RefreshCw, MapPin, User, Calendar, Clock, ChevronDown, ChevronUp, CheckCircle, XCircle, UserCircle, ArrowRight, AlertCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -65,6 +65,8 @@ const RESPONSAVEL_ETAPA_INDEX: Record<string, number> = {
   'Jonatas Augusto Ferreira': 0,             // facilities
   'Kethli Pereira Bezerra': 1,               // financeiro
   'Thiago Demeterco Lucchesi': 2,            // diretoria
+  'Para o Papel Gestor Condominio': 0,       // aguardando facilities
+  'Para o Papel Gestor Condomínio': 0,       // aguardando facilities (com acento)
 };
 
 const getEtapaAtualIndex = (responsavelAtual: string | null): number => {
@@ -230,6 +232,11 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
   }, [numeroChamadoFluig]);
 
   const fetchFluigStatus = async () => {
+    // Só mostrar loading se não temos dados ainda (evita flash ao recarregar)
+    if (!status) {
+      setLoading(true);
+    }
+    
     // Fetch snapshot data
     const { data: snapshotData, error: snapshotError } = await supabase
       .from('fluig_painel_snapshot')
@@ -315,6 +322,24 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
 
   const hasAnyApproval = approvalStages.some(s => s.status !== 'pending');
 
+  // Calcular eventos filtrados para contagem correta no badge
+  const eventosFiltrados = useMemo(() => {
+    return eventos
+      .filter(e => e.campo_alterado !== 'gerencia_conclusao')
+      .filter(e => {
+        if (e.campo_alterado === 'gerencia_facilities_conclusao' && e.valor_novo) {
+          return aprovacoes.facilitiesAprovado;
+        }
+        if (e.campo_alterado === 'gerencia_financeiro_conclusao' && e.valor_novo) {
+          return aprovacoes.financeiroAprovado;
+        }
+        if (e.campo_alterado === 'diretoria_conclusao' && e.valor_novo) {
+          return aprovacoes.diretoriaAprovado;
+        }
+        return true;
+      });
+  }, [eventos, aprovacoes]);
+
   return (
     <div className="p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
       <div className="flex items-center gap-2 mb-2">
@@ -386,13 +411,13 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
         )}
 
         {/* Movement History */}
-        {eventos.length > 0 && (
+        {eventosFiltrados.length > 0 && (
           <Collapsible open={showHistorico} onOpenChange={setShowHistorico}>
             <CollapsibleTrigger className="flex items-center gap-2 mt-2 pt-2 border-t border-blue-200 dark:border-blue-800 w-full text-left hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded px-1 py-1 transition-colors">
               <Clock className="h-3.5 w-3.5 text-blue-500" />
               <span className="text-muted-foreground text-xs">Histórico de Movimentações</span>
               <Badge variant="outline" className="text-xs ml-1">
-                {eventos.length}
+                {eventosFiltrados.length}
               </Badge>
               {showHistorico ? (
                 <ChevronUp className="h-3.5 w-3.5 text-muted-foreground ml-auto" />
@@ -402,23 +427,7 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-2">
               <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                {[...eventos]
-                  // Filtrar gerencia_conclusao (duplicado de gerencia_facilities_conclusao)
-                  .filter(e => e.campo_alterado !== 'gerencia_conclusao')
-                  // Filtrar eventos de "aprovação" que na verdade foram reprovação/devolução
-                  // A localização atual é a fonte de verdade
-                  .filter(e => {
-                    if (e.campo_alterado === 'gerencia_facilities_conclusao' && e.valor_novo) {
-                      return aprovacoes.facilitiesAprovado; // Só mostra se realmente aprovou
-                    }
-                    if (e.campo_alterado === 'gerencia_financeiro_conclusao' && e.valor_novo) {
-                      return aprovacoes.financeiroAprovado; // Só mostra se realmente aprovou
-                    }
-                    if (e.campo_alterado === 'diretoria_conclusao' && e.valor_novo) {
-                      return aprovacoes.diretoriaAprovado; // Só mostra se realmente aprovou
-                    }
-                    return true;
-                  })
+                {[...eventosFiltrados]
                   // Ordenar por data real (não por created_at da importação)
                   .sort((a, b) => getEventoDataReal(a).getTime() - getEventoDataReal(b).getTime())
                   .map((evento) => {
