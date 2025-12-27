@@ -1,24 +1,11 @@
-import { useEffect, useState, useMemo } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { RefreshCw, MapPin, User, Calendar, Clock, ChevronDown, ChevronUp, CheckCircle, XCircle, UserCircle, ArrowRight, AlertCircle } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { RefreshCw, MapPin, User, Calendar, Clock, ChevronDown, ChevronUp, CheckCircle, XCircle, UserCircle, ArrowRight, AlertCircle, RotateCcw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { getAprovacoesPorLocalizacao, CAMPO_APROVACAO_LABELS } from '@/lib/fluig-utils';
-
-interface FluigStatus {
-  solicitacao_fluig: string;
-  responsavel_atual: string | null;
-  localizacao: string | null;
-  situacao: string | null;
-  data_lancamento: string | null;
-  gerencia_conclusao: string | null;
-  gerencia_facilities_conclusao: string | null;
-  gerencia_financeiro_conclusao: string | null;
-  diretoria_conclusao: string | null;
-  ultima_movimentacao: string | null;
-}
+import { getAprovacoesPorLocalizacao, CAMPO_APROVACAO_LABELS, getDevolucaoLabel } from '@/lib/fluig-utils';
+import { useFluigStatus } from '@/hooks/useFluigStatus';
 
 interface FluigEvento {
   id: string;
@@ -26,6 +13,12 @@ interface FluigEvento {
   valor_anterior: string | null;
   valor_novo: string | null;
   created_at: string;
+}
+
+// Tipo estendido para eventos com marcação de devolução
+interface FluigEventoProcessado extends FluigEvento {
+  _isDevolucao?: boolean;
+  _devolucaoLabel?: string;
 }
 
 interface FluigStatusCardProps {
@@ -143,8 +136,16 @@ const PAPEL_PARA_TEXTO_AGUARDANDO: Record<string, string> = {
 };
 
 // Formata a descrição do evento de forma inteligente
-const formatEventoDescricao = (evento: FluigEvento): { texto: string; tipo: 'reprovacao' | 'aprovacao' | 'responsavel' | 'avanco' | 'situacao' | 'outro' } => {
+const formatEventoDescricao = (evento: FluigEventoProcessado): { texto: string; tipo: 'reprovacao' | 'aprovacao' | 'responsavel' | 'avanco' | 'situacao' | 'devolucao' | 'outro' } => {
   const { campo_alterado, valor_anterior, valor_novo } = evento;
+  
+  // Se é um evento de devolução marcado
+  if (evento._isDevolucao && evento._devolucaoLabel) {
+    return {
+      texto: evento._devolucaoLabel,
+      tipo: 'devolucao'
+    };
+  }
   
   // Mudança de responsável
   if (campo_alterado === 'responsavel_atual') {
@@ -204,10 +205,12 @@ const formatEventoDescricao = (evento: FluigEvento): { texto: string; tipo: 'rep
 };
 
 // Ícone e cor baseados no tipo de evento
-const getEventoIconAndColor = (tipo: 'reprovacao' | 'aprovacao' | 'responsavel' | 'avanco' | 'situacao' | 'outro') => {
+const getEventoIconAndColor = (tipo: 'reprovacao' | 'aprovacao' | 'responsavel' | 'avanco' | 'situacao' | 'devolucao' | 'outro') => {
   switch (tipo) {
     case 'reprovacao':
       return { icon: XCircle, colorClass: 'text-red-500' };
+    case 'devolucao':
+      return { icon: RotateCcw, colorClass: 'text-red-500' };
     case 'aprovacao':
       return { icon: CheckCircle, colorClass: 'text-green-500' };
     case 'responsavel':
@@ -222,49 +225,12 @@ const getEventoIconAndColor = (tipo: 'reprovacao' | 'aprovacao' | 'responsavel' 
 };
 
 export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
-  const [status, setStatus] = useState<FluigStatus | null>(null);
-  const [eventos, setEventos] = useState<FluigEvento[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, isLoading } = useFluigStatus(numeroChamadoFluig);
+  const status = data?.status || null;
+  const eventos = data?.eventos || [];
   const [showHistorico, setShowHistorico] = useState(false);
 
-  useEffect(() => {
-    fetchFluigStatus();
-  }, [numeroChamadoFluig]);
-
-  const fetchFluigStatus = async () => {
-    // Só mostrar loading se não temos dados ainda (evita flash ao recarregar)
-    if (!status) {
-      setLoading(true);
-    }
-    
-    // Fetch snapshot data
-    const { data: snapshotData, error: snapshotError } = await supabase
-      .from('fluig_painel_snapshot')
-      .select('solicitacao_fluig, responsavel_atual, localizacao, situacao, data_lancamento, gerencia_conclusao, gerencia_facilities_conclusao, gerencia_financeiro_conclusao, diretoria_conclusao')
-      .eq('solicitacao_fluig', numeroChamadoFluig.trim())
-      .maybeSingle();
-
-    if (!snapshotError && snapshotData) {
-      // Fetch events from eventos table
-      const { data: eventosData } = await supabase
-        .from('fluig_painel_eventos')
-        .select('id, campo_alterado, valor_anterior, valor_novo, created_at')
-        .eq('solicitacao_fluig', numeroChamadoFluig.trim())
-        .order('created_at', { ascending: false });
-
-      if (eventosData) {
-        setEventos(eventosData);
-      }
-
-      setStatus({
-        ...snapshotData,
-        ultima_movimentacao: eventosData?.[0]?.created_at || snapshotData.data_lancamento,
-      });
-    }
-    setLoading(false);
-  };
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg animate-pulse">
         <div className="h-4 bg-blue-200 dark:bg-blue-800 rounded w-32" />
@@ -322,22 +288,57 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
 
   const hasAnyApproval = approvalStages.some(s => s.status !== 'pending');
 
-  // Calcular eventos filtrados para contagem correta no badge
-  const eventosFiltrados = useMemo(() => {
-    return eventos
-      .filter(e => e.campo_alterado !== 'gerencia_conclusao')
-      .filter(e => {
-        if (e.campo_alterado === 'gerencia_facilities_conclusao' && e.valor_novo) {
-          return aprovacoes.facilitiesAprovado;
+  // Calcular eventos filtrados e processar devoluções
+  const eventosFiltrados = useMemo((): FluigEventoProcessado[] => {
+    const result: FluigEventoProcessado[] = [];
+    
+    for (const e of eventos) {
+      // Sempre filtrar gerencia_conclusao (duplicado)
+      if (e.campo_alterado === 'gerencia_conclusao') continue;
+      
+      // Para eventos de *_conclusao, verificar se é aprovação real ou devolução
+      if (e.campo_alterado === 'gerencia_facilities_conclusao' && e.valor_novo) {
+        if (aprovacoes.facilitiesAprovado) {
+          result.push(e); // Mostrar como aprovação
+        } else {
+          // Marcar como devolução
+          const devolucaoLabel = getDevolucaoLabel(e.campo_alterado);
+          if (devolucaoLabel) {
+            result.push({ ...e, _isDevolucao: true, _devolucaoLabel: devolucaoLabel });
+          }
         }
-        if (e.campo_alterado === 'gerencia_financeiro_conclusao' && e.valor_novo) {
-          return aprovacoes.financeiroAprovado;
+        continue;
+      }
+      
+      if (e.campo_alterado === 'gerencia_financeiro_conclusao' && e.valor_novo) {
+        if (aprovacoes.financeiroAprovado) {
+          result.push(e); // Mostrar como aprovação
+        } else {
+          const devolucaoLabel = getDevolucaoLabel(e.campo_alterado);
+          if (devolucaoLabel) {
+            result.push({ ...e, _isDevolucao: true, _devolucaoLabel: devolucaoLabel });
+          }
         }
-        if (e.campo_alterado === 'diretoria_conclusao' && e.valor_novo) {
-          return aprovacoes.diretoriaAprovado;
+        continue;
+      }
+      
+      if (e.campo_alterado === 'diretoria_conclusao' && e.valor_novo) {
+        if (aprovacoes.diretoriaAprovado) {
+          result.push(e); // Mostrar como aprovação
+        } else {
+          const devolucaoLabel = getDevolucaoLabel(e.campo_alterado);
+          if (devolucaoLabel) {
+            result.push({ ...e, _isDevolucao: true, _devolucaoLabel: devolucaoLabel });
+          }
         }
-        return true;
-      });
+        continue;
+      }
+      
+      // Outros eventos passam normalmente
+      result.push(e);
+    }
+    
+    return result;
   }, [eventos, aprovacoes]);
 
   return (
@@ -437,11 +438,24 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
                     const dataFormatada = format(dataReal, "dd/MM HH:mm", { locale: ptBR });
                     
                     return (
-                      <div key={evento.id} className="flex items-start gap-2 text-xs bg-white/50 dark:bg-black/20 rounded p-2">
-                        <Icon className={`h-4 w-4 mt-0.5 flex-shrink-0 ${colorClass}`} />
+                      <div 
+                        key={evento.id} 
+                        className={`flex items-start gap-2 text-xs p-1.5 rounded ${
+                          tipo === 'devolucao' || tipo === 'reprovacao'
+                            ? 'bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800'
+                            : 'bg-white/50 dark:bg-gray-800/30'
+                        }`}
+                      >
+                        <Icon className={`h-3.5 w-3.5 mt-0.5 flex-shrink-0 ${colorClass}`} />
                         <div className="flex-1 min-w-0">
-                          <p className="text-foreground break-words">{texto}</p>
-                          <p className="text-muted-foreground text-[10px] mt-0.5">{dataFormatada}</p>
+                          <span className={`${tipo === 'devolucao' || tipo === 'reprovacao' ? 'text-red-700 dark:text-red-300 font-medium' : 'text-foreground'}`}>
+                            {texto}
+                          </span>
+                          {tipo !== 'aprovacao' && (
+                            <span className="text-muted-foreground ml-1">
+                              em {dataFormatada}
+                            </span>
+                          )}
                         </div>
                       </div>
                     );

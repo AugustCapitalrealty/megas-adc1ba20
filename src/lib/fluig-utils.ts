@@ -71,3 +71,15 @@ export function isRetornoParaCorrecao(novoResponsavel: string | null): boolean {
   if (!novoResponsavel) return false;
   return PESSOAS_INICIO.some(nome => novoResponsavel.includes(nome));
 }
+
+// Labels para eventos de devolução por departamento
+export const DEVOLUCAO_LABELS: Record<string, string> = {
+  'gerencia_facilities_conclusao': 'Devolvido pela Gerência de Facilities para correção',
+  'gerencia_financeiro_conclusao': 'Devolvido pela Gerência Financeira para correção',
+  'diretoria_conclusao': 'Devolvido pela Diretoria para correção',
+};
+
+// Retorna o label de devolução para um campo, ou null se não for devolução
+export function getDevolucaoLabel(campoAlterado: string): string | null {
+  return DEVOLUCAO_LABELS[campoAlterado] || null;
+}
