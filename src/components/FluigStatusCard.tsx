@@ -442,6 +442,20 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
                 {[...eventos]
                   // Filtrar gerencia_conclusao (duplicado de gerencia_facilities_conclusao)
                   .filter(e => e.campo_alterado !== 'gerencia_conclusao')
+                  // Filtrar eventos de "aprovação" que na verdade foram reprovação/devolução
+                  // A localização atual é a fonte de verdade
+                  .filter(e => {
+                    if (e.campo_alterado === 'gerencia_facilities_conclusao' && e.valor_novo) {
+                      return aprovacoes.facilitiesAprovado; // Só mostra se realmente aprovou
+                    }
+                    if (e.campo_alterado === 'gerencia_financeiro_conclusao' && e.valor_novo) {
+                      return aprovacoes.financeiroAprovado; // Só mostra se realmente aprovou
+                    }
+                    if (e.campo_alterado === 'diretoria_conclusao' && e.valor_novo) {
+                      return aprovacoes.diretoriaAprovado; // Só mostra se realmente aprovou
+                    }
+                    return true;
+                  })
                   // Ordenar por data real (não por created_at da importação)
                   .sort((a, b) => getEventoDataReal(a).getTime() - getEventoDataReal(b).getTime())
                   .map((evento) => {
