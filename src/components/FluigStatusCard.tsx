@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { getAprovacoesPorLocalizacao, CAMPO_APROVACAO_LABELS } from '@/lib/fluig-utils';
 
 interface FluigStatus {
   solicitacao_fluig: string;
@@ -76,37 +77,6 @@ const getEtapaAtualIndex = (responsavelAtual: string | null): number => {
   return -1;
 };
 
-// Mapa: localização → etapa numérica (para determinar aprovações reais)
-// Facilities = Nível 1, Financeiro = Nível 2, Diretoria = Nível 3
-const LOCALIZACAO_TO_ETAPA: Record<string, number> = {
-  'Início': 0,
-  'Para o Papel Gestor Condominio': 1,   // Esperando Facilities
-  'Para o Papel Gestor Condomínio': 1,   // Esperando Facilities
-  'Aprovação Nivel 1': 1,                 // Esperando Facilities
-  'Aprovação Nível 1': 1,                 // Esperando Facilities
-  'Aprovação Nivel 2': 2,                 // Esperando Financeiro (Facilities já aprovou)
-  'Aprovação Nível 2': 2,                 // Esperando Financeiro (Facilities já aprovou)
-  'Aprovação Nivel 3': 3,                 // Esperando Diretoria (Financeiro já aprovou)
-  'Aprovação Nível 3': 3,                 // Esperando Diretoria (Financeiro já aprovou)
-  'Emitir Solicitação': 4,                // Diretoria já aprovou
-  'Emitir Solicitacao': 4,
-};
-
-// Determina quais aprovações realmente ocorreram baseado na localização atual
-// A localização é a fonte de verdade, não os campos *_conclusao
-const getAprovacoesPorLocalizacao = (localizacao: string | null): { 
-  facilitiesAprovado: boolean; 
-  financeiroAprovado: boolean; 
-  diretoriaAprovado: boolean 
-} => {
-  const etapaAtual = LOCALIZACAO_TO_ETAPA[localizacao || ''] ?? 0;
-  return {
-    facilitiesAprovado: etapaAtual >= 2,  // Passou de Nível 1 para Nível 2+
-    financeiroAprovado: etapaAtual >= 3,  // Passou de Nível 2 para Nível 3+
-    diretoriaAprovado: etapaAtual >= 4,   // Passou de Nível 3 para Emitir+
-  };
-};
-
 // Fallback por localização (quando não há pessoa específica)
 const PROXIMA_ETAPA_FALLBACK: Record<string, string> = {
   'Início': 'Gerência de Facilities',
@@ -135,13 +105,6 @@ const getProximaEtapa = (responsavelAtual: string | null, localizacao: string | 
   return PROXIMA_ETAPA_FALLBACK[localizacao || ''] || localizacao || '-';
 };
 
-// Labels para campos de aprovação
-const CAMPO_APROVACAO_LABELS: Record<string, string> = {
-  'gerencia_conclusao': 'Gerência',
-  'gerencia_facilities_conclusao': 'Facilities',
-  'gerencia_financeiro_conclusao': 'Financeiro',
-  'diretoria_conclusao': 'Diretoria',
-};
 
 // Obtém a data real do evento (para aprovações, usa valor_novo que contém a data ISO)
 const getEventoDataReal = (evento: FluigEvento): Date => {

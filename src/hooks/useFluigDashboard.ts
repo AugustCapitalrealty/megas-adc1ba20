@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { parseFluigXLSX, type ParseResult } from '@/lib/fluig-parser';
 import type { FluigSnapshot, FluigRowData, FluigImportResult } from '@/types/fluig';
+import { isRetornoParaCorrecao, isAprovacaoReal, CAMPO_APROVACAO_LABELS } from '@/lib/fluig-utils';
 
 export interface FluigFilters {
   search?: string;
@@ -122,13 +123,6 @@ export function useFluigFilterOptions() {
   return { empreendimentos, situacoes, localizacoes, responsaveis, loading };
 }
 
-// Pessoas do "Início" - quando responsável muda para uma delas, significa retorno para correção
-const PESSOAS_INICIO = [
-  'Laureane Bransin',
-  'Paloma Correa Grigoletto',
-  'Roberta Gonçalves Pires da Costa',
-];
-
 // Mapping for stage labels - consolidates different names for the same stage
 const ETAPA_LABELS: Record<string, string> = {
   // Gerência de Facilities
@@ -150,12 +144,6 @@ const ETAPA_LABELS: Record<string, string> = {
 function getMappedLabel(value: string | null): string {
   if (!value) return '';
   return ETAPA_LABELS[value] || value;
-}
-
-// Verifica se o novo responsável é uma pessoa do Início (retorno para correção)
-function isRetornoParaCorrecao(novoResponsavel: string | null): boolean {
-  if (!novoResponsavel) return false;
-  return PESSOAS_INICIO.some(nome => novoResponsavel.includes(nome));
 }
 
 export function useFluigImport() {
@@ -405,13 +393,31 @@ export function useFluigImport() {
                     } else if (change.campo === 'situacao') {
                       mensagem = `Fluig: Situação alterada para "${change.novo}"`;
                     } else if (change.campo === 'gerencia_conclusao') {
+                      // Gerencia conclusao não precisa validar - é diferente de facilities
                       mensagem = `Fluig: Aprovado pela Gerência`;
                     } else if (change.campo === 'gerencia_facilities_conclusao') {
-                      mensagem = `Fluig: Aprovado pela Gerência de Facilities`;
+                      // Validar se realmente foi aprovação baseado na localização atual
+                      if (isAprovacaoReal('gerencia_facilities_conclusao', row.localizacao)) {
+                        mensagem = `Fluig: Aprovado pela Gerência de Facilities`;
+                      } else {
+                        // Foi reprovação/devolução - não registra como aprovação
+                        // O retorno já é capturado pela mudança de responsável
+                        mensagem = '';
+                      }
                     } else if (change.campo === 'gerencia_financeiro_conclusao') {
-                      mensagem = `Fluig: Aprovado pela Gerência Financeira`;
+                      // Validar se realmente foi aprovação baseado na localização atual
+                      if (isAprovacaoReal('gerencia_financeiro_conclusao', row.localizacao)) {
+                        mensagem = `Fluig: Aprovado pela Gerência Financeira`;
+                      } else {
+                        mensagem = '';
+                      }
                     } else if (change.campo === 'diretoria_conclusao') {
-                      mensagem = `Fluig: Aprovado pela Diretoria`;
+                      // Validar se realmente foi aprovação baseado na localização atual
+                      if (isAprovacaoReal('diretoria_conclusao', row.localizacao)) {
+                        mensagem = `Fluig: Aprovado pela Diretoria`;
+                      } else {
+                        mensagem = '';
+                      }
                     }
                     
                     if (mensagem) {
