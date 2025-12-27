@@ -76,29 +76,35 @@ const getEtapaAtualIndex = (responsavelAtual: string | null): number => {
   return -1;
 };
 
-// Mapa: localização → ordem no fluxo (para detectar reprovação)
-const LOCALIZACAO_ORDER: Record<string, number> = {
+// Mapa: localização → etapa numérica (para determinar aprovações reais)
+// Facilities = Nível 1, Financeiro = Nível 2, Diretoria = Nível 3
+const LOCALIZACAO_TO_ETAPA: Record<string, number> = {
   'Início': 0,
-  'Para o Papel Gestor Condominio': 1,
-  'Para o Papel Gestor Condomínio': 1,
-  'Aprovação Nivel 1': 1,
-  'Aprovação Nível 1': 1,
-  'Aprovação Nivel 2': 2,
-  'Aprovação Nível 2': 2,
-  'Aprovação Nivel 3': 3,
-  'Aprovação Nível 3': 3,
+  'Para o Papel Gestor Condominio': 1,   // Esperando Facilities
+  'Para o Papel Gestor Condomínio': 1,   // Esperando Facilities
+  'Aprovação Nivel 1': 1,                 // Esperando Facilities
+  'Aprovação Nível 1': 1,                 // Esperando Facilities
+  'Aprovação Nivel 2': 2,                 // Esperando Financeiro (Facilities já aprovou)
+  'Aprovação Nível 2': 2,                 // Esperando Financeiro (Facilities já aprovou)
+  'Aprovação Nivel 3': 3,                 // Esperando Diretoria (Financeiro já aprovou)
+  'Aprovação Nível 3': 3,                 // Esperando Diretoria (Financeiro já aprovou)
+  'Emitir Solicitação': 4,                // Diretoria já aprovou
+  'Emitir Solicitacao': 4,
 };
 
-// Detecta se uma etapa foi REPROVADA (voltou para etapa anterior)
-const isStageRejected = (stageOrder: number, conclusaoDate: string | null, localizacaoAtual: string | null): boolean => {
-  // Se não tem data de conclusão, não foi processada ainda
-  if (!conclusaoDate) return false;
-  
-  // Ordem da localização atual
-  const currentOrder = LOCALIZACAO_ORDER[localizacaoAtual || ''] ?? -1;
-  
-  // Se a localização atual é ANTERIOR à etapa, e a etapa tem conclusão, foi REPROVADO
-  return currentOrder < stageOrder;
+// Determina quais aprovações realmente ocorreram baseado na localização atual
+// A localização é a fonte de verdade, não os campos *_conclusao
+const getAprovacoesPorLocalizacao = (localizacao: string | null): { 
+  facilitiesAprovado: boolean; 
+  financeiroAprovado: boolean; 
+  diretoriaAprovado: boolean 
+} => {
+  const etapaAtual = LOCALIZACAO_TO_ETAPA[localizacao || ''] ?? 0;
+  return {
+    facilitiesAprovado: etapaAtual >= 2,  // Passou de Nível 1 para Nível 2+
+    financeiroAprovado: etapaAtual >= 3,  // Passou de Nível 2 para Nível 3+
+    diretoriaAprovado: etapaAtual >= 4,   // Passou de Nível 3 para Emitir+
+  };
 };
 
 // Fallback por localização (quando não há pessoa específica)
@@ -289,29 +295,28 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
   // Determine current stage based on responsavel_atual
   const etapaAtualIndex = getEtapaAtualIndex(status.responsavel_atual);
 
-  // Determine approval stages with 4 states: done (green), rejected (red), in_progress (yellow), pending (gray)
+  // Usar localização como fonte de verdade para determinar aprovações
+  const aprovacoes = getAprovacoesPorLocalizacao(status.localizacao);
+
+  // Determine approval stages based on localizacao (source of truth)
   const approvalStages = [
-    { key: 'facilities', label: 'Facilities', conclusao: status.gerencia_facilities_conclusao, stageOrder: 1 },
-    { key: 'financeiro', label: 'Financeiro', conclusao: status.gerencia_financeiro_conclusao, stageOrder: 2 },
-    { key: 'diretoria', label: 'Diretoria', conclusao: status.diretoria_conclusao, stageOrder: 3 },
+    { key: 'facilities', label: 'Facilities', aprovado: aprovacoes.facilitiesAprovado },
+    { key: 'financeiro', label: 'Financeiro', aprovado: aprovacoes.financeiroAprovado },
+    { key: 'diretoria', label: 'Diretoria', aprovado: aprovacoes.diretoriaAprovado },
   ].map((stage, index) => {
-    // Check if REJECTED (returned to earlier stage)
-    if (isStageRejected(stage.stageOrder, stage.conclusao, status.localizacao)) {
-      return { ...stage, status: 'rejected' as const };
-    }
-    // If has conclusao date and not rejected, it's approved
-    if (stage.conclusao) {
+    // Se aprovado segundo a localização, está done
+    if (stage.aprovado) {
       return { ...stage, status: 'done' as const };
     }
-    // If this is the current stage (based on responsavel), it's in progress
+    // Se é a etapa atual (baseado no responsável), está em progresso
     if (index === etapaAtualIndex) {
       return { ...stage, status: 'in_progress' as const };
     }
-    // If before the current stage, it's done (already passed)
+    // Se antes da etapa atual, está done (já passou)
     if (etapaAtualIndex >= 0 && index < etapaAtualIndex) {
       return { ...stage, status: 'done' as const };
     }
-    // Otherwise pending
+    // Caso contrário, pendente
     return { ...stage, status: 'pending' as const };
   });
 
@@ -373,13 +378,11 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
                   key={stage.key} 
                   variant={stage.status === 'done' ? 'default' : 'outline'}
                   className={`text-xs ${
-                    stage.status === 'rejected'
-                      ? 'bg-red-500 hover:bg-red-500 text-white border-red-500'
-                      : stage.status === 'done' 
-                        ? 'bg-green-500 hover:bg-green-500 text-white' 
-                        : stage.status === 'in_progress'
-                          ? 'bg-yellow-500 hover:bg-yellow-500 text-white border-yellow-500'
-                          : 'bg-transparent text-muted-foreground border-muted-foreground/30'
+                    stage.status === 'done' 
+                      ? 'bg-green-500 hover:bg-green-500 text-white' 
+                      : stage.status === 'in_progress'
+                        ? 'bg-yellow-500 hover:bg-yellow-500 text-white border-yellow-500'
+                        : 'bg-transparent text-muted-foreground border-muted-foreground/30'
                   }`}
                 >
                   {stage.label}
