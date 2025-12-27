@@ -239,6 +239,39 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
     return getAprovacoesPorLocalizacao(status.localizacao);
   }, [status?.localizacao]);
 
+  // Detectar se houve devolução recente - must be before early returns
+  const devolucaoDetectada = useMemo(() => {
+    if (!status) return null;
+    
+    const { facilitiesAprovado, financeiroAprovado, diretoriaAprovado } = aprovacoes;
+    
+    // Diretoria concluiu mas não está aprovado = devolução pela Diretoria
+    if (status.diretoria_conclusao && !diretoriaAprovado) {
+      return {
+        departamento: 'Diretoria',
+        responsavelInferido: 'Solicitante (aguardando correção)'
+      };
+    }
+    
+    // Financeiro concluiu mas não está aprovado = devolução pelo Financeiro
+    if (status.gerencia_financeiro_conclusao && !financeiroAprovado) {
+      return {
+        departamento: 'Gerência Financeira',
+        responsavelInferido: 'Solicitante (aguardando correção)'
+      };
+    }
+    
+    // Facilities concluiu mas não está aprovado = devolução por Facilities
+    if (status.gerencia_facilities_conclusao && !facilitiesAprovado) {
+      return {
+        departamento: 'Gerência de Facilities',
+        responsavelInferido: 'Solicitante (aguardando correção)'
+      };
+    }
+    
+    return null;
+  }, [status, aprovacoes]);
+
   // Calcular eventos filtrados e processar devoluções - must be before early returns
   const eventosFiltrados = useMemo((): FluigEventoProcessado[] => {
     if (!eventos.length) return [];
@@ -365,16 +398,25 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
       </div>
 
       <div className="grid gap-2 text-sm">
-        {/* Current responsible */}
-        {status.responsavel_atual && (
+        {/* Current responsible - show inferred if devolução detected */}
+        {(status.responsavel_atual || devolucaoDetectada) && (
           <div className="flex items-center gap-2">
-            <User className="h-3.5 w-3.5 text-blue-500" />
+            <User className={`h-3.5 w-3.5 ${devolucaoDetectada ? 'text-amber-500' : 'text-blue-500'}`} />
             <span className="text-muted-foreground">Responsável atual:</span>
-            <span className="font-medium text-foreground">{ETAPA_LABELS[status.responsavel_atual] || status.responsavel_atual}</span>
-            <Badge variant="outline" className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700 flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              {diasComResponsavel}d
-            </Badge>
+            <span className={`font-medium ${devolucaoDetectada ? 'text-amber-600 dark:text-amber-400' : 'text-foreground'}`}>
+              {devolucaoDetectada?.responsavelInferido || ETAPA_LABELS[status.responsavel_atual || ''] || status.responsavel_atual}
+            </span>
+            {!devolucaoDetectada && (
+              <Badge variant="outline" className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700 flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                {diasComResponsavel}d
+              </Badge>
+            )}
+            {devolucaoDetectada && (
+              <Badge variant="outline" className="text-xs bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700">
+                Devolvido por {devolucaoDetectada.departamento}
+              </Badge>
+            )}
           </div>
         )}
 
