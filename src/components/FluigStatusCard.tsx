@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { RefreshCw, MapPin, User, Calendar, Clock } from 'lucide-react';
+import { RefreshCw, MapPin, User, Calendar, Clock, ChevronDown, ChevronUp, CheckCircle, XCircle, UserCircle, ArrowRight, AlertCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface FluigStatus {
   solicitacao_fluig: string;
@@ -16,6 +17,14 @@ interface FluigStatus {
   gerencia_financeiro_conclusao: string | null;
   diretoria_conclusao: string | null;
   ultima_movimentacao: string | null;
+}
+
+interface FluigEvento {
+  id: string;
+  campo_alterado: string;
+  valor_anterior: string | null;
+  valor_novo: string | null;
+  created_at: string;
 }
 
 interface FluigStatusCardProps {
@@ -120,9 +129,89 @@ const getProximaEtapa = (responsavelAtual: string | null, localizacao: string | 
   return PROXIMA_ETAPA_FALLBACK[localizacao || ''] || localizacao || '-';
 };
 
+// Labels para campos de aprovação
+const CAMPO_APROVACAO_LABELS: Record<string, string> = {
+  'gerencia_conclusao': 'Gerência',
+  'gerencia_facilities_conclusao': 'Facilities',
+  'gerencia_financeiro_conclusao': 'Financeiro',
+  'diretoria_conclusao': 'Diretoria',
+};
+
+// Formata a descrição do evento de forma inteligente
+const formatEventoDescricao = (evento: FluigEvento): { texto: string; tipo: 'reprovacao' | 'aprovacao' | 'responsavel' | 'avanco' | 'situacao' | 'outro' } => {
+  const { campo_alterado, valor_anterior, valor_novo } = evento;
+  
+  // Mudança de responsável: "Jonatas assumiu como Gestor Condomínio"
+  if (campo_alterado === 'responsavel_atual') {
+    const papel = valor_anterior?.replace('Para o Papel ', '') || '';
+    return {
+      texto: `${valor_novo} assumiu como ${papel}`,
+      tipo: 'responsavel'
+    };
+  }
+  
+  // Mudança de localização
+  if (campo_alterado === 'localizacao') {
+    if (valor_novo === 'Início') {
+      return {
+        texto: `Devolvido de ${valor_anterior}`,
+        tipo: 'reprovacao'
+      };
+    }
+    return {
+      texto: `Avançou para ${valor_novo}`,
+      tipo: 'avanco'
+    };
+  }
+  
+  // Aprovações (campos *_conclusao)
+  if (campo_alterado.includes('conclusao') && valor_novo) {
+    const label = CAMPO_APROVACAO_LABELS[campo_alterado] || campo_alterado;
+    const dataFormatada = format(new Date(valor_novo), "dd/MM/yyyy HH:mm", { locale: ptBR });
+    return {
+      texto: `${label} aprovado em ${dataFormatada}`,
+      tipo: 'aprovacao'
+    };
+  }
+  
+  // Mudança de situação
+  if (campo_alterado === 'situacao') {
+    return {
+      texto: `Status: ${valor_novo}`,
+      tipo: 'situacao'
+    };
+  }
+  
+  // Outros campos
+  return {
+    texto: `${campo_alterado}: ${valor_anterior || '(vazio)'} → ${valor_novo || '(vazio)'}`,
+    tipo: 'outro'
+  };
+};
+
+// Ícone e cor baseados no tipo de evento
+const getEventoIconAndColor = (tipo: 'reprovacao' | 'aprovacao' | 'responsavel' | 'avanco' | 'situacao' | 'outro') => {
+  switch (tipo) {
+    case 'reprovacao':
+      return { icon: XCircle, colorClass: 'text-red-500' };
+    case 'aprovacao':
+      return { icon: CheckCircle, colorClass: 'text-green-500' };
+    case 'responsavel':
+      return { icon: UserCircle, colorClass: 'text-blue-500' };
+    case 'avanco':
+      return { icon: ArrowRight, colorClass: 'text-amber-500' };
+    case 'situacao':
+      return { icon: AlertCircle, colorClass: 'text-gray-500' };
+    default:
+      return { icon: Clock, colorClass: 'text-muted-foreground' };
+  }
+};
+
 export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
   const [status, setStatus] = useState<FluigStatus | null>(null);
+  const [eventos, setEventos] = useState<FluigEvento[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showHistorico, setShowHistorico] = useState(false);
 
   useEffect(() => {
     fetchFluigStatus();
@@ -137,18 +226,20 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
       .maybeSingle();
 
     if (!snapshotError && snapshotData) {
-      // Fetch last event date from eventos table
-      const { data: eventData } = await supabase
+      // Fetch events from eventos table
+      const { data: eventosData } = await supabase
         .from('fluig_painel_eventos')
-        .select('created_at')
+        .select('id, campo_alterado, valor_anterior, valor_novo, created_at')
         .eq('solicitacao_fluig', numeroChamadoFluig.trim())
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .order('created_at', { ascending: false });
+
+      if (eventosData) {
+        setEventos(eventosData);
+      }
 
       setStatus({
         ...snapshotData,
-        ultima_movimentacao: eventData?.created_at || snapshotData.data_lancamento,
+        ultima_movimentacao: eventosData?.[0]?.created_at || snapshotData.data_lancamento,
       });
     }
     setLoading(false);
@@ -283,6 +374,43 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
               ))}
             </div>
           </div>
+        )}
+
+        {/* Movement History */}
+        {eventos.length > 0 && (
+          <Collapsible open={showHistorico} onOpenChange={setShowHistorico}>
+            <CollapsibleTrigger className="flex items-center gap-2 mt-2 pt-2 border-t border-blue-200 dark:border-blue-800 w-full text-left hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded px-1 py-1 transition-colors">
+              <Clock className="h-3.5 w-3.5 text-blue-500" />
+              <span className="text-muted-foreground text-xs">Histórico de Movimentações</span>
+              <Badge variant="outline" className="text-xs ml-1">
+                {eventos.length}
+              </Badge>
+              {showHistorico ? (
+                <ChevronUp className="h-3.5 w-3.5 text-muted-foreground ml-auto" />
+              ) : (
+                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground ml-auto" />
+              )}
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-2">
+              <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                {eventos.map((evento) => {
+                  const { texto, tipo } = formatEventoDescricao(evento);
+                  const { icon: Icon, colorClass } = getEventoIconAndColor(tipo);
+                  const dataFormatada = format(new Date(evento.created_at), "dd/MM HH:mm", { locale: ptBR });
+                  
+                  return (
+                    <div key={evento.id} className="flex items-start gap-2 text-xs bg-white/50 dark:bg-black/20 rounded p-2">
+                      <Icon className={`h-4 w-4 mt-0.5 flex-shrink-0 ${colorClass}`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-foreground break-words">{texto}</p>
+                        <p className="text-muted-foreground text-[10px] mt-0.5">{dataFormatada}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
         )}
       </div>
     </div>
