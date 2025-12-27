@@ -137,15 +137,28 @@ const CAMPO_APROVACAO_LABELS: Record<string, string> = {
   'diretoria_conclusao': 'Diretoria',
 };
 
+// Obtém a data real do evento (para aprovações, usa valor_novo que contém a data ISO)
+const getEventoDataReal = (evento: FluigEvento): Date => {
+  // Para aprovações, a data real está no valor_novo (ISO string)
+  if (evento.campo_alterado.includes('_conclusao') && evento.valor_novo) {
+    try {
+      return new Date(evento.valor_novo);
+    } catch {
+      return new Date(evento.created_at);
+    }
+  }
+  // Para outros eventos, usar created_at
+  return new Date(evento.created_at);
+};
+
 // Formata a descrição do evento de forma inteligente
 const formatEventoDescricao = (evento: FluigEvento): { texto: string; tipo: 'reprovacao' | 'aprovacao' | 'responsavel' | 'avanco' | 'situacao' | 'outro' } => {
   const { campo_alterado, valor_anterior, valor_novo } = evento;
   
-  // Mudança de responsável: "Jonatas assumiu como Gestor Condomínio"
+  // Mudança de responsável: "Nome assumiu Fluig"
   if (campo_alterado === 'responsavel_atual') {
-    const papel = valor_anterior?.replace('Para o Papel ', '') || '';
     return {
-      texto: `${valor_novo} assumiu como ${papel}`,
+      texto: `${valor_novo} assumiu Fluig`,
       tipo: 'responsavel'
     };
   }
@@ -393,21 +406,27 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-2">
               <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                {eventos.map((evento) => {
-                  const { texto, tipo } = formatEventoDescricao(evento);
-                  const { icon: Icon, colorClass } = getEventoIconAndColor(tipo);
-                  const dataFormatada = format(new Date(evento.created_at), "dd/MM HH:mm", { locale: ptBR });
-                  
-                  return (
-                    <div key={evento.id} className="flex items-start gap-2 text-xs bg-white/50 dark:bg-black/20 rounded p-2">
-                      <Icon className={`h-4 w-4 mt-0.5 flex-shrink-0 ${colorClass}`} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-foreground break-words">{texto}</p>
-                        <p className="text-muted-foreground text-[10px] mt-0.5">{dataFormatada}</p>
+                {[...eventos]
+                  // Filtrar gerencia_conclusao (duplicado de gerencia_facilities_conclusao)
+                  .filter(e => e.campo_alterado !== 'gerencia_conclusao')
+                  // Ordenar por data real (não por created_at da importação)
+                  .sort((a, b) => getEventoDataReal(a).getTime() - getEventoDataReal(b).getTime())
+                  .map((evento) => {
+                    const { texto, tipo } = formatEventoDescricao(evento);
+                    const { icon: Icon, colorClass } = getEventoIconAndColor(tipo);
+                    const dataReal = getEventoDataReal(evento);
+                    const dataFormatada = format(dataReal, "dd/MM HH:mm", { locale: ptBR });
+                    
+                    return (
+                      <div key={evento.id} className="flex items-start gap-2 text-xs bg-white/50 dark:bg-black/20 rounded p-2">
+                        <Icon className={`h-4 w-4 mt-0.5 flex-shrink-0 ${colorClass}`} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-foreground break-words">{texto}</p>
+                          <p className="text-muted-foreground text-[10px] mt-0.5">{dataFormatada}</p>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
               </div>
             </CollapsibleContent>
           </Collapsible>
