@@ -157,12 +157,41 @@ const getEventoDataReal = (evento: FluigEvento): Date => {
   return new Date(evento.created_at);
 };
 
+// Mapa: localização técnica → texto amigável para movimentações
+const LOCALIZACAO_TEXTO_AMIGAVEL: Record<string, string> = {
+  'Aprovação Nivel 1': 'aprovação de Facilities',
+  'Aprovação Nível 1': 'aprovação de Facilities',
+  'Aprovação Nivel 2': 'aprovação Financeira',
+  'Aprovação Nível 2': 'aprovação Financeira',
+  'Aprovação Nivel 3': 'aprovação da Diretoria',
+  'Aprovação Nível 3': 'aprovação da Diretoria',
+  'Emitir Solicitação': 'emissão da solicitação',
+  'Emitir Solicitacao': 'emissão da solicitação',
+};
+
+// Mapa: papel genérico → texto de "Aguardando aprovação"
+const PAPEL_PARA_TEXTO_AGUARDANDO: Record<string, string> = {
+  'Para o Papel Gestor Condominio': 'Aguardando aprovação Gerência de Facilities',
+  'Para o Papel Gestor Condomínio': 'Aguardando aprovação Gerência de Facilities',
+  'Para o Papel Gerente Financeiro': 'Aguardando aprovação Gerência Financeira',
+  'Para o Papel Diretor': 'Aguardando aprovação Diretoria',
+};
+
 // Formata a descrição do evento de forma inteligente
 const formatEventoDescricao = (evento: FluigEvento): { texto: string; tipo: 'reprovacao' | 'aprovacao' | 'responsavel' | 'avanco' | 'situacao' | 'outro' } => {
   const { campo_alterado, valor_anterior, valor_novo } = evento;
   
-  // Mudança de responsável: "Nome assumiu Fluig"
+  // Mudança de responsável
   if (campo_alterado === 'responsavel_atual') {
+    // Verifica se é um papel genérico (não é uma pessoa específica)
+    const textoAguardando = PAPEL_PARA_TEXTO_AGUARDANDO[valor_novo || ''];
+    if (textoAguardando) {
+      return {
+        texto: textoAguardando,
+        tipo: 'responsavel'
+      };
+    }
+    // Se for pessoa específica, usa o formato padrão
     return {
       texto: `${valor_novo} assumiu Fluig`,
       tipo: 'responsavel'
@@ -173,12 +202,13 @@ const formatEventoDescricao = (evento: FluigEvento): { texto: string; tipo: 'rep
   if (campo_alterado === 'localizacao') {
     if (valor_novo === 'Início') {
       return {
-        texto: `Devolvido de ${valor_anterior}`,
+        texto: `Devolvido de ${LOCALIZACAO_TEXTO_AMIGAVEL[valor_anterior || ''] || valor_anterior}`,
         tipo: 'reprovacao'
       };
     }
+    const textoAmigavel = LOCALIZACAO_TEXTO_AMIGAVEL[valor_novo || ''] || valor_novo;
     return {
-      texto: `Avançou para ${valor_novo}`,
+      texto: `Avançou para ${textoAmigavel}`,
       tipo: 'avanco'
     };
   }
