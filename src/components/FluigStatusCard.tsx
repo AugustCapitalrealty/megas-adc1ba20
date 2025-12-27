@@ -225,71 +225,24 @@ const getEventoIconAndColor = (tipo: 'reprovacao' | 'aprovacao' | 'responsavel' 
 };
 
 export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
+  // ALL HOOKS MUST BE AT THE TOP - before any early returns
   const { data, isLoading } = useFluigStatus(numeroChamadoFluig);
   const status = data?.status || null;
   const eventos = data?.eventos || [];
   const [showHistorico, setShowHistorico] = useState(false);
 
-  if (isLoading) {
-    return (
-      <div className="p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg animate-pulse">
-        <div className="h-4 bg-blue-200 dark:bg-blue-800 rounded w-32" />
-      </div>
-    );
-  }
-
-  if (!status) {
-    return (
-      <div className="p-3 bg-muted/50 border border-border rounded-lg">
-        <div className="flex items-center gap-2 text-muted-foreground text-sm">
-          <RefreshCw className="h-4 w-4" />
-          <span>Fluig #{numeroChamadoFluig} - Aguardando importação de dados</span>
-        </div>
-      </div>
-    );
-  }
-
-  const dataLancamentoFormatted = status.data_lancamento 
-    ? format(new Date(status.data_lancamento), "dd/MM/yyyy", { locale: ptBR })
-    : null;
-
-  // Calculate days with current responsible - use ultima_movimentacao instead of data_lancamento
-  const diasComResponsavel = status.ultima_movimentacao
-    ? differenceInDays(new Date(), new Date(status.ultima_movimentacao))
-    : 0;
-
-  // Determine current stage based on responsavel_atual
-  const etapaAtualIndex = getEtapaAtualIndex(status.responsavel_atual);
-
-  // Usar localização como fonte de verdade para determinar aprovações
-  const aprovacoes = getAprovacoesPorLocalizacao(status.localizacao);
-
-  // Determine approval stages based on localizacao (source of truth)
-  const approvalStages = [
-    { key: 'facilities', label: 'Facilities', aprovado: aprovacoes.facilitiesAprovado },
-    { key: 'financeiro', label: 'Financeiro', aprovado: aprovacoes.financeiroAprovado },
-    { key: 'diretoria', label: 'Diretoria', aprovado: aprovacoes.diretoriaAprovado },
-  ].map((stage, index) => {
-    // Se aprovado segundo a localização, está done
-    if (stage.aprovado) {
-      return { ...stage, status: 'done' as const };
+  // Memoized calculations - must be before early returns
+  const aprovacoes = useMemo(() => {
+    if (!status?.localizacao) {
+      return { facilitiesAprovado: false, financeiroAprovado: false, diretoriaAprovado: false };
     }
-    // Se é a etapa atual (baseado no responsável), está em progresso
-    if (index === etapaAtualIndex) {
-      return { ...stage, status: 'in_progress' as const };
-    }
-    // Se antes da etapa atual, está done (já passou)
-    if (etapaAtualIndex >= 0 && index < etapaAtualIndex) {
-      return { ...stage, status: 'done' as const };
-    }
-    // Caso contrário, pendente
-    return { ...stage, status: 'pending' as const };
-  });
+    return getAprovacoesPorLocalizacao(status.localizacao);
+  }, [status?.localizacao]);
 
-  const hasAnyApproval = approvalStages.some(s => s.status !== 'pending');
-
-  // Calcular eventos filtrados e processar devoluções
+  // Calcular eventos filtrados e processar devoluções - must be before early returns
   const eventosFiltrados = useMemo((): FluigEventoProcessado[] => {
+    if (!eventos.length) return [];
+    
     const result: FluigEventoProcessado[] = [];
     
     for (const e of eventos) {
@@ -340,6 +293,62 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
     
     return result;
   }, [eventos, aprovacoes]);
+
+  // NOW we can have early returns - after all hooks
+  if (isLoading) {
+    return (
+      <div className="p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg animate-pulse">
+        <div className="h-4 bg-blue-200 dark:bg-blue-800 rounded w-32" />
+      </div>
+    );
+  }
+
+  if (!status) {
+    return (
+      <div className="p-3 bg-muted/50 border border-border rounded-lg">
+        <div className="flex items-center gap-2 text-muted-foreground text-sm">
+          <RefreshCw className="h-4 w-4" />
+          <span>Fluig #{numeroChamadoFluig} - Aguardando importação de dados</span>
+        </div>
+      </div>
+    );
+  }
+
+  const dataLancamentoFormatted = status.data_lancamento 
+    ? format(new Date(status.data_lancamento), "dd/MM/yyyy", { locale: ptBR })
+    : null;
+
+  // Calculate days with current responsible - use ultima_movimentacao instead of data_lancamento
+  const diasComResponsavel = status.ultima_movimentacao
+    ? differenceInDays(new Date(), new Date(status.ultima_movimentacao))
+    : 0;
+
+  // Determine current stage based on responsavel_atual
+  const etapaAtualIndex = getEtapaAtualIndex(status.responsavel_atual);
+
+  // Determine approval stages based on localizacao (source of truth)
+  const approvalStages = [
+    { key: 'facilities', label: 'Facilities', aprovado: aprovacoes.facilitiesAprovado },
+    { key: 'financeiro', label: 'Financeiro', aprovado: aprovacoes.financeiroAprovado },
+    { key: 'diretoria', label: 'Diretoria', aprovado: aprovacoes.diretoriaAprovado },
+  ].map((stage, index) => {
+    // Se aprovado segundo a localização, está done
+    if (stage.aprovado) {
+      return { ...stage, status: 'done' as const };
+    }
+    // Se é a etapa atual (baseado no responsável), está em progresso
+    if (index === etapaAtualIndex) {
+      return { ...stage, status: 'in_progress' as const };
+    }
+    // Se antes da etapa atual, está done (já passou)
+    if (etapaAtualIndex >= 0 && index < etapaAtualIndex) {
+      return { ...stage, status: 'done' as const };
+    }
+    // Caso contrário, pendente
+    return { ...stage, status: 'pending' as const };
+  });
+
+  const hasAnyApproval = approvalStages.some(s => s.status !== 'pending');
 
   return (
     <div className="p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
