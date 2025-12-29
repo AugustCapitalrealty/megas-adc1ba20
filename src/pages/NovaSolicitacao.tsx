@@ -454,6 +454,7 @@ export default function NovaSolicitacao() {
           description: 'A soma de Serviço + Material deve ser igual ao valor total.',
           variant: 'destructive',
         });
+        isSubmittingRef.current = false;
         return;
       }
     }
@@ -466,6 +467,7 @@ export default function NovaSolicitacao() {
           description: 'Informe a justificativa para não apresentar 3 fornecedores.',
           variant: 'destructive',
         });
+        isSubmittingRef.current = false;
         return;
       }
       if (!excecaoFornecedores && (!fornecedorConcorrente1 || !fornecedorConcorrente2)) {
@@ -474,6 +476,7 @@ export default function NovaSolicitacao() {
           description: 'Informe os 3 fornecedores ou selecione a opção de exceção.',
           variant: 'destructive',
         });
+        isSubmittingRef.current = false;
         return;
       }
     }
@@ -490,6 +493,7 @@ export default function NovaSolicitacao() {
         description: `Faltando: ${missingAttachments.join(', ')}`,
         variant: 'destructive',
       });
+      isSubmittingRef.current = false;
       return;
     }
 
