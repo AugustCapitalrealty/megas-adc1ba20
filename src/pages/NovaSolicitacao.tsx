@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -434,8 +434,16 @@ export default function NovaSolicitacao() {
     await Promise.all([...uploadPromises, ...outrosPromises]);
   };
 
+  // Ref para prevenir double-click
+  const isSubmittingRef = useRef(false);
+
   const handleSubmit = async () => {
+    // Proteção extra contra double-click usando ref (mais rápido que state)
+    if (isSubmittingRef.current) return;
     if (!user || !empreendimento || !naturezaOrcamentaria || !fornecedor) return;
+    
+    // Bloquear imediatamente antes de qualquer operação async
+    isSubmittingRef.current = true;
 
     // Validate FD values if enabled
     if (faturamentoDireto) {
@@ -582,6 +590,7 @@ export default function NovaSolicitacao() {
       });
     } finally {
       setSubmitting(false);
+      isSubmittingRef.current = false;
     }
   };
 
