@@ -90,6 +90,16 @@ const getActionDetails = (acao: string, statusNovo: string | null): { icon: JSX.
     label: 'Solicitante aceitou a OC', 
     color: 'bg-success text-success-foreground' 
   };
+  if (acao === 'liberacao_fornecedor') return { 
+    icon: <CheckCircle className="h-4 w-4" />, 
+    label: 'Solicitante liberou envio ao fornecedor', 
+    color: 'bg-success text-success-foreground' 
+  };
+  if (acao === 'oc_enviada_fornecedor') return { 
+    icon: <CheckCircle className="h-4 w-4" />, 
+    label: 'OC enviada ao fornecedor', 
+    color: 'bg-success text-success-foreground' 
+  };
   if (acao === 'ajuste_solicitado') return { 
     icon: <HelpCircle className="h-4 w-4" />, 
     label: 'Solicitante pediu ajuste na OC', 
@@ -172,6 +182,16 @@ const getActionDetails = (acao: string, statusNovo: string | null): { icon: JSX.
       icon: <FileCheck className="h-4 w-4" />, 
       label: 'OC emitida - Aguardando aceite', 
       color: 'bg-success text-success-foreground' 
+    };
+    case 'liberado_fornecedor': return { 
+      icon: <FileCheck className="h-4 w-4" />, 
+      label: 'Liberada para fornecedor', 
+      color: 'bg-[hsl(200,70%,50%)] text-white' 
+    };
+    case 'enviado_fornecedor': return { 
+      icon: <CheckCircle className="h-4 w-4" />, 
+      label: 'OC enviada ao fornecedor', 
+      color: 'bg-[hsl(160,70%,40%)] text-white' 
     };
     case 'concluida': return { 
       icon: <CheckCircle className="h-4 w-4" />, 
