@@ -107,6 +107,8 @@ export default function MinhasSolicitacoes() {
   const [aceiteSolicitacao, setAceiteSolicitacao] = useState<SolicitacaoComFornecedor | null>(null);
   const [aceiteAjuste, setAceiteAjuste] = useState('');
   const [aceiteLoading, setAceiteLoading] = useState(false);
+  const [aceiteStep, setAceiteStep] = useState<'revisar' | 'decidir'>('revisar');
+  const [showAjusteField, setShowAjusteField] = useState(false);
 
   // NF/Boleto modal state
   const [nfBoletoOpen, setNfBoletoOpen] = useState(false);
@@ -508,7 +510,28 @@ export default function MinhasSolicitacoes() {
   const openAceiteModal = (sol: SolicitacaoComFornecedor) => {
     setAceiteSolicitacao(sol);
     setAceiteAjuste('');
+    setAceiteStep('revisar');
+    setShowAjusteField(false);
     setAceiteOpen(true);
+  };
+
+  const openOCInNewTab = async (doc: DocumentoEmitido) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('documentos-emitidos')
+        .createSignedUrl(doc.storage_path, 60);
+      
+      if (error) throw error;
+      if (data?.signedUrl) {
+        window.open(data.signedUrl, '_blank');
+      }
+    } catch (error) {
+      toast({
+        title: 'Erro ao abrir documento',
+        description: 'Tente novamente.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleAceitarOC = async () => {
@@ -1258,63 +1281,186 @@ export default function MinhasSolicitacoes() {
         </DialogContent>
       </Dialog>
 
-      {/* Aceite OC Modal - Using ActionModal */}
-      <ActionModal
-        open={aceiteOpen}
-        onOpenChange={setAceiteOpen}
-        title={`Revisar OC #${aceiteSolicitacao?.protocolo}`}
-        variant="confirm"
-        loading={aceiteLoading}
-        footer={
-          <DialogFooter className="flex flex-col sm:flex-row gap-2">
-            <Button variant="outline" onClick={() => setAceiteOpen(false)} disabled={aceiteLoading}>
-              Cancelar
-            </Button>
-            <Button 
-              variant="secondary"
-              onClick={handleSolicitarAjuste} 
-              disabled={aceiteLoading || !aceiteAjuste.trim()}
-            >
-              {aceiteLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RotateCcw className="h-4 w-4 mr-2" />}
-              Solicitar Ajuste
-            </Button>
-            <Button onClick={handleAceitarOC} disabled={aceiteLoading}>
-              {aceiteLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle className="h-4 w-4 mr-2" />}
-              Aceitar OC
-            </Button>
-          </DialogFooter>
+      {/* Aceite OC Modal - Two Step Flow */}
+      <Dialog open={aceiteOpen} onOpenChange={(open) => {
+        setAceiteOpen(open);
+        if (!open) {
+          setAceiteStep('revisar');
+          setShowAjusteField(false);
         }
-      >
-        {aceiteSolicitacao?.documentoEmitido && (
-          <div className="space-y-4">
-            <div className="p-4 bg-success/10 border border-success/20 rounded-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <FileCheck className="h-5 w-5 text-success" />
-                <span className="font-medium text-success">
-                  {aceiteSolicitacao.documentoEmitido.tipo_documento} #{aceiteSolicitacao.documentoEmitido.numero_documento}
-                </span>
-              </div>
-              <Button 
-                size="sm" 
-                variant="outline"
-                onClick={() => downloadDocumentoEmitido(aceiteSolicitacao.documentoEmitido!)}
-              >
-                <Download className="h-4 w-4 mr-1" /> Baixar OC
-              </Button>
-            </div>
+      }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileCheck className="h-5 w-5 text-success" />
+              {aceiteStep === 'revisar' ? 'Revisar OC' : 'Confirmar Decisão'} - #{aceiteSolicitacao?.protocolo}
+            </DialogTitle>
+          </DialogHeader>
 
-            <div className="space-y-2">
-              <Label>Precisa de algum ajuste? (obrigatório para solicitar ajuste)</Label>
-              <Textarea
-                placeholder="Descreva o ajuste necessário..."
-                value={aceiteAjuste}
-                onChange={(e) => setAceiteAjuste(e.target.value)}
-                rows={3}
-              />
+          {aceiteSolicitacao?.documentoEmitido && (
+            <div className="space-y-4 py-2">
+              {/* Step 1: Review OC */}
+              {aceiteStep === 'revisar' && (
+                <>
+                  <div className="p-4 bg-success/10 border border-success/20 rounded-lg">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <FileCheck className="h-5 w-5 text-success" />
+                        <span className="font-medium text-success">
+                          {aceiteSolicitacao.documentoEmitido.tipo_documento} #{aceiteSolicitacao.documentoEmitido.numero_documento}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="text-sm text-muted-foreground mb-4">
+                      <p>Valor: <span className="font-medium text-foreground">
+                        {aceiteSolicitacao.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      </span></p>
+                      {aceiteSolicitacao.fornecedor && (
+                        <p>Fornecedor: <span className="font-medium text-foreground">
+                          {aceiteSolicitacao.fornecedor.nome_fantasia || aceiteSolicitacao.fornecedor.razao_social}
+                        </span></p>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      <Button 
+                        size="sm" 
+                        variant="default"
+                        onClick={() => openOCInNewTab(aceiteSolicitacao.documentoEmitido!)}
+                      >
+                        <FileText className="h-4 w-4 mr-1" /> Visualizar OC
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => downloadDocumentoEmitido(aceiteSolicitacao.documentoEmitido!)}
+                      >
+                        <Download className="h-4 w-4 mr-1" /> Baixar OC
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="bg-muted/50 p-3 rounded-lg border">
+                    <p className="text-sm text-muted-foreground">
+                      <strong>Importante:</strong> Revise a OC com atenção antes de prosseguir. 
+                      Verifique se os dados, valores e condições estão corretos.
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {/* Step 2: Decide */}
+              {aceiteStep === 'decidir' && (
+                <>
+                  <div className="grid gap-4">
+                    {/* Accept Option */}
+                    <div 
+                      className={cn(
+                        "p-4 rounded-lg border-2 cursor-pointer transition-all",
+                        !showAjusteField 
+                          ? "border-success bg-success/5" 
+                          : "border-muted hover:border-success/50"
+                      )}
+                      onClick={() => setShowAjusteField(false)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "w-5 h-5 rounded-full border-2 flex items-center justify-center",
+                          !showAjusteField ? "border-success bg-success" : "border-muted"
+                        )}>
+                          {!showAjusteField && <CheckCircle className="h-3 w-3 text-white" />}
+                        </div>
+                        <div>
+                          <p className="font-medium text-success">Aceitar OC</p>
+                          <p className="text-sm text-muted-foreground">A OC está correta e pode prosseguir</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Adjustment Option */}
+                    <div 
+                      className={cn(
+                        "p-4 rounded-lg border-2 cursor-pointer transition-all",
+                        showAjusteField 
+                          ? "border-warning bg-warning/5" 
+                          : "border-muted hover:border-warning/50"
+                      )}
+                      onClick={() => setShowAjusteField(true)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "w-5 h-5 rounded-full border-2 flex items-center justify-center",
+                          showAjusteField ? "border-warning bg-warning" : "border-muted"
+                        )}>
+                          {showAjusteField && <RotateCcw className="h-3 w-3 text-white" />}
+                        </div>
+                        <div>
+                          <p className="font-medium text-warning">Solicitar Ajuste</p>
+                          <p className="text-sm text-muted-foreground">A OC precisa de correções</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Adjustment text field - only visible when adjustment is selected */}
+                  {showAjusteField && (
+                    <div className="space-y-2 animate-in slide-in-from-top-2 duration-200">
+                      <Label>Descreva o ajuste necessário *</Label>
+                      <Textarea
+                        placeholder="Ex: O valor está incorreto, deveria ser R$ X..."
+                        value={aceiteAjuste}
+                        onChange={(e) => setAceiteAjuste(e.target.value)}
+                        rows={3}
+                        autoFocus
+                      />
+                    </div>
+                  )}
+                </>
+              )}
             </div>
-          </div>
-        )}
-      </ActionModal>
+          )}
+
+          <DialogFooter className="flex flex-col sm:flex-row gap-2">
+            {aceiteStep === 'revisar' ? (
+              <>
+                <Button variant="outline" onClick={() => setAceiteOpen(false)}>
+                  Fechar
+                </Button>
+                <Button onClick={() => setAceiteStep('decidir')}>
+                  Prosseguir para Aceite
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => setAceiteStep('revisar')} disabled={aceiteLoading}>
+                  Voltar
+                </Button>
+                {showAjusteField ? (
+                  <Button 
+                    variant="default"
+                    className="bg-warning hover:bg-warning/90 text-warning-foreground"
+                    onClick={handleSolicitarAjuste} 
+                    disabled={aceiteLoading || !aceiteAjuste.trim()}
+                  >
+                    {aceiteLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RotateCcw className="h-4 w-4 mr-2" />}
+                    Solicitar Ajuste
+                  </Button>
+                ) : (
+                  <Button 
+                    className="bg-success hover:bg-success/90 text-success-foreground"
+                    onClick={handleAceitarOC} 
+                    disabled={aceiteLoading}
+                  >
+                    {aceiteLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle className="h-4 w-4 mr-2" />}
+                    Confirmar Aceite
+                  </Button>
+                )}
+              </>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* NF/Boleto Modal - Using ActionModal */}
       <ActionModal
