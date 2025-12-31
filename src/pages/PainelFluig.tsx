@@ -27,6 +27,7 @@ import {
   Inbox,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { LOCALIZACAO_TO_ETAPA } from '@/lib/fluig-utils';
 import { FluigImport } from '@/components/FluigImport';
 import {
   Dialog,
@@ -783,36 +784,50 @@ export default function PainelFluig() {
                           : snapshot.gerencia_responsavel;
                         const facilitiesConclusao = snapshot.gerencia_facilities_conclusao || snapshot.gerencia_conclusao;
                         
+                        // Use LOCALIZACAO_TO_ETAPA to determine current stage
+                        const currentStage = LOCALIZACAO_TO_ETAPA[snapshot.localizacao || ''] ?? 0;
+                        const responsavelLower = snapshot.responsavel_atual?.toLowerCase() || '';
+                        
+                        // Stage-based detection (more reliable than name matching)
+                        const isAtFacilitiesStage = currentStage === 1 || responsavelLower.includes('gestor');
+                        const isAtFinanceiroStage = currentStage === 2 || 
+                          responsavelLower.includes('gerente financeiro') || 
+                          responsavelLower.includes('financeiro');
+                        const isAtDiretoriaStage = currentStage === 3 || 
+                          responsavelLower.includes('diretor') || 
+                          responsavelLower.includes('diretoria');
+                        const isPastFacilities = currentStage >= 2;
+                        const isPastFinanceiro = currentStage >= 3;
+                        
                         // Detect if item is back with Facilities for re-approval
                         const facilitiesFirstName = facilitiesResponsavel?.split(' ')[0]?.toLowerCase() || '';
-                        const isBackWithFacilities = snapshot.responsavel_atual?.toLowerCase().includes('gestor') ||
-                          (facilitiesFirstName && snapshot.responsavel_atual?.toLowerCase().includes(facilitiesFirstName));
+                        const isBackWithFacilities = isAtFacilitiesStage && facilitiesConclusao;
                         
-                        // Check if current responsible is the Financeiro person
-                        const isWithFinanceiro = snapshot.gerencia_financeiro_responsavel && 
-                          snapshot.responsavel_atual?.toLowerCase().includes(snapshot.gerencia_financeiro_responsavel.split(' ')[0].toLowerCase());
+                        // Check if current responsible is the Financeiro person (by name or by stage)
+                        const financeiroFirstName = snapshot.gerencia_financeiro_responsavel?.split(' ')[0]?.toLowerCase() || '';
+                        const isWithFinanceiro = isAtFinanceiroStage || 
+                          (financeiroFirstName && responsavelLower.includes(financeiroFirstName));
                         
                         // If back with Facilities, show blank (pending re-approval)
-                        // Use null conclusao to show as pending
-                        const showFacilitiesConclusao = isBackWithFacilities ? null : facilitiesConclusao;
+                        // If past Facilities stage, show the conclusion
+                        const showFacilitiesConclusao = isBackWithFacilities ? null : (isPastFacilities ? facilitiesConclusao : facilitiesConclusao);
                         
-                        // Detect rejection: Facilities acted, not with Financeiro, and not back with Facilities
+                        // Detect rejection: Facilities acted but item returned to stage 0/1 without progressing
+                        // If currently at Financeiro stage or beyond, Facilities approved (not rejected)
                         const facilitiesRejected = !!(
                           facilitiesConclusao && 
-                          !snapshot.gerencia_financeiro_conclusao &&
-                          !isWithFinanceiro &&
-                          !isBackWithFacilities
+                          !isPastFacilities &&
+                          !isAtFacilitiesStage &&
+                          currentStage === 0 // Returned to Início
                         );
                         
                         // Financeiro rejection logic
-                        const financeiroFirstName = snapshot.gerencia_financeiro_responsavel?.split(' ')[0]?.toLowerCase() || '';
-                        const isBackWithFinanceiro = financeiroFirstName && 
-                          snapshot.responsavel_atual?.toLowerCase().includes(financeiroFirstName);
+                        const isBackWithFinanceiro = isAtFinanceiroStage && snapshot.gerencia_financeiro_conclusao;
                         
                         // Check if with Diretoria
                         const diretoriaFirstName = snapshot.diretoria_responsavel?.split(' ')[0]?.toLowerCase() || '';
-                        const isWithDiretoria = diretoriaFirstName && 
-                          snapshot.responsavel_atual?.toLowerCase().includes(diretoriaFirstName);
+                        const isWithDiretoria = isAtDiretoriaStage || 
+                          (diretoriaFirstName && responsavelLower.includes(diretoriaFirstName));
                         
                         // If back with Financeiro, show blank (pending re-approval)
                         const showFinanceiroConclusao = isBackWithFinanceiro ? null : snapshot.gerencia_financeiro_conclusao;
@@ -823,9 +838,10 @@ export default function PainelFluig() {
                           snapshot.gerencia_financeiro_conclusao && 
                           snapshot.valor && snapshot.valor > 2500 &&
                           !snapshot.diretoria_conclusao &&
-                          !isWithDiretoria &&
+                          !isPastFinanceiro &&
+                          !isAtDiretoriaStage &&
                           !isBackWithFinanceiro &&
-                          !isBackWithFacilities // If back with Facilities, Financeiro didn't reject
+                          !isBackWithFacilities
                         );
                         
                         const isMyResponsibility = isCurrentUserResponsible(snapshot.responsavel_atual);
