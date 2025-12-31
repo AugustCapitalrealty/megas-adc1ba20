@@ -582,8 +582,10 @@ export type Database = {
           contrato_mensal: boolean | null
           created_at: string
           custo_cliente: boolean | null
+          data_enviado_fornecedor: string | null
           data_fim: string | null
           data_inicio: string | null
+          data_liberado_fornecedor: string | null
           data_pendente_correcao: string | null
           descricao: string
           dias_garantia: number | null
@@ -591,6 +593,7 @@ export type Database = {
           dias_garantia_servico: number | null
           emergencial: boolean | null
           empreendimento: Database["public"]["Enums"]["empreendimento"]
+          enviado_fornecedor_por: string | null
           excecao_fornecedores: boolean | null
           faturamento_direto: boolean | null
           fornecedor_concorrente_1_id: string | null
@@ -600,6 +603,7 @@ export type Database = {
           justificativa_fornecedores: string | null
           justificativa_sem_chamado: string | null
           justificativa_sem_memorial: string | null
+          liberado_fornecedor_por: string | null
           natureza_orcamentaria: Database["public"]["Enums"]["natureza_orcamentaria"]
           numero_chamado_fluig: string | null
           numero_projuris: string | null
@@ -625,8 +629,10 @@ export type Database = {
           contrato_mensal?: boolean | null
           created_at?: string
           custo_cliente?: boolean | null
+          data_enviado_fornecedor?: string | null
           data_fim?: string | null
           data_inicio?: string | null
+          data_liberado_fornecedor?: string | null
           data_pendente_correcao?: string | null
           descricao: string
           dias_garantia?: number | null
@@ -634,6 +640,7 @@ export type Database = {
           dias_garantia_servico?: number | null
           emergencial?: boolean | null
           empreendimento: Database["public"]["Enums"]["empreendimento"]
+          enviado_fornecedor_por?: string | null
           excecao_fornecedores?: boolean | null
           faturamento_direto?: boolean | null
           fornecedor_concorrente_1_id?: string | null
@@ -643,6 +650,7 @@ export type Database = {
           justificativa_fornecedores?: string | null
           justificativa_sem_chamado?: string | null
           justificativa_sem_memorial?: string | null
+          liberado_fornecedor_por?: string | null
           natureza_orcamentaria: Database["public"]["Enums"]["natureza_orcamentaria"]
           numero_chamado_fluig?: string | null
           numero_projuris?: string | null
@@ -668,8 +676,10 @@ export type Database = {
           contrato_mensal?: boolean | null
           created_at?: string
           custo_cliente?: boolean | null
+          data_enviado_fornecedor?: string | null
           data_fim?: string | null
           data_inicio?: string | null
+          data_liberado_fornecedor?: string | null
           data_pendente_correcao?: string | null
           descricao?: string
           dias_garantia?: number | null
@@ -677,6 +687,7 @@ export type Database = {
           dias_garantia_servico?: number | null
           emergencial?: boolean | null
           empreendimento?: Database["public"]["Enums"]["empreendimento"]
+          enviado_fornecedor_por?: string | null
           excecao_fornecedores?: boolean | null
           faturamento_direto?: boolean | null
           fornecedor_concorrente_1_id?: string | null
@@ -686,6 +697,7 @@ export type Database = {
           justificativa_fornecedores?: string | null
           justificativa_sem_chamado?: string | null
           justificativa_sem_memorial?: string | null
+          liberado_fornecedor_por?: string | null
           natureza_orcamentaria?: Database["public"]["Enums"]["natureza_orcamentaria"]
           numero_chamado_fluig?: string | null
           numero_projuris?: string | null
@@ -914,6 +926,8 @@ export type Database = {
         | "aguardando_nf_boleto"
         | "nf_boleto_enviados"
         | "enviado_pagamento"
+        | "liberado_fornecedor"
+        | "enviado_fornecedor"
       request_type: "AC" | "OC"
       tipo_contratacao:
         | "servicos"
@@ -1086,6 +1100,8 @@ export const Constants = {
         "aguardando_nf_boleto",
         "nf_boleto_enviados",
         "enviado_pagamento",
+        "liberado_fornecedor",
+        "enviado_fornecedor",
       ],
       request_type: ["AC", "OC"],
       tipo_contratacao: [

@@ -1,6 +1,6 @@
 export type AppRole = 'solicitante' | 'backoffice' | 'admin';
 export type RequestType = 'AC' | 'OC';
-export type RequestStatus = 'recebido' | 'em_analise' | 'pendente_correcao' | 'aprovado' | 'rejeitado' | 'em_processamento' | 'oc_ac_emitida' | 'aguardando_aceite' | 'aguardando_informacoes' | 'concluida' | 'aguardando_nf_boleto' | 'nf_boleto_enviados' | 'enviado_pagamento';
+export type RequestStatus = 'recebido' | 'em_analise' | 'pendente_correcao' | 'aprovado' | 'rejeitado' | 'em_processamento' | 'oc_ac_emitida' | 'aguardando_aceite' | 'aguardando_informacoes' | 'concluida' | 'aguardando_nf_boleto' | 'nf_boleto_enviados' | 'enviado_pagamento' | 'liberado_fornecedor' | 'enviado_fornecedor';
 export type Empreendimento = 'mega_curitiba' | 'mega_itajai' | 'mega_esteio' | 'todos';
 export type NaturezaOrcamentaria = 
   | 'materiais_informatica'
@@ -208,9 +208,11 @@ export const STATUS_LABELS: Record<RequestStatus, string> = {
   aguardando_aceite: 'Aguardando Aceite do Solicitante',
   aguardando_informacoes: 'Aguardando Informações',
   concluida: 'Finalizada',
-  aguardando_nf_boleto: 'Aguardando NF/Boleto',
-  nf_boleto_enviados: 'NF/Boleto Enviados',
-  enviado_pagamento: 'Enviado para Pagamento',
+  aguardando_nf_boleto: 'Aguardando NF/Boleto (legado)',
+  nf_boleto_enviados: 'NF/Boleto Enviados (legado)',
+  enviado_pagamento: 'Enviado para Pagamento (legado)',
+  liberado_fornecedor: 'Liberada para Fornecedor',
+  enviado_fornecedor: 'OC Enviada ao Fornecedor',
 };
 
 export interface DocumentoEmitido {

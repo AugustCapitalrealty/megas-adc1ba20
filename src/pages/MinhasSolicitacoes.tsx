@@ -47,7 +47,7 @@ const ATTACHMENT_TYPES = {
   orcamento_concorrente_2: 'Orçamento Concorrente 2',
 } as const;
 
-type FilterTab = 'todas' | 'com_backoffice' | 'correcoes' | 'oc_emitida' | 'aguardando_nf' | 'reprovadas' | 'concluidas';
+type FilterTab = 'todas' | 'com_backoffice' | 'correcoes' | 'oc_emitida' | 'liberadas' | 'reprovadas' | 'concluidas';
 
 interface SolicitacaoComFornecedor extends Solicitacao {
   fornecedor?: Fornecedor | null;
@@ -174,7 +174,7 @@ export default function MinhasSolicitacoes() {
           let documentoEmitido = null;
           let documentosFiscais: DocumentoFiscal[] = [];
           
-          if (['oc_ac_emitida', 'concluida', 'aguardando_aceite', 'aguardando_nf_boleto', 'nf_boleto_enviados', 'enviado_pagamento'].includes(sol.status)) {
+          if (['oc_ac_emitida', 'concluida', 'aguardando_aceite', 'aguardando_nf_boleto', 'nf_boleto_enviados', 'enviado_pagamento', 'liberado_fornecedor', 'enviado_fornecedor'].includes(sol.status)) {
             const { data: docData } = await supabase
               .from('documentos_emitidos')
               .select('*')
@@ -279,8 +279,9 @@ export default function MinhasSolicitacoes() {
       case 'oc_emitida':
         filtered = filtered.filter(s => s.status === 'aguardando_aceite');
         break;
-      case 'aguardando_nf':
+      case 'liberadas':
         filtered = filtered.filter(s => 
+          s.status === 'liberado_fornecedor' || s.status === 'enviado_fornecedor' ||
           s.status === 'aguardando_nf_boleto' || s.status === 'nf_boleto_enviados' || s.status === 'enviado_pagamento'
         );
         break;
@@ -293,7 +294,7 @@ export default function MinhasSolicitacoes() {
     }
     
     filtered.sort((a, b) => {
-      const priorityStatuses = ['pendente_correcao', 'aguardando_informacoes', 'aguardando_aceite', 'aguardando_nf_boleto'];
+      const priorityStatuses = ['pendente_correcao', 'aguardando_informacoes', 'aguardando_aceite', 'liberado_fornecedor'];
       const aPriority = priorityStatuses.includes(a.status) ? 0 : 1;
       const bPriority = priorityStatuses.includes(b.status) ? 0 : 1;
       if (aPriority !== bPriority) return aPriority - bPriority;
@@ -314,7 +315,8 @@ export default function MinhasSolicitacoes() {
         s.status === 'pendente_correcao' || s.status === 'aguardando_informacoes'
       ).length,
       oc_emitida: solicitacoes.filter(s => s.status === 'aguardando_aceite').length,
-      aguardando_nf: solicitacoes.filter(s => 
+      liberadas: solicitacoes.filter(s => 
+        s.status === 'liberado_fornecedor' || s.status === 'enviado_fornecedor' ||
         s.status === 'aguardando_nf_boleto' || s.status === 'nf_boleto_enviados' || s.status === 'enviado_pagamento'
       ).length,
       reprovadas: solicitacoes.filter(s => s.status === 'rejeitado').length,
@@ -541,27 +543,31 @@ export default function MinhasSolicitacoes() {
     try {
       await supabase
         .from('solicitacoes')
-        .update({ status: 'aguardando_nf_boleto' as any })
+        .update({ 
+          status: 'liberado_fornecedor' as any,
+          data_liberado_fornecedor: new Date().toISOString(),
+          liberado_fornecedor_por: user.id
+        })
         .eq('id', aceiteSolicitacao.id);
 
       await supabase.from('historico_solicitacoes').insert({
         solicitacao_id: aceiteSolicitacao.id,
         user_id: user.id,
-        acao: 'aceite_oc',
+        acao: 'liberacao_fornecedor',
         status_anterior: 'aguardando_aceite',
-        status_novo: 'aguardando_nf_boleto',
+        status_novo: 'liberado_fornecedor',
       });
 
       toast({
-        title: 'OC Aceita!',
-        description: 'Agora você pode incluir a NF e Boleto.',
+        title: 'OC Liberada!',
+        description: 'O financeiro poderá enviar a OC ao fornecedor.',
       });
 
       setAceiteOpen(false);
       fetchSolicitacoes();
     } catch (error) {
       toast({
-        title: 'Erro ao aceitar OC',
+        title: 'Erro ao liberar OC',
         description: 'Tente novamente.',
         variant: 'destructive',
       });
@@ -745,7 +751,7 @@ export default function MinhasSolicitacoes() {
       s.status === 'pendente_correcao' || s.status === 'aguardando_informacoes'
     ).length,
     acceptance: solicitacoes.filter(s => s.status === 'aguardando_aceite').length,
-    nfBoleto: solicitacoes.filter(s => s.status === 'aguardando_nf_boleto').length,
+    nfBoleto: 0, // Deprecated - keep for compatibility
   }), [solicitacoes]);
 
   // Tab groups for organized filter bar with visual separation
@@ -766,7 +772,7 @@ export default function MinhasSolicitacoes() {
       tabs: [
         { id: 'correcoes', label: 'Correções', count: statusCounts.correcoes, variant: 'warning' as const, icon: <AlertTriangle className="h-3.5 w-3.5" />, showCountWhenZero: false },
         { id: 'oc_emitida', label: 'OC/AC Emitida', count: statusCounts.oc_emitida, variant: 'success' as const, showCountWhenZero: false },
-        { id: 'aguardando_nf', label: 'NF/Boleto', count: statusCounts.aguardando_nf, variant: 'purple' as const, showCountWhenZero: false },
+        { id: 'liberadas', label: 'Liberadas', count: statusCounts.liberadas, variant: 'default' as const, showCountWhenZero: false },
       ],
     },
     {
@@ -1092,7 +1098,7 @@ export default function MinhasSolicitacoes() {
                 {activeTab === 'com_backoffice' && 'Nenhuma solicitação com o backoffice'}
                 {activeTab === 'correcoes' && 'Nenhuma solicitação aguardando correção'}
                 {activeTab === 'oc_emitida' && 'Nenhuma OC aguardando aceite'}
-                {activeTab === 'aguardando_nf' && 'Nenhuma solicitação aguardando NF/Boleto'}
+                {activeTab === 'liberadas' && 'Nenhuma solicitação liberada'}
                 {activeTab === 'reprovadas' && 'Nenhuma solicitação reprovada'}
                 {activeTab === 'concluidas' && 'Nenhuma solicitação concluída'}
               </p>
@@ -1230,7 +1236,9 @@ export default function MinhasSolicitacoes() {
                               variant={hasProblema ? "destructive" : "outline"} 
                               className="text-xs"
                             >
-                              {hasProblema ? 'PRECISA CORREÇÃO' : (ATTACHMENT_TYPES[anexo.tipo as keyof typeof ATTACHMENT_TYPES] || anexo.tipo)}
+                              {hasProblema 
+                                ? `${ANEXO_LABELS[anexo.tipo] || anexo.tipo} - CORREÇÃO` 
+                                : (ANEXO_LABELS[anexo.tipo] || anexo.tipo)}
                             </Badge>
                           </div>
                         );

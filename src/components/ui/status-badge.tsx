@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils';
 import type { RequestStatus } from '@/types';
 import { STATUS_LABELS } from '@/types';
-import { Clock, Eye, AlertCircle, CheckCircle, XCircle, Cog, FileCheck, CheckCheck, Send, HelpCircle, FileText, Receipt, CreditCard } from 'lucide-react';
+import { Clock, Eye, AlertCircle, CheckCircle, XCircle, Cog, FileCheck, CheckCheck, Send, HelpCircle, FileText, Receipt, CreditCard, Truck, PackageCheck } from 'lucide-react';
 
 interface StatusBadgeProps {
   status: RequestStatus;
@@ -63,6 +63,14 @@ const statusConfig: Record<RequestStatus, {
   enviado_pagamento: {
     className: 'status-enviado-pagamento',
     Icon: CreditCard,
+  },
+  liberado_fornecedor: {
+    className: 'status-liberado-fornecedor',
+    Icon: Truck,
+  },
+  enviado_fornecedor: {
+    className: 'status-enviado-fornecedor',
+    Icon: PackageCheck,
   },
 };
 

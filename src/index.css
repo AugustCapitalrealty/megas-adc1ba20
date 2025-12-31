@@ -219,6 +219,14 @@
     @apply bg-success/20 text-success font-semibold;
   }
 
+  .status-liberado-fornecedor {
+    @apply bg-[hsl(200,70%,50%)]/10 text-[hsl(200,70%,50%)];
+  }
+
+  .status-enviado-fornecedor {
+    @apply bg-[hsl(160,70%,40%)]/10 text-[hsl(160,70%,40%)];
+  }
+
   .form-step {
     @apply p-6 bg-card rounded-lg border border-border shadow-sm;
   }

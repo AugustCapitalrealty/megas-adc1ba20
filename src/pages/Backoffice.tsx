@@ -82,7 +82,7 @@ import { cn } from '@/lib/utils';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 
-type BackofficeTab = 'recebidas' | 'pendentes' | 'em_processamento' | 'oc_emitidas' | 'nf_boleto' | 'concluidas' | 'rejeitadas';
+type BackofficeTab = 'recebidas' | 'pendentes' | 'em_processamento' | 'oc_emitidas' | 'liberadas' | 'concluidas' | 'rejeitadas';
 
 export default function Backoffice() {
   const { user } = useAuth();
@@ -395,6 +395,84 @@ export default function Backoffice() {
     }
   };
 
+  const handleRegistrarEnvioFornecedor = async (sol: SolicitacaoBackoffice) => {
+    if (!user) return;
+    
+    setActionLoading(true);
+    try {
+      await supabase
+        .from('solicitacoes')
+        .update({ 
+          status: 'enviado_fornecedor' as any,
+          data_enviado_fornecedor: new Date().toISOString(),
+          enviado_fornecedor_por: user.id
+        })
+        .eq('id', sol.id);
+
+      await supabase.from('historico_solicitacoes').insert({
+        solicitacao_id: sol.id,
+        user_id: user.id,
+        acao: 'oc_enviada_fornecedor',
+        status_anterior: 'liberado_fornecedor',
+        status_novo: 'enviado_fornecedor',
+        motivo: 'OC enviada ao fornecedor',
+      });
+
+      toast({
+        title: 'Envio Registrado!',
+        description: 'OC marcada como enviada ao fornecedor.',
+      });
+
+      fetchSolicitacoes();
+    } catch (error) {
+      console.error('Error registering envio:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: 'Não foi possível registrar o envio',
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleConcluirLiberada = async (sol: SolicitacaoBackoffice) => {
+    if (!user) return;
+    
+    setActionLoading(true);
+    try {
+      await supabase
+        .from('solicitacoes')
+        .update({ status: 'concluida' as any })
+        .eq('id', sol.id);
+
+      await supabase.from('historico_solicitacoes').insert({
+        solicitacao_id: sol.id,
+        user_id: user.id,
+        acao: 'Conclusão',
+        status_anterior: sol.status,
+        status_novo: 'concluida',
+        motivo: 'Solicitação concluída',
+      });
+
+      toast({
+        title: 'Solicitação Concluída!',
+        description: 'A solicitação foi finalizada com sucesso.',
+      });
+
+      fetchSolicitacoes();
+    } catch (error) {
+      console.error('Error concluding:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: 'Não foi possível concluir a solicitação',
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const openEditFluig = (sol: SolicitacaoBackoffice) => {
     setSelectedSolicitacao(sol);
     setEditFluigValue(sol.numero_chamado_fluig || '');
@@ -677,7 +755,10 @@ export default function Backoffice() {
     recebidas: filteredSolicitacoes.filter(s => s.status === 'recebido' || s.status === 'em_analise'),
     em_processamento: filteredSolicitacoes.filter(s => s.status === 'aprovado' || s.status === 'em_processamento'),
     oc_emitidas: filteredSolicitacoes.filter(s => s.status === 'oc_ac_emitida' || s.status === 'aguardando_aceite'),
-    nf_boleto: filteredSolicitacoes.filter(s => s.status === 'aguardando_nf_boleto' || s.status === 'nf_boleto_enviados'),
+    liberadas: filteredSolicitacoes.filter(s => 
+      s.status === 'liberado_fornecedor' || s.status === 'enviado_fornecedor' ||
+      s.status === 'aguardando_nf_boleto' || s.status === 'nf_boleto_enviados'
+    ),
     pendentes: filteredSolicitacoes.filter(s => s.status === 'pendente_correcao' || s.status === 'aguardando_informacoes'),
     concluidas: filteredSolicitacoes.filter(s => s.status === 'concluida' || s.status === 'enviado_pagamento'),
     rejeitadas: filteredSolicitacoes.filter(s => s.status === 'rejeitado'),
@@ -895,7 +976,21 @@ export default function Backoffice() {
               </Button>
             )}
 
-            {/* NF/Boleto Actions */}
+            {/* Liberado Fornecedor Actions */}
+            {sol.status === 'liberado_fornecedor' && (
+              <Button size="sm" onClick={() => handleRegistrarEnvioFornecedor(sol)} disabled={actionLoading}>
+                <Send className="h-4 w-4 mr-1" /> Registrar Envio
+              </Button>
+            )}
+
+            {/* Enviado Fornecedor Actions */}
+            {sol.status === 'enviado_fornecedor' && (
+              <Button size="sm" onClick={() => handleConcluirLiberada(sol)} disabled={actionLoading}>
+                <CheckCheck className="h-4 w-4 mr-1" /> Concluir
+              </Button>
+            )}
+
+            {/* NF/Boleto Actions (legacy) */}
             {sol.status === 'nf_boleto_enviados' && (
               <>
                 <Button size="sm" variant="outline" onClick={() => {
@@ -1044,7 +1139,7 @@ export default function Backoffice() {
                 { id: 'recebidas', label: 'Recebidas', count: groupedSolicitacoes.recebidas.length },
                 { id: 'em_processamento', label: 'Em Proc.', count: groupedSolicitacoes.em_processamento.length },
                 { id: 'oc_emitidas', label: 'OC Emitida', count: groupedSolicitacoes.oc_emitidas.length, variant: 'success' as const, showCountWhenZero: false },
-                { id: 'nf_boleto', label: 'NF/Boleto', count: groupedSolicitacoes.nf_boleto.length, variant: 'purple' as const, showCountWhenZero: false },
+                { id: 'liberadas', label: 'Liberadas', count: groupedSolicitacoes.liberadas.length, variant: 'default' as const, showCountWhenZero: false },
               ],
             },
             {
@@ -1083,8 +1178,8 @@ export default function Backoffice() {
           {activeTab === 'oc_emitidas' && (
             <TabContent items={groupedSolicitacoes.oc_emitidas} emptyMessage="Nenhuma OC emitida" />
           )}
-          {activeTab === 'nf_boleto' && (
-            <TabContent items={groupedSolicitacoes.nf_boleto} emptyMessage="Nenhuma NF/Boleto pendente" />
+          {activeTab === 'liberadas' && (
+            <TabContent items={groupedSolicitacoes.liberadas} emptyMessage="Nenhuma solicitação liberada" />
           )}
           {activeTab === 'concluidas' && (
             <TabContent items={groupedSolicitacoes.concluidas} emptyMessage="Nenhuma solicitação concluída" />
