@@ -240,33 +240,43 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
   }, [status?.localizacao]);
 
   // Detectar se houve devolução recente - must be before early returns
+  // A lógica verifica se um nível superior concluiu mas a solicitação voltou a um nível anterior
   const devolucaoDetectada = useMemo(() => {
     if (!status) return null;
     
     const { facilitiesAprovado, financeiroAprovado, diretoriaAprovado } = aprovacoes;
+    const loc = status.localizacao || '';
+    
+    // Helper: verifica se localização indica que está com Facilities
+    const estaComFacilities = loc.includes('Nível 1') || loc.includes('Nivel 1') || 
+                              loc.includes('Gestor Condom');
+    // Helper: verifica se localização indica que está com Financeiro
+    const estaComFinanceiro = loc.includes('Nível 2') || loc.includes('Nivel 2');
     
     // Diretoria concluiu mas não está aprovado = devolução pela Diretoria
     if (status.diretoria_conclusao && !diretoriaAprovado) {
-      return {
-        departamento: 'Diretoria',
-        responsavelInferido: 'Solicitante (aguardando correção)'
-      };
+      // Determinar para onde voltou
+      if (estaComFacilities) {
+        return { departamento: 'Diretoria', voltouPara: 'Facilities' };
+      }
+      if (estaComFinanceiro) {
+        return { departamento: 'Diretoria', voltouPara: 'Financeiro' };
+      }
+      return { departamento: 'Diretoria', voltouPara: null };
     }
     
     // Financeiro concluiu mas não está aprovado = devolução pelo Financeiro
     if (status.gerencia_financeiro_conclusao && !financeiroAprovado) {
-      return {
-        departamento: 'Gerência Financeira',
-        responsavelInferido: 'Solicitante (aguardando correção)'
-      };
+      if (estaComFacilities) {
+        return { departamento: 'Gerência Financeira', voltouPara: 'Facilities' };
+      }
+      return { departamento: 'Gerência Financeira', voltouPara: null };
     }
     
     // Facilities concluiu mas não está aprovado = devolução por Facilities
+    // Significa que está de volta com Facilities para reanálise
     if (status.gerencia_facilities_conclusao && !facilitiesAprovado) {
-      return {
-        departamento: 'Gerência de Facilities',
-        responsavelInferido: 'Solicitante (aguardando correção)'
-      };
+      return { departamento: 'Gerência de Facilities', voltouPara: 'Facilities' };
     }
     
     return null;
@@ -360,11 +370,16 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
   const etapaAtualIndex = getEtapaAtualIndex(status.responsavel_atual);
 
   // Determine approval stages based on localizacao (source of truth)
+  // Também considera devoluções para marcar badges corretamente
   const approvalStages = [
     { key: 'facilities', label: 'Facilities', aprovado: aprovacoes.facilitiesAprovado },
     { key: 'financeiro', label: 'Financeiro', aprovado: aprovacoes.financeiroAprovado },
     { key: 'diretoria', label: 'Diretoria', aprovado: aprovacoes.diretoriaAprovado },
   ].map((stage, index) => {
+    // Se há devolução detectada por este departamento, marcar como rejected
+    if (devolucaoDetectada?.departamento.includes(stage.label)) {
+      return { ...stage, status: 'rejected' as const };
+    }
     // Se aprovado segundo a localização, está done
     if (stage.aprovado) {
       return { ...stage, status: 'done' as const };
@@ -398,13 +413,17 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
       </div>
 
       <div className="grid gap-2 text-sm">
-        {/* Current responsible - show inferred if devolução detected */}
+        {/* Current responsible - always show REAL responsible based on responsavel_atual/localizacao */}
         {(status.responsavel_atual || devolucaoDetectada) && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <User className={`h-3.5 w-3.5 ${devolucaoDetectada ? 'text-amber-500' : 'text-blue-500'}`} />
             <span className="text-muted-foreground">Responsável atual:</span>
             <span className={`font-medium ${devolucaoDetectada ? 'text-amber-600 dark:text-amber-400' : 'text-foreground'}`}>
-              {devolucaoDetectada?.responsavelInferido || ETAPA_LABELS[status.responsavel_atual || ''] || status.responsavel_atual}
+              {/* Sempre mostrar o responsável REAL baseado em responsavel_atual/localização */}
+              {ETAPA_LABELS[status.responsavel_atual || ''] || 
+               ETAPA_LABELS[status.localizacao || ''] || 
+               status.responsavel_atual || 
+               'Não definido'}
             </span>
             {!devolucaoDetectada && (
               <Badge variant="outline" className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700 flex items-center gap-1">
@@ -447,14 +466,18 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
                 <Badge 
                   key={stage.key} 
                   variant={stage.status === 'done' ? 'default' : 'outline'}
-                  className={`text-xs ${
+                  className={`text-xs flex items-center gap-1 ${
                     stage.status === 'done' 
                       ? 'bg-green-500 hover:bg-green-500 text-white' 
-                      : stage.status === 'in_progress'
-                        ? 'bg-yellow-500 hover:bg-yellow-500 text-white border-yellow-500'
-                        : 'bg-transparent text-muted-foreground border-muted-foreground/30'
+                      : stage.status === 'rejected'
+                        ? 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 border-red-300 dark:border-red-700'
+                        : stage.status === 'in_progress'
+                          ? 'bg-yellow-500 hover:bg-yellow-500 text-white border-yellow-500'
+                          : 'bg-transparent text-muted-foreground border-muted-foreground/30'
                   }`}
                 >
+                  {stage.status === 'done' && <CheckCircle className="h-3 w-3" />}
+                  {stage.status === 'rejected' && <RotateCcw className="h-3 w-3" />}
                   {stage.label}
                 </Badge>
               ))}
