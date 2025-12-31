@@ -107,7 +107,7 @@ export default function MinhasSolicitacoes() {
   const [aceiteSolicitacao, setAceiteSolicitacao] = useState<SolicitacaoComFornecedor | null>(null);
   const [aceiteAjuste, setAceiteAjuste] = useState('');
   const [aceiteLoading, setAceiteLoading] = useState(false);
-  const [aceiteStep, setAceiteStep] = useState<'revisar' | 'decidir'>('revisar');
+  const [aceiteStep, setAceiteStep] = useState<'revisar' | 'decidir' | 'confirmar'>('revisar');
   const [showAjusteField, setShowAjusteField] = useState(false);
 
   // NF/Boleto modal state
@@ -1418,11 +1418,39 @@ export default function MinhasSolicitacoes() {
                   )}
                 </>
               )}
+
+              {/* Step 3: Final Confirmation */}
+              {aceiteStep === 'confirmar' && (
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  <div className="p-4 bg-success/10 border border-success/20 rounded-lg text-center">
+                    <CheckCircle className="h-12 w-12 text-success mx-auto mb-3" />
+                    <h3 className="font-semibold text-lg mb-2">Confirmar Aceite da OC?</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Ao confirmar, você declara que revisou a OC e que todos os dados estão corretos.
+                    </p>
+                    
+                    <div className="bg-background p-3 rounded-lg text-left text-sm space-y-1">
+                      <p><span className="text-muted-foreground">Documento:</span> <span className="font-medium">{aceiteSolicitacao?.documentoEmitido?.tipo_documento} #{aceiteSolicitacao?.documentoEmitido?.numero_documento}</span></p>
+                      <p><span className="text-muted-foreground">Valor:</span> <span className="font-medium">{aceiteSolicitacao?.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span></p>
+                      {aceiteSolicitacao?.fornecedor && (
+                        <p><span className="text-muted-foreground">Fornecedor:</span> <span className="font-medium">{aceiteSolicitacao.fornecedor.nome_fantasia || aceiteSolicitacao.fornecedor.razao_social}</span></p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="bg-warning/10 border border-warning/20 p-3 rounded-lg">
+                    <p className="text-sm text-warning font-medium flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4" />
+                      Esta ação não pode ser desfeita
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
           <DialogFooter className="flex flex-col sm:flex-row gap-2">
-            {aceiteStep === 'revisar' ? (
+            {aceiteStep === 'revisar' && (
               <>
                 <Button variant="outline" onClick={() => setAceiteOpen(false)}>
                   Fechar
@@ -1431,7 +1459,9 @@ export default function MinhasSolicitacoes() {
                   Prosseguir para Aceite
                 </Button>
               </>
-            ) : (
+            )}
+            
+            {aceiteStep === 'decidir' && (
               <>
                 <Button variant="outline" onClick={() => setAceiteStep('revisar')} disabled={aceiteLoading}>
                   Voltar
@@ -1449,13 +1479,28 @@ export default function MinhasSolicitacoes() {
                 ) : (
                   <Button 
                     className="bg-success hover:bg-success/90 text-success-foreground"
-                    onClick={handleAceitarOC} 
-                    disabled={aceiteLoading}
+                    onClick={() => setAceiteStep('confirmar')}
                   >
-                    {aceiteLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle className="h-4 w-4 mr-2" />}
-                    Confirmar Aceite
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Aceitar OC
                   </Button>
                 )}
+              </>
+            )}
+            
+            {aceiteStep === 'confirmar' && (
+              <>
+                <Button variant="outline" onClick={() => setAceiteStep('decidir')} disabled={aceiteLoading}>
+                  Voltar
+                </Button>
+                <Button 
+                  className="bg-success hover:bg-success/90 text-success-foreground"
+                  onClick={handleAceitarOC} 
+                  disabled={aceiteLoading}
+                >
+                  {aceiteLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle className="h-4 w-4 mr-2" />}
+                  Confirmar Aceite
+                </Button>
               </>
             )}
           </DialogFooter>
