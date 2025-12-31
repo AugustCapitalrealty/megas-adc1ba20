@@ -4,15 +4,22 @@
 // Facilities = Nível 1, Financeiro = Nível 2, Diretoria = Nível 3
 export const LOCALIZACAO_TO_ETAPA: Record<string, number> = {
   'Início': 0,
-  'Para o Papel Gestor Condominio': 1,   // Esperando Facilities
-  'Para o Papel Gestor Condomínio': 1,   // Esperando Facilities
-  'Aprovação Nivel 1': 1,                 // Esperando Facilities
-  'Aprovação Nível 1': 1,                 // Esperando Facilities
-  'Aprovação Nivel 2': 2,                 // Esperando Financeiro (Facilities já aprovou)
-  'Aprovação Nível 2': 2,                 // Esperando Financeiro (Facilities já aprovou)
-  'Aprovação Nivel 3': 3,                 // Esperando Diretoria (Financeiro já aprovou)
-  'Aprovação Nível 3': 3,                 // Esperando Diretoria (Financeiro já aprovou)
-  'Emitir Solicitação': 4,                // Diretoria já aprovou
+  // Nível 1 - Facilities
+  'Para o Papel Gestor Condominio': 1,
+  'Para o Papel Gestor Condomínio': 1,
+  'Aprovação Nivel 1': 1,
+  'Aprovação Nível 1': 1,
+  // Nível 2 - Financeiro (Facilities já aprovou)
+  'Aprovação Financeiro': 2,
+  'Para o Papel Gerente Financeiro': 2,
+  'Aprovação Nivel 2': 2,
+  'Aprovação Nível 2': 2,
+  // Nível 3 - Diretoria (Financeiro já aprovou)
+  'Aprovação Diretoria': 3,
+  'Aprovação Nivel 3': 3,
+  'Aprovação Nível 3': 3,
+  // Concluído (Diretoria já aprovou)
+  'Emitir Solicitação': 4,
   'Emitir Solicitacao': 4,
 };
 
