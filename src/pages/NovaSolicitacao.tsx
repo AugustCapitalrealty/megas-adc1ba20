@@ -181,9 +181,7 @@ export default function NovaSolicitacao() {
   // Flag para AC - "Chamado é uma corretiva?"
   const [chamadoCorretiva, setChamadoCorretiva] = useState(false);
   
-  // Flags para AC - sem chamado/memorial com justificativa
-  const [semChamado, setSemChamado] = useState(false);
-  const [justificativaSemChamado, setJustificativaSemChamado] = useState('');
+  // Flags para AC - sem memorial com justificativa
   const [semMemorial, setSemMemorial] = useState(false);
   const [justificativaSemMemorial, setJustificativaSemMemorial] = useState('');
   
@@ -310,7 +308,7 @@ export default function NovaSolicitacao() {
           ];
           // Só adiciona chamado se for corretiva
           if (chamadoCorretiva) {
-            attachments.unshift({ tipo: 'chamado_preventiva', label: ANEXO_LABELS.chamado_preventiva, required: !semChamado });
+            attachments.unshift({ tipo: 'chamado_preventiva', label: ANEXO_LABELS.chamado_preventiva, required: true });
           }
           
           // Cotações concorrentes e mapa só aparecem se NÃO tem exceção de fornecedores
@@ -321,9 +319,9 @@ export default function NovaSolicitacao() {
               { tipo: 'mapa_cotacao', label: ANEXO_LABELS.mapa_cotacao, required: true }, // Mapa por último
             );
           } else {
-            // Com justificativa, permite anexo de comprovação (opcional)
+            // Com justificativa, anexo de comprovação é OBRIGATÓRIO
             attachments.push(
-              { tipo: 'justificativa_anexo', label: 'Comprovação da Justificativa (ex: e-mail, aceite)', required: false },
+              { tipo: 'justificativa_anexo', label: 'Comprovação da Justificativa (ex: e-mail, aceite)', required: true },
             );
           }
         }
@@ -529,7 +527,6 @@ export default function NovaSolicitacao() {
         dias_garantia_produto: tipoGarantia === 'ambos' && diasGarantiaProduto ? parseInt(diasGarantiaProduto) : null,
         custo_cliente: custoCliente,
         emergencial,
-        justificativa_sem_chamado: semChamado && justificativaSemChamado.trim() ? justificativaSemChamado.trim() : null,
         justificativa_sem_memorial: semMemorial && justificativaSemMemorial.trim() ? justificativaSemMemorial.trim() : null,
       };
       
@@ -637,8 +634,6 @@ export default function NovaSolicitacao() {
       case 'anexos': {
         const requiredAttachments = getRequiredAttachments();
         const attachmentsOk = requiredAttachments.every(att => !att.required || !!anexos[att.tipo]);
-        // Se marcou sem chamado, precisa justificar
-        if (semChamado && !justificativaSemChamado.trim()) return false;
         // Se marcou sem memorial, precisa justificar
         if (semMemorial && !justificativaSemMemorial.trim()) return false;
         return attachmentsOk;
@@ -1246,34 +1241,6 @@ export default function NovaSolicitacao() {
                     <p className="text-sm text-muted-foreground">
                       Anexe os documentos em formato PDF (máx. 100MB cada)
                     </p>
-                    
-                    {/* Flag: Sem Chamado - só aparece se marcou "Chamado é uma corretiva" */}
-                    {chamadoCorretiva && (
-                      <div className="p-4 rounded-lg border bg-muted/20 space-y-3">
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="semChamado"
-                            checked={semChamado}
-                            onCheckedChange={(checked) => {
-                              setSemChamado(!!checked);
-                              if (!checked) setJustificativaSemChamado('');
-                            }}
-                          />
-                          <Label htmlFor="semChamado" className="cursor-pointer text-sm">
-                            Não tenho chamado Infraspeak para esta solicitação
-                          </Label>
-                        </div>
-                        {semChamado && (
-                          <Textarea
-                            placeholder="Justifique por que não possui chamado Infraspeak..."
-                            value={justificativaSemChamado}
-                            onChange={(e) => setJustificativaSemChamado(e.target.value)}
-                            rows={2}
-                            className="mt-2"
-                          />
-                        )}
-                      </div>
-                    )}
                     
                     {/* Flag: Sem Memorial */}
                     <div className="p-4 rounded-lg border bg-muted/20 space-y-3">
