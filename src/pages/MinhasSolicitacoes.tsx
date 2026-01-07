@@ -592,10 +592,20 @@ export default function MinhasSolicitacoes() {
     
     setAceiteLoading(true);
     try {
-      await supabase
+      const { error: updateError } = await supabase
         .from('solicitacoes')
-        .update({ status: 'em_processamento' })
+        .update({ status: 'em_processamento' as any })
         .eq('id', aceiteSolicitacao.id);
+
+      if (updateError) {
+        console.error('[SOLICITAR_AJUSTE] Erro ao atualizar status:', {
+          error: updateError,
+          solicitacaoId: aceiteSolicitacao.id,
+          userId: user.id,
+          statusAtual: aceiteSolicitacao.status,
+        });
+        throw updateError;
+      }
 
       await supabase.from('historico_solicitacoes').insert({
         solicitacao_id: aceiteSolicitacao.id,
@@ -612,11 +622,13 @@ export default function MinhasSolicitacoes() {
       });
 
       setAceiteOpen(false);
+      setAceiteAjuste('');
       fetchSolicitacoes();
-    } catch (error) {
+    } catch (error: any) {
+      console.error('[SOLICITAR_AJUSTE] Falha completa:', error);
       toast({
         title: 'Erro ao solicitar ajuste',
-        description: 'Tente novamente.',
+        description: error?.message || 'Tente novamente.',
         variant: 'destructive',
       });
     } finally {
