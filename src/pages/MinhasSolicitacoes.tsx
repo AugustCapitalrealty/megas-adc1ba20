@@ -541,7 +541,7 @@ export default function MinhasSolicitacoes() {
     
     setAceiteLoading(true);
     try {
-      await supabase
+      const { error: updateError } = await supabase
         .from('solicitacoes')
         .update({ 
           status: 'liberado_fornecedor' as any,
@@ -549,6 +549,16 @@ export default function MinhasSolicitacoes() {
           liberado_fornecedor_por: user.id
         })
         .eq('id', aceiteSolicitacao.id);
+
+      if (updateError) {
+        console.error('[ACEITE_OC] Erro ao atualizar status:', {
+          error: updateError,
+          solicitacaoId: aceiteSolicitacao.id,
+          userId: user.id,
+          statusAtual: aceiteSolicitacao.status,
+        });
+        throw updateError;
+      }
 
       await supabase.from('historico_solicitacoes').insert({
         solicitacao_id: aceiteSolicitacao.id,
@@ -565,10 +575,11 @@ export default function MinhasSolicitacoes() {
 
       setAceiteOpen(false);
       fetchSolicitacoes();
-    } catch (error) {
+    } catch (error: any) {
+      console.error('[ACEITE_OC] Falha completa:', error);
       toast({
         title: 'Erro ao liberar OC',
-        description: 'Tente novamente.',
+        description: error?.message || 'Tente novamente.',
         variant: 'destructive',
       });
     } finally {
