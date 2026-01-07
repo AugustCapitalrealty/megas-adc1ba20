@@ -497,6 +497,19 @@ export default function NovaSolicitacao() {
 
     setSubmitting(true);
     try {
+      // Validate session before proceeding
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) {
+        console.error('[SUBMIT] Sessão inválida:', { sessionError, hasSession: !!session });
+        toast({
+          title: 'Sessão expirada',
+          description: 'Por favor, faça login novamente.',
+          variant: 'destructive',
+        });
+        isSubmittingRef.current = false;
+        setSubmitting(false);
+        return;
+      }
       // Protocolo is generated automatically by the database trigger set_protocolo
       const insertData = {
         user_id: user.id,
@@ -582,11 +595,22 @@ export default function NovaSolicitacao() {
         description: `Protocolo: ${data.protocolo}`,
       });
       navigate('/minhas-solicitacoes');
-    } catch (error) {
-      console.error('Error creating solicitacao:', error);
+    } catch (error: any) {
+      const errorMessage = error?.message || 'Erro desconhecido';
+      const errorCode = error?.code || 'N/A';
+      console.error('[SUBMIT] Erro ao criar solicitação:', {
+        message: errorMessage,
+        code: errorCode,
+        details: error?.details,
+        hint: error?.hint,
+        userId: user?.id,
+        fornecedorId: fornecedor?.id,
+        empreendimento,
+        valor: valorNumerico,
+      });
       toast({
         title: 'Erro ao criar solicitação',
-        description: 'Tente novamente.',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
