@@ -1,63 +1,33 @@
--- =========================================
--- PROTOCOLO ANUAL ATÔMICO (YYYY + 6 dígitos)
--- Com UPSERT + RETURNING e funções SECURITY DEFINER
--- =========================================
-
 BEGIN;
 
--- 1) Tabela de contador por ano
-CREATE TABLE IF NOT EXISTS public.protocolo_counters (
-  ano text PRIMARY KEY,
-  last_seq integer NOT NULL DEFAULT 0,
-  updated_at timestamptz NOT NULL DEFAULT now()
-);
+-- =========================================
+-- PROTOCOLO ALEATÓRIO (SEM DATA) + TRIGGER
+-- Usa pgcrypto (gen_random_bytes) e gera 16 chars HEX (ex.: A1B2C3D4E5F60789)
+-- =========================================
 
--- 2) Função para tocar updated_at
-CREATE OR REPLACE FUNCTION public.touch_updated_at()
-RETURNS trigger
-LANGUAGE plpgsql
-AS $$
-BEGIN
-  NEW.updated_at := now();
-  RETURN NEW;
-END;
-$$;
+-- 1) Extensão necessária
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- 3) Trigger updated_at na tabela de counters
-DROP TRIGGER IF EXISTS protocolo_counters_touch_updated_at ON public.protocolo_counters;
-CREATE TRIGGER protocolo_counters_touch_updated_at
-BEFORE UPDATE ON public.protocolo_counters
-FOR EACH ROW
-EXECUTE FUNCTION public.touch_updated_at();
-
--- 4) Função atômica de geração do protocolo (SECURITY DEFINER)
-CREATE OR REPLACE FUNCTION public.generate_protocolo()
+-- 2) Função: gera protocolo aleatório
+CREATE OR REPLACE FUNCTION public.generate_protocolo_random()
 RETURNS text
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
-  v_ano text;
-  v_seq integer;
+  v_code text;
 BEGIN
-  v_ano := to_char(now(), 'YYYY');
-
-  INSERT INTO public.protocolo_counters (ano, last_seq)
-  VALUES (v_ano, 1)
-  ON CONFLICT (ano)
-  DO UPDATE
-    SET last_seq = public.protocolo_counters.last_seq + 1
-  RETURNING last_seq INTO v_seq;
-
-  RETURN v_ano || lpad(v_seq::text, 6, '0');
+  -- 8 bytes => 16 caracteres hex
+  v_code := upper(encode(gen_random_bytes(8), 'hex'));
+  RETURN v_code;
 END;
 $$;
 
-COMMENT ON FUNCTION public.generate_protocolo()
-IS 'Gera protocolo anual (YYYY + 6 dígitos) usando contador atômico por ano.';
+COMMENT ON FUNCTION public.generate_protocolo_random()
+IS 'Gera protocolo aleatório (hex) usando gen_random_bytes().';
 
--- 5) Trigger function: setar protocolo no INSERT, se estiver vazio/NULL
+-- 3) Trigger function: seta protocolo se vier NULL/vazio
 CREATE OR REPLACE FUNCTION public.set_protocolo()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -66,14 +36,17 @@ SET search_path = public, pg_temp
 AS $$
 BEGIN
   IF NEW.protocolo IS NULL OR btrim(NEW.protocolo) = '' THEN
-    NEW.protocolo := public.generate_protocolo();
+    NEW.protocolo := public.generate_protocolo_random();
   END IF;
 
   RETURN NEW;
 END;
 $$;
 
--- 6) Garantir que não existe trigger duplicada e criar a correta
+COMMENT ON FUNCTION public.set_protocolo()
+IS 'Define protocolo automaticamente no INSERT quando protocolo estiver NULL/vazio.';
+
+-- 4) Remove triggers antigas e cria só uma
 DROP TRIGGER IF EXISTS set_solicitacao_protocolo ON public.solicitacoes;
 DROP TRIGGER IF EXISTS set_protocolo_trigger ON public.solicitacoes;
 
@@ -82,14 +55,12 @@ BEFORE INSERT ON public.solicitacoes
 FOR EACH ROW
 EXECUTE FUNCTION public.set_protocolo();
 
--- 7) Ajuste de owner (IMPORTANTE no Supabase/RLS)
--- Se você não tiver permissão pra alterar owner, pode comentar estas 2 linhas.
-ALTER FUNCTION public.generate_protocolo() OWNER TO postgres;
+-- 5) Owner + grants (se você não tiver permissão para ALTER OWNER, comente estas 2 linhas)
+ALTER FUNCTION public.generate_protocolo_random() OWNER TO postgres;
 ALTER FUNCTION public.set_protocolo() OWNER TO postgres;
 
--- 8) Permitir execução das funções para as roles do app
--- Ajuste conforme seu projeto (por ex.: authenticated/anon).
-GRANT EXECUTE ON FUNCTION public.generate_protocolo() TO authenticated, anon;
+-- 6) Permissões para as roles do app (ajuste se necessário)
+GRANT EXECUTE ON FUNCTION public.generate_protocolo_random() TO authenticated, anon;
 GRANT EXECUTE ON FUNCTION public.set_protocolo() TO authenticated, anon;
 
 COMMIT;
