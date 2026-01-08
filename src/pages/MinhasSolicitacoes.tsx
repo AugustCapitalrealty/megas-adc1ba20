@@ -541,14 +541,29 @@ export default function MinhasSolicitacoes() {
     
     setAceiteLoading(true);
     try {
-      await supabase
+      const { data: updatedRows, error: updateError } = await supabase
         .from('solicitacoes')
         .update({ 
           status: 'liberado_fornecedor' as any,
           data_liberado_fornecedor: new Date().toISOString(),
           liberado_fornecedor_por: user.id
         })
-        .eq('id', aceiteSolicitacao.id);
+        .eq('id', aceiteSolicitacao.id)
+        .select('id, status');
+
+      // IMPORTANT: With RLS, PostgREST can return success with 0 updated rows.
+      if (updateError || !updatedRows || updatedRows.length === 0) {
+        const reason = updateError?.message || 'Atualização bloqueada por permissão (nenhuma linha atualizada).';
+        console.error('[ACEITE_OC] Update bloqueado:', {
+          reason,
+          error: updateError,
+          updatedRowsCount: updatedRows?.length ?? 0,
+          solicitacaoId: aceiteSolicitacao.id,
+          userId: user.id,
+          statusAtual: aceiteSolicitacao.status,
+        });
+        throw new Error(reason);
+      }
 
       await supabase.from('historico_solicitacoes').insert({
         solicitacao_id: aceiteSolicitacao.id,
@@ -565,10 +580,11 @@ export default function MinhasSolicitacoes() {
 
       setAceiteOpen(false);
       fetchSolicitacoes();
-    } catch (error) {
+    } catch (error: any) {
+      console.error('[ACEITE_OC] Falha completa:', error);
       toast({
         title: 'Erro ao liberar OC',
-        description: 'Tente novamente.',
+        description: error?.message || 'Tente novamente.',
         variant: 'destructive',
       });
     } finally {
@@ -581,10 +597,25 @@ export default function MinhasSolicitacoes() {
     
     setAceiteLoading(true);
     try {
-      await supabase
+      const { data: updatedRows, error: updateError } = await supabase
         .from('solicitacoes')
-        .update({ status: 'em_processamento' })
-        .eq('id', aceiteSolicitacao.id);
+        .update({ status: 'em_processamento' as any })
+        .eq('id', aceiteSolicitacao.id)
+        .select('id, status');
+
+      // IMPORTANT: With RLS, PostgREST can return success with 0 updated rows.
+      if (updateError || !updatedRows || updatedRows.length === 0) {
+        const reason = updateError?.message || 'Atualização bloqueada por permissão (nenhuma linha atualizada).';
+        console.error('[SOLICITAR_AJUSTE] Update bloqueado:', {
+          reason,
+          error: updateError,
+          updatedRowsCount: updatedRows?.length ?? 0,
+          solicitacaoId: aceiteSolicitacao.id,
+          userId: user.id,
+          statusAtual: aceiteSolicitacao.status,
+        });
+        throw new Error(reason);
+      }
 
       await supabase.from('historico_solicitacoes').insert({
         solicitacao_id: aceiteSolicitacao.id,
@@ -601,11 +632,13 @@ export default function MinhasSolicitacoes() {
       });
 
       setAceiteOpen(false);
+      setAceiteAjuste('');
       fetchSolicitacoes();
-    } catch (error) {
+    } catch (error: any) {
+      console.error('[SOLICITAR_AJUSTE] Falha completa:', error);
       toast({
         title: 'Erro ao solicitar ajuste',
-        description: 'Tente novamente.',
+        description: error?.message || 'Tente novamente.',
         variant: 'destructive',
       });
     } finally {

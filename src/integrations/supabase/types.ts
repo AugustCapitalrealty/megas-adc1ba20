@@ -544,6 +544,24 @@ export type Database = {
         }
         Relationships: []
       }
+      protocolo_counters: {
+        Row: {
+          ano: string
+          last_seq: number
+          updated_at: string
+        }
+        Insert: {
+          ano: string
+          last_seq?: number
+          updated_at?: string
+        }
+        Update: {
+          ano?: string
+          last_seq?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       solicitacao_mensagens: {
         Row: {
           created_at: string
