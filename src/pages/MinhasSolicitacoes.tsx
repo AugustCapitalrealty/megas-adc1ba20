@@ -541,7 +541,7 @@ export default function MinhasSolicitacoes() {
     
     setAceiteLoading(true);
     try {
-      const { error: updateError } = await supabase
+      await supabase
         .from('solicitacoes')
         .update({ 
           status: 'liberado_fornecedor' as any,
@@ -549,16 +549,6 @@ export default function MinhasSolicitacoes() {
           liberado_fornecedor_por: user.id
         })
         .eq('id', aceiteSolicitacao.id);
-
-      if (updateError) {
-        console.error('[ACEITE_OC] Erro ao atualizar status:', {
-          error: updateError,
-          solicitacaoId: aceiteSolicitacao.id,
-          userId: user.id,
-          statusAtual: aceiteSolicitacao.status,
-        });
-        throw updateError;
-      }
 
       await supabase.from('historico_solicitacoes').insert({
         solicitacao_id: aceiteSolicitacao.id,
@@ -575,11 +565,10 @@ export default function MinhasSolicitacoes() {
 
       setAceiteOpen(false);
       fetchSolicitacoes();
-    } catch (error: any) {
-      console.error('[ACEITE_OC] Falha completa:', error);
+    } catch (error) {
       toast({
         title: 'Erro ao liberar OC',
-        description: error?.message || 'Tente novamente.',
+        description: 'Tente novamente.',
         variant: 'destructive',
       });
     } finally {
@@ -592,20 +581,10 @@ export default function MinhasSolicitacoes() {
     
     setAceiteLoading(true);
     try {
-      const { error: updateError } = await supabase
+      await supabase
         .from('solicitacoes')
-        .update({ status: 'em_processamento' as any })
+        .update({ status: 'em_processamento' })
         .eq('id', aceiteSolicitacao.id);
-
-      if (updateError) {
-        console.error('[SOLICITAR_AJUSTE] Erro ao atualizar status:', {
-          error: updateError,
-          solicitacaoId: aceiteSolicitacao.id,
-          userId: user.id,
-          statusAtual: aceiteSolicitacao.status,
-        });
-        throw updateError;
-      }
 
       await supabase.from('historico_solicitacoes').insert({
         solicitacao_id: aceiteSolicitacao.id,
@@ -622,13 +601,11 @@ export default function MinhasSolicitacoes() {
       });
 
       setAceiteOpen(false);
-      setAceiteAjuste('');
       fetchSolicitacoes();
-    } catch (error: any) {
-      console.error('[SOLICITAR_AJUSTE] Falha completa:', error);
+    } catch (error) {
       toast({
         title: 'Erro ao solicitar ajuste',
-        description: error?.message || 'Tente novamente.',
+        description: 'Tente novamente.',
         variant: 'destructive',
       });
     } finally {
