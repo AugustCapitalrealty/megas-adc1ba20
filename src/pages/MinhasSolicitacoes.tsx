@@ -541,28 +541,23 @@ export default function MinhasSolicitacoes() {
     
     setAceiteLoading(true);
     try {
-      const { data: updatedRows, error: updateError } = await supabase
+      const { error: updateError } = await supabase
         .from('solicitacoes')
         .update({ 
           status: 'liberado_fornecedor' as any,
           data_liberado_fornecedor: new Date().toISOString(),
           liberado_fornecedor_por: user.id
         })
-        .eq('id', aceiteSolicitacao.id)
-        .select('id, status');
+        .eq('id', aceiteSolicitacao.id);
 
-      // IMPORTANT: With RLS, PostgREST can return success with 0 updated rows.
-      if (updateError || !updatedRows || updatedRows.length === 0) {
-        const reason = updateError?.message || 'Atualização bloqueada por permissão (nenhuma linha atualizada).';
-        console.error('[ACEITE_OC] Update bloqueado:', {
-          reason,
+      if (updateError) {
+        console.error('[ACEITE_OC] Erro ao atualizar status:', {
           error: updateError,
-          updatedRowsCount: updatedRows?.length ?? 0,
           solicitacaoId: aceiteSolicitacao.id,
           userId: user.id,
           statusAtual: aceiteSolicitacao.status,
         });
-        throw new Error(reason);
+        throw updateError;
       }
 
       await supabase.from('historico_solicitacoes').insert({
@@ -597,24 +592,19 @@ export default function MinhasSolicitacoes() {
     
     setAceiteLoading(true);
     try {
-      const { data: updatedRows, error: updateError } = await supabase
+      const { error: updateError } = await supabase
         .from('solicitacoes')
         .update({ status: 'em_processamento' as any })
-        .eq('id', aceiteSolicitacao.id)
-        .select('id, status');
+        .eq('id', aceiteSolicitacao.id);
 
-      // IMPORTANT: With RLS, PostgREST can return success with 0 updated rows.
-      if (updateError || !updatedRows || updatedRows.length === 0) {
-        const reason = updateError?.message || 'Atualização bloqueada por permissão (nenhuma linha atualizada).';
-        console.error('[SOLICITAR_AJUSTE] Update bloqueado:', {
-          reason,
+      if (updateError) {
+        console.error('[SOLICITAR_AJUSTE] Erro ao atualizar status:', {
           error: updateError,
-          updatedRowsCount: updatedRows?.length ?? 0,
           solicitacaoId: aceiteSolicitacao.id,
           userId: user.id,
           statusAtual: aceiteSolicitacao.status,
         });
-        throw new Error(reason);
+        throw updateError;
       }
 
       await supabase.from('historico_solicitacoes').insert({
