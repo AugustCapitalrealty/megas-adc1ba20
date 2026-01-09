@@ -627,7 +627,7 @@ export type Database = {
           numero_projuris: string | null
           origem_custo: Database["public"]["Enums"]["origem_custo"]
           parcelas: number | null
-          protocolo: string
+          protocolo: string | null
           resposta_informacoes: string | null
           retencao_6_porcento: boolean | null
           status: Database["public"]["Enums"]["request_status"]
@@ -674,7 +674,7 @@ export type Database = {
           numero_projuris?: string | null
           origem_custo?: Database["public"]["Enums"]["origem_custo"]
           parcelas?: number | null
-          protocolo: string
+          protocolo?: string | null
           resposta_informacoes?: string | null
           retencao_6_porcento?: boolean | null
           status?: Database["public"]["Enums"]["request_status"]
@@ -721,7 +721,7 @@ export type Database = {
           numero_projuris?: string | null
           origem_custo?: Database["public"]["Enums"]["origem_custo"]
           parcelas?: number | null
-          protocolo?: string
+          protocolo?: string | null
           resposta_informacoes?: string | null
           retencao_6_porcento?: boolean | null
           status?: Database["public"]["Enums"]["request_status"]
