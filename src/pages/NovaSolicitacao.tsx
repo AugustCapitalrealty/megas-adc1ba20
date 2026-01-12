@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useCNPJ } from '@/hooks/useCNPJ';
+import { useFormPersistence } from '@/hooks/useFormPersistence';
 import { supabase } from '@/integrations/supabase/client';
 import { 
   EMPREENDIMENTO_LABELS, 
@@ -28,7 +29,7 @@ import {
   type TipoGarantia,
   type Fornecedor,
 } from '@/types';
-import { ArrowLeft, ArrowRight, Check, Loader2, Search, AlertTriangle, ChevronDown, ChevronUp, FileText, Sparkles, DollarSign, Package } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Loader2, Search, AlertTriangle, ChevronDown, ChevronUp, FileText, Sparkles, DollarSign, Package, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MultiFileUpload, OtherFilesUpload, type UploadedFile } from '@/components/FileUpload';
 import { SupplierSearch } from '@/components/SupplierSearch';
@@ -83,11 +84,15 @@ export default function NovaSolicitacao() {
   const navigate = useNavigate();
   const location = useLocation();
   const { formatCNPJ, lookupCNPJ, loading: cnpjLoading, error: cnpjError } = useCNPJ();
+  const { hasDraft, saveDraft, loadDraft, clearDraft } = useFormPersistence();
 
   const effectiveUserId = effectiveProfile?.id ?? user?.id;
 
   // Check for duplicate data from navigation state
   const duplicateFrom = (location.state as { duplicateFrom?: DuplicateData })?.duplicateFrom;
+  
+  // Track if we've already loaded draft (to avoid infinite loops)
+  const draftLoadedRef = useRef(false);
 
   const [allowedEmpreendimentos, setAllowedEmpreendimentos] = useState<Empreendimento[]>([]);
   const [loadingEmpreendimentos, setLoadingEmpreendimentos] = useState(true);
@@ -220,6 +225,153 @@ export default function NovaSolicitacao() {
       });
     }
   }, []);
+
+  // Load draft from localStorage on mount (if no duplicate data)
+  useEffect(() => {
+    if (duplicateFrom || draftLoadedRef.current) return;
+    
+    const draft = loadDraft();
+    if (draft) {
+      draftLoadedRef.current = true;
+      
+      // Restore form state
+      setCurrentStep(draft.currentStep as Step);
+      setEmpreendimento(draft.empreendimento as Empreendimento | '');
+      setDescricao(draft.descricao);
+      setValor(draft.valor);
+      setTipoContratacao(draft.tipoContratacao as TipoContratacao | '');
+      setNaturezaOrcamentaria(draft.naturezaOrcamentaria as NaturezaOrcamentaria | '');
+      setOrigemCusto(draft.origemCusto as OrigemCusto);
+      setDataInicio(draft.dataInicio);
+      setDataFim(draft.dataFim);
+      setParcelas(draft.parcelas);
+      setContratoMensal(draft.contratoMensal);
+      setFaturamentoDireto(draft.faturamentoDireto);
+      setValorServico(draft.valorServico);
+      setValorMaterial(draft.valorMaterial);
+      setRetencao6(draft.retencao6);
+      setTipoGarantia(draft.tipoGarantia as TipoGarantia);
+      setDiasGarantia(draft.diasGarantia);
+      setDiasGarantiaServico(draft.diasGarantiaServico);
+      setDiasGarantiaProduto(draft.diasGarantiaProduto);
+      setCustoCliente(draft.custoCliente);
+      setEmergencial(draft.emergencial);
+      setClienteId(draft.clienteId);
+      setExcecaoFornecedores(draft.excecaoFornecedores);
+      setJustificativaFornecedores(draft.justificativaFornecedores);
+      setTemChamadoInfraspeak(draft.temChamadoInfraspeak);
+      setChamadoCorretiva(draft.chamadoCorretiva);
+      setSemMemorial(draft.semMemorial);
+      setJustificativaSemMemorial(draft.justificativaSemMemorial);
+      
+      // Load fornecedores by ID
+      if (draft.fornecedorId) {
+        supabase
+          .from('fornecedores')
+          .select('*')
+          .eq('id', draft.fornecedorId)
+          .single()
+          .then(({ data }) => {
+            if (data) {
+              setFornecedor({
+                ...data,
+                cnaes_secundarios: Array.isArray(data.cnaes_secundarios) 
+                  ? data.cnaes_secundarios.map((item: any) => ({ codigo: item.codigo ?? 0, descricao: item.descricao ?? '' }))
+                  : null
+              } as Fornecedor);
+            }
+          });
+      }
+      if (draft.fornecedorConcorrente1Id) {
+        supabase
+          .from('fornecedores')
+          .select('*')
+          .eq('id', draft.fornecedorConcorrente1Id)
+          .single()
+          .then(({ data }) => {
+            if (data) {
+              setFornecedorConcorrente1({
+                ...data,
+                cnaes_secundarios: Array.isArray(data.cnaes_secundarios) 
+                  ? data.cnaes_secundarios.map((item: any) => ({ codigo: item.codigo ?? 0, descricao: item.descricao ?? '' }))
+                  : null
+              } as Fornecedor);
+            }
+          });
+      }
+      if (draft.fornecedorConcorrente2Id) {
+        supabase
+          .from('fornecedores')
+          .select('*')
+          .eq('id', draft.fornecedorConcorrente2Id)
+          .single()
+          .then(({ data }) => {
+            if (data) {
+              setFornecedorConcorrente2({
+                ...data,
+                cnaes_secundarios: Array.isArray(data.cnaes_secundarios) 
+                  ? data.cnaes_secundarios.map((item: any) => ({ codigo: item.codigo ?? 0, descricao: item.descricao ?? '' }))
+                  : null
+              } as Fornecedor);
+            }
+          });
+      }
+      
+      toast({
+        title: 'Rascunho restaurado',
+        description: 'Os dados do formulário foram recuperados.',
+      });
+    }
+  }, [duplicateFrom, loadDraft, toast]);
+
+  // Save draft whenever form state changes
+  useEffect(() => {
+    // Don't save if form is empty or submitting
+    if (!empreendimento && !descricao && !valor) return;
+    if (submitting) return;
+    
+    saveDraft({
+      currentStep,
+      empreendimento,
+      descricao,
+      valor,
+      tipoContratacao,
+      naturezaOrcamentaria,
+      origemCusto,
+      dataInicio,
+      dataFim,
+      parcelas,
+      contratoMensal,
+      faturamentoDireto,
+      valorServico,
+      valorMaterial,
+      retencao6,
+      tipoGarantia,
+      diasGarantia,
+      diasGarantiaServico,
+      diasGarantiaProduto,
+      custoCliente,
+      emergencial,
+      clienteId,
+      excecaoFornecedores,
+      justificativaFornecedores,
+      temChamadoInfraspeak,
+      chamadoCorretiva,
+      semMemorial,
+      justificativaSemMemorial,
+      fornecedorId: fornecedor?.id || null,
+      fornecedorConcorrente1Id: fornecedorConcorrente1?.id || null,
+      fornecedorConcorrente2Id: fornecedorConcorrente2?.id || null,
+    });
+  }, [
+    currentStep, empreendimento, descricao, valor, tipoContratacao, naturezaOrcamentaria,
+    origemCusto, dataInicio, dataFim, parcelas, contratoMensal, faturamentoDireto,
+    valorServico, valorMaterial, retencao6, tipoGarantia, diasGarantia, diasGarantiaServico,
+    diasGarantiaProduto, custoCliente, emergencial, clienteId, excecaoFornecedores,
+    justificativaFornecedores, temChamadoInfraspeak, chamadoCorretiva, semMemorial,
+    justificativaSemMemorial, fornecedor?.id, fornecedorConcorrente1?.id, fornecedorConcorrente2?.id,
+    saveDraft, submitting
+  ]);
 
   // Fetch cliente nome when clienteId changes
   useEffect(() => {
@@ -621,6 +773,9 @@ export default function NovaSolicitacao() {
         console.error('[EMAIL] Erro ao enviar notificação:', emailError);
       }
 
+      // Clear draft after successful submission
+      clearDraft();
+
       toast({
         title: 'Solicitação criada!',
         description: `Protocolo: ${data.protocolo}`,
@@ -739,13 +894,66 @@ export default function NovaSolicitacao() {
         />
 
         <Card>
-          <CardHeader>
-            <CardTitle>{visibleSteps[currentIndex]?.label}</CardTitle>
-            {currentStep === 'fornecedor' && requires3CNPJs && (
-              <CardDescription className="text-warning flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4" />
-                AC de serviços requer 3 fornecedores
-              </CardDescription>
+          <CardHeader className="flex flex-row items-start justify-between space-y-0">
+            <div className="space-y-1">
+              <CardTitle>{visibleSteps[currentIndex]?.label}</CardTitle>
+              {currentStep === 'fornecedor' && requires3CNPJs && (
+                <CardDescription className="text-warning flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  AC de serviços requer 3 fornecedores
+                </CardDescription>
+              )}
+            </div>
+            {hasDraft && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  clearDraft();
+                  toast({
+                    title: 'Rascunho limpo',
+                    description: 'O formulário foi reiniciado.',
+                  });
+                  // Reset form to initial state
+                  setCurrentStep('empreendimento');
+                  setEmpreendimento('');
+                  setDescricao('');
+                  setValor('');
+                  setTipoContratacao('');
+                  setNaturezaOrcamentaria('');
+                  setOrigemCusto('empreendimento');
+                  setDataInicio('');
+                  setDataFim('');
+                  setParcelas('1');
+                  setContratoMensal(false);
+                  setFaturamentoDireto(false);
+                  setValorServico('');
+                  setValorMaterial('');
+                  setRetencao6(false);
+                  setTipoGarantia('nenhuma');
+                  setDiasGarantia('');
+                  setDiasGarantiaServico('');
+                  setDiasGarantiaProduto('');
+                  setCustoCliente(false);
+                  setEmergencial(false);
+                  setClienteId(null);
+                  setFornecedor(null);
+                  setFornecedorConcorrente1(null);
+                  setFornecedorConcorrente2(null);
+                  setExcecaoFornecedores(false);
+                  setJustificativaFornecedores('');
+                  setTemChamadoInfraspeak(false);
+                  setChamadoCorretiva(false);
+                  setSemMemorial(false);
+                  setJustificativaSemMemorial('');
+                  setAnexos({});
+                  setOutrosAnexos([]);
+                }}
+                className="text-muted-foreground hover:text-destructive"
+              >
+                <RotateCcw className="h-4 w-4 mr-1" />
+                Limpar rascunho
+              </Button>
             )}
           </CardHeader>
           <CardContent className="space-y-4">
