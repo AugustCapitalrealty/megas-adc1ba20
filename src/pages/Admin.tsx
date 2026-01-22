@@ -11,7 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Loader2, Search, Shield, Users, UserCheck, UserCog, X, Building2, CheckCircle, XCircle, Clock, FileText, Mail } from 'lucide-react';
+import { Loader2, Search, Shield, Users, UserCheck, UserCog, X, Building2, CheckCircle, XCircle, Clock, FileText, Mail, Pencil, Check } from 'lucide-react';
 import { AppRole, ROLE_LABELS, Empreendimento, EMPREENDIMENTO_LABELS } from '@/types';
 import { SolicitacoesManagement } from '@/components/admin/SolicitacoesManagement';
 
@@ -46,6 +46,8 @@ export default function Admin() {
   const [searchTerm, setSearchTerm] = useState('');
   const [savingUserId, setSavingUserId] = useState<string | null>(null);
   const [impersonatingUserId, setImpersonatingUserId] = useState<string | null>(null);
+  const [editingNameUserId, setEditingNameUserId] = useState<string | null>(null);
+  const [editingNameValue, setEditingNameValue] = useState('');
   
   const activeTab = searchParams.get('tab') || 'usuarios';
   const setActiveTab = (tab: string) => setSearchParams({ tab });
@@ -242,6 +244,46 @@ export default function Admin() {
     } catch (error) {
       console.error('Error updating email notification:', error);
       toast.error('Erro ao atualizar notificações por e-mail');
+    } finally {
+      setSavingUserId(null);
+    }
+  };
+
+  const handleEditName = (userId: string, currentName: string | null) => {
+    setEditingNameUserId(userId);
+    setEditingNameValue(currentName || '');
+  };
+
+  const handleSaveName = async (userId: string) => {
+    if (!editingNameValue.trim()) {
+      toast.error('O nome não pode estar vazio');
+      return;
+    }
+
+    setSavingUserId(userId);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ full_name: editingNameValue.trim() })
+        .eq('id', userId);
+
+      if (error) throw error;
+
+      toast.success('Nome atualizado com sucesso!');
+
+      // Update local state
+      setUsers((prev) =>
+        prev.map((user) => {
+          if (user.id !== userId) return user;
+          return { ...user, full_name: editingNameValue.trim() };
+        })
+      );
+      
+      setEditingNameUserId(null);
+      setEditingNameValue('');
+    } catch (error) {
+      console.error('Error updating name:', error);
+      toast.error('Erro ao atualizar nome');
     } finally {
       setSavingUserId(null);
     }
@@ -445,7 +487,45 @@ export default function Admin() {
                               {!targetUser.approved && (
                                 <Clock className="h-4 w-4 text-amber-500" />
                               )}
-                              {targetUser.full_name || '-'}
+                              {editingNameUserId === targetUser.id ? (
+                                <div className="flex items-center gap-1">
+                                  <Input
+                                    value={editingNameValue}
+                                    onChange={(e) => setEditingNameValue(e.target.value)}
+                                    className="h-7 w-40 text-sm"
+                                    autoFocus
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') handleSaveName(targetUser.id);
+                                      if (e.key === 'Escape') setEditingNameUserId(null);
+                                    }}
+                                  />
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-7 w-7 text-green-600 hover:text-green-700"
+                                    onClick={() => handleSaveName(targetUser.id)}
+                                    disabled={isSaving}
+                                  >
+                                    {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                                  </Button>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-7 w-7 text-muted-foreground"
+                                    onClick={() => setEditingNameUserId(null)}
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <div 
+                                  className="flex items-center gap-1 group cursor-pointer hover:text-primary"
+                                  onClick={() => handleEditName(targetUser.id, targetUser.full_name)}
+                                >
+                                  <span>{targetUser.full_name || '-'}</span>
+                                  <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </div>
+                              )}
                               {isCurrentUser && (
                                 <Badge variant="outline" className="text-xs">Você</Badge>
                               )}
