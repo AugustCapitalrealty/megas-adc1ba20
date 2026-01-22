@@ -21,6 +21,7 @@ import {
   BarChart3,
   UserCog,
   X,
+  Timer,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -89,6 +90,12 @@ export function AppLayout({ children }: AppLayoutProps) {
       href: '/admin/usuarios',
       label: 'Usuários',
       icon: Users,
+      show: isAdmin,
+    },
+    {
+      href: '/admin/sla',
+      label: 'Dashboard SLA',
+      icon: Timer,
       show: isAdmin,
     },
   ];

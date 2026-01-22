@@ -1,0 +1,428 @@
+import { useState } from 'react';
+import { format, subDays } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { AppLayout } from '@/components/layout/AppLayout';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { 
+  Timer, 
+  CheckCircle2, 
+  AlertTriangle, 
+  XCircle,
+  TrendingUp,
+  Clock,
+  Filter,
+  RefreshCw,
+  Search,
+  Calendar,
+  Building2,
+} from 'lucide-react';
+import { useSlaDashboard, SlaFilters } from '@/hooks/useSlaDashboard';
+import { SlaBadge, SlaStatus } from '@/components/SlaBadge';
+import { SlaTimelineModal } from '@/components/SlaTimelineModal';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { EMPREENDIMENTO_LABELS, Empreendimento, RequestStatus } from '@/types';
+import { cn } from '@/lib/utils';
+
+export default function DashboardSLA() {
+  // Default to last 30 days
+  const [filters, setFilters] = useState<SlaFilters>({
+    dataInicio: format(subDays(new Date(), 30), 'yyyy-MM-dd'),
+    dataFim: format(new Date(), 'yyyy-MM-dd'),
+    empreendimento: null,
+    statusSla: null,
+  });
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedSolicitacao, setSelectedSolicitacao] = useState<{
+    id: string;
+    protocolo: string;
+    diasUteis: number;
+    statusSla: SlaStatus;
+  } | null>(null);
+
+  const { data, loading, stats, refetch } = useSlaDashboard(filters);
+
+  // Filter by search term
+  const filteredData = data.filter(item => 
+    item.protocolo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (item.solicitante_nome?.toLowerCase() || '').includes(searchTerm.toLowerCase())
+  );
+
+  const handleFilterChange = (key: keyof SlaFilters, value: string | null) => {
+    setFilters(prev => ({
+      ...prev,
+      [key]: value === 'all' ? null : value,
+    }));
+  };
+
+  return (
+    <AppLayout>
+      <div className="space-y-6 animate-fade-in">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
+              <Timer className="h-8 w-8 text-primary" />
+              Dashboard de SLA
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Monitoramento do tempo de atendimento do Backoffice (Meta: 3 dias úteis)
+            </p>
+          </div>
+          <Button onClick={refetch} variant="outline" className="gap-2">
+            <RefreshCw className="h-4 w-4" />
+            Atualizar
+          </Button>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                Total de Solicitações
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <Skeleton className="h-8 w-20" />
+              ) : (
+                <div className="text-3xl font-bold">{stats.total}</div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-emerald-200 bg-emerald-50/30">
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center gap-2 text-emerald-700">
+                <CheckCircle2 className="h-4 w-4" />
+                No Prazo (≤2 dias)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <Skeleton className="h-8 w-20" />
+              ) : (
+                <div className="text-3xl font-bold text-emerald-700">
+                  {stats.noPrazo}
+                  <span className="text-sm font-normal ml-2">
+                    ({stats.total > 0 ? Math.round((stats.noPrazo / stats.total) * 100) : 0}%)
+                  </span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-amber-200 bg-amber-50/30">
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center gap-2 text-amber-700">
+                <AlertTriangle className="h-4 w-4" />
+                Atenção (3 dias)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <Skeleton className="h-8 w-20" />
+              ) : (
+                <div className="text-3xl font-bold text-amber-700">
+                  {stats.atencao}
+                  <span className="text-sm font-normal ml-2">
+                    ({stats.total > 0 ? Math.round((stats.atencao / stats.total) * 100) : 0}%)
+                  </span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-red-200 bg-red-50/30">
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center gap-2 text-red-700">
+                <XCircle className="h-4 w-4" />
+                {'Estourado (>3 dias)'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <Skeleton className="h-8 w-20" />
+              ) : (
+                <div className="text-3xl font-bold text-red-700">
+                  {stats.estourado}
+                  <span className="text-sm font-normal ml-2">
+                    ({stats.total > 0 ? Math.round((stats.estourado / stats.total) * 100) : 0}%)
+                  </span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4" />
+                Tempo Médio
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <Skeleton className="h-8 w-20" />
+              ) : (
+                <div className="text-3xl font-bold">
+                  {stats.tempoMedio}
+                  <span className="text-sm font-normal ml-1">dias</span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Filters */}
+        <Card>
+          <CardHeader className="pb-4">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Filter className="h-4 w-4" />
+              Filtros
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5 text-xs">
+                  <Calendar className="h-3.5 w-3.5" />
+                  Data Início
+                </Label>
+                <Input
+                  type="date"
+                  value={filters.dataInicio || ''}
+                  onChange={(e) => handleFilterChange('dataInicio', e.target.value || null)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5 text-xs">
+                  <Calendar className="h-3.5 w-3.5" />
+                  Data Fim
+                </Label>
+                <Input
+                  type="date"
+                  value={filters.dataFim || ''}
+                  onChange={(e) => handleFilterChange('dataFim', e.target.value || null)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5 text-xs">
+                  <Building2 className="h-3.5 w-3.5" />
+                  Empreendimento
+                </Label>
+                <Select
+                  value={filters.empreendimento || 'all'}
+                  onValueChange={(value) => handleFilterChange('empreendimento', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {Object.entries(EMPREENDIMENTO_LABELS).map(([key, label]) => (
+                      <SelectItem key={key} value={key}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5 text-xs">
+                  <Timer className="h-3.5 w-3.5" />
+                  Status SLA
+                </Label>
+                <Select
+                  value={filters.statusSla || 'all'}
+                  onValueChange={(value) => handleFilterChange('statusSla', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="no_prazo">🟢 No Prazo</SelectItem>
+                    <SelectItem value="atencao">🟡 Atenção</SelectItem>
+                    <SelectItem value="estourado">🔴 Estourado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5 text-xs">
+                  <Search className="h-3.5 w-3.5" />
+                  Buscar
+                </Label>
+                <Input
+                  placeholder="Protocolo ou solicitante..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Data Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Solicitações</CardTitle>
+            <CardDescription>
+              Clique em uma linha para ver o detalhamento do cálculo de SLA
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="space-y-3">
+                {[...Array(5)].map((_, i) => (
+                  <Skeleton key={i} className="h-12 w-full" />
+                ))}
+              </div>
+            ) : filteredData.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                Nenhuma solicitação encontrada para os filtros selecionados
+              </div>
+            ) : (
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Protocolo</TableHead>
+                      <TableHead>Data Abertura</TableHead>
+                      <TableHead>Solicitante</TableHead>
+                      <TableHead>Empreendimento</TableHead>
+                      <TableHead>Status Atual</TableHead>
+                      <TableHead className="text-center">Passou Cadastro?</TableHead>
+                      <TableHead className="text-center">Tempo Backoffice</TableHead>
+                      <TableHead className="text-center">Status SLA</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredData.map((item) => (
+                      <TableRow 
+                        key={item.id}
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => setSelectedSolicitacao({
+                          id: item.id,
+                          protocolo: item.protocolo,
+                          diasUteis: item.dias_uteis_backoffice,
+                          statusSla: item.status_sla,
+                        })}
+                      >
+                        <TableCell className="font-medium font-mono">
+                          {item.protocolo}
+                        </TableCell>
+                        <TableCell>
+                          {format(new Date(item.created_at), 'dd/MM/yyyy', { locale: ptBR })}
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{item.solicitante_nome || '-'}</div>
+                            <div className="text-xs text-muted-foreground">{item.solicitante_email}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            {EMPREENDIMENTO_LABELS[item.empreendimento]}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge status={item.status as RequestStatus} />
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {item.passou_cadastro ? (
+                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                              Sim
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-slate-50 text-slate-500">
+                              Não
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <span className={cn(
+                            "font-bold",
+                            item.dias_uteis_backoffice <= 2 ? "text-emerald-600" :
+                            item.dias_uteis_backoffice === 3 ? "text-amber-600" :
+                            "text-red-600"
+                          )}>
+                            {item.dias_uteis_backoffice} {item.dias_uteis_backoffice === 1 ? 'dia' : 'dias'}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <SlaBadge 
+                            status={item.status_sla} 
+                            diasUteis={item.dias_uteis_backoffice}
+                            showDays={false}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Legend */}
+        <Card className="bg-muted/30">
+          <CardContent className="py-4">
+            <div className="flex flex-wrap items-center gap-6 text-sm">
+              <span className="font-medium text-muted-foreground">Legenda:</span>
+              <span className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-emerald-500" />
+                <span>No Prazo (≤2 dias úteis)</span>
+              </span>
+              <span className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-amber-500" />
+                <span>Atenção (3 dias úteis)</span>
+              </span>
+              <span className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-red-500" />
+                <span>Estourado ({'>'} 3 dias úteis)</span>
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Timeline Modal */}
+      {selectedSolicitacao && (
+        <SlaTimelineModal
+          open={!!selectedSolicitacao}
+          onOpenChange={(open) => !open && setSelectedSolicitacao(null)}
+          solicitacaoId={selectedSolicitacao.id}
+          protocolo={selectedSolicitacao.protocolo}
+          diasUteis={selectedSolicitacao.diasUteis}
+          statusSla={selectedSolicitacao.statusSla}
+        />
+      )}
+    </AppLayout>
+  );
+}

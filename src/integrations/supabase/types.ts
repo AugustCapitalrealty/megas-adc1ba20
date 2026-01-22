@@ -208,6 +208,30 @@ export type Database = {
           },
         ]
       }
+      feriados: {
+        Row: {
+          created_at: string | null
+          data: string
+          descricao: string
+          empreendimento: Database["public"]["Enums"]["empreendimento"] | null
+          id: string
+        }
+        Insert: {
+          created_at?: string | null
+          data: string
+          descricao: string
+          empreendimento?: Database["public"]["Enums"]["empreendimento"] | null
+          id?: string
+        }
+        Update: {
+          created_at?: string | null
+          data?: string
+          descricao?: string
+          empreendimento?: Database["public"]["Enums"]["empreendimento"] | null
+          id?: string
+        }
+        Relationships: []
+      }
       fluig_painel_eventos: {
         Row: {
           campo_alterado: string
@@ -844,7 +868,50 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calcular_dias_uteis: {
+        Args: { data_fim?: string; data_inicio: string }
+        Returns: number
+      }
+      calcular_sla_solicitacao: {
+        Args: { p_solicitacao_id: string }
+        Returns: Json
+      }
       generate_protocolo: { Args: never; Returns: string }
+      get_sla_dashboard: {
+        Args: {
+          p_data_fim?: string
+          p_data_inicio?: string
+          p_empreendimento?: Database["public"]["Enums"]["empreendimento"]
+          p_status_sla?: string
+        }
+        Returns: {
+          created_at: string
+          data_fluig_rm: string
+          dias_uteis_backoffice: number
+          empreendimento: Database["public"]["Enums"]["empreendimento"]
+          id: string
+          numero_chamado_fluig: string
+          passou_cadastro: boolean
+          protocolo: string
+          sla_estourado: boolean
+          solicitante_email: string
+          solicitante_nome: string
+          status: Database["public"]["Enums"]["request_status"]
+          status_sla: string
+        }[]
+      }
+      get_sla_timeline: {
+        Args: { p_solicitacao_id: string }
+        Returns: {
+          acao: string
+          conta_tempo: boolean
+          created_at: string
+          status_anterior: Database["public"]["Enums"]["request_status"]
+          status_novo: Database["public"]["Enums"]["request_status"]
+          tipo_evento: string
+          usuario_nome: string
+        }[]
+      }
       get_solicitacao_detalhes: { Args: { p_id: string }; Returns: Json }
       get_solicitacoes_backoffice: {
         Args: {
