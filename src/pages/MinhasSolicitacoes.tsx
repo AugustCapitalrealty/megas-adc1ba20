@@ -103,6 +103,15 @@ export default function MinhasSolicitacoes() {
   const [existingAnexos, setExistingAnexos] = useState<Array<{ id: string; tipo: string; nome_arquivo: string; storage_path: string }>>([]);
   const [anexosParaExcluir, setAnexosParaExcluir] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  
+  // Supplier swap state
+  const [trocarFornecedor, setTrocarFornecedor] = useState(false);
+  const [novoFornecedorEscolhido, setNovoFornecedorEscolhido] = useState<'concorrente1' | 'concorrente2' | null>(null);
+  const [fornecedoresInfo, setFornecedoresInfo] = useState<{
+    principal: { id: string; cnpj: string; razao_social: string | null } | null;
+    concorrente1: { id: string; cnpj: string; razao_social: string | null } | null;
+    concorrente2: { id: string; cnpj: string; razao_social: string | null } | null;
+  }>({ principal: null, concorrente1: null, concorrente2: null });
 
   // Cancel modal state
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -353,8 +362,12 @@ export default function MinhasSolicitacoes() {
     setEditAnexos({});
     setExistingAnexos([]);
     setAnexosParaExcluir([]);
+    setTrocarFornecedor(false);
+    setNovoFornecedorEscolhido(null);
+    setFornecedoresInfo({ principal: null, concorrente1: null, concorrente2: null });
     setEditOpen(true);
     
+    // Fetch anexos
     const { data: anexosData } = await supabase
       .from('anexos')
       .select('id, tipo, nome_arquivo, storage_path')
@@ -362,6 +375,25 @@ export default function MinhasSolicitacoes() {
     
     if (anexosData) {
       setExistingAnexos(anexosData);
+    }
+    
+    // Fetch fornecedores info for swap functionality
+    const fornecedorIds = [sol.fornecedor_id, sol.fornecedor_concorrente_1_id, sol.fornecedor_concorrente_2_id].filter(Boolean) as string[];
+    
+    if (fornecedorIds.length > 0) {
+      const { data: fornecedoresData } = await supabase
+        .from('fornecedores')
+        .select('id, cnpj, razao_social')
+        .in('id', fornecedorIds);
+      
+      if (fornecedoresData) {
+        const fornecedoresMap = Object.fromEntries(fornecedoresData.map(f => [f.id, f]));
+        setFornecedoresInfo({
+          principal: sol.fornecedor_id ? fornecedoresMap[sol.fornecedor_id] || null : null,
+          concorrente1: sol.fornecedor_concorrente_1_id ? fornecedoresMap[sol.fornecedor_concorrente_1_id] || null : null,
+          concorrente2: sol.fornecedor_concorrente_2_id ? fornecedoresMap[sol.fornecedor_concorrente_2_id] || null : null,
+        });
+      }
     }
   };
 
@@ -539,14 +571,30 @@ export default function MinhasSolicitacoes() {
       
       await uploadNewAnexos(editingSolicitacao.id);
       
+      // Build update object with potential supplier swap
+      const updateData: Record<string, any> = {
+        descricao: editDescricao,
+        valor: valorNumerico,
+        natureza_orcamentaria: editNaturezaOrcamentaria as any,
+        status: 'recebido',
+      };
+      
+      // Handle supplier swap if requested
+      if (trocarFornecedor && novoFornecedorEscolhido) {
+        const antigoFornecedorId = editingSolicitacao.fornecedor_id;
+        
+        if (novoFornecedorEscolhido === 'concorrente1' && fornecedoresInfo.concorrente1) {
+          updateData.fornecedor_id = editingSolicitacao.fornecedor_concorrente_1_id;
+          updateData.fornecedor_concorrente_1_id = antigoFornecedorId;
+        } else if (novoFornecedorEscolhido === 'concorrente2' && fornecedoresInfo.concorrente2) {
+          updateData.fornecedor_id = editingSolicitacao.fornecedor_concorrente_2_id;
+          updateData.fornecedor_concorrente_2_id = antigoFornecedorId;
+        }
+      }
+      
       const { error: updateError } = await supabase
         .from('solicitacoes')
-        .update({
-          descricao: editDescricao,
-          valor: valorNumerico,
-          natureza_orcamentaria: editNaturezaOrcamentaria as any,
-          status: 'recebido',
-        })
+        .update(updateData)
         .eq('id', editingSolicitacao.id);
 
       if (updateError) throw new Error(`Erro ao atualizar solicitação: ${updateError.message}`);
@@ -1380,6 +1428,112 @@ export default function MinhasSolicitacoes() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Supplier swap section - only show if there are competitors */}
+              {(fornecedoresInfo.concorrente1 || fornecedoresInfo.concorrente2) && fornecedoresInfo.principal && (
+                <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium flex items-center gap-2">
+                      <Building2 className="h-4 w-4" />
+                      Fornecedor Atual
+                    </Label>
+                  </div>
+                  
+                  <div className="p-3 bg-background rounded-md border">
+                    <p className="font-medium">{fornecedoresInfo.principal.razao_social || 'Sem razão social'}</p>
+                    <p className="text-sm text-muted-foreground">
+                      CNPJ: {fornecedoresInfo.principal.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')}
+                    </p>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="trocarFornecedor"
+                      checked={trocarFornecedor}
+                      onCheckedChange={(checked) => {
+                        setTrocarFornecedor(!!checked);
+                        if (!checked) setNovoFornecedorEscolhido(null);
+                      }}
+                    />
+                    <Label htmlFor="trocarFornecedor" className="text-sm cursor-pointer">
+                      Desejo trocar o fornecedor escolhido
+                    </Label>
+                  </div>
+                  
+                  {trocarFornecedor && (
+                    <div className="space-y-2 pt-2">
+                      <Label className="text-sm text-muted-foreground">Selecione o novo fornecedor:</Label>
+                      <div className="space-y-2">
+                        {fornecedoresInfo.concorrente1 && (
+                          <div 
+                            className={cn(
+                              "p-3 rounded-md border cursor-pointer transition-colors",
+                              novoFornecedorEscolhido === 'concorrente1' 
+                                ? "border-primary bg-primary/5" 
+                                : "hover:bg-muted/50"
+                            )}
+                            onClick={() => setNovoFornecedorEscolhido('concorrente1')}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className={cn(
+                                "w-4 h-4 rounded-full border-2 flex items-center justify-center",
+                                novoFornecedorEscolhido === 'concorrente1' ? "border-primary" : "border-muted-foreground"
+                              )}>
+                                {novoFornecedorEscolhido === 'concorrente1' && (
+                                  <div className="w-2 h-2 rounded-full bg-primary" />
+                                )}
+                              </div>
+                              <div className="flex-1">
+                                <p className="font-medium text-sm">{fornecedoresInfo.concorrente1.razao_social || 'Sem razão social'}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  CNPJ: {fornecedoresInfo.concorrente1.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')}
+                                </p>
+                              </div>
+                              <Badge variant="outline" className="text-xs">Concorrente 1</Badge>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {fornecedoresInfo.concorrente2 && (
+                          <div 
+                            className={cn(
+                              "p-3 rounded-md border cursor-pointer transition-colors",
+                              novoFornecedorEscolhido === 'concorrente2' 
+                                ? "border-primary bg-primary/5" 
+                                : "hover:bg-muted/50"
+                            )}
+                            onClick={() => setNovoFornecedorEscolhido('concorrente2')}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className={cn(
+                                "w-4 h-4 rounded-full border-2 flex items-center justify-center",
+                                novoFornecedorEscolhido === 'concorrente2' ? "border-primary" : "border-muted-foreground"
+                              )}>
+                                {novoFornecedorEscolhido === 'concorrente2' && (
+                                  <div className="w-2 h-2 rounded-full bg-primary" />
+                                )}
+                              </div>
+                              <div className="flex-1">
+                                <p className="font-medium text-sm">{fornecedoresInfo.concorrente2.razao_social || 'Sem razão social'}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  CNPJ: {fornecedoresInfo.concorrente2.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')}
+                                </p>
+                              </div>
+                              <Badge variant="outline" className="text-xs">Concorrente 2</Badge>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {novoFornecedorEscolhido && (
+                        <p className="text-xs text-muted-foreground mt-2">
+                          ℹ️ O fornecedor atual será movido para a posição de concorrente
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Existing attachments */}
               {existingAnexos.length > 0 && (

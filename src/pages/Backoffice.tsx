@@ -758,6 +758,54 @@ export default function Backoffice() {
     };
   };
 
+  // Helper to build a Fornecedor object from competitor data
+  const buildConcorrenteFromDetalhes = (
+    sol: NonNullable<typeof detalhes>['solicitacao'], 
+    numero: 1 | 2
+  ): Fornecedor | null => {
+    const prefix = numero === 1 ? 'concorrente1' : 'concorrente2';
+    const cnpj = sol[`${prefix}_cnpj` as keyof typeof sol] as string | undefined;
+    
+    if (!cnpj) return null;
+
+    let cnaesSecundarios: CNAESecundario[] = [];
+    const rawCnaes = sol[`${prefix}_cnaes_secundarios` as keyof typeof sol];
+    if (rawCnaes && Array.isArray(rawCnaes)) {
+      cnaesSecundarios = rawCnaes as CNAESecundario[];
+    }
+
+    return {
+      id: (sol[`${prefix}_id` as keyof typeof sol] as string) || '',
+      cnpj: cnpj,
+      razao_social: (sol[`${prefix}_razao` as keyof typeof sol] as string) || null,
+      nome_fantasia: (sol[`${prefix}_nome_fantasia` as keyof typeof sol] as string) || null,
+      email: (sol[`${prefix}_email` as keyof typeof sol] as string) || null,
+      telefone: (sol[`${prefix}_telefone` as keyof typeof sol] as string) || null,
+      endereco: (sol[`${prefix}_endereco` as keyof typeof sol] as string) || null,
+      cidade: (sol[`${prefix}_cidade` as keyof typeof sol] as string) || null,
+      uf: (sol[`${prefix}_uf` as keyof typeof sol] as string) || null,
+      is_mei: (sol[`${prefix}_is_mei` as keyof typeof sol] as boolean) || false,
+      cep: (sol[`${prefix}_cep` as keyof typeof sol] as string) || null,
+      bairro: (sol[`${prefix}_bairro` as keyof typeof sol] as string) || null,
+      logradouro: (sol[`${prefix}_logradouro` as keyof typeof sol] as string) || null,
+      numero: (sol[`${prefix}_numero` as keyof typeof sol] as string) || null,
+      complemento: (sol[`${prefix}_complemento` as keyof typeof sol] as string) || null,
+      cnae_principal_codigo: (sol[`${prefix}_cnae_principal_codigo` as keyof typeof sol] as number) || null,
+      cnae_principal_descricao: (sol[`${prefix}_cnae_principal_descricao` as keyof typeof sol] as string) || null,
+      cnaes_secundarios: cnaesSecundarios,
+      situacao_cadastral: (sol[`${prefix}_situacao_cadastral` as keyof typeof sol] as number) || null,
+      situacao_cadastral_descricao: (sol[`${prefix}_situacao_cadastral_descricao` as keyof typeof sol] as string) || null,
+      data_situacao_cadastral: (sol[`${prefix}_data_situacao_cadastral` as keyof typeof sol] as string) || null,
+      natureza_juridica: (sol[`${prefix}_natureza_juridica` as keyof typeof sol] as string) || null,
+      porte: (sol[`${prefix}_porte` as keyof typeof sol] as string) || null,
+      capital_social: (sol[`${prefix}_capital_social` as keyof typeof sol] as number) || null,
+      data_inicio_atividade: (sol[`${prefix}_data_inicio_atividade` as keyof typeof sol] as string) || null,
+      ultima_atualizacao_api: null,
+      created_at: '',
+      updated_at: '',
+    };
+  };
+
   const openDetails = (sol: SolicitacaoBackoffice) => {
     setSelectedSolicitacao(sol);
     setDetailsOpen(true);
@@ -1613,6 +1661,40 @@ export default function Backoffice() {
                         />
                       )}
                     </div>
+                    
+                    {/* Fornecedores Concorrentes */}
+                    {(buildConcorrenteFromDetalhes(detalhes.solicitacao, 1) || buildConcorrenteFromDetalhes(detalhes.solicitacao, 2)) && (
+                      <div className="mt-4 space-y-3">
+                        <h5 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                          <Building2 className="h-4 w-4" />
+                          Fornecedores Concorrentes
+                        </h5>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {buildConcorrenteFromDetalhes(detalhes.solicitacao, 1) && (
+                            <div className="space-y-1">
+                              <Badge variant="outline" className="text-xs mb-1">Concorrente 1</Badge>
+                              <FornecedorCard 
+                                fornecedor={buildConcorrenteFromDetalhes(detalhes.solicitacao, 1)!}
+                                showClearButton={false}
+                                compact={true}
+                                formatCNPJ={formatCNPJ}
+                              />
+                            </div>
+                          )}
+                          {buildConcorrenteFromDetalhes(detalhes.solicitacao, 2) && (
+                            <div className="space-y-1">
+                              <Badge variant="outline" className="text-xs mb-1">Concorrente 2</Badge>
+                              <FornecedorCard 
+                                fornecedor={buildConcorrenteFromDetalhes(detalhes.solicitacao, 2)!}
+                                showClearButton={false}
+                                compact={true}
+                                formatCNPJ={formatCNPJ}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                     <Separator />
                   </>
                 )}
