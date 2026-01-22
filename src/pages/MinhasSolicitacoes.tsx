@@ -937,15 +937,26 @@ export default function MinhasSolicitacoes() {
             <span className="font-semibold">AÇÃO NECESSÁRIA</span>
             <span className="text-sm opacity-90">- Esta solicitação precisa de correção</span>
           </div>
-          <Button 
-            size="sm" 
-            variant="secondary"
-            onClick={() => openEditModal(sol)}
-            className="bg-white text-orange-700 hover:bg-white/90 border border-orange-300 shadow-sm"
-          >
-            <Edit className="h-4 w-4 mr-1" />
-            Corrigir Agora
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              size="sm" 
+              variant="secondary"
+              onClick={() => openCancelModal(sol)}
+              className="bg-white/80 text-destructive hover:bg-white/90 border border-destructive/30 shadow-sm"
+            >
+              <XCircle className="h-4 w-4 mr-1" />
+              Cancelar
+            </Button>
+            <Button 
+              size="sm" 
+              variant="secondary"
+              onClick={() => openEditModal(sol)}
+              className="bg-white text-orange-700 hover:bg-white/90 border border-orange-300 shadow-sm"
+            >
+              <Edit className="h-4 w-4 mr-1" />
+              Corrigir Agora
+            </Button>
+          </div>
         </div>
       );
     }
@@ -979,15 +990,26 @@ export default function MinhasSolicitacoes() {
             <span className="font-semibold">INFORMAÇÕES SOLICITADAS</span>
             <span className="text-sm opacity-90">- O backoffice precisa de mais informações</span>
           </div>
-          <Button 
-            size="sm" 
-            variant="secondary"
-            onClick={() => openEditModal(sol)}
-            className="bg-white text-blue-700 hover:bg-white/90 border border-blue-300 shadow-sm"
-          >
-            <Edit className="h-4 w-4 mr-1" />
-            Corrigir e Reenviar
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              size="sm" 
+              variant="secondary"
+              onClick={() => openCancelModal(sol)}
+              className="bg-white/80 text-destructive hover:bg-white/90 border border-destructive/30 shadow-sm"
+            >
+              <XCircle className="h-4 w-4 mr-1" />
+              Cancelar
+            </Button>
+            <Button 
+              size="sm" 
+              variant="secondary"
+              onClick={() => openEditModal(sol)}
+              className="bg-white text-blue-700 hover:bg-white/90 border border-blue-300 shadow-sm"
+            >
+              <Edit className="h-4 w-4 mr-1" />
+              Corrigir e Reenviar
+            </Button>
+          </div>
         </div>
       );
     }
