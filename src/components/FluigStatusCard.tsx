@@ -4,9 +4,8 @@ import { Badge } from '@/components/ui/badge';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { getAprovacoesPorLocalizacao, CAMPO_APROVACAO_LABELS, getDevolucaoLabel } from '@/lib/fluig-utils';
+import { getAprovacoesPorLocalizacao, CAMPO_APROVACAO_LABELS, getDevolucaoLabel, LOCALIZACAO_TO_ETAPA, mapEtapaToDepartamento } from '@/lib/fluig-utils';
 import { useFluigStatus } from '@/hooks/useFluigStatus';
-
 interface FluigEvento {
   id: string;
   campo_alterado: string;
@@ -240,47 +239,32 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
   }, [status?.localizacao]);
 
   // Detectar se houve devolução recente - must be before early returns
-  // A lógica verifica se um nível superior concluiu mas a solicitação voltou a um nível anterior
+  // NOVA LÓGICA: verifica sequência de eventos para detectar retorno de nível
+  // Devolução = localização mudou de um nível superior para um nível inferior
   const devolucaoDetectada = useMemo(() => {
-    if (!status) return null;
+    if (!status || !eventos.length) return null;
     
-    const { facilitiesAprovado, financeiroAprovado, diretoriaAprovado } = aprovacoes;
-    const loc = status.localizacao || '';
-    
-    // Helper: verifica se localização indica que está com Facilities
-    const estaComFacilities = loc.includes('Nível 1') || loc.includes('Nivel 1') || 
-                              loc.includes('Gestor Condom');
-    // Helper: verifica se localização indica que está com Financeiro
-    const estaComFinanceiro = loc.includes('Nível 2') || loc.includes('Nivel 2');
-    
-    // Diretoria concluiu mas não está aprovado = devolução pela Diretoria
-    if (status.diretoria_conclusao && !diretoriaAprovado) {
-      // Determinar para onde voltou
-      if (estaComFacilities) {
-        return { departamento: 'Diretoria', voltouPara: 'Facilities' };
+    // Procurar no histórico de eventos por mudança de localização que DIMINUIU de nível
+    for (let i = 0; i < eventos.length; i++) {
+      const e = eventos[i];
+      if (e.campo_alterado === 'localizacao' && e.valor_anterior && e.valor_novo) {
+        const nivelAnterior = LOCALIZACAO_TO_ETAPA[e.valor_anterior] ?? 0;
+        const nivelNovo = LOCALIZACAO_TO_ETAPA[e.valor_novo] ?? 0;
+        
+        // Se o nível DIMINUIU (retornou), é uma devolução
+        // Exemplo: "Aprovação Nivel 2" (etapa 2) → "Para o Papel Gestor Condominio" (etapa 1)
+        if (nivelNovo < nivelAnterior && nivelAnterior >= 2) {
+          const departamentoQueDevolveu = mapEtapaToDepartamento(nivelAnterior);
+          return { 
+            departamento: departamentoQueDevolveu, 
+            voltouPara: mapEtapaToDepartamento(nivelNovo) 
+          };
+        }
       }
-      if (estaComFinanceiro) {
-        return { departamento: 'Diretoria', voltouPara: 'Financeiro' };
-      }
-      return { departamento: 'Diretoria', voltouPara: null };
-    }
-    
-    // Financeiro concluiu mas não está aprovado = devolução pelo Financeiro
-    if (status.gerencia_financeiro_conclusao && !financeiroAprovado) {
-      if (estaComFacilities) {
-        return { departamento: 'Gerência Financeira', voltouPara: 'Facilities' };
-      }
-      return { departamento: 'Gerência Financeira', voltouPara: null };
-    }
-    
-    // Facilities concluiu mas não está aprovado = devolução por Facilities
-    // Significa que está de volta com Facilities para reanálise
-    if (status.gerencia_facilities_conclusao && !facilitiesAprovado) {
-      return { departamento: 'Gerência de Facilities', voltouPara: 'Facilities' };
     }
     
     return null;
-  }, [status, aprovacoes]);
+  }, [status, eventos]);
 
   // Calcular eventos filtrados e processar devoluções - must be before early returns
   const eventosFiltrados = useMemo((): FluigEventoProcessado[] => {

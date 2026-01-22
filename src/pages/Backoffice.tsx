@@ -157,6 +157,10 @@ export default function Backoffice() {
   const [anexosComProblema, setAnexosComProblema] = useState<string[]>([]);
   const [anexosDisponiveis, setAnexosDisponiveis] = useState<Array<{ tipo: string; nome_arquivo: string }>>([]);
 
+  // Solicitar/Concluir Cadastro Contábil
+  const [cadastroLoading, setCadastroLoading] = useState(false);
+  const [cadastroStatus, setCadastroStatus] = useState<Record<string, 'solicitado' | 'concluido' | null>>({});
+
   // Fetch details when opening details modal
   useEffect(() => {
     if (detailsOpen && selectedSolicitacao) {
@@ -165,6 +169,49 @@ export default function Backoffice() {
       clearDetalhes();
     }
   }, [detailsOpen, selectedSolicitacao?.id, fetchDetalhes, clearDetalhes]);
+
+  // Load cadastro status for visible solicitações (lazy loading)
+  useEffect(() => {
+    const loadCadastroStatus = async () => {
+      const solsToCheck = solicitacoes.filter(s => 
+        (s.status === 'aprovado' || s.status === 'em_processamento') && 
+        cadastroStatus[s.id] === undefined
+      );
+      
+      if (solsToCheck.length === 0) return;
+      
+      // Fetch all in one query
+      const { data } = await supabase
+        .from('historico_solicitacoes')
+        .select('solicitacao_id, acao')
+        .in('solicitacao_id', solsToCheck.map(s => s.id))
+        .in('acao', ['Cadastro solicitado à Contabilidade', 'Cadastro concluído pela Contabilidade'])
+        .order('created_at', { ascending: false });
+      
+      if (data) {
+        const statusMap: Record<string, 'solicitado' | 'concluido' | null> = {};
+        // Initialize all as null
+        solsToCheck.forEach(s => statusMap[s.id] = null);
+        
+        // Set status based on most recent action for each solicitation
+        const seen = new Set<string>();
+        for (const row of data) {
+          if (seen.has(row.solicitacao_id)) continue;
+          seen.add(row.solicitacao_id);
+          
+          if (row.acao === 'Cadastro concluído pela Contabilidade') {
+            statusMap[row.solicitacao_id] = 'concluido';
+          } else if (row.acao === 'Cadastro solicitado à Contabilidade') {
+            statusMap[row.solicitacao_id] = 'solicitado';
+          }
+        }
+        
+        setCadastroStatus(prev => ({ ...prev, ...statusMap }));
+      }
+    };
+    
+    loadCadastroStatus();
+  }, [solicitacoes, cadastroStatus]);
 
   // Old N+1 fetch removed - now using useBackofficeSolicitacoes hook
 
@@ -707,6 +754,88 @@ export default function Backoffice() {
     }
   };
 
+  // Fetch cadastro status from history
+  const getCadastroStatus = useCallback(async (solId: string): Promise<'solicitado' | 'concluido' | null> => {
+    // Check if already cached
+    if (cadastroStatus[solId] !== undefined) {
+      return cadastroStatus[solId];
+    }
+
+    const { data } = await supabase
+      .from('historico_solicitacoes')
+      .select('acao')
+      .eq('solicitacao_id', solId)
+      .in('acao', ['Cadastro solicitado à Contabilidade', 'Cadastro concluído pela Contabilidade'])
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    let status: 'solicitado' | 'concluido' | null = null;
+    if (data && data.length > 0) {
+      if (data[0].acao === 'Cadastro concluído pela Contabilidade') {
+        status = 'concluido';
+      } else if (data[0].acao === 'Cadastro solicitado à Contabilidade') {
+        status = 'solicitado';
+      }
+    }
+
+    setCadastroStatus(prev => ({ ...prev, [solId]: status }));
+    return status;
+  }, [cadastroStatus]);
+
+  const handleSolicitarCadastro = async (sol: SolicitacaoBackoffice) => {
+    if (!user) return;
+    
+    setCadastroLoading(true);
+    try {
+      const currentStatus = await getCadastroStatus(sol.id);
+      
+      if (!currentStatus) {
+        // Primeira vez: Solicitar cadastro
+        await supabase.from('historico_solicitacoes').insert({
+          solicitacao_id: sol.id,
+          user_id: user.id,
+          acao: 'Cadastro solicitado à Contabilidade',
+          status_anterior: sol.status,
+          status_novo: sol.status,
+          motivo: 'Solicitação de cadastro de produto/serviço enviada à Contabilidade',
+        });
+        
+        setCadastroStatus(prev => ({ ...prev, [sol.id]: 'solicitado' }));
+        
+        toast({
+          title: 'Cadastro Solicitado!',
+          description: 'Solicitação enviada à Contabilidade.',
+        });
+      } else if (currentStatus === 'solicitado') {
+        // Segunda vez: Cadastro concluído
+        await supabase.from('historico_solicitacoes').insert({
+          solicitacao_id: sol.id,
+          user_id: user.id,
+          acao: 'Cadastro concluído pela Contabilidade',
+          status_anterior: sol.status,
+          status_novo: sol.status,
+          motivo: 'Cadastro de produto/serviço concluído pela Contabilidade',
+        });
+        
+        setCadastroStatus(prev => ({ ...prev, [sol.id]: 'concluido' }));
+        
+        toast({
+          title: 'Cadastro Concluído!',
+          description: 'Cadastro contábil finalizado.',
+        });
+      }
+    } catch (error) {
+      console.error('Error handling cadastro:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description: 'Não foi possível atualizar o cadastro',
+      });
+    } finally {
+      setCadastroLoading(false);
+    }
+  };
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   };
@@ -945,6 +1074,9 @@ export default function Backoffice() {
     const isMyResponsibility = sol.responsavelId === user?.id;
     const hasFlugNumber = !!sol.numero_chamado_fluig;
     const awaitingOC = (sol.status === 'aprovado' || sol.status === 'em_processamento') && hasFlugNumber;
+    
+    // Get cadastro status for this solicitation
+    const solCadastroStatus = cadastroStatus[sol.id];
 
     return (
       <Card className={cn(
@@ -1108,6 +1240,31 @@ export default function Backoffice() {
             
             {(sol.status === 'aprovado' || sol.status === 'em_processamento') && (
               <>
+                {/* Cadastro Contábil Button */}
+                {solCadastroStatus === 'concluido' ? (
+                  <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-700 flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3" />
+                    Cadastro OK
+                  </Badge>
+                ) : (
+                  <Button 
+                    size="sm" 
+                    variant={solCadastroStatus === 'solicitado' ? 'secondary' : 'outline'}
+                    onClick={() => handleSolicitarCadastro(sol)}
+                    disabled={cadastroLoading}
+                  >
+                    {solCadastroStatus === 'solicitado' ? (
+                      <>
+                        <CheckCircle className="h-4 w-4 mr-1" /> Cadastro Concluído
+                      </>
+                    ) : (
+                      <>
+                        <Package className="h-4 w-4 mr-1" /> Solicitar Cadastro
+                      </>
+                    )}
+                  </Button>
+                )}
+                
                 <Button size="sm" variant="default" onClick={() => openRegistro(sol)}>
                   <FileCheck className="h-4 w-4 mr-1" /> Registrar OC
                 </Button>
