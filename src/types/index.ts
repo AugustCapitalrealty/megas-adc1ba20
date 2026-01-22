@@ -129,6 +129,7 @@ export interface Solicitacao {
   data_pendente_correcao: string | null;
   fornecimento_exclusivo: boolean;
   justificativa_exclusividade: string | null;
+  data_conclusao: string | null;
   created_at: string;
   updated_at: string;
   // Joined data

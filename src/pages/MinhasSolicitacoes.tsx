@@ -24,7 +24,7 @@ import {
   type DocumentoEmitido,
   type DocumentoFiscal,
 } from '@/types';
-import { Loader2, FileText, Edit, Send, AlertTriangle, Copy, XCircle, Download, FileCheck, CheckCircle, MessageSquare, RotateCcw, Receipt, Upload, User, Building2 } from 'lucide-react';
+import { Loader2, FileText, Edit, Send, AlertTriangle, Copy, XCircle, Download, FileCheck, CheckCircle, MessageSquare, RotateCcw, Receipt, Upload, User, Building2, Trash2 } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import { SolicitacaoTimeline } from '@/components/SolicitacaoTimeline';
 import { FluigStatusCard } from '@/components/FluigStatusCard';
@@ -1371,30 +1371,68 @@ export default function MinhasSolicitacoes() {
                       
                       return existingAnexos.map((anexo) => {
                         const hasProblema = anexosProblema.includes(anexo.tipo);
+                        const markedForDeletion = anexosParaExcluir.includes(anexo.id);
+                        
                         return (
                           <div 
                             key={anexo.id} 
                             className={cn(
-                              "flex items-center gap-2 p-2 rounded",
-                              hasProblema 
-                                ? "bg-destructive/10 border border-destructive/30" 
-                                : "bg-muted"
+                              "flex items-center gap-2 p-2 rounded transition-all",
+                              markedForDeletion 
+                                ? "bg-destructive/5 border border-destructive/20 opacity-60" 
+                                : hasProblema 
+                                  ? "bg-destructive/10 border border-destructive/30" 
+                                  : "bg-muted"
                             )}
                           >
-                            {hasProblema ? (
+                            {markedForDeletion ? (
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            ) : hasProblema ? (
                               <XCircle className="h-4 w-4 text-destructive" />
                             ) : (
                               <FileCheck className="h-4 w-4 text-success" />
                             )}
-                            <span className="text-sm flex-1">{anexo.nome_arquivo}</span>
+                            <span className={cn(
+                              "text-sm flex-1",
+                              markedForDeletion && "line-through text-muted-foreground"
+                            )}>
+                              {anexo.nome_arquivo}
+                            </span>
                             <Badge 
-                              variant={hasProblema ? "destructive" : "outline"} 
+                              variant={markedForDeletion ? "secondary" : hasProblema ? "destructive" : "outline"} 
                               className="text-xs"
                             >
-                              {hasProblema 
-                                ? `${ANEXO_LABELS[anexo.tipo] || anexo.tipo} - CORREÇÃO` 
-                                : (ANEXO_LABELS[anexo.tipo] || anexo.tipo)}
+                              {markedForDeletion 
+                                ? 'SERÁ EXCLUÍDO'
+                                : hasProblema 
+                                  ? `${ANEXO_LABELS[anexo.tipo] || anexo.tipo} - CORREÇÃO` 
+                                  : (ANEXO_LABELS[anexo.tipo] || anexo.tipo)}
                             </Badge>
+                            
+                            {/* Botão de excluir/restaurar */}
+                            {markedForDeletion ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setAnexosParaExcluir(prev => prev.filter(id => id !== anexo.id))}
+                                className="h-7 px-2 text-primary hover:text-primary hover:bg-primary/10"
+                              >
+                                <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                                Restaurar
+                              </Button>
+                            ) : (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setAnexosParaExcluir(prev => [...prev, anexo.id])}
+                                className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              >
+                                <Trash2 className="h-3.5 w-3.5 mr-1" />
+                                Excluir
+                              </Button>
+                            )}
                           </div>
                         );
                       });
@@ -1406,9 +1444,12 @@ export default function MinhasSolicitacoes() {
                         ? infoRequests[editingSolicitacao.id]?.anexos_com_problema || []
                         : rejectionReasons[editingSolicitacao.id]?.anexos_com_problema || [];
                       
+                      if (anexosParaExcluir.length > 0) {
+                        return `${anexosParaExcluir.length} anexo(s) marcado(s) para exclusão. Adicione novos anexos se necessário.`;
+                      }
                       return anexosProblema.length > 0
-                        ? 'Substitua os anexos sinalizados com problema abaixo.'
-                        : 'Estes anexos já foram enviados. Adicione novos apenas se necessário.';
+                        ? 'Substitua os anexos sinalizados com problema. Clique em "Excluir" para remover.'
+                        : 'Clique em "Excluir" para remover anexos que precisam ser substituídos.';
                     })()}
                   </p>
                 </div>

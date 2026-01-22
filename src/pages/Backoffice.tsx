@@ -22,6 +22,7 @@ import { FluigStatusCard } from '@/components/FluigStatusCard';
 import { ExpandableDescription } from '@/components/ExpandableDescription';
 import { AnexoCard } from '@/components/AnexoCard';
 import { FornecedorCard } from '@/components/FornecedorCard';
+import { GarantiaExpiracaoInfo } from '@/components/GarantiaExpiracaoInfo';
 import { CNAECompatibilityBadge } from '@/components/CNAECompatibilityBadge';
 import { MEIAlertBadge } from '@/components/MEIAlertBadge';
 import { type Fornecedor, type CNAESecundario } from '@/types';
@@ -74,7 +75,8 @@ import {
   Send,
   Banknote,
   Edit,
-  ShieldAlert
+  ShieldAlert,
+  Shield
 } from 'lucide-react';
 import { format, differenceInDays, differenceInHours } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -1635,16 +1637,52 @@ export default function Backoffice() {
                   {detalhes.solicitacao.faturamento_direto && <Badge variant="outline">Faturamento Direto</Badge>}
                   {detalhes.solicitacao.retencao_6_porcento && <Badge variant="outline">Retenção 6%</Badge>}
                   {detalhes.solicitacao.custo_cliente && <Badge variant="outline">Custo Cliente</Badge>}
-                  {detalhes.solicitacao.tipo_garantia && detalhes.solicitacao.tipo_garantia !== 'nenhuma' && (
-                    <Badge variant="outline">
-                      Garantia: {TIPO_GARANTIA_LABELS[detalhes.solicitacao.tipo_garantia]}
-                      {detalhes.solicitacao.tipo_garantia === 'ambos' 
-                        ? ` (S: ${detalhes.solicitacao.dias_garantia_servico || '—'}d, P: ${detalhes.solicitacao.dias_garantia_produto || '—'}d)`
-                        : detalhes.solicitacao.dias_garantia ? ` (${detalhes.solicitacao.dias_garantia}d)` : ''
-                      }
-                    </Badge>
-                  )}
                 </div>
+
+                {/* Informações de Garantia - Seção Destacada */}
+                {detalhes.solicitacao.tipo_garantia && detalhes.solicitacao.tipo_garantia !== 'nenhuma' && (
+                  <div className="p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
+                    <Label className="text-xs uppercase tracking-wide text-muted-foreground flex items-center gap-2">
+                      <Shield className="h-4 w-4 text-green-600" />
+                      Garantia Contratada
+                    </Label>
+                    
+                    <div className="mt-2 space-y-1">
+                      <p className="font-medium text-green-800 dark:text-green-200">
+                        {TIPO_GARANTIA_LABELS[detalhes.solicitacao.tipo_garantia]}
+                      </p>
+                      
+                      {detalhes.solicitacao.tipo_garantia === 'ambos' ? (
+                        <div className="grid grid-cols-2 gap-2 mt-2">
+                          <div className="text-sm">
+                            <span className="text-muted-foreground">Serviço:</span>{' '}
+                            <span className="font-semibold">{detalhes.solicitacao.dias_garantia_servico || '—'} dias</span>
+                          </div>
+                          <div className="text-sm">
+                            <span className="text-muted-foreground">Produto:</span>{' '}
+                            <span className="font-semibold">{detalhes.solicitacao.dias_garantia_produto || '—'} dias</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm">
+                          <span className="text-muted-foreground">Duração:</span>{' '}
+                          <span className="font-semibold">{detalhes.solicitacao.dias_garantia || '—'} dias</span>
+                        </p>
+                      )}
+                      
+                      {/* Se status = concluída, mostrar expiração */}
+                      {detalhes.solicitacao.status === 'concluida' && detalhes.solicitacao.data_conclusao && (
+                        <GarantiaExpiracaoInfo 
+                          dataConclusao={detalhes.solicitacao.data_conclusao}
+                          tipoGarantia={detalhes.solicitacao.tipo_garantia}
+                          diasGarantia={detalhes.solicitacao.dias_garantia}
+                          diasGarantiaServico={detalhes.solicitacao.dias_garantia_servico}
+                          diasGarantiaProduto={detalhes.solicitacao.dias_garantia_produto}
+                        />
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Histórico / Timeline - Collapsible */}
                 <Collapsible defaultOpen={false}>
