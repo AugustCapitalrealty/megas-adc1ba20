@@ -23,6 +23,18 @@ export const LOCALIZACAO_TO_ETAPA: Record<string, number> = {
   'Emitir Solicitacao': 4,
 };
 
+// Mapa: etapa numérica → nome do departamento (para exibição)
+export function mapEtapaToDepartamento(etapa: number): string {
+  switch (etapa) {
+    case 0: return 'Início';
+    case 1: return 'Gerência de Facilities';
+    case 2: return 'Gerência Financeira';
+    case 3: return 'Diretoria';
+    case 4: return 'Emissão';
+    default: return 'Desconhecido';
+  }
+}
+
 // Determina quais aprovações realmente ocorreram baseado na localização atual
 // A localização é a fonte de verdade, não os campos *_conclusao
 export function getAprovacoesPorLocalizacao(localizacao: string | null): { 
