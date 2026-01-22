@@ -1,6 +1,6 @@
 export type AppRole = 'solicitante' | 'backoffice' | 'admin';
 export type RequestType = 'AC' | 'OC';
-export type RequestStatus = 'recebido' | 'em_analise' | 'pendente_correcao' | 'aprovado' | 'rejeitado' | 'em_processamento' | 'oc_ac_emitida' | 'aguardando_aceite' | 'aguardando_informacoes' | 'concluida' | 'aguardando_nf_boleto' | 'nf_boleto_enviados' | 'enviado_pagamento' | 'liberado_fornecedor' | 'enviado_fornecedor';
+export type RequestStatus = 'recebido' | 'em_analise' | 'pendente_correcao' | 'aprovado' | 'rejeitado' | 'em_processamento' | 'oc_ac_emitida' | 'aguardando_aceite' | 'aguardando_informacoes' | 'concluida' | 'aguardando_nf_boleto' | 'nf_boleto_enviados' | 'enviado_pagamento' | 'liberado_fornecedor' | 'enviado_fornecedor' | 'cancelado';
 export type Empreendimento = 'mega_curitiba' | 'mega_itajai' | 'mega_esteio' | 'todos';
 export type NaturezaOrcamentaria = 
   | 'materiais_informatica'
@@ -127,6 +127,8 @@ export interface Solicitacao {
   excecao_fornecedores: boolean;
   resposta_informacoes: string | null;
   data_pendente_correcao: string | null;
+  fornecimento_exclusivo: boolean;
+  justificativa_exclusividade: string | null;
   created_at: string;
   updated_at: string;
   // Joined data
@@ -213,6 +215,7 @@ export const STATUS_LABELS: Record<RequestStatus, string> = {
   enviado_pagamento: 'Enviado para Pagamento (legado)',
   liberado_fornecedor: 'Liberada para Fornecedor',
   enviado_fornecedor: 'OC Enviada ao Fornecedor',
+  cancelado: 'Cancelada pelo Solicitante',
 };
 
 export interface DocumentoEmitido {

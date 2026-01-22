@@ -227,6 +227,10 @@
     @apply bg-[hsl(160,70%,40%)]/10 text-[hsl(160,70%,40%)];
   }
 
+  .status-cancelado {
+    @apply bg-secondary/10 text-secondary;
+  }
+
   .form-step {
     @apply p-6 bg-card rounded-lg border border-border shadow-sm;
   }

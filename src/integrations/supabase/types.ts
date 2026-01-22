@@ -617,7 +617,9 @@ export type Database = {
           fornecedor_concorrente_1_id: string | null
           fornecedor_concorrente_2_id: string | null
           fornecedor_id: string | null
+          fornecimento_exclusivo: boolean | null
           id: string
+          justificativa_exclusividade: string | null
           justificativa_fornecedores: string | null
           justificativa_sem_chamado: string | null
           justificativa_sem_memorial: string | null
@@ -664,7 +666,9 @@ export type Database = {
           fornecedor_concorrente_1_id?: string | null
           fornecedor_concorrente_2_id?: string | null
           fornecedor_id?: string | null
+          fornecimento_exclusivo?: boolean | null
           id?: string
+          justificativa_exclusividade?: string | null
           justificativa_fornecedores?: string | null
           justificativa_sem_chamado?: string | null
           justificativa_sem_memorial?: string | null
@@ -711,7 +715,9 @@ export type Database = {
           fornecedor_concorrente_1_id?: string | null
           fornecedor_concorrente_2_id?: string | null
           fornecedor_id?: string | null
+          fornecimento_exclusivo?: boolean | null
           id?: string
+          justificativa_exclusividade?: string | null
           justificativa_fornecedores?: string | null
           justificativa_sem_chamado?: string | null
           justificativa_sem_memorial?: string | null
@@ -946,6 +952,7 @@ export type Database = {
         | "enviado_pagamento"
         | "liberado_fornecedor"
         | "enviado_fornecedor"
+        | "cancelado"
       request_type: "AC" | "OC"
       tipo_contratacao:
         | "servicos"
@@ -1120,6 +1127,7 @@ export const Constants = {
         "enviado_pagamento",
         "liberado_fornecedor",
         "enviado_fornecedor",
+        "cancelado",
       ],
       request_type: ["AC", "OC"],
       tipo_contratacao: [
