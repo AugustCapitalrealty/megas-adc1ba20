@@ -600,6 +600,7 @@ export type Database = {
           contrato_mensal: boolean | null
           created_at: string
           custo_cliente: boolean | null
+          data_conclusao: string | null
           data_enviado_fornecedor: string | null
           data_fim: string | null
           data_inicio: string | null
@@ -649,6 +650,7 @@ export type Database = {
           contrato_mensal?: boolean | null
           created_at?: string
           custo_cliente?: boolean | null
+          data_conclusao?: string | null
           data_enviado_fornecedor?: string | null
           data_fim?: string | null
           data_inicio?: string | null
@@ -698,6 +700,7 @@ export type Database = {
           contrato_mensal?: boolean | null
           created_at?: string
           custo_cliente?: boolean | null
+          data_conclusao?: string | null
           data_enviado_fornecedor?: string | null
           data_fim?: string | null
           data_inicio?: string | null
