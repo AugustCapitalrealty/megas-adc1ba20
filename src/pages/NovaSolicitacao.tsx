@@ -180,6 +180,10 @@ export default function NovaSolicitacao() {
   // Justificativa para exceção de 3 fornecedores
   const [justificativaFornecedores, setJustificativaFornecedores] = useState('');
   
+  // Fornecimento exclusivo
+  const [fornecimentoExclusivo, setFornecimentoExclusivo] = useState(false);
+  const [justificativaExclusividade, setJustificativaExclusividade] = useState('');
+  
   // Checkbox para Chamado Infraspeak (OC)
   const [temChamadoInfraspeak, setTemChamadoInfraspeak] = useState(false);
   
@@ -693,6 +697,8 @@ export default function NovaSolicitacao() {
         custo_cliente: custoCliente,
         emergencial,
         justificativa_sem_memorial: semMemorial && justificativaSemMemorial.trim() ? justificativaSemMemorial.trim() : null,
+        fornecimento_exclusivo: fornecimentoExclusivo,
+        justificativa_exclusividade: fornecimentoExclusivo && justificativaExclusividade.trim() ? justificativaExclusividade.trim() : null,
       };
       
       // Tentar inserir com retry automático para conflitos de protocolo (23505)
@@ -1445,7 +1451,44 @@ export default function NovaSolicitacao() {
                   </div>
                 )}
 
-                {requires3CNPJs && (
+                {/* Fornecimento Exclusivo */}
+                <div className="p-4 rounded-lg bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 space-y-3">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="fornecimentoExclusivo"
+                      checked={fornecimentoExclusivo}
+                      onCheckedChange={(checked) => {
+                        setFornecimentoExclusivo(!!checked);
+                        if (!checked) {
+                          setJustificativaExclusividade('');
+                        }
+                      }}
+                    />
+                    <Label htmlFor="fornecimentoExclusivo" className="cursor-pointer font-medium text-purple-800 dark:text-purple-200">
+                      Fornecimento Exclusivo
+                    </Label>
+                  </div>
+                  <p className="text-sm text-purple-700 dark:text-purple-300">
+                    Marque esta opção se este fornecedor é o único disponível no mercado para este serviço/material.
+                  </p>
+                  {fornecimentoExclusivo && (
+                    <div className="pt-2">
+                      <Label htmlFor="justificativaExclusividade" className="text-purple-800 dark:text-purple-200">
+                        Justificativa da exclusividade *
+                      </Label>
+                      <Textarea
+                        id="justificativaExclusividade"
+                        placeholder="Explique por que não existem outros fornecedores disponíveis no mercado para este serviço/material..."
+                        value={justificativaExclusividade}
+                        onChange={(e) => setJustificativaExclusividade(e.target.value)}
+                        rows={3}
+                        className="mt-2 bg-background"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {requires3CNPJs && !fornecimentoExclusivo && (
                   <div className="p-4 rounded-lg bg-muted/30 border space-y-4">
                     <div className="space-y-3">
                       <Label className="text-base font-semibold">Concorrência com 3 fornecedores?</Label>

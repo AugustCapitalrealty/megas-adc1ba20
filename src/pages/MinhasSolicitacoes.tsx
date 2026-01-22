@@ -28,6 +28,7 @@ import { Loader2, FileText, Edit, Send, AlertTriangle, Copy, XCircle, Download, 
 import { saveAs } from 'file-saver';
 import { SolicitacaoTimeline } from '@/components/SolicitacaoTimeline';
 import { FluigStatusCard } from '@/components/FluigStatusCard';
+import { AnexoCard } from '@/components/AnexoCard';
 import { MultiFileUpload, type UploadedFile } from '@/components/FileUpload';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -99,8 +100,18 @@ export default function MinhasSolicitacoes() {
   const [editValor, setEditValor] = useState('');
   const [editNaturezaOrcamentaria, setEditNaturezaOrcamentaria] = useState<NaturezaOrcamentaria | ''>('');
   const [editAnexos, setEditAnexos] = useState<Record<string, UploadedFile | null>>({});
-  const [existingAnexos, setExistingAnexos] = useState<Array<{ id: string; tipo: string; nome_arquivo: string }>>([]);
+  const [existingAnexos, setExistingAnexos] = useState<Array<{ id: string; tipo: string; nome_arquivo: string; storage_path: string }>>([]);
+  const [anexosParaExcluir, setAnexosParaExcluir] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+
+  // Cancel modal state
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelSolicitacao, setCancelSolicitacao] = useState<Solicitacao | null>(null);
+  const [motivoCancelamento, setMotivoCancelamento] = useState('');
+  const [cancelLoading, setCancelLoading] = useState(false);
+
+  // Anexos visualization state
+  const [anexosExpanded, setAnexosExpanded] = useState<Record<string, Array<{ id: string; tipo: string; nome_arquivo: string; storage_path: string; mime_type: string | null; tamanho_bytes: number | null }>>>({});
 
   // Aceite OC modal state
   const [aceiteOpen, setAceiteOpen] = useState(false);
@@ -341,15 +352,75 @@ export default function MinhasSolicitacoes() {
     setEditNaturezaOrcamentaria(sol.natureza_orcamentaria);
     setEditAnexos({});
     setExistingAnexos([]);
+    setAnexosParaExcluir([]);
     setEditOpen(true);
     
     const { data: anexosData } = await supabase
       .from('anexos')
-      .select('id, tipo, nome_arquivo')
+      .select('id, tipo, nome_arquivo, storage_path')
       .eq('solicitacao_id', sol.id);
     
     if (anexosData) {
       setExistingAnexos(anexosData);
+    }
+  };
+
+  const openCancelModal = (sol: Solicitacao) => {
+    setCancelSolicitacao(sol);
+    setMotivoCancelamento('');
+    setCancelOpen(true);
+  };
+
+  const handleCancelar = async () => {
+    if (!cancelSolicitacao || !user) return;
+    
+    setCancelLoading(true);
+    try {
+      const { error: updateError } = await supabase
+        .from('solicitacoes')
+        .update({ status: 'cancelado' as any })
+        .eq('id', cancelSolicitacao.id);
+
+      if (updateError) throw updateError;
+
+      await supabase.from('historico_solicitacoes').insert({
+        solicitacao_id: cancelSolicitacao.id,
+        user_id: user.id,
+        acao: 'cancelamento',
+        status_anterior: cancelSolicitacao.status,
+        status_novo: 'cancelado',
+        motivo: motivoCancelamento.trim() || 'Cancelado pelo solicitante',
+      });
+
+      toast({
+        title: 'Solicitação cancelada',
+        description: 'A solicitação foi cancelada com sucesso.',
+      });
+
+      setCancelOpen(false);
+      fetchSolicitacoes();
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao cancelar',
+        description: error?.message || 'Não foi possível cancelar a solicitação.',
+        variant: 'destructive',
+      });
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+
+  const fetchAnexosSolicitacao = async (solicitacaoId: string) => {
+    if (anexosExpanded[solicitacaoId]) return; // Already loaded
+    
+    const { data } = await supabase
+      .from('anexos')
+      .select('id, tipo, nome_arquivo, storage_path, mime_type, tamanho_bytes')
+      .eq('solicitacao_id', solicitacaoId)
+      .order('created_at');
+    
+    if (data) {
+      setAnexosExpanded(prev => ({ ...prev, [solicitacaoId]: data }));
     }
   };
 
@@ -452,6 +523,20 @@ export default function MinhasSolicitacoes() {
       const valorNumerico = parseFloat(editValor.replace(/\D/g, '')) / 100 || 0;
       const statusAnterior = editingSolicitacao.status;
       
+      // Excluir anexos marcados para exclusão
+      if (anexosParaExcluir.length > 0) {
+        const anexosParaRemover = existingAnexos.filter(a => anexosParaExcluir.includes(a.id));
+        const storagePaths = anexosParaRemover.map(a => a.storage_path);
+        
+        // Remove from storage
+        if (storagePaths.length > 0) {
+          await supabase.storage.from('anexos').remove(storagePaths);
+        }
+        
+        // Remove from database
+        await supabase.from('anexos').delete().in('id', anexosParaExcluir);
+      }
+      
       await uploadNewAnexos(editingSolicitacao.id);
       
       const { error: updateError } = await supabase
@@ -480,6 +565,7 @@ export default function MinhasSolicitacoes() {
       });
 
       setEditOpen(false);
+      setAnexosParaExcluir([]);
       fetchSolicitacoes();
     } catch (error: any) {
       toast({
@@ -967,6 +1053,12 @@ export default function MinhasSolicitacoes() {
   const renderExpandedContent = (sol: SolicitacaoComFornecedor) => {
     const fiscalNf = sol.documentosFiscais?.find(d => d.tipo === 'nota_fiscal');
     const fiscalBoleto = sol.documentosFiscais?.find(d => d.tipo === 'boleto');
+    const solAnexos = anexosExpanded[sol.id];
+    
+    // Fetch anexos when expanding if not already loaded
+    if (!solAnexos) {
+      fetchAnexosSolicitacao(sol.id);
+    }
     
     return (
       <>
@@ -987,6 +1079,21 @@ export default function MinhasSolicitacoes() {
               >
                 <Download className="h-4 w-4 mr-1" /> Baixar
               </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Anexos da solicitação */}
+        {solAnexos && solAnexos.length > 0 && (
+          <div className="space-y-2">
+            <p className="font-medium text-sm flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Anexos da Solicitação ({solAnexos.length})
+            </p>
+            <div className="grid gap-2">
+              {solAnexos.map((anexo) => (
+                <AnexoCard key={anexo.id} anexo={anexo} showTipo />
+              ))}
             </div>
           </div>
         )}
@@ -1020,6 +1127,21 @@ export default function MinhasSolicitacoes() {
         {/* Fluig Status */}
         {sol.numero_chamado_fluig && sol.numero_chamado_fluig !== 'RM' && (
           <FluigStatusCard numeroChamadoFluig={sol.numero_chamado_fluig} />
+        )}
+
+        {/* Cancel button for owner */}
+        {sol.user_id === effectiveUserId && !['concluida', 'rejeitado', 'cancelado'].includes(sol.status) && (
+          <div className="pt-2 border-t">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={() => openCancelModal(sol)}
+            >
+              <XCircle className="h-4 w-4 mr-1" />
+              Cancelar Solicitação
+            </Button>
+          </div>
         )}
       </>
     );
@@ -1620,6 +1742,33 @@ export default function MinhasSolicitacoes() {
                 onChange={(e) => setDataVencimentoBoleto(e.target.value)}
               />
             </div>
+          </div>
+        </div>
+      </ActionModal>
+
+      {/* Cancel Modal */}
+      <ActionModal
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        title={`Cancelar Solicitação #${cancelSolicitacao?.protocolo}`}
+        icon={XCircle}
+        variant="destructive"
+        loading={cancelLoading}
+        onConfirm={handleCancelar}
+        confirmText="Confirmar Cancelamento"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Tem certeza que deseja cancelar esta solicitação? Esta ação não pode ser desfeita.
+          </p>
+          <div className="space-y-2">
+            <Label>Motivo do cancelamento (opcional)</Label>
+            <Textarea
+              placeholder="Informe o motivo do cancelamento..."
+              value={motivoCancelamento}
+              onChange={(e) => setMotivoCancelamento(e.target.value)}
+              rows={3}
+            />
           </div>
         </div>
       </ActionModal>

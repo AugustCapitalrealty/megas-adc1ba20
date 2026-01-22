@@ -1480,31 +1480,42 @@ export default function Backoffice() {
                     </div>
                   )}
                   
-                  {/* Data de Contratação (AC) */}
-                  {detalhes.solicitacao.tipo === 'AC' && (detalhes.solicitacao.data_inicio || detalhes.solicitacao.data_fim) && (
-                    <div className="col-span-2 grid grid-cols-2 gap-4 p-3 bg-muted/30 rounded-lg">
+                  {/* Data do Serviço - para qualquer tipo com datas */}
+                  {(detalhes.solicitacao.data_inicio || detalhes.solicitacao.data_fim) && (
+                    <div className="col-span-2 grid grid-cols-2 gap-4 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
                       <div>
                         <Label className="text-xs uppercase tracking-wide text-muted-foreground flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
-                          Data Início
+                          Data Início do Serviço
                         </Label>
                         <p className="font-medium mt-1">
                           {detalhes.solicitacao.data_inicio 
-                            ? format(new Date(detalhes.solicitacao.data_inicio + 'T00:00:00'), 'dd/MM/yyyy')
+                            ? format(new Date(detalhes.solicitacao.data_inicio + 'T12:00:00'), 'dd/MM/yyyy')
                             : '—'}
                         </p>
                       </div>
                       <div>
                         <Label className="text-xs uppercase tracking-wide text-muted-foreground flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
-                          Data Fim
+                          Data Fim do Serviço
                         </Label>
                         <p className="font-medium mt-1">
                           {detalhes.solicitacao.data_fim 
-                            ? format(new Date(detalhes.solicitacao.data_fim + 'T00:00:00'), 'dd/MM/yyyy')
+                            ? format(new Date(detalhes.solicitacao.data_fim + 'T12:00:00'), 'dd/MM/yyyy')
                             : '—'}
                         </p>
                       </div>
+                    </div>
+                  )}
+                  
+                  {/* Fornecimento Exclusivo */}
+                  {(detalhes.solicitacao as any).fornecimento_exclusivo && (
+                    <div className="col-span-2 p-3 bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-lg">
+                      <Label className="text-muted-foreground font-medium flex items-center gap-2">
+                        <ShieldAlert className="h-4 w-4 text-purple-600" />
+                        Fornecimento Exclusivo
+                      </Label>
+                      <p className="mt-2 text-sm">{(detalhes.solicitacao as any).justificativa_exclusividade || 'Sem justificativa informada'}</p>
                     </div>
                   )}
                 </div>
