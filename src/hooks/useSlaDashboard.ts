@@ -12,7 +12,7 @@ export interface SlaData {
   status: string;
   empreendimento: Empreendimento;
   numero_chamado_fluig: string | null;
-  dias_uteis_backoffice: number;
+  dias_uteis_backoffice: number; // Now supports decimal values (e.g., 0.5, 1.2)
   passou_cadastro: boolean;
   data_fluig_rm: string | null;
   status_sla: SlaStatus;

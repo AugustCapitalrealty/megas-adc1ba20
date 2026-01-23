@@ -368,7 +368,7 @@ export default function DashboardSLA() {
                           <span className={cn(
                             "font-bold",
                             item.dias_uteis_backoffice <= 2 ? "text-emerald-600" :
-                            item.dias_uteis_backoffice === 3 ? "text-amber-600" :
+                            item.dias_uteis_backoffice <= 3 ? "text-amber-600" :
                             "text-red-600"
                           )}>
                             {item.dias_uteis_backoffice} {item.dias_uteis_backoffice === 1 ? 'dia' : 'dias'}
