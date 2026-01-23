@@ -142,25 +142,25 @@ export function SlaTimelineModal({
           <div className={cn(
             "border rounded-lg p-3 text-center",
             diasUteis <= 2 ? "bg-emerald-50 border-emerald-200" :
-            diasUteis === 3 ? "bg-amber-50 border-amber-200" :
+            diasUteis <= 3 ? "bg-amber-50 border-amber-200" :
             "bg-red-50 border-red-200"
           )}>
             <div className={cn(
               "text-xs font-medium",
               diasUteis <= 2 ? "text-emerald-600" :
-              diasUteis === 3 ? "text-amber-600" :
+              diasUteis <= 3 ? "text-amber-600" :
               "text-red-600"
             )}>Tempo Utilizado</div>
             <div className={cn(
               "text-2xl font-bold",
               diasUteis <= 2 ? "text-emerald-700" :
-              diasUteis === 3 ? "text-amber-700" :
+              diasUteis <= 3 ? "text-amber-700" :
               "text-red-700"
             )}>{diasUteis} {diasUteis === 1 ? 'dia' : 'dias'}</div>
             <div className={cn(
               "text-xs",
               diasUteis <= 2 ? "text-emerald-500" :
-              diasUteis === 3 ? "text-amber-500" :
+              diasUteis <= 3 ? "text-amber-500" :
               "text-red-500"
             )}>úteis</div>
           </div>

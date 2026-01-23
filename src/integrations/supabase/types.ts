@@ -872,6 +872,10 @@ export type Database = {
         Args: { data_fim?: string; data_inicio: string }
         Returns: number
       }
+      calcular_horas_uteis: {
+        Args: { p_data_fim?: string; p_data_inicio: string }
+        Returns: number
+      }
       calcular_sla_solicitacao: {
         Args: { p_solicitacao_id: string }
         Returns: Json
@@ -906,8 +910,8 @@ export type Database = {
           acao: string
           conta_tempo: boolean
           created_at: string
-          status_anterior: Database["public"]["Enums"]["request_status"]
-          status_novo: Database["public"]["Enums"]["request_status"]
+          status_anterior: string
+          status_novo: string
           tipo_evento: string
           usuario_nome: string
         }[]
