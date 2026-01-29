@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,7 @@ import {
   type OrigemCusto,
   type TipoGarantia,
   type Fornecedor,
+  type InstrumentoJuridico,
 } from '@/types';
 import { ArrowLeft, ArrowRight, Check, Loader2, Search, AlertTriangle, ChevronDown, ChevronUp, FileText, Sparkles, DollarSign, Package, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -40,8 +41,12 @@ import { notifyBackofficeNewSolicitacao } from '@/hooks/useNotificationEmail';
 import { StepIndicator, type Step as StepIndicatorStep } from '@/components/StepIndicator';
 import { CNAECompatibilityBadge } from '@/components/CNAECompatibilityBadge';
 import { MEIAlertBadge } from '@/components/MEIAlertBadge';
+import { NaturezaServicoStep } from '@/components/NaturezaServicoStep';
+import { DueDiligenceModule } from '@/components/DueDiligenceModule';
+import { EscopoDetalhadoField } from '@/components/EscopoDetalhadoField';
+import { RetencaoTecnicaAlert } from '@/components/RetencaoTecnicaAlert';
 
-type Step = 'empreendimento' | 'descricao' | 'tipo' | 'detalhes' | 'fornecedor' | 'anexos' | 'revisao';
+type Step = 'empreendimento' | 'descricao' | 'tipo' | 'natureza_servico' | 'detalhes' | 'fornecedor' | 'anexos' | 'revisao';
 
 // Naturezas orçamentárias isentas de Chamado/Preventiva (para AC)
 const NATUREZAS_ISENTAS_ANEXOS: NaturezaOrcamentaria[] = [
@@ -194,6 +199,16 @@ export default function NovaSolicitacao() {
   const [semMemorial, setSemMemorial] = useState(false);
   const [justificativaSemMemorial, setJustificativaSemMemorial] = useState('');
   
+  // Novos estados do fluxo jurídico
+  const [naturezaObraCivil, setNaturezaObraCivil] = useState(false);
+  const [naturezaAlturaRisco, setNaturezaAlturaRisco] = useState(false);
+  const [naturezaFossaFiltro, setNaturezaFossaFiltro] = useState(false);
+  const [naturezaPrecoVariavel, setNaturezaPrecoVariavel] = useState(false);
+  const [escopoDetalhadoMinuta, setEscopoDetalhadoMinuta] = useState('');
+  const [dueDiligenceConfirmada, setDueDiligenceConfirmada] = useState(false);
+  const [dueDiligenceNumeroProjuris, setDueDiligenceNumeroProjuris] = useState('');
+  const [temProcessoProjuris, setTemProcessoProjuris] = useState(false);
+  
   // AI Description Validation
   const { isValidating: isValidatingDescription, validationResult: descriptionValidation } = useDescriptionValidation(descricao);
   // Load fornecedor from duplicateFrom
@@ -267,6 +282,15 @@ export default function NovaSolicitacao() {
       setChamadoCorretiva(draft.chamadoCorretiva);
       setSemMemorial(draft.semMemorial);
       setJustificativaSemMemorial(draft.justificativaSemMemorial);
+      // Restaurar campos do fluxo jurídico
+      setNaturezaObraCivil(draft.naturezaObraCivil ?? false);
+      setNaturezaAlturaRisco(draft.naturezaAlturaRisco ?? false);
+      setNaturezaFossaFiltro(draft.naturezaFossaFiltro ?? false);
+      setNaturezaPrecoVariavel(draft.naturezaPrecoVariavel ?? false);
+      setEscopoDetalhadoMinuta(draft.escopoDetalhadoMinuta ?? '');
+      setDueDiligenceConfirmada(draft.dueDiligenceConfirmada ?? false);
+      setDueDiligenceNumeroProjuris(draft.dueDiligenceNumeroProjuris ?? '');
+      setTemProcessoProjuris(draft.temProcessoProjuris ?? false);
       
       // Load fornecedores by ID
       if (draft.fornecedorId) {
@@ -366,6 +390,15 @@ export default function NovaSolicitacao() {
       fornecedorId: fornecedor?.id || null,
       fornecedorConcorrente1Id: fornecedorConcorrente1?.id || null,
       fornecedorConcorrente2Id: fornecedorConcorrente2?.id || null,
+      // Novos campos do fluxo jurídico
+      naturezaObraCivil,
+      naturezaAlturaRisco,
+      naturezaFossaFiltro,
+      naturezaPrecoVariavel,
+      escopoDetalhadoMinuta,
+      dueDiligenceConfirmada,
+      dueDiligenceNumeroProjuris,
+      temProcessoProjuris,
     });
   }, [
     currentStep, empreendimento, descricao, valor, tipoContratacao, naturezaOrcamentaria,
@@ -374,6 +407,8 @@ export default function NovaSolicitacao() {
     diasGarantiaProduto, custoCliente, emergencial, clienteId, excecaoFornecedores,
     justificativaFornecedores, temChamadoInfraspeak, chamadoCorretiva, semMemorial,
     justificativaSemMemorial, fornecedor?.id, fornecedorConcorrente1?.id, fornecedorConcorrente2?.id,
+    naturezaObraCivil, naturezaAlturaRisco, naturezaFossaFiltro, naturezaPrecoVariavel,
+    escopoDetalhadoMinuta, dueDiligenceConfirmada, dueDiligenceNumeroProjuris, temProcessoProjuris,
     saveDraft, submitting
   ]);
 
@@ -418,10 +453,23 @@ export default function NovaSolicitacao() {
         setNaturezaOrcamentaria(autoNatureza);
       }
     }
-  }, [tipoContratacao, isOCAbove1000]);
+   }, [tipoContratacao, isOCAbove1000]);
   
   // Emergency checkbox should only appear for AC services (>= 1001)
   const showEmergencial = isAC;
+  
+  // Calcular instrumento jurídico automaticamente (client-side)
+  const instrumentoJuridico = useMemo((): InstrumentoJuridico => {
+    if (naturezaObraCivil) return 'contrato_empreitada';
+    if (naturezaAlturaRisco || naturezaFossaFiltro || naturezaPrecoVariavel) return 'termo_contratacao';
+    if (valorNumerico >= 70000) return 'contrato_prestacao';
+    if (valorNumerico >= 10000) return 'termo_contratacao';
+    return 'oc';
+  }, [valorNumerico, naturezaObraCivil, naturezaAlturaRisco, naturezaFossaFiltro, naturezaPrecoVariavel]);
+  
+  // Flags derivadas do fluxo jurídico
+  const requerEscopoDetalhado = instrumentoJuridico !== 'oc';
+  const requerDueDiligence = valorNumerico >= 50000;
   
   // Determine required attachments based on type
   const getRequiredAttachments = () => {
@@ -699,6 +747,14 @@ export default function NovaSolicitacao() {
         justificativa_sem_memorial: semMemorial && justificativaSemMemorial.trim() ? justificativaSemMemorial.trim() : null,
         fornecimento_exclusivo: fornecimentoExclusivo,
         justificativa_exclusividade: fornecimentoExclusivo && justificativaExclusividade.trim() ? justificativaExclusividade.trim() : null,
+        // Novos campos do fluxo jurídico
+        natureza_servico_obra_civil: naturezaObraCivil,
+        natureza_servico_altura_risco: naturezaAlturaRisco,
+        natureza_servico_fossa_filtro: naturezaFossaFiltro,
+        natureza_servico_preco_variavel: naturezaPrecoVariavel,
+        escopo_detalhado_minuta: requerEscopoDetalhado ? escopoDetalhadoMinuta.trim() : null,
+        due_diligence_confirmada: requerDueDiligence ? dueDiligenceConfirmada : false,
+        due_diligence_numero_projuris: temProcessoProjuris ? dueDiligenceNumeroProjuris.trim() || null : null,
       };
       
       // Tentar inserir com retry automático para conflitos de protocolo (23505)
@@ -821,6 +877,7 @@ export default function NovaSolicitacao() {
     { id: 'empreendimento', label: 'Local', show: true },
     { id: 'descricao', label: 'Descrição', show: true },
     { id: 'tipo', label: 'Tipo', show: valorNumerico > 1000 },
+    { id: 'natureza_servico', label: 'Natureza', show: valorNumerico >= 10000 },
     { id: 'detalhes', label: 'Detalhes', show: true },
     { id: 'fornecedor', label: 'Fornecedor', show: true },
     { id: 'anexos', label: 'Anexos', show: true },
@@ -835,6 +892,7 @@ export default function NovaSolicitacao() {
       case 'empreendimento': return !!empreendimento;
       case 'descricao': return !!descricao && valorNumerico > 0;
       case 'tipo': return valorNumerico <= 1000 || !!tipoContratacao;
+      case 'natureza_servico': return true; // Sempre pode avançar (checkboxes opcionais)
       case 'detalhes': {
         if (!naturezaOrcamentaria) return false;
         if (origemCusto === 'cliente' && !clienteId) return false;
@@ -843,6 +901,10 @@ export default function NovaSolicitacao() {
           const sum = valorServicoNumerico + valorMaterialNumerico;
           if (Math.abs(sum - valorNumerico) > 0.01) return false;
         }
+        // Validação do escopo detalhado (mín 100 caracteres) quando requer
+        if (requerEscopoDetalhado && escopoDetalhadoMinuta.length < 100) return false;
+        // Validação de Due Diligence quando requer
+        if (requerDueDiligence && !dueDiligenceConfirmada) return false;
         return true;
       }
       case 'fornecedor': {
@@ -1152,6 +1214,20 @@ export default function NovaSolicitacao() {
               </div>
             )}
 
+            {currentStep === 'natureza_servico' && (
+              <NaturezaServicoStep
+                valorNumerico={valorNumerico}
+                obraCivil={naturezaObraCivil}
+                alturaRisco={naturezaAlturaRisco}
+                fossaFiltro={naturezaFossaFiltro}
+                precoVariavel={naturezaPrecoVariavel}
+                onObraCivilChange={setNaturezaObraCivil}
+                onAlturaRiscoChange={setNaturezaAlturaRisco}
+                onFossaFiltroChange={setNaturezaFossaFiltro}
+                onPrecoVariavelChange={setNaturezaPrecoVariavel}
+              />
+            )}
+
             {currentStep === 'detalhes' && (
               <div className="space-y-4">
                 {/* Natureza Orçamentária - Show for AC OR for OC <= 1000 */}
@@ -1417,6 +1493,32 @@ export default function NovaSolicitacao() {
                     )}
                   </div>
                 )}
+
+                {/* Escopo Detalhado para Minuta - Fluxo Jurídico */}
+                <EscopoDetalhadoField
+                  instrumentoJuridico={instrumentoJuridico}
+                  escopo={escopoDetalhadoMinuta}
+                  onEscopoChange={setEscopoDetalhadoMinuta}
+                />
+
+                {/* Due Diligence Module - Fluxo Jurídico */}
+                <DueDiligenceModule
+                  valorNumerico={valorNumerico}
+                  confirmada={dueDiligenceConfirmada}
+                  numeroProjuris={dueDiligenceNumeroProjuris}
+                  temProcessoProjuris={temProcessoProjuris}
+                  onConfirmadaChange={setDueDiligenceConfirmada}
+                  onNumeroProjurisChange={setDueDiligenceNumeroProjuris}
+                  onTemProcessoChange={setTemProcessoProjuris}
+                />
+
+                {/* Retenção Técnica Alert - Fluxo Jurídico */}
+                <RetencaoTecnicaAlert
+                  instrumentoJuridico={instrumentoJuridico}
+                  valorNumerico={valorNumerico}
+                  dataInicio={dataInicio}
+                  dataFim={dataFim}
+                />
               </div>
             )}
 

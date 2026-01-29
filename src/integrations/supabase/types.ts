@@ -634,9 +634,12 @@ export type Database = {
           dias_garantia: number | null
           dias_garantia_produto: number | null
           dias_garantia_servico: number | null
+          due_diligence_confirmada: boolean | null
+          due_diligence_numero_projuris: string | null
           emergencial: boolean | null
           empreendimento: Database["public"]["Enums"]["empreendimento"]
           enviado_fornecedor_por: string | null
+          escopo_detalhado_minuta: string | null
           excecao_fornecedores: boolean | null
           faturamento_direto: boolean | null
           fornecedor_concorrente_1_id: string | null
@@ -644,17 +647,26 @@ export type Database = {
           fornecedor_id: string | null
           fornecimento_exclusivo: boolean | null
           id: string
+          instrumento_juridico:
+            | Database["public"]["Enums"]["instrumento_juridico"]
+            | null
           justificativa_exclusividade: string | null
           justificativa_fornecedores: string | null
           justificativa_sem_chamado: string | null
           justificativa_sem_memorial: string | null
           liberado_fornecedor_por: string | null
           natureza_orcamentaria: Database["public"]["Enums"]["natureza_orcamentaria"]
+          natureza_servico_altura_risco: boolean | null
+          natureza_servico_fossa_filtro: boolean | null
+          natureza_servico_obra_civil: boolean | null
+          natureza_servico_preco_variavel: boolean | null
           numero_chamado_fluig: string | null
           numero_projuris: string | null
           origem_custo: Database["public"]["Enums"]["origem_custo"]
           parcelas: number | null
+          prazo_liberacao_retencao_dias: number | null
           protocolo: string | null
+          requer_retencao_tecnica: boolean | null
           resposta_informacoes: string | null
           retencao_6_porcento: boolean | null
           status: Database["public"]["Enums"]["request_status"]
@@ -684,9 +696,12 @@ export type Database = {
           dias_garantia?: number | null
           dias_garantia_produto?: number | null
           dias_garantia_servico?: number | null
+          due_diligence_confirmada?: boolean | null
+          due_diligence_numero_projuris?: string | null
           emergencial?: boolean | null
           empreendimento: Database["public"]["Enums"]["empreendimento"]
           enviado_fornecedor_por?: string | null
+          escopo_detalhado_minuta?: string | null
           excecao_fornecedores?: boolean | null
           faturamento_direto?: boolean | null
           fornecedor_concorrente_1_id?: string | null
@@ -694,17 +709,26 @@ export type Database = {
           fornecedor_id?: string | null
           fornecimento_exclusivo?: boolean | null
           id?: string
+          instrumento_juridico?:
+            | Database["public"]["Enums"]["instrumento_juridico"]
+            | null
           justificativa_exclusividade?: string | null
           justificativa_fornecedores?: string | null
           justificativa_sem_chamado?: string | null
           justificativa_sem_memorial?: string | null
           liberado_fornecedor_por?: string | null
           natureza_orcamentaria: Database["public"]["Enums"]["natureza_orcamentaria"]
+          natureza_servico_altura_risco?: boolean | null
+          natureza_servico_fossa_filtro?: boolean | null
+          natureza_servico_obra_civil?: boolean | null
+          natureza_servico_preco_variavel?: boolean | null
           numero_chamado_fluig?: string | null
           numero_projuris?: string | null
           origem_custo?: Database["public"]["Enums"]["origem_custo"]
           parcelas?: number | null
+          prazo_liberacao_retencao_dias?: number | null
           protocolo?: string | null
+          requer_retencao_tecnica?: boolean | null
           resposta_informacoes?: string | null
           retencao_6_porcento?: boolean | null
           status?: Database["public"]["Enums"]["request_status"]
@@ -734,9 +758,12 @@ export type Database = {
           dias_garantia?: number | null
           dias_garantia_produto?: number | null
           dias_garantia_servico?: number | null
+          due_diligence_confirmada?: boolean | null
+          due_diligence_numero_projuris?: string | null
           emergencial?: boolean | null
           empreendimento?: Database["public"]["Enums"]["empreendimento"]
           enviado_fornecedor_por?: string | null
+          escopo_detalhado_minuta?: string | null
           excecao_fornecedores?: boolean | null
           faturamento_direto?: boolean | null
           fornecedor_concorrente_1_id?: string | null
@@ -744,17 +771,26 @@ export type Database = {
           fornecedor_id?: string | null
           fornecimento_exclusivo?: boolean | null
           id?: string
+          instrumento_juridico?:
+            | Database["public"]["Enums"]["instrumento_juridico"]
+            | null
           justificativa_exclusividade?: string | null
           justificativa_fornecedores?: string | null
           justificativa_sem_chamado?: string | null
           justificativa_sem_memorial?: string | null
           liberado_fornecedor_por?: string | null
           natureza_orcamentaria?: Database["public"]["Enums"]["natureza_orcamentaria"]
+          natureza_servico_altura_risco?: boolean | null
+          natureza_servico_fossa_filtro?: boolean | null
+          natureza_servico_obra_civil?: boolean | null
+          natureza_servico_preco_variavel?: boolean | null
           numero_chamado_fluig?: string | null
           numero_projuris?: string | null
           origem_custo?: Database["public"]["Enums"]["origem_custo"]
           parcelas?: number | null
+          prazo_liberacao_retencao_dias?: number | null
           protocolo?: string | null
+          requer_retencao_tecnica?: boolean | null
           resposta_informacoes?: string | null
           retencao_6_porcento?: boolean | null
           status?: Database["public"]["Enums"]["request_status"]
@@ -876,6 +912,16 @@ export type Database = {
         Args: { p_data_fim?: string; p_data_inicio: string }
         Returns: number
       }
+      calcular_instrumento_juridico: {
+        Args: {
+          p_altura_risco: boolean
+          p_fossa_filtro: boolean
+          p_obra_civil: boolean
+          p_preco_variavel: boolean
+          p_valor: number
+        }
+        Returns: Database["public"]["Enums"]["instrumento_juridico"]
+      }
       calcular_sla_solicitacao: {
         Args: { p_solicitacao_id: string }
         Returns: Json
@@ -992,6 +1038,12 @@ export type Database = {
     Enums: {
       app_role: "solicitante" | "backoffice" | "admin"
       empreendimento: "mega_curitiba" | "mega_itajai" | "mega_esteio" | "todos"
+      instrumento_juridico:
+        | "oc"
+        | "termo_contratacao"
+        | "contrato_prestacao"
+        | "contrato_fornecimento"
+        | "contrato_empreitada"
       natureza_orcamentaria:
         | "materiais_informatica"
         | "seguranca_vigilancia"
@@ -1166,6 +1218,13 @@ export const Constants = {
     Enums: {
       app_role: ["solicitante", "backoffice", "admin"],
       empreendimento: ["mega_curitiba", "mega_itajai", "mega_esteio", "todos"],
+      instrumento_juridico: [
+        "oc",
+        "termo_contratacao",
+        "contrato_prestacao",
+        "contrato_fornecimento",
+        "contrato_empreitada",
+      ],
       natureza_orcamentaria: [
         "materiais_informatica",
         "seguranca_vigilancia",

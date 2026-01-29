@@ -36,6 +36,15 @@ export interface FormDraft {
   fornecedorId: string | null;
   fornecedorConcorrente1Id: string | null;
   fornecedorConcorrente2Id: string | null;
+  // Novos campos do fluxo jurídico
+  naturezaObraCivil: boolean;
+  naturezaAlturaRisco: boolean;
+  naturezaFossaFiltro: boolean;
+  naturezaPrecoVariavel: boolean;
+  escopoDetalhadoMinuta: string;
+  dueDiligenceConfirmada: boolean;
+  dueDiligenceNumeroProjuris: string;
+  temProcessoProjuris: boolean;
   savedAt: number;
 }
 
