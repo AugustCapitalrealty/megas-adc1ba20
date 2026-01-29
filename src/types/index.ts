@@ -23,6 +23,7 @@ export type TipoContratacao = 'servicos' | 'material_construcao' | 'material_con
 export type OrigemCusto = 'empreendimento' | 'cliente';
 export type TipoGarantia = 'servico' | 'produto' | 'nenhuma' | 'ambos';
 export type TipoDocumentoFiscal = 'nota_fiscal' | 'boleto';
+export type InstrumentoJuridico = 'oc' | 'termo_contratacao' | 'contrato_prestacao' | 'contrato_fornecimento' | 'contrato_empreitada';
 
 export interface Profile {
   id: string;
@@ -294,3 +295,21 @@ export interface SolicitacaoMensagem {
     email: string;
   };
 }
+
+// Labels para instrumento jurídico
+export const INSTRUMENTO_JURIDICO_LABELS: Record<InstrumentoJuridico, string> = {
+  oc: 'Ordem de Compra',
+  termo_contratacao: 'Termo de Contratação',
+  contrato_prestacao: 'Contrato de Prestação',
+  contrato_fornecimento: 'Contrato de Fornecimento',
+  contrato_empreitada: 'Contrato de Empreitada',
+};
+
+// Labels curtos para badges
+export const INSTRUMENTO_JURIDICO_LABELS_SHORT: Record<InstrumentoJuridico, string> = {
+  oc: 'OC',
+  termo_contratacao: 'Termo',
+  contrato_prestacao: 'Contrato',
+  contrato_fornecimento: 'Fornecimento',
+  contrato_empreitada: 'Empreitada',
+};
