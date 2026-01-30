@@ -204,6 +204,7 @@ export default function NovaSolicitacao() {
   const [naturezaAlturaRisco, setNaturezaAlturaRisco] = useState(false);
   const [naturezaFossaFiltro, setNaturezaFossaFiltro] = useState(false);
   const [naturezaPrecoVariavel, setNaturezaPrecoVariavel] = useState(false);
+  const [nenhumaOpcaoNatureza, setNenhumaOpcaoNatureza] = useState(false);
   const [escopoDetalhadoMinuta, setEscopoDetalhadoMinuta] = useState('');
   const [dueDiligenceConfirmada, setDueDiligenceConfirmada] = useState(false);
   const [dueDiligenceNumeroProjuris, setDueDiligenceNumeroProjuris] = useState('');
@@ -287,6 +288,7 @@ export default function NovaSolicitacao() {
       setNaturezaAlturaRisco(draft.naturezaAlturaRisco ?? false);
       setNaturezaFossaFiltro(draft.naturezaFossaFiltro ?? false);
       setNaturezaPrecoVariavel(draft.naturezaPrecoVariavel ?? false);
+      setNenhumaOpcaoNatureza(draft.nenhumaOpcaoNatureza ?? false);
       setEscopoDetalhadoMinuta(draft.escopoDetalhadoMinuta ?? '');
       setDueDiligenceConfirmada(draft.dueDiligenceConfirmada ?? false);
       setDueDiligenceNumeroProjuris(draft.dueDiligenceNumeroProjuris ?? '');
@@ -395,6 +397,7 @@ export default function NovaSolicitacao() {
       naturezaAlturaRisco,
       naturezaFossaFiltro,
       naturezaPrecoVariavel,
+      nenhumaOpcaoNatureza,
       escopoDetalhadoMinuta,
       dueDiligenceConfirmada,
       dueDiligenceNumeroProjuris,
@@ -408,7 +411,7 @@ export default function NovaSolicitacao() {
     justificativaFornecedores, temChamadoInfraspeak, chamadoCorretiva, semMemorial,
     justificativaSemMemorial, fornecedor?.id, fornecedorConcorrente1?.id, fornecedorConcorrente2?.id,
     naturezaObraCivil, naturezaAlturaRisco, naturezaFossaFiltro, naturezaPrecoVariavel,
-    escopoDetalhadoMinuta, dueDiligenceConfirmada, dueDiligenceNumeroProjuris, temProcessoProjuris,
+    nenhumaOpcaoNatureza, escopoDetalhadoMinuta, dueDiligenceConfirmada, dueDiligenceNumeroProjuris, temProcessoProjuris,
     saveDraft, submitting
   ]);
 
@@ -458,18 +461,39 @@ export default function NovaSolicitacao() {
   // Emergency checkbox should only appear for AC services (>= 1001)
   const showEmergencial = isAC;
   
-  // Calcular instrumento jurídico automaticamente (client-side)
+  // Fluxo jurídico apenas para AC (tipo_contratacao === 'servicos')
+  const requerFluxoJuridico = isAC && (
+    valorNumerico >= 10000 || 
+    naturezaObraCivil || 
+    naturezaAlturaRisco || 
+    naturezaFossaFiltro || 
+    naturezaPrecoVariavel
+  );
+  
+  // Step natureza_servico: exibir para AC com valor >= 10k OU com gatilhos de risco
+  const showNaturezaServicoStep = isAC && (
+    valorNumerico >= 10000 || 
+    naturezaObraCivil || 
+    naturezaAlturaRisco || 
+    naturezaFossaFiltro || 
+    naturezaPrecoVariavel
+  );
+  
+  // Calcular instrumento jurídico automaticamente (client-side) - apenas para AC
   const instrumentoJuridico = useMemo((): InstrumentoJuridico => {
+    // OC é isento de fluxo jurídico
+    if (!isAC) return 'oc';
+    
     if (naturezaObraCivil) return 'contrato_empreitada';
     if (naturezaAlturaRisco || naturezaFossaFiltro || naturezaPrecoVariavel) return 'termo_contratacao';
     if (valorNumerico >= 70000) return 'contrato_prestacao';
     if (valorNumerico >= 10000) return 'termo_contratacao';
     return 'oc';
-  }, [valorNumerico, naturezaObraCivil, naturezaAlturaRisco, naturezaFossaFiltro, naturezaPrecoVariavel]);
+  }, [valorNumerico, naturezaObraCivil, naturezaAlturaRisco, naturezaFossaFiltro, naturezaPrecoVariavel, isAC]);
   
-  // Flags derivadas do fluxo jurídico
-  const requerEscopoDetalhado = instrumentoJuridico !== 'oc';
-  const requerDueDiligence = valorNumerico >= 50000;
+  // Flags derivadas do fluxo jurídico (apenas AC)
+  const requerEscopoDetalhado = isAC && instrumentoJuridico !== 'oc';
+  const requerDueDiligence = isAC && valorNumerico >= 50000;
   
   // Determine required attachments based on type
   const getRequiredAttachments = () => {
@@ -877,7 +901,7 @@ export default function NovaSolicitacao() {
     { id: 'empreendimento', label: 'Local', show: true },
     { id: 'descricao', label: 'Descrição', show: true },
     { id: 'tipo', label: 'Tipo', show: valorNumerico > 1000 },
-    { id: 'natureza_servico', label: 'Natureza', show: valorNumerico >= 10000 },
+    { id: 'natureza_servico', label: 'Natureza', show: showNaturezaServicoStep },
     { id: 'detalhes', label: 'Detalhes', show: true },
     { id: 'fornecedor', label: 'Fornecedor', show: true },
     { id: 'anexos', label: 'Anexos', show: true },
@@ -1221,10 +1245,12 @@ export default function NovaSolicitacao() {
                 alturaRisco={naturezaAlturaRisco}
                 fossaFiltro={naturezaFossaFiltro}
                 precoVariavel={naturezaPrecoVariavel}
+                nenhumaOpcao={nenhumaOpcaoNatureza}
                 onObraCivilChange={setNaturezaObraCivil}
                 onAlturaRiscoChange={setNaturezaAlturaRisco}
                 onFossaFiltroChange={setNaturezaFossaFiltro}
                 onPrecoVariavelChange={setNaturezaPrecoVariavel}
+                onNenhumaOpcaoChange={setNenhumaOpcaoNatureza}
               />
             )}
 

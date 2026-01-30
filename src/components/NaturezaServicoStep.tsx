@@ -2,7 +2,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { AlertTriangle, HardHat, Building2, Droplets, TrendingUp } from 'lucide-react';
+import { AlertTriangle, HardHat, Building2, Droplets, TrendingUp, CheckCircle } from 'lucide-react';
 import { INSTRUMENTO_JURIDICO_LABELS, type InstrumentoJuridico } from '@/types';
 import { useMemo } from 'react';
 
@@ -12,10 +12,12 @@ interface NaturezaServicoStepProps {
   alturaRisco: boolean;
   fossaFiltro: boolean;
   precoVariavel: boolean;
+  nenhumaOpcao: boolean;
   onObraCivilChange: (checked: boolean) => void;
   onAlturaRiscoChange: (checked: boolean) => void;
   onFossaFiltroChange: (checked: boolean) => void;
   onPrecoVariavelChange: (checked: boolean) => void;
+  onNenhumaOpcaoChange: (checked: boolean) => void;
 }
 
 const getInstrumentoBadgeColor = (instrumento: InstrumentoJuridico) => {
@@ -57,10 +59,12 @@ export function NaturezaServicoStep({
   alturaRisco,
   fossaFiltro,
   precoVariavel,
+  nenhumaOpcao,
   onObraCivilChange,
   onAlturaRiscoChange,
   onFossaFiltroChange,
   onPrecoVariavelChange,
+  onNenhumaOpcaoChange,
 }: NaturezaServicoStepProps) {
   // Calcular instrumento jurídico client-side (mesmo lógica do backend)
   const instrumentoJuridico = useMemo((): InstrumentoJuridico => {
@@ -70,6 +74,25 @@ export function NaturezaServicoStep({
     if (valorNumerico >= 10000) return 'termo_contratacao';
     return 'oc';
   }, [valorNumerico, obraCivil, alturaRisco, fossaFiltro, precoVariavel]);
+
+  // Handler para exclusão mútua: quando marca qualquer risco, desmarca "nenhuma"
+  const handleRiskChange = (setter: (checked: boolean) => void) => (checked: boolean) => {
+    setter(checked);
+    if (checked) {
+      onNenhumaOpcaoChange(false);
+    }
+  };
+
+  // Handler para "nenhuma opção": desmarca todas as outras
+  const handleNenhumaChange = (checked: boolean) => {
+    onNenhumaOpcaoChange(checked);
+    if (checked) {
+      onObraCivilChange(false);
+      onAlturaRiscoChange(false);
+      onFossaFiltroChange(false);
+      onPrecoVariavelChange(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -90,7 +113,7 @@ export function NaturezaServicoStep({
               <Checkbox
                 id="obra_civil"
                 checked={obraCivil}
-                onCheckedChange={(checked) => onObraCivilChange(checked === true)}
+                onCheckedChange={(checked) => handleRiskChange(onObraCivilChange)(checked === true)}
               />
               <div className="flex-1">
                 <Label htmlFor="obra_civil" className="flex items-center gap-2 cursor-pointer font-medium">
@@ -107,7 +130,7 @@ export function NaturezaServicoStep({
               <Checkbox
                 id="altura_risco"
                 checked={alturaRisco}
-                onCheckedChange={(checked) => onAlturaRiscoChange(checked === true)}
+                onCheckedChange={(checked) => handleRiskChange(onAlturaRiscoChange)(checked === true)}
               />
               <div className="flex-1">
                 <Label htmlFor="altura_risco" className="flex items-center gap-2 cursor-pointer font-medium">
@@ -124,7 +147,7 @@ export function NaturezaServicoStep({
               <Checkbox
                 id="fossa_filtro"
                 checked={fossaFiltro}
-                onCheckedChange={(checked) => onFossaFiltroChange(checked === true)}
+                onCheckedChange={(checked) => handleRiskChange(onFossaFiltroChange)(checked === true)}
               />
               <div className="flex-1">
                 <Label htmlFor="fossa_filtro" className="flex items-center gap-2 cursor-pointer font-medium">
@@ -141,7 +164,7 @@ export function NaturezaServicoStep({
               <Checkbox
                 id="preco_variavel"
                 checked={precoVariavel}
-                onCheckedChange={(checked) => onPrecoVariavelChange(checked === true)}
+                onCheckedChange={(checked) => handleRiskChange(onPrecoVariavelChange)(checked === true)}
               />
               <div className="flex-1">
                 <Label htmlFor="preco_variavel" className="flex items-center gap-2 cursor-pointer font-medium">
@@ -150,6 +173,24 @@ export function NaturezaServicoStep({
                 </Label>
                 <p className="text-xs text-muted-foreground mt-1">
                   Ex: contratação por m², m³, hora técnica ou preço unitário
+                </p>
+              </div>
+            </div>
+
+            {/* Opção "Nenhuma das opções acima" */}
+            <div className="flex items-start space-x-3 p-3 rounded-lg border bg-green-50 dark:bg-green-950/30 hover:bg-green-100 dark:hover:bg-green-950/50 transition-colors border-green-200 dark:border-green-800">
+              <Checkbox
+                id="nenhuma_opcao"
+                checked={nenhumaOpcao}
+                onCheckedChange={(checked) => handleNenhumaChange(checked === true)}
+              />
+              <div className="flex-1">
+                <Label htmlFor="nenhuma_opcao" className="flex items-center gap-2 cursor-pointer font-medium text-green-800 dark:text-green-200">
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  Nenhuma das opções acima se aplica
+                </Label>
+                <p className="text-xs text-green-700 dark:text-green-300 mt-1">
+                  Serviço comum, sem riscos especiais ou obra civil
                 </p>
               </div>
             </div>

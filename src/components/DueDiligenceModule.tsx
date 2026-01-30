@@ -2,7 +2,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Shield, AlertTriangle } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Shield, AlertTriangle, Info } from 'lucide-react';
 
 interface DueDiligenceModuleProps {
   valorNumerico: number;
@@ -12,6 +13,8 @@ interface DueDiligenceModuleProps {
   onConfirmadaChange: (checked: boolean) => void;
   onNumeroProjurisChange: (value: string) => void;
   onTemProcessoChange: (checked: boolean) => void;
+  /** Se true, exibe versão simplificada/informativa (para visualização, não edição) */
+  readOnly?: boolean;
 }
 
 export function DueDiligenceModule({
@@ -22,10 +25,43 @@ export function DueDiligenceModule({
   onConfirmadaChange,
   onNumeroProjurisChange,
   onTemProcessoChange,
+  readOnly = false,
 }: DueDiligenceModuleProps) {
   // Só exibe se valor >= 50k
   if (valorNumerico < 50000) return null;
 
+  // Versão informativa (read-only) para visualização de status
+  if (readOnly) {
+    return (
+      <Card className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2 text-amber-800 dark:text-amber-200">
+            <Info className="h-5 w-5" />
+            Due Diligence
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <p className="text-sm text-amber-700 dark:text-amber-300">
+            O Backoffice verificará se a empresa possui Due Diligence válida com o Jurídico da Capital Realty.
+            Caso não possua, será solicitada ao Jurídico e você será notificado sobre o andamento.
+          </p>
+          {numeroProjuris && (
+            <p className="text-sm">
+              <span className="font-medium">Número Projuris informado:</span>{' '}
+              <span className="font-mono">{numeroProjuris}</span>
+            </p>
+          )}
+          <p className="text-xs text-muted-foreground mt-2">
+            {confirmada 
+              ? '✅ Ciência da obrigatoriedade confirmada'
+              : '⚠️ Pendente confirmação de ciência'}
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Versão completa para edição (formulário)
   return (
     <Alert className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950">
       <Shield className="h-5 w-5 text-amber-600" />
