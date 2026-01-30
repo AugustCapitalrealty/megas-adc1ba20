@@ -1,282 +1,386 @@
 
 
-## Plano: Implementação do Fluxo Jurídico para Contratação (PRO_08.002)
+## Plano de Melhoria: Fluxo Jurídico & Operacional - Versão 2.0
 
-Este plano implementa as regras do procedimento de formalização de requisições, incluindo classificação automática do instrumento jurídico, gatilhos de natureza do serviço, Due Diligence obrigatória e campos dinâmicos para escopo detalhado.
-
----
-
-## Resumo Executivo
-
-### O que muda para o Solicitante
-1. Após informar valor >= R$ 10.000, aparecem checkboxes de natureza do serviço (obra civil, altura, fossa, preço variável)
-2. Sistema classifica automaticamente se precisa de OC, Termo de Contratação, Contrato ou Empreitada
-3. Quando classificado como Termo/Contrato, aparece campo obrigatório de "Escopo Detalhado para Minuta" (min. 100 caracteres)
-4. Se valor >= R$ 50.000, aparece banner de Due Diligence com confirmação obrigatória
-5. Avisos automáticos de retenção técnica quando aplicável
-
-### O que muda para o Backoffice
-1. Nova coluna "Instrumento Jurídico" na listagem (OC, Termo, Contrato, Empreitada)
-2. Flag visual "Validar Due Diligence" para solicitações >= R$ 50k
-3. Escopo detalhado visível para elaboração de minutas
-4. Histórico registra classificação jurídica automática
+Este plano detalha as alterações necessárias para ajustar o sistema conforme os novos requisitos identificados, separando claramente as regras para AC vs OC, otimizando IA e melhorando o fluxo de Due Diligence e liberação de OC.
 
 ---
 
-## 1. Alterações no Banco de Dados
+## Resumo Executivo das Alterações
 
-### 1.1 Novo Enum: instrumento_juridico
-```text
-CREATE TYPE public.instrumento_juridico AS ENUM (
-  'oc',                    -- Ordem de Compra (dispensa contrato)
-  'termo_contratacao',     -- Termo de Contratação (R$ 10k-69.9k ou riscos)
-  'contrato_prestacao',    -- Contrato Prestação Serviços (>= R$ 70k)
-  'contrato_fornecimento', -- Contrato Fornecimento (material com fabricação)
-  'contrato_empreitada'    -- Contrato Empreitada (obra estrutural)
+### Para o Solicitante
+1. **Regra OC vs AC corrigida**: OC fica isento de fluxo jurídico e anexos obrigatórios; AC sempre exige anexos
+2. **Gatilhos de risco para valores < R$10k**: Checkboxes de risco (altura, fossa) ativam fluxo jurídico mesmo para valores baixos
+3. **Opção "Nenhuma das opções acima"**: Evita travamentos no fluxo
+4. **Due Diligence centralizada no Backoffice**: Solicitante recebe status informativo
+5. **Botão "Liberar para o Fornecedor"**: Substitui "Aceitar/Revisar" com modal de confirmação
+
+### Para o Backoffice
+1. **Gestão centralizada de Due Diligence**: Campos para marcar verificação/solicitação
+2. **Visualização do Escopo Detalhado**: Visível em todas as etapas de revisão
+3. **Ciclo de ajuste de minuta**: Reabertura do campo para o Solicitante com notificação específica
+4. **Cache de resultados de IA**: Evita chamadas repetidas para CNAE e descrição
+
+---
+
+## 1. Correção: Regra AC vs OC para Anexos e Fluxo Jurídico
+
+### Problema Atual
+Atualmente, a lógica de isenção de anexos considera apenas `naturezaOrcamentaria`. Falta considerar que:
+- **OC (Ordem de Compra)**: Isento de fluxo jurídico e anexos obrigatórios
+- **AC (Serviços/Produto)**: Nunca isento, sempre exige anexos
+
+### Solução
+Alterar a função `getRequiredAttachments()` e a lógica do step `natureza_servico`:
+
+```typescript
+// src/pages/NovaSolicitacao.tsx
+
+// Fluxo jurídico apenas para AC (tipo_contratacao === 'servicos')
+const requerFluxoJuridico = isAC && (
+  valorNumerico >= 10000 || 
+  naturezaObraCivil || 
+  naturezaAlturaRisco || 
+  naturezaFossaFiltro || 
+  naturezaPrecoVariavel
 );
+
+// Step natureza_servico: exibir para AC com valor >= 10k OU com gatilhos de risco
+const showNaturezaServicoStep = isAC && (valorNumerico >= 10000 || 
+  naturezaObraCivil || naturezaAlturaRisco || naturezaFossaFiltro || naturezaPrecoVariavel);
 ```
 
-### 1.2 Novos Campos na Tabela solicitacoes
-| Campo | Tipo | Descrição |
-|-------|------|-----------|
-| instrumento_juridico | instrumento_juridico | Classificação automática do tipo de contrato |
-| natureza_servico_obra_civil | boolean | Gatilho: envolve obra civil/estrutural |
-| natureza_servico_altura_risco | boolean | Gatilho: trabalho em altura ou risco de vida |
-| natureza_servico_fossa_filtro | boolean | Gatilho: limpeza de fossa/filtro |
-| natureza_servico_preco_variavel | boolean | Gatilho: preço pode variar (m², m³, hora) |
-| escopo_detalhado_minuta | text | Escopo detalhado para elaboração da minuta |
-| due_diligence_confirmada | boolean | Usuário confirmou ciência da Due Diligence |
-| due_diligence_numero_projuris | text | Número do processo no Projuris (se existente) |
-| requer_retencion_tecnica | boolean | Calculado automaticamente |
-| prazo_liberacao_retencao_dias | integer | 45-180 dias conforme regra |
-
-### 1.3 Função de Classificação Automática
-```text
-CREATE FUNCTION calcular_instrumento_juridico(
-  p_valor NUMERIC,
-  p_tipo_contratacao TEXT,
-  p_obra_civil BOOLEAN,
-  p_altura_risco BOOLEAN,
-  p_fossa_filtro BOOLEAN,
-  p_preco_variavel BOOLEAN,
-  p_fornecimento_material BOOLEAN
-) RETURNS instrumento_juridico
-```
-
-**Regras de classificação (em ordem de prioridade):**
-1. Se `p_obra_civil = true` -> `contrato_empreitada`
-2. Se `p_fornecimento_material = true AND p_valor >= 10000` -> `contrato_fornecimento`
-3. Se `p_altura_risco = true OR p_fossa_filtro = true OR p_preco_variavel = true` -> `termo_contratacao`
-4. Se `p_valor >= 70000` -> `contrato_prestacao`
-5. Se `p_valor >= 10000` -> `termo_contratacao`
-6. Senão -> `oc`
+### Arquivo Afetado
+- `src/pages/NovaSolicitacao.tsx`
 
 ---
 
-## 2. Alterações no Frontend - NovaSolicitacao.tsx
+## 2. UI/UX: Gatilhos Dinâmicos e Opção "Nenhuma das Opções"
 
-### 2.1 Novos Estados
+### Problema Atual
+- O step `natureza_servico` só aparece para valores >= R$ 10k
+- Não existe opção para seguir o fluxo simplificado quando nenhum gatilho se aplica
+
+### Solução
+
+#### 2.1 Exibição condicional do step
+O step deve aparecer se:
+- Valor >= R$ 10.000 **OU**
+- Usuário marcou qualquer categoria de risco (mesmo com valor < R$ 10k)
+
+#### 2.2 Nova opção "Nenhuma das opções acima"
+Adicionar checkbox final que, quando marcado, desmarca os demais e permite fluxo simplificado.
+
+### Alterações no Componente
+
 ```typescript
-// Gatilhos de natureza do serviço
-const [naturezaObraCivil, setNaturezaObraCivil] = useState(false);
-const [naturezaAlturaRisco, setNaturezaAlturaRisco] = useState(false);
-const [naturezaFossaFiltro, setNaturezaFossaFiltro] = useState(false);
-const [naturezaPrecoVariavel, setNaturezaPrecoVariavel] = useState(false);
+// src/components/NaturezaServicoStep.tsx
 
-// Escopo e Due Diligence
-const [escopoDetalhadoMinuta, setEscopoDetalhadoMinuta] = useState('');
-const [dueDiligenceConfirmada, setDueDiligenceConfirmada] = useState(false);
-const [dueDiligenceNumeroProjuris, setDueDiligenceNumeroProjuris] = useState('');
+interface NaturezaServicoStepProps {
+  // ... props existentes
+  nenhumaOpcao: boolean;
+  onNenhumaOpcaoChange: (checked: boolean) => void;
+}
+
+// Novo checkbox no final da lista:
+<div className="flex items-start space-x-3 p-3 rounded-lg border bg-green-50 dark:bg-green-950/30 hover:bg-green-100 transition-colors">
+  <Checkbox
+    id="nenhuma_opcao"
+    checked={nenhumaOpcao}
+    onCheckedChange={(checked) => onNenhumaOpcaoChange(checked === true)}
+  />
+  <div className="flex-1">
+    <Label htmlFor="nenhuma_opcao" className="flex items-center gap-2 cursor-pointer font-medium">
+      <CheckCircle className="h-4 w-4 text-green-500" />
+      Nenhuma das opções acima se aplica
+    </Label>
+    <p className="text-xs text-muted-foreground mt-1">
+      Serviço comum, sem riscos especiais ou obra civil
+    </p>
+  </div>
+</div>
 ```
 
-### 2.2 Classificação Automática (Client-side)
+### Lógica de exclusão mútua
+
 ```typescript
-const calcularInstrumentoJuridico = useMemo(() => {
-  // Empreitada tem prioridade máxima
-  if (naturezaObraCivil) return 'contrato_empreitada';
-  
-  // Gatilhos de risco sempre geram Termo
-  if (naturezaAlturaRisco || naturezaFossaFiltro || naturezaPrecoVariavel) {
-    return 'termo_contratacao';
+// NovaSolicitacao.tsx
+const [nenhumaOpcaoNatureza, setNenhumaOpcaoNatureza] = useState(false);
+
+const handleNenhumaOpcaoChange = (checked: boolean) => {
+  setNenhumaOpcaoNatureza(checked);
+  if (checked) {
+    setNaturezaObraCivil(false);
+    setNaturezaAlturaRisco(false);
+    setNaturezaFossaFiltro(false);
+    setNaturezaPrecoVariavel(false);
   }
-  
-  // Faixas de valor
-  if (valorNumerico >= 70000) return 'contrato_prestacao';
-  if (valorNumerico >= 10000) return 'termo_contratacao';
-  
-  return 'oc';
-}, [valorNumerico, naturezaObraCivil, naturezaAlturaRisco, naturezaFossaFiltro, naturezaPrecoVariavel]);
+};
 
-const requerEscopoDetalhado = calcularInstrumentoJuridico !== 'oc';
-const requerDueDiligence = valorNumerico >= 50000;
-const requerRetencaoTecnica = (
-  calcularInstrumentoJuridico === 'contrato_empreitada' ||
-  (valorNumerico >= 150000 && /* duração > 30 dias */)
-);
+const handleAnyRiskChange = (setter: (v: boolean) => void) => (checked: boolean) => {
+  setter(checked);
+  if (checked) {
+    setNenhumaOpcaoNatureza(false);
+  }
+};
 ```
 
-### 2.3 Novo Step: Gatilhos (após "tipo")
-Após o step "tipo" e antes de "detalhes", aparece um novo step quando valor >= R$ 10.000:
-
-```text
-+------------------------------------------------------------------+
-|  NATUREZA DO SERVIÇO                                              |
-|                                                                   |
-|  Marque as opções que se aplicam:                                 |
-|                                                                   |
-|  [ ] O serviço envolve obra civil ou alteração estrutural?        |
-|      (Ex: reforma, construção, demolição)                         |
-|                                                                   |
-|  [ ] O serviço envolve trabalho em altura ou risco de vida?       |
-|      (Ex: manutenção em telhado, limpeza de fachada)              |
-|                                                                   |
-|  [ ] É um serviço de limpeza de fossa ou filtro?                  |
-|                                                                   |
-|  [ ] O valor final pode variar?                                   |
-|      (Ex: contratação por m², m³, hora técnica)                   |
-|                                                                   |
-+------------------------------------------------------------------+
-|  CLASSIFICAÇÃO AUTOMÁTICA                                         |
-|                                                                   |
-|  [Badge: TERMO DE CONTRATAÇÃO]                                   |
-|  Seu pedido requer formalização jurídica simplificada.            |
-+------------------------------------------------------------------+
-```
-
-### 2.4 Campo Dinâmico: Escopo Detalhado
-Quando `requerEscopoDetalhado = true`, aparece no step "detalhes":
-
-```text
-+------------------------------------------------------------------+
-|  ESCOPO DETALHADO PARA MINUTA                                     |
-|                                                                   |
-|  ⚠️ Identificamos que sua solicitação requer formalização         |
-|  jurídica. Por favor, detalhe o escopo para elaboração da minuta. |
-|                                                                   |
-|  [                                                               ]|
-|  [   Descreva:                                                   ]|
-|  [   - Etapas do serviço                                         ]|
-|  [   - Prazos esperados                                          ]|
-|  [   - Materiais envolvidos (se aplicável)                       ]|
-|  [                                                               ]|
-|                                                                   |
-|  [82/100 caracteres] ⚠️ Mínimo de 100 caracteres                  |
-+------------------------------------------------------------------+
-```
-
-### 2.5 Módulo Due Diligence
-Quando `valorNumerico >= 50000`, aparece no step "detalhes":
-
-```text
-+------------------------------------------------------------------+
-|  ⚠️ DUE DILIGENCE OBRIGATÓRIA                                     |
-|  ---------------------------------------------------------------- |
-|  Contratações acima de R$ 50.000 exigem pesquisa reputacional     |
-|  do fornecedor antes da formalização.                             |
-|                                                                   |
-|  O que você deve fazer:                                           |
-|  1. Após definição comercial, solicite Due Diligence no Projuris  |
-|  2. Aguarde parecer do Jurídico (favorável/desfavorável)          |
-|  3. Somente após parecer, comunique o vencedor da concorrência    |
-|                                                                   |
-|  [ ] Já possuo processo de Due Diligence no Projuris              |
-|      Número do Processo: [________________]                        |
-|                                                                   |
-|  [✓] Declaro ciência da obrigatoriedade da Due Diligence *        |
-+------------------------------------------------------------------+
-```
-
-### 2.6 Avisos de Retenção Técnica
-Quando aplicável, aparece banner informativo:
-
-```text
-+------------------------------------------------------------------+
-|  ℹ️ RETENÇÃO TÉCNICA APLICÁVEL                                    |
-|  ---------------------------------------------------------------- |
-|  Este contrato terá retenção de 6% sobre o valor total.           |
-|  Prazo de liberação: 45-90 dias após termo de entrega.            |
-|  (Para empreitadas: 90-180 dias)                                  |
-+------------------------------------------------------------------+
-```
-
-### 2.7 Validação do Botão Enviar
-O botão "Enviar" só é habilitado se:
-- Para Termo/Contrato/Empreitada: `escopoDetalhadoMinuta.length >= 100`
-- Para valor >= R$ 50k: `dueDiligenceConfirmada = true`
+### Arquivos Afetados
+- `src/components/NaturezaServicoStep.tsx`
+- `src/pages/NovaSolicitacao.tsx`
 
 ---
 
-## 3. Alterações no Backoffice
+## 3. Gestão de Due Diligence (Centralização no Backoffice)
 
-### 3.1 Nova Coluna na Listagem
-Badge visual para o instrumento jurídico:
-- **OC** (cinza): Ordem de Compra
-- **Termo** (azul): Termo de Contratação
-- **Contrato** (laranja): Contrato Prestação/Fornecimento
-- **Empreitada** (vermelho): Contrato de Empreitada
+### Problema Atual
+O campo de Due Diligence está apenas no formulário do Solicitante, sem visibilidade/ação para o Backoffice.
 
-### 3.2 Flag de Due Diligence
-Na listagem de solicitações >= R$ 50k:
-- Ícone de escudo amarelo se `due_diligence_confirmada = true`
-- Texto "Validar Due Diligence" no card expandido
-- Campo visível com número Projuris (se preenchido)
+### Solução
 
-### 3.3 Escopo Detalhado no Detalhamento
-Nova seção no modal de detalhes:
+#### 3.1 Novos campos na tabela `solicitacoes`
+
+```sql
+ALTER TABLE public.solicitacoes ADD COLUMN IF NOT EXISTS 
+  due_diligence_status TEXT DEFAULT NULL 
+  CHECK (due_diligence_status IN ('pendente', 'solicitada', 'verificada', 'aprovada', 'reprovada'));
+
+ALTER TABLE public.solicitacoes ADD COLUMN IF NOT EXISTS 
+  due_diligence_verificada_por UUID REFERENCES auth.users(id);
+
+ALTER TABLE public.solicitacoes ADD COLUMN IF NOT EXISTS 
+  due_diligence_verificada_em TIMESTAMPTZ;
+```
+
+#### 3.2 Interface do Solicitante (informativo)
+Quando valor >= R$ 50k, exibir card informativo:
+
 ```text
 +------------------------------------------------------------------+
-|  ESCOPO PARA MINUTA                                               |
+|  ℹ️ DUE DILIGENCE                                                 |
 |  ---------------------------------------------------------------- |
-|  [Texto completo do escopo_detalhado_minuta]                      |
+|  O Backoffice verificará se a empresa possui Due Diligence        |
+|  válida com o Jurídico da Capital Realty.                         |
 |                                                                   |
-|  📋 Copiar para área de transferência                             |
+|  Caso não possua, será solicitada ao Jurídico e você será         |
+|  notificado sobre o andamento.                                    |
+|                                                                   |
+|  [Informar Número Projuris] [Consultar Status]                    |
 +------------------------------------------------------------------+
 ```
 
-### 3.4 Histórico
-Novos eventos registrados:
-- "Classificação jurídica: Termo de Contratação"
-- "Due Diligence confirmada pelo solicitante"
-- "Número Projuris informado: XXXXXX"
+#### 3.3 Interface do Backoffice
+No modal de detalhes, adicionar seção de Due Diligence:
+
+```text
++------------------------------------------------------------------+
+|  🛡️ DUE DILIGENCE (OBRIGATÓRIA - R$ 50k+)                         |
+|  ---------------------------------------------------------------- |
+|  Status: [Pendente / Solicitada / Verificada]                     |
+|                                                                   |
+|  [ ] Due Diligence verificada e válida                            |
+|  [ ] Due Diligence solicitada ao Jurídico                         |
+|                                                                   |
+|  Número Projuris (se informado): PROJ-2024-0001                   |
+|                                                                   |
+|  [Salvar Status DD]                                               |
++------------------------------------------------------------------+
+```
+
+#### 3.4 Bloqueio de avanço
+O processo só avança para `em_processamento` ou `aprovado` após o Backoffice validar o checkpoint de Due Diligence.
+
+### Arquivos Afetados
+- Nova migration SQL
+- `src/components/DueDiligenceModule.tsx` (refatorar)
+- `src/pages/Backoffice.tsx` (adicionar seção DD)
+- `src/pages/NovaSolicitacao.tsx` (ajustar UI)
 
 ---
 
-## 4. Tabela de Regras de Classificação
+## 4. Visualização e Ciclo de Ajuste do Escopo Detalhado
 
-| Valor | Gatilho Obra Civil | Gatilho Risco | Resultado |
-|-------|-------------------|---------------|-----------|
-| < R$ 10k | - | - | OC |
-| R$ 10k-69.9k | Não | Não | Termo de Contratação |
-| R$ 10k-69.9k | Não | Sim | Termo de Contratação |
-| >= R$ 70k | Não | Não | Contrato Prestação |
-| Qualquer | Sim | - | Contrato Empreitada |
+### Problema Atual
+O Backoffice não consegue visualizar o escopo detalhado facilmente, e não há ciclo de ajuste para a minuta.
+
+### Solução
+
+#### 4.1 Exibição no Backoffice
+Adicionar seção destacada no modal de detalhes:
+
+```text
++------------------------------------------------------------------+
+|  📝 ESCOPO PARA MINUTA                                            |
+|  ---------------------------------------------------------------- |
+|  [Texto completo do escopo_detalhado_minuta preenchido pelo       |
+|   solicitante, exibido em área scrollável]                        |
+|                                                                   |
+|  📋 Copiar   |   ✏️ Solicitar Ajuste                              |
++------------------------------------------------------------------+
+```
+
+#### 4.2 Ação "Solicitar Ajuste de Minuta"
+Novo tipo de ação que:
+1. Muda status para `aguardando_informacoes`
+2. Registra no histórico com ação `ajuste_minuta_solicitado`
+3. Envia notificação ao Solicitante com o motivo específico
+
+#### 4.3 Reabertura do campo para o Solicitante
+Quando a solicitação está em `aguardando_informacoes` e a última ação é `ajuste_minuta_solicitado`, o campo de escopo detalhado reabre para edição.
+
+### Arquivos Afetados
+- `src/pages/Backoffice.tsx`
+- `src/pages/MinhasSolicitacoes.tsx`
+- Novo componente: `src/components/EscopoMinutaCard.tsx`
 
 ---
 
-## 5. Arquivos a Modificar
+## 5. Otimização de IA (Cache de Resultados)
+
+### Problema Atual
+A cada abertura de tela, o sistema pode chamar a IA para validar CNAE e descrição novamente, gerando custos desnecessários.
+
+### Solução
+
+#### 5.1 Novos campos na tabela `solicitacoes`
+
+```sql
+ALTER TABLE public.solicitacoes ADD COLUMN IF NOT EXISTS 
+  ia_cnae_status TEXT DEFAULT NULL 
+  CHECK (ia_cnae_status IN ('compativel', 'incompativel', 'insuficiente'));
+
+ALTER TABLE public.solicitacoes ADD COLUMN IF NOT EXISTS 
+  ia_cnae_justificativa TEXT;
+
+ALTER TABLE public.solicitacoes ADD COLUMN IF NOT EXISTS 
+  ia_cnae_avaliado_em TIMESTAMPTZ;
+
+ALTER TABLE public.solicitacoes ADD COLUMN IF NOT EXISTS 
+  ia_descricao_vaga BOOLEAN;
+
+ALTER TABLE public.solicitacoes ADD COLUMN IF NOT EXISTS 
+  ia_descricao_sugestao TEXT;
+
+ALTER TABLE public.solicitacoes ADD COLUMN IF NOT EXISTS 
+  ia_descricao_avaliado_em TIMESTAMPTZ;
+```
+
+#### 5.2 Lógica de cache
+
+```typescript
+// Na criação da solicitação (handleSubmit)
+// 1. Se já temos validationResult de CNAE, salvar no insert
+// 2. Se já temos descriptionValidation, salvar no insert
+
+// Na visualização (Backoffice/MinhasSolicitacoes)
+// 1. Verificar se ia_cnae_avaliado_em existe
+// 2. Se sim, usar dados do banco (não chamar IA)
+// 3. Se não, chamar IA e salvar resultado
+```
+
+#### 5.3 Trigger para invalidar cache
+Quando `descricao` ou `fornecedor_id` mudam, limpar os campos de cache:
+
+```sql
+CREATE TRIGGER invalidate_ia_cache
+  BEFORE UPDATE ON public.solicitacoes
+  FOR EACH ROW
+  WHEN (NEW.descricao <> OLD.descricao OR NEW.fornecedor_id <> OLD.fornecedor_id)
+  EXECUTE FUNCTION reset_ia_cache_fields();
+```
+
+### Arquivos Afetados
+- Nova migration SQL
+- `src/hooks/useCNAEValidation.ts` (adicionar lógica de cache)
+- `src/hooks/useDescriptionValidation.ts` (adicionar lógica de cache)
+- `src/pages/NovaSolicitacao.tsx` (salvar resultados)
+
+---
+
+## 6. Fluxo de Liberação da OC (Novo Modal)
+
+### Problema Atual
+O botão atual é "Aceitar/Revisar", que não deixa claro que está autorizando o envio formal ao fornecedor.
+
+### Solução
+
+#### 6.1 Renomear botão
+De: "Aceitar OC" → Para: "Liberar para o Fornecedor"
+
+#### 6.2 Novo modal de confirmação
+
+```text
++------------------------------------------------------------------+
+|  🚀 LIBERAR PARA O FORNECEDOR                                     |
+|  ---------------------------------------------------------------- |
+|                                                                   |
+|  Você está autorizando o Backoffice a enviar formalmente esta     |
+|  Ordem de Compra para o fornecedor.                               |
+|                                                                   |
+|  Fornecedor: ABC Ltda                                             |
+|  Valor: R$ 15.000,00                                              |
+|  OC Nº: 2024-0001                                                 |
+|                                                                   |
+|  ┌─────────────────────────────────────────────────────────────┐  |
+|  │ Dados de Contato do Fornecedor (opcional)                   │  |
+|  │                                                             │  |
+|  │ E-mail: [fornecedor@email.com          ]                    │  |
+|  │ Telefone: [(41) 99999-9999             ]                    │  |
+|  │                                                             │  |
+|  │ ⚠️ Confira se os dados estão corretos para envio           │  |
+|  └─────────────────────────────────────────────────────────────┘  |
+|                                                                   |
+|  [Cancelar]                           [Confirmar Liberação ✓]     |
++------------------------------------------------------------------+
+```
+
+#### 6.3 Campos opcionais de contato
+
+```sql
+ALTER TABLE public.solicitacoes ADD COLUMN IF NOT EXISTS 
+  fornecedor_email_contato TEXT;
+
+ALTER TABLE public.solicitacoes ADD COLUMN IF NOT EXISTS 
+  fornecedor_telefone_contato TEXT;
+```
+
+#### 6.4 Manter opção de Revisão
+O Solicitante mantém o poder de clicar em "Solicitar Revisão" a qualquer momento antes de liberar.
+
+### Arquivos Afetados
+- Nova migration SQL
+- `src/pages/MinhasSolicitacoes.tsx` (refatorar modal de aceite)
+
+---
+
+## 7. Tabela Resumo de Alterações
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `supabase/migrations/` | Nova migration com enum e campos |
-| `src/types/index.ts` | Novos tipos e labels |
-| `src/pages/NovaSolicitacao.tsx` | Novo step, estados, validações |
-| `src/pages/Backoffice.tsx` | Badge de instrumento, seção escopo |
-| `src/hooks/useFormPersistence.ts` | Incluir novos campos no draft |
-| `src/components/ui/SolicitacaoCard.tsx` | Badge de instrumento jurídico |
+| `supabase/migrations/` | Nova migration com campos de DD, cache IA, contato fornecedor |
+| `src/pages/NovaSolicitacao.tsx` | Lógica AC vs OC, gatilhos dinâmicos, cache IA |
+| `src/components/NaturezaServicoStep.tsx` | Opção "Nenhuma das opções acima" |
+| `src/components/DueDiligenceModule.tsx` | Versões Solicitante (info) e Backoffice (ação) |
+| `src/pages/Backoffice.tsx` | Seção DD, Escopo para minuta, ação de ajuste |
+| `src/pages/MinhasSolicitacoes.tsx` | Modal "Liberar para Fornecedor", edição de minuta |
+| `src/hooks/useCNAEValidation.ts` | Lógica de cache com banco de dados |
+| `src/hooks/useDescriptionValidation.ts` | Lógica de cache com banco de dados |
+| `src/components/EscopoMinutaCard.tsx` | Novo componente para exibição do escopo |
 
 ---
 
-## 6. Impacto por Persona
+## 8. Priorização Sugerida
 
-### Para o Solicitante (Facilities)
-- **Mais clareza**: Sistema induz o preenchimento correto
-- **Menos retrabalho**: Classificação automática evita erros
-- **Conhecimento do fluxo**: Avisos sobre Due Diligence e retenção
-- **Documentação adequada**: Escopo detalhado já coletado na origem
+1. **Alta Prioridade** (Impacto operacional)
+   - Correção da regra AC vs OC para anexos
+   - Gestão de Due Diligence no Backoffice
+   - Visualização do Escopo Detalhado
 
-### Para o Backoffice
-- **Menos decisões manuais**: Instrumento jurídico já classificado
-- **Validação facilitada**: Apenas conferir dados vs. Projuris
-- **Escopo pronto**: Texto para minuta já disponível
-- **Rastreabilidade**: Histórico completo das classificações
+2. **Média Prioridade** (UX/Eficiência)
+   - Gatilhos dinâmicos e "Nenhuma das opções"
+   - Modal "Liberar para Fornecedor"
+   - Ciclo de ajuste de minuta
+
+3. **Baixa Prioridade** (Otimização)
+   - Cache de IA para CNAE e descrição
 
