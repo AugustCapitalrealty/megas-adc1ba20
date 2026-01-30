@@ -41,6 +41,7 @@ export interface FormDraft {
   naturezaAlturaRisco: boolean;
   naturezaFossaFiltro: boolean;
   naturezaPrecoVariavel: boolean;
+  nenhumaOpcaoNatureza: boolean;
   escopoDetalhadoMinuta: string;
   dueDiligenceConfirmada: boolean;
   dueDiligenceNumeroProjuris: string;

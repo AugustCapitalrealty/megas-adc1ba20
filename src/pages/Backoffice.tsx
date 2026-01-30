@@ -25,7 +25,9 @@ import { FornecedorCard } from '@/components/FornecedorCard';
 import { GarantiaExpiracaoInfo } from '@/components/GarantiaExpiracaoInfo';
 import { CNAECompatibilityBadge } from '@/components/CNAECompatibilityBadge';
 import { MEIAlertBadge } from '@/components/MEIAlertBadge';
-import { type Fornecedor, type CNAESecundario } from '@/types';
+import { EscopoMinutaCard } from '@/components/EscopoMinutaCard';
+import { InstrumentoJuridicoBadge } from '@/components/InstrumentoJuridicoBadge';
+import { type Fornecedor, type CNAESecundario, INSTRUMENTO_JURIDICO_LABELS, type InstrumentoJuridico } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useBackofficeSolicitacoes, type SolicitacaoBackoffice } from '@/hooks/useBackofficeSolicitacoes';
 import { useSolicitacaoDetalhes } from '@/hooks/useSolicitacaoDetalhes';
@@ -1618,6 +1620,56 @@ export default function Backoffice() {
                     />
                   </CardContent>
                 </Card>
+
+                {/* Instrumento Jurídico Badge */}
+                {(detalhes.solicitacao as any).instrumento_juridico && (
+                  <div className="p-3 bg-muted/30 rounded-lg">
+                    <Label className="text-xs uppercase tracking-wide text-muted-foreground mb-2 block">Instrumento Jurídico</Label>
+                    <InstrumentoJuridicoBadge instrumento={(detalhes.solicitacao as any).instrumento_juridico} />
+                  </div>
+                )}
+
+                {/* Escopo Detalhado para Minuta */}
+                {(detalhes.solicitacao as any).escopo_detalhado_minuta && (
+                  <EscopoMinutaCard
+                    escopo={(detalhes.solicitacao as any).escopo_detalhado_minuta}
+                    protocolo={detalhes.solicitacao.protocolo}
+                    onSolicitarAjuste={() => openAction(selectedSolicitacao!, 'solicitar_ajuste')}
+                  />
+                )}
+
+                {/* Due Diligence Card (>= R$ 50k) */}
+                {detalhes.solicitacao.valor >= 50000 && (
+                  <Card className="border-2 border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base flex items-center gap-2 text-amber-800 dark:text-amber-200">
+                        <Shield className="h-5 w-5" />
+                        Due Diligence Obrigatória
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Status</Label>
+                          <p className="font-medium">
+                            {(detalhes.solicitacao as any).due_diligence_confirmada 
+                              ? '✅ Ciência confirmada pelo solicitante'
+                              : '⚠️ Pendente confirmação'}
+                          </p>
+                        </div>
+                        {(detalhes.solicitacao as any).due_diligence_numero_projuris && (
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Número Projuris</Label>
+                            <p className="font-medium font-mono">{(detalhes.solicitacao as any).due_diligence_numero_projuris}</p>
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Verifique com o Jurídico da Capital Realty se a Due Diligence do fornecedor está válida antes de prosseguir.
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
 
                 {/* Informações Gerais - Grid Reorganizado */}
                 <div className="grid grid-cols-2 gap-4">
