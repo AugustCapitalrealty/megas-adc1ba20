@@ -122,12 +122,14 @@ export default function MinhasSolicitacoes() {
   // Anexos visualization state
   const [anexosExpanded, setAnexosExpanded] = useState<Record<string, Array<{ id: string; tipo: string; nome_arquivo: string; storage_path: string; mime_type: string | null; tamanho_bytes: number | null }>>>({});
 
-  // Aceite OC modal state
+  // Aceite OC modal state (now "Liberar para Fornecedor")
   const [aceiteOpen, setAceiteOpen] = useState(false);
   const [aceiteSolicitacao, setAceiteSolicitacao] = useState<SolicitacaoComFornecedor | null>(null);
   const [aceiteAjuste, setAceiteAjuste] = useState('');
   const [aceiteLoading, setAceiteLoading] = useState(false);
   const [aceiteStep, setAceiteStep] = useState<'revisar' | 'decidir' | 'confirmar'>('revisar');
+  const [fornecedorEmailContato, setFornecedorEmailContato] = useState('');
+  const [fornecedorTelefoneContato, setFornecedorTelefoneContato] = useState('');
   const [showAjusteField, setShowAjusteField] = useState(false);
 
   // NF/Boleto modal state
@@ -648,6 +650,9 @@ export default function MinhasSolicitacoes() {
     setAceiteAjuste('');
     setAceiteStep('revisar');
     setShowAjusteField(false);
+    // Pre-fill contact info from supplier if available
+    setFornecedorEmailContato(sol.fornecedor?.email || '');
+    setFornecedorTelefoneContato(sol.fornecedor?.telefone || '');
     setAceiteOpen(true);
   };
 
@@ -675,20 +680,33 @@ export default function MinhasSolicitacoes() {
     
     setAceiteLoading(true);
     try {
+      console.log('[LIBERAR_FORNECEDOR] Iniciando liberação para solicitacao:', aceiteSolicitacao.id);
+      
+      // Build update data with contact info
+      const updateData: Record<string, any> = { 
+        status: 'liberado_fornecedor' as any,
+        data_liberado_fornecedor: new Date().toISOString(),
+        liberado_fornecedor_por: user.id,
+      };
+      
+      // Save contact info if provided
+      if (fornecedorEmailContato.trim()) {
+        updateData.fornecedor_email_contato = fornecedorEmailContato.trim();
+      }
+      if (fornecedorTelefoneContato.trim()) {
+        updateData.fornecedor_telefone_contato = fornecedorTelefoneContato.trim();
+      }
+      
       const { data: updatedRows, error: updateError } = await supabase
         .from('solicitacoes')
-        .update({ 
-          status: 'liberado_fornecedor' as any,
-          data_liberado_fornecedor: new Date().toISOString(),
-          liberado_fornecedor_por: user.id
-        })
+        .update(updateData)
         .eq('id', aceiteSolicitacao.id)
         .select('id, status');
 
       // IMPORTANT: With RLS, PostgREST can return success with 0 updated rows.
       if (updateError || !updatedRows || updatedRows.length === 0) {
         const reason = updateError?.message || 'Atualização bloqueada por permissão (nenhuma linha atualizada).';
-        console.error('[ACEITE_OC] Update bloqueado:', {
+        console.error('[LIBERAR_FORNECEDOR] Update bloqueado:', {
           reason,
           error: updateError,
           updatedRowsCount: updatedRows?.length ?? 0,
@@ -699,23 +717,29 @@ export default function MinhasSolicitacoes() {
         throw new Error(reason);
       }
 
+      // Build history motivo with contact info
+      const contatoInfo = fornecedorEmailContato || fornecedorTelefoneContato 
+        ? `Contato fornecedor: ${fornecedorEmailContato || '-'} | ${fornecedorTelefoneContato || '-'}`
+        : null;
+
       await supabase.from('historico_solicitacoes').insert({
         solicitacao_id: aceiteSolicitacao.id,
         user_id: user.id,
         acao: 'liberacao_fornecedor',
         status_anterior: 'aguardando_aceite',
         status_novo: 'liberado_fornecedor',
+        motivo: contatoInfo,
       });
 
       toast({
-        title: 'OC Liberada!',
-        description: 'O financeiro poderá enviar a OC ao fornecedor.',
+        title: 'OC Liberada para o Fornecedor!',
+        description: 'O Backoffice poderá enviar a OC formalmente ao fornecedor.',
       });
 
       setAceiteOpen(false);
       fetchSolicitacoes();
     } catch (error: any) {
-      console.error('[ACEITE_OC] Falha completa:', error);
+      console.error('[LIBERAR_FORNECEDOR] Falha completa:', error);
       toast({
         title: 'Erro ao liberar OC',
         description: error?.message || 'Tente novamente.',
@@ -1734,7 +1758,7 @@ export default function MinhasSolicitacoes() {
               {aceiteStep === 'decidir' && (
                 <>
                   <div className="grid gap-4">
-                    {/* Accept Option */}
+                    {/* Accept Option - renamed to "Liberar para Fornecedor" */}
                     <div 
                       className={cn(
                         "p-4 rounded-lg border-2 cursor-pointer transition-all",
@@ -1752,8 +1776,8 @@ export default function MinhasSolicitacoes() {
                           {!showAjusteField && <CheckCircle className="h-3 w-3 text-white" />}
                         </div>
                         <div>
-                          <p className="font-medium text-success">Aceitar OC</p>
-                          <p className="text-sm text-muted-foreground">A OC está correta e pode prosseguir</p>
+                          <p className="font-medium text-success">Liberar para o Fornecedor</p>
+                          <p className="text-sm text-muted-foreground">Autorizo o envio formal desta OC ao fornecedor</p>
                         </div>
                       </div>
                     </div>
@@ -1776,8 +1800,8 @@ export default function MinhasSolicitacoes() {
                           {showAjusteField && <RotateCcw className="h-3 w-3 text-white" />}
                         </div>
                         <div>
-                          <p className="font-medium text-warning">Solicitar Ajuste</p>
-                          <p className="text-sm text-muted-foreground">A OC precisa de correções</p>
+                          <p className="font-medium text-warning">Solicitar Revisão</p>
+                          <p className="text-sm text-muted-foreground">A OC precisa de correções antes do envio</p>
                         </div>
                       </div>
                     </div>
@@ -1799,14 +1823,14 @@ export default function MinhasSolicitacoes() {
                 </>
               )}
 
-              {/* Step 3: Final Confirmation */}
+              {/* Step 3: Final Confirmation - "Liberar para Fornecedor" */}
               {aceiteStep === 'confirmar' && (
                 <div className="space-y-4 animate-in fade-in duration-200">
                   <div className="p-4 bg-success/10 border border-success/20 rounded-lg text-center">
-                    <CheckCircle className="h-12 w-12 text-success mx-auto mb-3" />
-                    <h3 className="font-semibold text-lg mb-2">Confirmar Aceite da OC?</h3>
+                    <Send className="h-12 w-12 text-success mx-auto mb-3" />
+                    <h3 className="font-semibold text-lg mb-2">Liberar para o Fornecedor</h3>
                     <p className="text-sm text-muted-foreground mb-4">
-                      Ao confirmar, você declara que revisou a OC e que todos os dados estão corretos.
+                      Você está autorizando o Backoffice a enviar formalmente esta Ordem de Compra para o fornecedor.
                     </p>
                     
                     <div className="bg-background p-3 rounded-lg text-left text-sm space-y-1">
@@ -1816,6 +1840,40 @@ export default function MinhasSolicitacoes() {
                         <p><span className="text-muted-foreground">Fornecedor:</span> <span className="font-medium">{aceiteSolicitacao.fornecedor.nome_fantasia || aceiteSolicitacao.fornecedor.razao_social}</span></p>
                       )}
                     </div>
+                  </div>
+
+                  {/* Supplier Contact Info (optional) */}
+                  <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Building2 className="h-4 w-4 text-muted-foreground" />
+                      <Label className="font-medium">Dados de Contato do Fornecedor (opcional)</Label>
+                    </div>
+                    <div className="grid gap-3">
+                      <div className="space-y-1">
+                        <Label htmlFor="fornecedor_email" className="text-sm text-muted-foreground">E-mail</Label>
+                        <Input
+                          id="fornecedor_email"
+                          type="email"
+                          placeholder="fornecedor@empresa.com"
+                          value={fornecedorEmailContato}
+                          onChange={(e) => setFornecedorEmailContato(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="fornecedor_telefone" className="text-sm text-muted-foreground">Telefone</Label>
+                        <Input
+                          id="fornecedor_telefone"
+                          type="tel"
+                          placeholder="(XX) XXXXX-XXXX"
+                          value={fornecedorTelefoneContato}
+                          onChange={(e) => setFornecedorTelefoneContato(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1 mt-2">
+                      <AlertTriangle className="h-3 w-3" />
+                      Confira se os dados estão corretos para envio da OC
+                    </p>
                   </div>
 
                   <div className="bg-warning/10 border border-warning/20 p-3 rounded-lg">
@@ -1861,8 +1919,8 @@ export default function MinhasSolicitacoes() {
                     className="bg-success hover:bg-success/90 text-success-foreground"
                     onClick={() => setAceiteStep('confirmar')}
                   >
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    Aceitar OC
+                    <Send className="h-4 w-4 mr-2" />
+                    Liberar para Fornecedor
                   </Button>
                 )}
               </>
@@ -1878,8 +1936,8 @@ export default function MinhasSolicitacoes() {
                   onClick={handleAceitarOC} 
                   disabled={aceiteLoading}
                 >
-                  {aceiteLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle className="h-4 w-4 mr-2" />}
-                  Confirmar Aceite
+                  {aceiteLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
+                  Confirmar Liberação
                 </Button>
               </>
             )}

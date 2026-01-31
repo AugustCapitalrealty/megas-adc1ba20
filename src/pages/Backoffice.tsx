@@ -1638,34 +1638,49 @@ export default function Backoffice() {
                   />
                 )}
 
-                {/* Due Diligence Card (>= R$ 50k) */}
+                {/* Due Diligence Management Card (>= R$ 50k) */}
                 {detalhes.solicitacao.valor >= 50000 && (
                   <Card className="border-2 border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-base flex items-center gap-2 text-amber-800 dark:text-amber-200">
                         <Shield className="h-5 w-5" />
-                        Due Diligence Obrigatória
+                        Due Diligence Obrigatória (R$ 50k+)
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-3">
+                    <CardContent className="space-y-4">
+                      {/* Status Grid */}
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <Label className="text-xs text-muted-foreground">Status</Label>
+                          <Label className="text-xs text-muted-foreground">Ciência do Solicitante</Label>
                           <p className="font-medium">
                             {(detalhes.solicitacao as any).due_diligence_confirmada 
-                              ? '✅ Ciência confirmada pelo solicitante'
-                              : '⚠️ Pendente confirmação'}
+                              ? <span className="text-success flex items-center gap-1"><CheckCircle className="h-4 w-4" /> Confirmada</span>
+                              : <span className="text-warning flex items-center gap-1"><AlertTriangle className="h-4 w-4" /> Pendente</span>}
                           </p>
                         </div>
                         {(detalhes.solicitacao as any).due_diligence_numero_projuris && (
                           <div>
-                            <Label className="text-xs text-muted-foreground">Número Projuris</Label>
-                            <p className="font-medium font-mono">{(detalhes.solicitacao as any).due_diligence_numero_projuris}</p>
+                            <Label className="text-xs text-muted-foreground">Número Projuris Informado</Label>
+                            <p className="font-medium font-mono bg-background px-2 py-1 rounded inline-block">
+                              {(detalhes.solicitacao as any).due_diligence_numero_projuris}
+                            </p>
                           </div>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        Verifique com o Jurídico da Capital Realty se a Due Diligence do fornecedor está válida antes de prosseguir.
+
+                      {/* Info Alert */}
+                      <Alert className="bg-amber-100/50 dark:bg-amber-900/30 border-amber-300 dark:border-amber-700">
+                        <ShieldAlert className="h-4 w-4 text-amber-600" />
+                        <AlertTitle className="text-sm">Verificação Necessária</AlertTitle>
+                        <AlertDescription className="text-xs">
+                          Verifique com o Jurídico da Capital Realty se a Due Diligence do fornecedor está válida antes de aprovar a emissão da OC.
+                          A Due Diligence deve ser solicitada para novos fornecedores ou quando a última verificação tiver mais de 12 meses.
+                        </AlertDescription>
+                      </Alert>
+
+                      {/* Quick note for backoffice - no interactive controls since db fields not in schema */}
+                      <p className="text-xs text-muted-foreground italic">
+                        💡 Registre no Projuris e utilize o campo "Observação" ao emitir a OC para documentar a verificação de Due Diligence.
                       </p>
                     </CardContent>
                   </Card>
