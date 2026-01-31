@@ -644,8 +644,16 @@ export type Database = {
           faturamento_direto: boolean | null
           fornecedor_concorrente_1_id: string | null
           fornecedor_concorrente_2_id: string | null
+          fornecedor_email_contato: string | null
           fornecedor_id: string | null
+          fornecedor_telefone_contato: string | null
           fornecimento_exclusivo: boolean | null
+          ia_cnae_avaliado_em: string | null
+          ia_cnae_justificativa: string | null
+          ia_cnae_status: string | null
+          ia_descricao_avaliado_em: string | null
+          ia_descricao_sugestao: string | null
+          ia_descricao_vaga: boolean | null
           id: string
           instrumento_juridico:
             | Database["public"]["Enums"]["instrumento_juridico"]
@@ -706,8 +714,16 @@ export type Database = {
           faturamento_direto?: boolean | null
           fornecedor_concorrente_1_id?: string | null
           fornecedor_concorrente_2_id?: string | null
+          fornecedor_email_contato?: string | null
           fornecedor_id?: string | null
+          fornecedor_telefone_contato?: string | null
           fornecimento_exclusivo?: boolean | null
+          ia_cnae_avaliado_em?: string | null
+          ia_cnae_justificativa?: string | null
+          ia_cnae_status?: string | null
+          ia_descricao_avaliado_em?: string | null
+          ia_descricao_sugestao?: string | null
+          ia_descricao_vaga?: boolean | null
           id?: string
           instrumento_juridico?:
             | Database["public"]["Enums"]["instrumento_juridico"]
@@ -768,8 +784,16 @@ export type Database = {
           faturamento_direto?: boolean | null
           fornecedor_concorrente_1_id?: string | null
           fornecedor_concorrente_2_id?: string | null
+          fornecedor_email_contato?: string | null
           fornecedor_id?: string | null
+          fornecedor_telefone_contato?: string | null
           fornecimento_exclusivo?: boolean | null
+          ia_cnae_avaliado_em?: string | null
+          ia_cnae_justificativa?: string | null
+          ia_cnae_status?: string | null
+          ia_descricao_avaliado_em?: string | null
+          ia_descricao_sugestao?: string | null
+          ia_descricao_vaga?: boolean | null
           id?: string
           instrumento_juridico?:
             | Database["public"]["Enums"]["instrumento_juridico"]
