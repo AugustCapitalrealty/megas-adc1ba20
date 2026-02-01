@@ -470,14 +470,9 @@ export default function NovaSolicitacao() {
     naturezaPrecoVariavel
   );
   
-  // Step natureza_servico: exibir para AC com valor >= 10k OU com gatilhos de risco
-  const showNaturezaServicoStep = isAC && (
-    valorNumerico >= 10000 || 
-    naturezaObraCivil || 
-    naturezaAlturaRisco || 
-    naturezaFossaFiltro || 
-    naturezaPrecoVariavel
-  );
+  // Step natureza_servico: exibir para TODO AC (servicos), pois gatilhos de risco 
+  // se aplicam independente do valor - usuário sempre pode indicar riscos
+  const showNaturezaServicoStep = isAC;
   
   // Calcular instrumento jurídico automaticamente (client-side) - apenas para AC
   const instrumentoJuridico = useMemo((): InstrumentoJuridico => {
@@ -518,40 +513,39 @@ export default function NovaSolicitacao() {
         }
       }
     } else if (isAC) {
-      if (!isNaturezaIsenta) {
-        if (emergencial) {
-          // AC Emergencial: Proposta obrigatória + Chamado Infraspeak se corretiva
-          attachments = [
-            { tipo: 'orcamento_escolhido', label: ANEXO_LABELS.orcamento_escolhido, required: true },
-          ];
-          // Só adiciona chamado se for corretiva
-          if (chamadoCorretiva) {
-            attachments.unshift({ tipo: 'chamado_preventiva', label: ANEXO_LABELS.chamado_preventiva, required: true });
-          }
+      // AC NUNCA é isento de anexos - regra correta: apenas OC pode ser isento conforme natureza
+      if (emergencial) {
+        // AC Emergencial: Proposta obrigatória + Chamado Infraspeak se corretiva
+        attachments = [
+          { tipo: 'orcamento_escolhido', label: ANEXO_LABELS.orcamento_escolhido, required: true },
+        ];
+        // Só adiciona chamado se for corretiva
+        if (chamadoCorretiva) {
+          attachments.unshift({ tipo: 'chamado_preventiva', label: ANEXO_LABELS.chamado_preventiva, required: true });
+        }
+      } else {
+        // AC não emergencial: base attachments (Mapa de Cotação por último)
+        attachments = [
+          { tipo: 'escopo_detalhado', label: ANEXO_LABELS.escopo_detalhado, required: !semMemorial },
+          { tipo: 'orcamento_escolhido', label: ANEXO_LABELS.orcamento_escolhido, required: true },
+        ];
+        // Só adiciona chamado se for corretiva
+        if (chamadoCorretiva) {
+          attachments.unshift({ tipo: 'chamado_preventiva', label: ANEXO_LABELS.chamado_preventiva, required: true });
+        }
+        
+        // Cotações concorrentes e mapa só aparecem se NÃO tem exceção de fornecedores
+        if (!excecaoFornecedores) {
+          attachments.push(
+            { tipo: 'orcamento_concorrente_1', label: ANEXO_LABELS.orcamento_concorrente_1, required: true },
+            { tipo: 'orcamento_concorrente_2', label: ANEXO_LABELS.orcamento_concorrente_2, required: true },
+            { tipo: 'mapa_cotacao', label: ANEXO_LABELS.mapa_cotacao, required: true }, // Mapa por último
+          );
         } else {
-          // AC não emergencial: base attachments (Mapa de Cotação por último)
-          attachments = [
-            { tipo: 'escopo_detalhado', label: ANEXO_LABELS.escopo_detalhado, required: !semMemorial },
-            { tipo: 'orcamento_escolhido', label: ANEXO_LABELS.orcamento_escolhido, required: true },
-          ];
-          // Só adiciona chamado se for corretiva
-          if (chamadoCorretiva) {
-            attachments.unshift({ tipo: 'chamado_preventiva', label: ANEXO_LABELS.chamado_preventiva, required: true });
-          }
-          
-          // Cotações concorrentes e mapa só aparecem se NÃO tem exceção de fornecedores
-          if (!excecaoFornecedores) {
-            attachments.push(
-              { tipo: 'orcamento_concorrente_1', label: ANEXO_LABELS.orcamento_concorrente_1, required: true },
-              { tipo: 'orcamento_concorrente_2', label: ANEXO_LABELS.orcamento_concorrente_2, required: true },
-              { tipo: 'mapa_cotacao', label: ANEXO_LABELS.mapa_cotacao, required: true }, // Mapa por último
-            );
-          } else {
-            // Com justificativa, anexo de comprovação é OBRIGATÓRIO
-            attachments.push(
-              { tipo: 'justificativa_anexo', label: 'Comprovação da Justificativa (ex: e-mail, aceite)', required: true },
-            );
-          }
+          // Com justificativa, anexo de comprovação é OBRIGATÓRIO
+          attachments.push(
+            { tipo: 'justificativa_anexo', label: 'Comprovação da Justificativa (ex: e-mail, aceite)', required: true },
+          );
         }
       }
       
@@ -572,9 +566,9 @@ export default function NovaSolicitacao() {
     return attachments;
   };
 
-  // Check if 3 CNPJs are required (AC services non-emergency, except for isentos)
-  const isNaturezaIsenta = naturezaOrcamentaria && NATUREZAS_ISENTAS_ANEXOS.includes(naturezaOrcamentaria);
-  const requires3CNPJs = isAC && !emergencial && !isNaturezaIsenta;
+  // Check if 3 CNPJs are required (AC services non-emergency)
+  // AC NUNCA é isento - regra correta: apenas OC pode ser isento conforme natureza
+  const requires3CNPJs = isAC && !emergencial;
 
   const formatCurrency = (value: string) => {
     const digits = value.replace(/\D/g, '');
@@ -1717,17 +1711,7 @@ export default function NovaSolicitacao() {
                   </>
                 )}
                 
-                {/* AC info */}
-                {isAC && isNaturezaIsenta && (
-                  <Alert>
-                    <Check className="h-4 w-4 text-success" />
-                    <AlertDescription>
-                      <strong>Natureza orçamentária isenta:</strong> Esta natureza ({naturezaOrcamentaria && NATUREZA_ORCAMENTARIA_LABELS[naturezaOrcamentaria]}) não requer anexos obrigatórios de cotação.
-                    </AlertDescription>
-                  </Alert>
-                )}
-                
-                {isAC && !isNaturezaIsenta && !emergencial && (
+                {isAC && !emergencial && (
                   <div className="space-y-4">
                     <p className="text-sm text-muted-foreground">
                       Anexe os documentos em formato PDF (máx. 100MB cada)
@@ -1761,7 +1745,7 @@ export default function NovaSolicitacao() {
                   </div>
                 )}
                 
-                {isAC && !isNaturezaIsenta && emergencial && (
+                {isAC && emergencial && (
                   <p className="text-sm text-muted-foreground">
                     Anexe os documentos obrigatórios em formato PDF (máx. 100MB cada)
                   </p>
