@@ -1,101 +1,137 @@
 
-## Plano: Implementação dos Itens Pendentes - Fluxo Jurídico v2.0
 
-Este plano implementa os itens restantes do plano aprovado anteriormente.
+## Plano de Correção: Fluxo Jurídico AC vs OC
+
+Este plano corrige 3 problemas identificados na implementação do fluxo jurídico:
 
 ---
 
-## Itens a Implementar
+## Problemas Identificados
 
-### 1. Modal "Liberar para o Fornecedor" (Alta Prioridade)
-Refatorar o modal de aceite de OC em `MinhasSolicitacoes.tsx`:
+### 1. Step de Natureza do Serviço não aparece para valores < R$10k
+**Causa**: A lógica atual exige `valorNumerico >= 10000` OU checkboxes já marcados para exibir o step. Isso cria um ciclo: o usuário não pode marcar os checkboxes sem ver o step.
 
-**Alterações:**
-- Renomear textos de "Aceitar OC" para "Liberar para o Fornecedor"
-- Adicionar campos opcionais de contato do fornecedor (email/telefone)
-- Exibir detalhes da OC no modal de confirmação
-- Atualizar banco de dados com novos campos
+**Impacto**: Serviços com risco (altura, fossa, obra civil) com valor < R$10k não ativam o fluxo jurídico.
 
-**Novos campos no banco:**
-```sql
-ALTER TABLE public.solicitacoes 
-  ADD COLUMN IF NOT EXISTS fornecedor_email_contato TEXT,
-  ADD COLUMN IF NOT EXISTS fornecedor_telefone_contato TEXT;
+### 2. AC com "Material de Consumo" sendo tratado como isento de anexos
+**Causa**: A lógica usa `NATUREZAS_ISENTAS_ANEXOS` (que inclui `material_consumo`) para ambos OC e AC.
+
+**Regra correta**: Isenção de anexos é APENAS para OC. AC NUNCA é isento.
+
+### 3. Campo de escopo detalhado não reabre quando backoffice solicita ajuste de minuta
+**Causa**: O modal de edição em MinhasSolicitacoes não inclui o campo `escopo_detalhado_minuta`.
+
+---
+
+## Solução Proposta
+
+### Correção 1: Exibir Step Natureza para TODO AC (tipo servicos)
+
+Alterar a lógica em `NovaSolicitacao.tsx`:
+
+**Antes:**
+```typescript
+const showNaturezaServicoStep = isAC && (
+  valorNumerico >= 10000 || 
+  naturezaObraCivil || naturezaAlturaRisco || naturezaFossaFiltro || naturezaPrecoVariavel
+);
 ```
 
-**Fluxo de 3 etapas atualizado:**
-1. **Revisar**: Visualizar/baixar OC (mantém como está)
-2. **Decidir**: Opções "Liberar para Fornecedor" ou "Solicitar Revisão"
-3. **Confirmar**: Modal com dados de contato opcional do fornecedor + confirmação final
-
----
-
-### 2. Campos de Due Diligence Gerenciados pelo Backoffice (Alta Prioridade)
-Adicionar campos para controle do Backoffice:
-
-**Novos campos no banco:**
-```sql
-ALTER TABLE public.solicitacoes 
-  ADD COLUMN IF NOT EXISTS due_diligence_status TEXT 
-    CHECK (due_diligence_status IN ('pendente', 'solicitada', 'verificada', 'aprovada', 'reprovada')),
-  ADD COLUMN IF NOT EXISTS due_diligence_verificada_por UUID REFERENCES auth.users(id),
-  ADD COLUMN IF NOT EXISTS due_diligence_verificada_em TIMESTAMPTZ;
+**Depois:**
+```typescript
+// Step natureza_servico: exibir para TODO AC (servicos), pois gatilhos de risco 
+// se aplicam independente do valor
+const showNaturezaServicoStep = isAC;
 ```
 
-**Atualizações em `Backoffice.tsx`:**
-- Seção para gerenciar status de Due Diligence
-- Botões para marcar como "Verificada" ou "Solicitada ao Jurídico"
-- Exibição do número Projuris informado pelo solicitante
+Isso garante que:
+- Qualquer AC (tipo servicos) verá os checkboxes de risco
+- Mesmo com valor < R$10k, se marcar risco, ativa fluxo jurídico
+- A opção "Nenhuma das opções acima" permite seguir fluxo simplificado
 
 ---
 
-### 3. Reabertura do Campo Escopo quando `aguardando_informacoes` (Média Prioridade)
-Permitir edição do escopo detalhado em `MinhasSolicitacoes.tsx`:
+### Correção 2: Separar Isenção de Anexos para OC vs AC
 
-**Lógica:**
-- Quando status = `aguardando_informacoes` E última ação foi `ajuste_minuta_solicitado`
-- Exibir campo de edição do `escopo_detalhado_minuta`
-- Botão para reenviar resposta
+A regra de negócio é clara:
+- **OC**: Isento de fluxo jurídico E pode ser isento de alguns anexos conforme natureza
+- **AC**: NUNCA isento de anexos, independente da natureza orçamentária
 
----
+Alterar a função `getRequiredAttachments()` em `NovaSolicitacao.tsx`:
 
-### 4. Cache de IA no Banco de Dados (Baixa Prioridade - Otimização)
-Implementar cache persistente para resultados de validação IA:
-
-**Novos campos no banco:**
-```sql
-ALTER TABLE public.solicitacoes 
-  -- Cache CNAE
-  ADD COLUMN IF NOT EXISTS ia_cnae_status TEXT CHECK (ia_cnae_status IN ('compativel', 'incompativel', 'insuficiente')),
-  ADD COLUMN IF NOT EXISTS ia_cnae_justificativa TEXT,
-  ADD COLUMN IF NOT EXISTS ia_cnae_avaliado_em TIMESTAMPTZ,
-  -- Cache Descrição
-  ADD COLUMN IF NOT EXISTS ia_descricao_vaga BOOLEAN,
-  ADD COLUMN IF NOT EXISTS ia_descricao_sugestao TEXT,
-  ADD COLUMN IF NOT EXISTS ia_descricao_avaliado_em TIMESTAMPTZ;
+**Antes:**
+```typescript
+} else if (isAC) {
+  if (!isNaturezaIsenta) {
+    // ... anexos obrigatórios
+  }
+}
 ```
 
-**Trigger para invalidar cache:**
-```sql
-CREATE OR REPLACE FUNCTION reset_ia_cache_fields()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.ia_cnae_status := NULL;
-  NEW.ia_cnae_justificativa := NULL;
-  NEW.ia_cnae_avaliado_em := NULL;
-  NEW.ia_descricao_vaga := NULL;
-  NEW.ia_descricao_sugestao := NULL;
-  NEW.ia_descricao_avaliado_em := NULL;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+**Depois:**
+```typescript
+} else if (isAC) {
+  // AC NUNCA é isento de anexos - remover verificação de isNaturezaIsenta
+  if (emergencial) {
+    // ... anexos emergenciais
+  } else {
+    // ... anexos padrão AC
+  }
+}
+```
 
-CREATE TRIGGER invalidate_ia_cache
-  BEFORE UPDATE ON public.solicitacoes
-  FOR EACH ROW
-  WHEN (OLD.descricao IS DISTINCT FROM NEW.descricao 
-        OR OLD.fornecedor_id IS DISTINCT FROM NEW.fornecedor_id)
-  EXECUTE FUNCTION reset_ia_cache_fields();
+Também remover a isenção de 3 CNPJs para "naturezas isentas":
+
+**Antes:**
+```typescript
+const requires3CNPJs = isAC && !emergencial && !isNaturezaIsenta;
+```
+
+**Depois:**
+```typescript
+const requires3CNPJs = isAC && !emergencial;
+```
+
+---
+
+### Correção 3: Adicionar Campo de Escopo Detalhado ao Modal de Edição
+
+Quando o solicitante precisa corrigir uma solicitação que requer escopo detalhado (status `aguardando_informacoes` ou `pendente_correcao`), o campo deve aparecer no modal.
+
+Adicionar ao modal de edição em `MinhasSolicitacoes.tsx`:
+
+1. Novo estado para o campo:
+```typescript
+const [editEscopoDetalhado, setEditEscopoDetalhado] = useState('');
+```
+
+2. Carregar valor atual ao abrir modal:
+```typescript
+setEditEscopoDetalhado((sol as any).escopo_detalhado_minuta || '');
+```
+
+3. Adicionar campo no modal quando aplicável:
+```typescript
+{editingSolicitacao?.instrumento_juridico && 
+ editingSolicitacao.instrumento_juridico !== 'oc' && (
+  <div className="space-y-2">
+    <Label>Escopo Detalhado para Minuta</Label>
+    <Textarea
+      value={editEscopoDetalhado}
+      onChange={(e) => setEditEscopoDetalhado(e.target.value)}
+      placeholder="Descreva etapas, prazos, materiais..."
+      rows={5}
+    />
+    <span className="text-xs text-muted-foreground">
+      {editEscopoDetalhado.length}/100 caracteres mínimos
+    </span>
+  </div>
+)}
+```
+
+4. Salvar na atualização:
+```typescript
+updateData.escopo_detalhado_minuta = editEscopoDetalhado.trim() || null;
 ```
 
 ---
@@ -104,78 +140,54 @@ CREATE TRIGGER invalidate_ia_cache
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `supabase/migrations/` | Nova migration com todos os campos novos |
-| `src/types/index.ts` | Atualizar interface Solicitacao |
-| `src/pages/MinhasSolicitacoes.tsx` | Modal "Liberar", edição de escopo |
-| `src/pages/Backoffice.tsx` | Seção gerenciamento DD |
-| `src/pages/NovaSolicitacao.tsx` | Salvar cache IA no submit |
-| `src/hooks/useCNAEValidation.ts` | Lógica de leitura/escrita do cache |
-| `src/hooks/useDescriptionValidation.ts` | Lógica de leitura/escrita do cache |
+| `src/pages/NovaSolicitacao.tsx` | Lógica showNaturezaServicoStep, getRequiredAttachments, requires3CNPJs |
+| `src/pages/MinhasSolicitacoes.tsx` | Campo escopo detalhado no modal de edição |
 
 ---
 
-## Detalhes Técnicos
+## Resumo das Mudanças
 
-### Modal de Liberação (MinhasSolicitacoes.tsx)
-
-**Step 2 - Decidir (textos atualizados):**
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│  [●] Liberar para o Fornecedor                              │
-│      Autorizo o envio formal desta OC ao fornecedor         │
-│                                                             │
-│  [ ] Solicitar Revisão                                      │
-│      A OC precisa de correções antes do envio               │
-└─────────────────────────────────────────────────────────────┘
-```
-
-**Step 3 - Confirmar (com campos de contato):**
-```text
-┌─────────────────────────────────────────────────────────────┐
-│  🚀 LIBERAR PARA O FORNECEDOR                               │
-│                                                             │
-│  Você está autorizando o Backoffice a enviar                │
-│  formalmente esta OC para o fornecedor.                     │
-│                                                             │
-│  Fornecedor: ABC Ltda                                       │
-│  Valor: R$ 15.000,00                                        │
-│  OC Nº: 2024-0001                                           │
-│                                                             │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │ Dados de Contato (opcional)                          │    │
-│  │                                                     │    │
-│  │ E-mail:   [________________________]                │    │
-│  │ Telefone: [________________________]                │    │
-│  │                                                     │    │
-│  │ ⚠️ Confira se os dados estão corretos               │    │
-│  └─────────────────────────────────────────────────────┘    │
-│                                                             │
-│  ⚠️ Esta ação não pode ser desfeita                         │
-│                                                             │
-│  [Voltar]                        [Confirmar Liberação ✓]    │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Seção Due Diligence (Backoffice.tsx)
-
-Para solicitações >= R$ 50k, exibir card de gestão:
-```text
-┌─────────────────────────────────────────────────────────────┐
-│  🛡️ DUE DILIGENCE (OBRIGATÓRIA - R$ 50k+)                   │
-│                                                             │
-│  Status atual: [Pendente]                                   │
-│  Nº Projuris (informado): PROJ-2024-0001                    │
-│                                                             │
-│  [Marcar como Verificada]  [Solicitar ao Jurídico]          │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│  ANTES (Bugado)                                                 │
+│                                                                 │
+│  ● Step Natureza só aparece se valor >= R$10k                   │
+│    → Impossível marcar riscos para valores menores              │
+│                                                                 │
+│  ● AC "Material Consumo" isento de anexos                       │
+│    → Violava regra: AC NUNCA isento                             │
+│                                                                 │
+│  ● Escopo não reabre para correção                              │
+│    → Solicitante não conseguia ajustar minuta                   │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  DEPOIS (Corrigido)                                             │
+│                                                                 │
+│  ● Step Natureza aparece para TODO tipo AC (servicos)           │
+│    → Usuário sempre pode indicar riscos                         │
+│    → Opção "Nenhuma das opções" para fluxo simplificado         │
+│                                                                 │
+│  ● AC sempre exige anexos (independente de natureza)            │
+│    → Apenas OC pode ser isento conforme natureza                │
+│                                                                 │
+│  ● Modal de correção inclui campo de escopo                     │
+│    → Solicitante pode ajustar minuta quando pedido              │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Ordem de Implementação
+## Impacto
 
-1. **Migration SQL** - Adicionar todos os campos novos
-2. **MinhasSolicitacoes.tsx** - Modal "Liberar para Fornecedor" + edição escopo
-3. **Backoffice.tsx** - Seção de gestão Due Diligence
-4. **Hooks de validação IA** - Cache persistente (pode ser feito por último)
+**Para o Solicitante:**
+- Ao criar solicitação AC, sempre verá os checkboxes de natureza do serviço
+- Pode indicar riscos mesmo com valor baixo (< R$10k)
+- AC com "Material de Consumo" agora exige anexos corretamente
+- Pode corrigir escopo detalhado quando backoffice solicita ajuste
+
+**Para o Backoffice:**
+- Receberá solicitações com classificação jurídica mais precisa
+- Menos retrabalho por classificações incorretas
+- Ciclo de ajuste de minuta funcional
 
