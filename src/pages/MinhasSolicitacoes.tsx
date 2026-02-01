@@ -1043,7 +1043,7 @@ export default function MinhasSolicitacoes() {
           <div className="flex items-center gap-2">
             <CheckCircle className="h-5 w-5" />
             <span className="font-semibold">OC DISPONÍVEL</span>
-            <span className="text-sm opacity-90">- Revise e aceite ou solicite ajuste</span>
+            <span className="text-sm opacity-90">- Visualize e libere para o fornecedor</span>
           </div>
           <Button 
             size="sm" 
@@ -1051,8 +1051,8 @@ export default function MinhasSolicitacoes() {
             onClick={() => openAceiteModal(sol)}
             className="bg-white text-green-700 hover:bg-white/90 border border-green-300 shadow-sm"
           >
-            <CheckCircle className="h-4 w-4 mr-1" />
-            Revisar OC
+            <FileText className="h-4 w-4 mr-1" />
+            Visualizar OC
           </Button>
         </div>
       );
@@ -1725,7 +1725,7 @@ export default function MinhasSolicitacoes() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileCheck className="h-5 w-5 text-success" />
-              {aceiteStep === 'revisar' ? 'Revisar OC' : 'Confirmar Decisão'} - #{aceiteSolicitacao?.protocolo}
+              {aceiteStep === 'revisar' ? 'Visualizar OC' : aceiteStep === 'decidir' ? 'Liberar para Fornecedor' : 'Confirmar Liberação'} - #{aceiteSolicitacao?.protocolo}
             </DialogTitle>
           </DialogHeader>
 
@@ -1922,7 +1922,7 @@ export default function MinhasSolicitacoes() {
                   Fechar
                 </Button>
                 <Button onClick={() => setAceiteStep('decidir')}>
-                  Prosseguir para Aceite
+                  Liberar para Fornecedor
                 </Button>
               </>
             )}
