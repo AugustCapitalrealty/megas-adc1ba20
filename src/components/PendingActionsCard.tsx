@@ -39,8 +39,8 @@ export function PendingActionsCard({
     {
       type: 'aceite_oc',
       count: pendingAcceptance,
-      label: 'Aceitar OC',
-      description: 'Ordens de compra aguardando aceite',
+      label: 'Liberar OC',
+      description: 'Ordens de compra aguardando liberação',
     },
     {
       type: 'nf_boleto',
