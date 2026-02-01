@@ -99,6 +99,7 @@ export default function MinhasSolicitacoes() {
   const [editDescricao, setEditDescricao] = useState('');
   const [editValor, setEditValor] = useState('');
   const [editNaturezaOrcamentaria, setEditNaturezaOrcamentaria] = useState<NaturezaOrcamentaria | ''>('');
+  const [editEscopoDetalhado, setEditEscopoDetalhado] = useState('');
   const [editAnexos, setEditAnexos] = useState<Record<string, UploadedFile | null>>({});
   const [existingAnexos, setExistingAnexos] = useState<Array<{ id: string; tipo: string; nome_arquivo: string; storage_path: string }>>([]);
   const [anexosParaExcluir, setAnexosParaExcluir] = useState<string[]>([]);
@@ -361,6 +362,7 @@ export default function MinhasSolicitacoes() {
     setEditDescricao(sol.descricao);
     setEditValor(String(Math.round(sol.valor * 100)));
     setEditNaturezaOrcamentaria(sol.natureza_orcamentaria);
+    setEditEscopoDetalhado((sol as any).escopo_detalhado_minuta || '');
     setEditAnexos({});
     setExistingAnexos([]);
     setAnexosParaExcluir([]);
@@ -579,6 +581,8 @@ export default function MinhasSolicitacoes() {
         valor: valorNumerico,
         natureza_orcamentaria: editNaturezaOrcamentaria as any,
         status: 'recebido',
+        // Salvar escopo detalhado se preenchido
+        escopo_detalhado_minuta: editEscopoDetalhado.trim() || null,
       };
       
       // Handle supplier swap if requested
@@ -1452,6 +1456,30 @@ export default function MinhasSolicitacoes() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Campo Escopo Detalhado para Minuta - aparece quando instrumento jurídico não é OC */}
+              {(editingSolicitacao as any)?.instrumento_juridico && 
+               (editingSolicitacao as any).instrumento_juridico !== 'oc' && (
+                <div className="space-y-2">
+                  <Label>Escopo Detalhado para Minuta</Label>
+                  <Textarea
+                    value={editEscopoDetalhado}
+                    onChange={(e) => setEditEscopoDetalhado(e.target.value)}
+                    placeholder="Descreva as etapas do serviço, prazos esperados, materiais envolvidos..."
+                    rows={5}
+                  />
+                  <div className="flex items-center justify-between text-xs">
+                    <span className={editEscopoDetalhado.length >= 100 ? 'text-green-600' : 'text-muted-foreground'}>
+                      {editEscopoDetalhado.length}/100 caracteres mínimos
+                    </span>
+                    {editEscopoDetalhado.length < 100 && editEscopoDetalhado.length > 0 && (
+                      <span className="text-amber-600">
+                        Faltam {100 - editEscopoDetalhado.length} caracteres
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Supplier swap section - only show if there are competitors */}
               {(fornecedoresInfo.concorrente1 || fornecedoresInfo.concorrente2) && fornecedoresInfo.principal && (
