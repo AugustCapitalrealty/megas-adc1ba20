@@ -22,6 +22,7 @@ import {
   UserCog,
   X,
   Timer,
+  Shield,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -84,6 +85,12 @@ export function AppLayout({ children }: AppLayoutProps) {
       href: '/painel-fluig',
       label: 'Painel Fluig',
       icon: BarChart3,
+      show: true,
+    },
+    {
+      href: '/garantias',
+      label: 'Garantias',
+      icon: Shield,
       show: true,
     },
     {

@@ -13,6 +13,7 @@ import Backoffice from "./pages/Backoffice";
 import PainelFluig from "./pages/PainelFluig";
 import Admin from "./pages/Admin";
 import DashboardSLA from "./pages/DashboardSLA";
+import GarantiasVigentes from "./pages/GarantiasVigentes";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -69,6 +70,7 @@ function AppRoutes() {
       <Route path="/painel-fluig" element={<ProtectedRoute><PainelFluig /></ProtectedRoute>} />
       <Route path="/admin/usuarios" element={<ProtectedRoute requireAdmin><Admin /></ProtectedRoute>} />
       <Route path="/admin/sla" element={<ProtectedRoute requireAdmin><DashboardSLA /></ProtectedRoute>} />
+      <Route path="/garantias" element={<ProtectedRoute><GarantiasVigentes /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
