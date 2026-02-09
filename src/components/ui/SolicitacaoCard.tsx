@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Badge } from '@/components/ui/badge';
@@ -78,15 +78,15 @@ export function SolicitacaoCard({
       
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3 flex-wrap">
-            <CardTitle className="text-lg">#{sol.protocolo}</CardTitle>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-semibold text-base">#{sol.protocolo}</span>
             <StatusBadge status={sol.status} />
             <CorrectionDeadlineBadge 
               dataPendenteCorrecao={sol.data_pendente_correcao} 
               status={sol.status} 
             />
             {sol.emergencial && (
-              <span className="text-xs bg-destructive/10 text-destructive px-2 py-0.5 rounded">
+              <span className="text-xs bg-destructive/10 text-destructive px-2 py-0.5 rounded font-medium">
                 Emergencial
               </span>
             )}
@@ -125,42 +125,35 @@ export function SolicitacaoCard({
         </div>
       </CardHeader>
       
-      <CardContent>
+      <CardContent className="pt-0">
         {/* Info Alert Slot (for rejection reasons, info requests, etc) */}
         {infoAlert}
         
         {variant === 'detailed' ? (
-          <div className="grid gap-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Tipo</span>
-              <span className="font-medium">{sol.tipo}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Empreendimento</span>
+          <div className="space-y-2">
+            {/* Description as primary content */}
+            <ExpandableDescription description={sol.descricao} maxLength={120} />
+            
+            {/* Compact metadata line */}
+            <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
+              <span>{sol.tipo}</span>
+              <span className="text-border">•</span>
               <span>{EMPREENDIMENTO_LABELS[sol.empreendimento]}</span>
-            </div>
-            {fornecedorNome && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Fornecedor</span>
-                <span className="text-right max-w-[60%] truncate">{fornecedorNome}</span>
-              </div>
-            )}
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Valor Total</span>
-              <span className="font-medium">{formatCurrency(valorTotal)}</span>
-            </div>
-            {sol.valor_servico !== null && sol.valor_material !== null && sol.faturamento_direto && (
-              <div className="flex justify-between text-xs text-muted-foreground pl-2">
-                <span>(Serviço: {formatCurrency(sol.valor_servico || 0)} | Material: {formatCurrency(sol.valor_material || 0)})</span>
-              </div>
-            )}
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Data</span>
+              {fornecedorNome && (
+                <>
+                  <span className="text-border">•</span>
+                  <span className="truncate max-w-[200px]">{fornecedorNome}</span>
+                </>
+              )}
+              <span className="text-border">•</span>
+              <span className="font-semibold text-foreground">{formatCurrency(valorTotal)}</span>
+              {sol.valor_servico !== null && sol.valor_material !== null && sol.faturamento_direto && (
+                <span className="text-xs">
+                  (S: {formatCurrency(sol.valor_servico || 0)} | M: {formatCurrency(sol.valor_material || 0)})
+                </span>
+              )}
+              <span className="text-border">•</span>
               <span>{new Date(sol.created_at).toLocaleDateString('pt-BR')}</span>
-            </div>
-            <div className="mt-2 pt-2 border-t">
-              <span className="text-muted-foreground block mb-1">Descrição</span>
-              <ExpandableDescription description={sol.descricao} maxLength={100} />
             </div>
           </div>
         ) : (
