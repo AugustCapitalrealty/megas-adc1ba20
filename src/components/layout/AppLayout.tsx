@@ -23,6 +23,8 @@ import {
   X,
   Timer,
   Shield,
+  Settings,
+  ChevronDown,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -58,20 +60,14 @@ export function AppLayout({ children }: AppLayoutProps) {
     navigate('/admin/usuarios');
   };
 
-  // When impersonating, show the impersonated profile info
   const displayProfile = isImpersonating ? impersonatedProfile : profile;
   const displayEmail = isImpersonating ? impersonatedProfile?.email : user?.email;
 
-  const navItems = [
-    {
-      href: '/nova-solicitacao',
-      label: 'Nova Solicitação',
-      icon: Plus,
-      show: true,
-    },
+  // Main nav items (without admin items and without "Nova Solicitação")
+  const mainNavItems = [
     {
       href: '/minhas-solicitacoes',
-      label: 'Minhas Solicitações',
+      label: 'Solicitações',
       icon: FileText,
       show: true,
     },
@@ -93,40 +89,38 @@ export function AppLayout({ children }: AppLayoutProps) {
       icon: Shield,
       show: true,
     },
+  ];
+
+  // Admin sub-items for dropdown
+  const adminItems = [
     {
       href: '/admin/usuarios',
       label: 'Usuários',
       icon: Users,
-      show: isAdmin,
     },
     {
       href: '/admin/sla',
       label: 'Dashboard SLA',
       icon: Timer,
-      show: isAdmin,
     },
   ];
 
   const getInitials = (name: string | null, email: string) => {
     if (name) {
-      return name
-        .split(' ')
-        .map((n) => n[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2);
+      return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
     }
     return email.slice(0, 2).toUpperCase();
   };
 
+  const isActive = (href: string) => location.pathname === href;
+  const isAdminActive = adminItems.some(item => location.pathname === item.href);
+
   const NavLinks = ({ mobile = false }: { mobile?: boolean }) => (
     <>
-      {navItems
+      {mainNavItems
         .filter((item) => item.show)
         .map((item) => {
           const Icon = item.icon;
-          const isActive = location.pathname === item.href;
-          
           return (
             <Link
               key={item.href}
@@ -134,7 +128,7 @@ export function AppLayout({ children }: AppLayoutProps) {
               onClick={() => mobile && setMobileMenuOpen(false)}
               className={cn(
                 'flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors',
-                isActive
+                isActive(item.href)
                   ? 'bg-primary text-primary-foreground'
                   : 'text-foreground/70 hover:text-primary hover:bg-accent'
               )}
@@ -172,7 +166,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       <header className="sticky top-0 z-50 w-full border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
         <div className="container flex h-16 items-center justify-between">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-3">
+          <Link to="/" className="flex items-center gap-3 shrink-0">
             <img 
               src={logoMega} 
               alt="Mega Centro Logístico" 
@@ -182,7 +176,52 @@ export function AppLayout({ children }: AppLayoutProps) {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-1">
+            {/* CTA: Nova Solicitação - highlighted */}
+            <Link
+              to="/nova-solicitacao"
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-semibold transition-colors mr-1',
+                isActive('/nova-solicitacao')
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-primary/10 text-primary hover:bg-primary/20'
+              )}
+            >
+              <Plus className="h-4 w-4" />
+              Nova
+            </Link>
+
             <NavLinks />
+
+            {/* Admin Dropdown */}
+            {isAdmin && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className={cn(
+                      'flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                      isAdminActive
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-foreground/70 hover:text-primary hover:bg-accent'
+                    )}
+                  >
+                    <Settings className="h-4 w-4" />
+                    Admin
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {adminItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <DropdownMenuItem key={item.href} onClick={() => navigate(item.href)}>
+                        <Icon className="mr-2 h-4 w-4" />
+                        {item.label}
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </nav>
 
           {/* Notifications & User Menu */}
@@ -245,7 +284,53 @@ export function AppLayout({ children }: AppLayoutProps) {
                   />
                 </div>
                 <nav className="flex flex-col gap-2">
+                  {/* CTA in mobile */}
+                  <Link
+                    to="/nova-solicitacao"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={cn(
+                      'flex items-center gap-2 px-3 py-2.5 rounded-md text-sm font-semibold transition-colors',
+                      isActive('/nova-solicitacao')
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-primary/10 text-primary hover:bg-primary/20'
+                    )}
+                  >
+                    <Plus className="h-4 w-4" />
+                    Nova Solicitação
+                  </Link>
+
+                  <div className="h-px bg-border my-1" />
+
                   <NavLinks mobile />
+
+                  {/* Admin items inline in mobile */}
+                  {isAdmin && (
+                    <>
+                      <div className="h-px bg-border my-1" />
+                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-3 py-1">
+                        Administração
+                      </span>
+                      {adminItems.map((item) => {
+                        const Icon = item.icon;
+                        return (
+                          <Link
+                            key={item.href}
+                            to={item.href}
+                            onClick={() => setMobileMenuOpen(false)}
+                            className={cn(
+                              'flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                              isActive(item.href)
+                                ? 'bg-primary text-primary-foreground'
+                                : 'text-foreground/70 hover:text-primary hover:bg-accent'
+                            )}
+                          >
+                            <Icon className="h-4 w-4" />
+                            {item.label}
+                          </Link>
+                        );
+                      })}
+                    </>
+                  )}
                 </nav>
               </SheetContent>
             </Sheet>
