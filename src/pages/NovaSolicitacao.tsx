@@ -679,8 +679,19 @@ export default function NovaSolicitacao() {
       }
     }
 
-    // Validate 3 CNPJs if required
-    if (requires3CNPJs) {
+    // Validate exclusive supplier justification
+    if (fornecimentoExclusivo && !justificativaExclusividade.trim()) {
+      toast({
+        title: 'Justificativa obrigatória',
+        description: 'Informe a justificativa para fornecimento exclusivo.',
+        variant: 'destructive',
+      });
+      isSubmittingRef.current = false;
+      return;
+    }
+
+    // Validate 3 CNPJs if required (skip if exclusive supplier)
+    if (requires3CNPJs && !fornecimentoExclusivo) {
       if (excecaoFornecedores && !justificativaFornecedores.trim()) {
         toast({
           title: 'Justificativa obrigatória',
@@ -927,10 +938,12 @@ export default function NovaSolicitacao() {
       }
       case 'fornecedor': {
         if (!fornecedor) return false;
+        // Fornecimento exclusivo requires justification
+        if (fornecimentoExclusivo && !justificativaExclusividade.trim()) return false;
         // If using exception, require justification
-        if (requires3CNPJs && excecaoFornecedores && !justificativaFornecedores.trim()) return false;
-        // If NOT using exception, require 3 suppliers
-        if (requires3CNPJs && !excecaoFornecedores && (!fornecedorConcorrente1 || !fornecedorConcorrente2)) return false;
+        if (requires3CNPJs && !fornecimentoExclusivo && excecaoFornecedores && !justificativaFornecedores.trim()) return false;
+        // If NOT using exception and NOT exclusive, require 3 suppliers
+        if (requires3CNPJs && !fornecimentoExclusivo && !excecaoFornecedores && (!fornecedorConcorrente1 || !fornecedorConcorrente2)) return false;
         return true;
       }
       case 'anexos': {

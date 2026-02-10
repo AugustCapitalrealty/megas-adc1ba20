@@ -19,6 +19,7 @@ export interface GarantiaItem {
   fornecedor_razao_social: string | null;
   fornecedor_nome_fantasia: string | null;
   fornecedor_cnpj: string | null;
+  infraspeak_registrada: boolean;
   // Computed fields
   garantias: GarantiaDetalhe[];
   statusGeral: 'vigente' | 'expirando' | 'expirada';
@@ -94,6 +95,7 @@ function processarGarantias(item: any): GarantiaItem {
     fornecedor_razao_social: item.fornecedores?.razao_social || null,
     fornecedor_nome_fantasia: item.fornecedores?.nome_fantasia || null,
     fornecedor_cnpj: item.fornecedores?.cnpj || null,
+    infraspeak_registrada: item.infraspeak_registrada ?? false,
     garantias,
     statusGeral,
   };
@@ -130,7 +132,7 @@ export function useGarantiasVigentes() {
         .select(`
           id, protocolo, descricao, empreendimento, valor,
           tipo_garantia, dias_garantia, dias_garantia_servico, dias_garantia_produto,
-          data_conclusao,
+          data_conclusao, infraspeak_registrada,
           fornecedores:fornecedor_id (razao_social, nome_fantasia, cnpj)
         `)
         .eq('status', 'concluida')
@@ -184,6 +186,20 @@ export function useGarantiasVigentes() {
     total: garantias.length,
   };
 
+  const toggleInfraspeak = async (id: string, currentValue: boolean) => {
+    const { error: updateError } = await supabase
+      .from('solicitacoes')
+      .update({ infraspeak_registrada: !currentValue } as any)
+      .eq('id', id);
+    
+    if (!updateError) {
+      setGarantias(prev => prev.map(g => 
+        g.id === id ? { ...g, infraspeak_registrada: !currentValue } : g
+      ));
+    }
+    return !updateError;
+  };
+
   return {
     garantias: garantiasFiltradas,
     kpis,
@@ -194,5 +210,6 @@ export function useGarantiasVigentes() {
     filtroStatus, setFiltroStatus,
     busca, setBusca,
     refetch: fetchGarantias,
+    toggleInfraspeak,
   };
 }

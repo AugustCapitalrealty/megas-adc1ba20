@@ -1158,12 +1158,45 @@ export default function Backoffice() {
                 </Badge>
               )}
             </div>
-            {isAtrasado && (
-              <Badge variant="destructive" className="animate-pulse">
-                <AlertTriangle className="h-3 w-3 mr-1" />
-                SLA
-              </Badge>
-            )}
+            <div className="flex items-center gap-2">
+              {/* Primary action in header */}
+              {sol.status === 'aprovado' && (
+                <Button size="sm" onClick={() => openAction(sol, 'processar')}>
+                  <Cog className="h-4 w-4 mr-1" /> Informar Lançamento
+                </Button>
+              )}
+              {(sol.status === 'aprovado' || sol.status === 'em_processamento') && (
+                <Button size="sm" variant="default" onClick={() => openRegistro(sol)}>
+                  <FileCheck className="h-4 w-4 mr-1" /> Registrar OC
+                </Button>
+              )}
+              {sol.status === 'oc_ac_emitida' && (
+                <Button size="sm" onClick={() => openAction(sol, 'concluir')}>
+                  <CheckCheck className="h-4 w-4 mr-1" /> Concluir
+                </Button>
+              )}
+              {(sol.status === 'recebido' || sol.status === 'em_analise') && (
+                <Button size="sm" onClick={() => openAction(sol, 'assumir')}>
+                  <CheckCircle className="h-4 w-4 mr-1" /> Assumir
+                </Button>
+              )}
+              {sol.status === 'liberado_fornecedor' && (
+                <Button size="sm" onClick={() => handleRegistrarEnvioFornecedor(sol)} disabled={actionLoading}>
+                  <Send className="h-4 w-4 mr-1" /> Registrar Envio
+                </Button>
+              )}
+              {sol.status === 'enviado_fornecedor' && (
+                <Button size="sm" onClick={() => handleConcluirLiberada(sol)} disabled={actionLoading}>
+                  <CheckCheck className="h-4 w-4 mr-1" /> Concluir
+                </Button>
+              )}
+              {isAtrasado && (
+                <Badge variant="destructive" className="animate-pulse">
+                  <AlertTriangle className="h-3 w-3 mr-1" />
+                  SLA
+                </Badge>
+              )}
+            </div>
           </div>
           <CardDescription className="line-clamp-1">{sol.descricao}</CardDescription>
         </CardHeader>
@@ -1219,25 +1252,16 @@ export default function Backoffice() {
               <Eye className="h-4 w-4 mr-1" /> Ver Detalhes
             </Button>
             
-            {/* Actions based on status */}
+            {/* Secondary actions based on status */}
             {(sol.status === 'recebido' || sol.status === 'em_analise') && (
               <>
-                <Button size="sm" onClick={() => openAction(sol, 'assumir')}>
-                  <CheckCircle className="h-4 w-4 mr-1" /> Assumir
-                </Button>
                 <Button size="sm" variant="outline" onClick={() => openAction(sol, 'solicitar_ajuste')}>
                   <HelpCircle className="h-4 w-4 mr-1" /> Solicitar Ajuste
                 </Button>
-                <Button size="sm" variant="destructive" onClick={() => openAction(sol, 'rejeitar')}>
+                <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => openAction(sol, 'rejeitar')}>
                   <XCircle className="h-4 w-4 mr-1" /> Rejeitar
                 </Button>
               </>
-            )}
-            
-            {sol.status === 'aprovado' && (
-              <Button size="sm" onClick={() => openAction(sol, 'processar')}>
-                <Cog className="h-4 w-4 mr-1" /> Informar Lançamento
-              </Button>
             )}
             
             {(sol.status === 'aprovado' || sol.status === 'em_processamento') && (
@@ -1267,36 +1291,13 @@ export default function Backoffice() {
                   </Button>
                 )}
                 
-                <Button size="sm" variant="default" onClick={() => openRegistro(sol)}>
-                  <FileCheck className="h-4 w-4 mr-1" /> Registrar OC
-                </Button>
                 <Button size="sm" variant="outline" onClick={() => openAction(sol, 'solicitar_ajuste')}>
                   <HelpCircle className="h-4 w-4 mr-1" /> Solicitar Ajuste
                 </Button>
-                <Button size="sm" variant="destructive" onClick={() => openAction(sol, 'rejeitar')}>
+                <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => openAction(sol, 'rejeitar')}>
                   <XCircle className="h-4 w-4 mr-1" /> Reprovar
                 </Button>
               </>
-            )}
-            
-            {sol.status === 'oc_ac_emitida' && (
-              <Button size="sm" onClick={() => openAction(sol, 'concluir')}>
-                <CheckCheck className="h-4 w-4 mr-1" /> Concluir
-              </Button>
-            )}
-
-            {/* Liberado Fornecedor Actions */}
-            {sol.status === 'liberado_fornecedor' && (
-              <Button size="sm" onClick={() => handleRegistrarEnvioFornecedor(sol)} disabled={actionLoading}>
-                <Send className="h-4 w-4 mr-1" /> Registrar Envio
-              </Button>
-            )}
-
-            {/* Enviado Fornecedor Actions */}
-            {sol.status === 'enviado_fornecedor' && (
-              <Button size="sm" onClick={() => handleConcluirLiberada(sol)} disabled={actionLoading}>
-                <CheckCheck className="h-4 w-4 mr-1" /> Concluir
-              </Button>
             )}
 
             {/* NF/Boleto Actions (legacy) */}
