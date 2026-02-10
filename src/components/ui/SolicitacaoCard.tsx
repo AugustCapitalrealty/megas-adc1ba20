@@ -153,7 +153,7 @@ export function SolicitacaoCard({
                 </span>
               )}
               <span className="text-border">•</span>
-              <span>{new Date(sol.created_at).toLocaleDateString('pt-BR')}</span>
+              <span>{new Date(sol.created_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</span>
             </div>
           </div>
         ) : (

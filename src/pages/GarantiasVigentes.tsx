@@ -1,14 +1,17 @@
+import { useState } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Shield, ShieldCheck, ShieldAlert, ShieldX, Search, Building2, Calendar } from 'lucide-react';
+import { Loader2, Shield, ShieldCheck, ShieldAlert, ShieldX, Search, Building2, Calendar, Wrench } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useGarantiasVigentes, type GarantiaDetalhe, type StatusFiltro, type TipoFiltro } from '@/hooks/useGarantiasVigentes';
 import { EMPREENDIMENTO_LABELS, TIPO_GARANTIA_LABELS } from '@/types';
 import type { Empreendimento } from '@/types';
+import { useToast } from '@/hooks/use-toast';
 
 function KpiCard({ title, value, icon: Icon, variant }: {
   title: string;
@@ -97,6 +100,8 @@ function GarantiaProgressBar({ detalhe }: { detalhe: GarantiaDetalhe }) {
 }
 
 export default function GarantiasVigentes() {
+  const { toast } = useToast();
+  const [infraspeakLoading, setInfraspeakLoading] = useState<string | null>(null);
   const {
     garantias,
     kpis,
@@ -106,7 +111,19 @@ export default function GarantiasVigentes() {
     filtroTipo, setFiltroTipo,
     filtroStatus, setFiltroStatus,
     busca, setBusca,
+    toggleInfraspeak,
   } = useGarantiasVigentes();
+
+  const handleToggleInfraspeak = async (id: string, currentValue: boolean) => {
+    setInfraspeakLoading(id);
+    const success = await toggleInfraspeak(id, currentValue);
+    if (success) {
+      toast({ title: currentValue ? 'Infraspeak removido' : 'Marcado como Infraspeak' });
+    } else {
+      toast({ title: 'Erro ao atualizar', variant: 'destructive' });
+    }
+    setInfraspeakLoading(null);
+  };
 
   return (
     <AppLayout>
@@ -231,7 +248,13 @@ export default function GarantiasVigentes() {
                           {TIPO_GARANTIA_LABELS[g.tipo_garantia]}
                         </Badge>
                       </div>
-                      <div className="flex gap-1.5 flex-wrap">
+                      <div className="flex gap-1.5 flex-wrap items-center">
+                        {g.infraspeak_registrada && (
+                          <Badge className="gap-1 bg-cyan-100 text-cyan-800 hover:bg-cyan-100 border-cyan-300">
+                            <Wrench className="h-3 w-3" />
+                            Infraspeak
+                          </Badge>
+                        )}
                         {g.garantias.map((det, i) => (
                           <GarantiaBadge key={i} detalhe={det} />
                         ))}
@@ -267,7 +290,25 @@ export default function GarantiasVigentes() {
                         </div>
                       ))}
                     </div>
-                  </div>
+                    </div>
+                    
+                    {/* Infraspeak Toggle */}
+                    <div className="flex justify-end pt-2 border-t">
+                      <Button
+                        size="sm"
+                        variant={g.infraspeak_registrada ? 'default' : 'outline'}
+                        className={g.infraspeak_registrada ? 'gap-1.5' : 'gap-1.5 text-muted-foreground'}
+                        onClick={() => handleToggleInfraspeak(g.id, g.infraspeak_registrada)}
+                        disabled={infraspeakLoading === g.id}
+                      >
+                        {infraspeakLoading === g.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Wrench className="h-3.5 w-3.5" />
+                        )}
+                        {g.infraspeak_registrada ? 'Infraspeak ✓' : 'Marcar Infraspeak'}
+                      </Button>
+                    </div>
                 </CardContent>
               </Card>
             ))}

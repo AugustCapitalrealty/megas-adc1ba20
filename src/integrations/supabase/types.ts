@@ -655,6 +655,7 @@ export type Database = {
           ia_descricao_sugestao: string | null
           ia_descricao_vaga: boolean | null
           id: string
+          infraspeak_registrada: boolean | null
           instrumento_juridico:
             | Database["public"]["Enums"]["instrumento_juridico"]
             | null
@@ -725,6 +726,7 @@ export type Database = {
           ia_descricao_sugestao?: string | null
           ia_descricao_vaga?: boolean | null
           id?: string
+          infraspeak_registrada?: boolean | null
           instrumento_juridico?:
             | Database["public"]["Enums"]["instrumento_juridico"]
             | null
@@ -795,6 +797,7 @@ export type Database = {
           ia_descricao_sugestao?: string | null
           ia_descricao_vaga?: boolean | null
           id?: string
+          infraspeak_registrada?: boolean | null
           instrumento_juridico?:
             | Database["public"]["Enums"]["instrumento_juridico"]
             | null

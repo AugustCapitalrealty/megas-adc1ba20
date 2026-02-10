@@ -122,6 +122,9 @@ export default function MinhasSolicitacoes() {
 
   // Anexos visualization state
   const [anexosExpanded, setAnexosExpanded] = useState<Record<string, Array<{ id: string; tipo: string; nome_arquivo: string; storage_path: string; mime_type: string | null; tamanho_bytes: number | null }>>>({});
+  
+  // Anexos view dialog state
+  const [anexosViewSolicitacao, setAnexosViewSolicitacao] = useState<SolicitacaoComFornecedor | null>(null);
 
   // Aceite OC modal state (now "Liberar para Fornecedor")
   const [aceiteOpen, setAceiteOpen] = useState(false);
@@ -1131,9 +1134,31 @@ export default function MinhasSolicitacoes() {
 
   // Render header actions for a solicitacao
   const renderHeaderActions = (sol: SolicitacaoComFornecedor) => {
+    const actions: React.ReactNode[] = [];
+    
+    // Ver Anexos button (always visible)
+    actions.push(
+      <Button
+        key="anexos"
+        variant="ghost"
+        size="sm"
+        onClick={() => {
+          setAnexosViewSolicitacao(sol);
+          if (!anexosExpanded[sol.id]) {
+            fetchAnexosSolicitacao(sol.id);
+          }
+        }}
+        className="text-muted-foreground"
+      >
+        <FileText className="h-4 w-4 mr-1" />
+        Anexos
+      </Button>
+    );
+    
     if (sol.status === 'rejeitado') {
-      return (
+      actions.push(
         <Button 
+          key="duplicar"
           variant="outline" 
           size="sm" 
           onClick={() => handleDuplicate(sol)}
@@ -1144,7 +1169,7 @@ export default function MinhasSolicitacoes() {
         </Button>
       );
     }
-    return null;
+    return <>{actions}</>;
   };
 
   // Render expanded content for a solicitacao
@@ -1591,6 +1616,9 @@ export default function MinhasSolicitacoes() {
               {existingAnexos.length > 0 && (
                 <div className="space-y-2">
                   <Label>Anexos já enviados</Label>
+                  <p className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded px-3 py-1.5">
+                    💡 Clique em <strong>Excluir</strong> para remover anexos incorretos e adicione novos abaixo.
+                  </p>
                   <div className="space-y-2">
                     {(() => {
                       const anexosProblema = editingSolicitacao.status === 'aguardando_informacoes'
@@ -1652,10 +1680,10 @@ export default function MinhasSolicitacoes() {
                             ) : (
                               <Button
                                 type="button"
-                                variant="ghost"
+                                variant="destructive"
                                 size="sm"
                                 onClick={() => setAnexosParaExcluir(prev => [...prev, anexo.id])}
-                                className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                className="h-7 px-2"
                               >
                                 <Trash2 className="h-3.5 w-3.5 mr-1" />
                                 Excluir
@@ -2075,6 +2103,33 @@ export default function MinhasSolicitacoes() {
           </div>
         </div>
       </ActionModal>
+
+      {/* Anexos View Dialog (read-only) */}
+      <Dialog open={!!anexosViewSolicitacao} onOpenChange={(open) => !open && setAnexosViewSolicitacao(null)}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Anexos - #{anexosViewSolicitacao?.protocolo}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            {anexosViewSolicitacao && anexosExpanded[anexosViewSolicitacao.id] ? (
+              anexosExpanded[anexosViewSolicitacao.id].length > 0 ? (
+                anexosExpanded[anexosViewSolicitacao.id].map((anexo) => (
+                  <AnexoCard key={anexo.id} anexo={anexo} showTipo />
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-6">Nenhum anexo encontrado</p>
+              )
+            ) : (
+              <div className="flex justify-center py-6">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }
