@@ -1,232 +1,126 @@
 
 
-# Redesign UX/UI: Busca e Organizacao de Solicitacoes
-
-## Diagnostico Atual
-
-Apos analisar detalhadamente as telas de **MinhasSolicitacoes** (2080 linhas), **Backoffice** (2526 linhas), **Dashboard** (90 linhas) e a **Navegacao**, identifiquei os seguintes problemas de experiencia:
+# Plano de Melhorias da Plataforma - 8 Itens
 
 ---
 
-## Problemas Encontrados
+## 1. Bug Critico: Fornecedor Exclusivo Nao Permite Avancar
 
-### 1. Dashboard vazio e sem valor
-O Dashboard atual e apenas 4 cards estaticos que funcionam como "atalhos". O usuario entra no app e nao tem nenhuma informacao util imediata - precisa clicar para descobrir se tem algo pendente.
+**Problema confirmado:** Quando o usuario marca "Fornecimento Exclusivo", a interface esconde corretamente a secao de 3 fornecedores (linha 1613: `requires3CNPJs && !fornecimentoExclusivo`), mas a **validacao do step** (linha 933) NAO considera `fornecimentoExclusivo`. Ela so verifica `excecaoFornecedores`, entao o formulario bloqueia o avanco exigindo 2 concorrentes que o usuario nem ve.
 
-### 2. Navegacao sobrecarregada
-O header horizontal acumula 7 itens (Nova Solicitacao, Minhas Solicitacoes, Backoffice, Painel Fluig, Garantias, Usuarios, Dashboard SLA). No desktop ja fica apertado; no mobile, tudo vai para o hamburger.
-
-### 3. Busca inconsistente entre telas
-- **MinhasSolicitacoes**: busca local com debounce 300ms, campo dentro do FilterBar
-- **Backoffice**: busca via RPC (server-side) com debounce 500ms, campo dentro de um Card separado
-- Duas implementacoes diferentes para a mesma funcionalidade
-
-### 4. Filtros duplicados e confusos
-- Ambas as telas usam FilterBar com "tab groups" (Em Andamento / Acoes Pendentes / Finalizadas), mas com tabs diferentes
-- Backoffice tem filtro de Empreendimento SEPARADO do FilterBar (dentro de um Card proprio)
-- Botao "Minhas (X)" no Backoffice fica escondido no fim da barra de filtros
-
-### 5. Hierarquia de informacao invertida
-- Na tela MinhasSolicitacoes, o PendingActionsCard e bom mas aparece ABAIXO do seletor de modo ("Minhas" vs "Empreendimento"), e os filtros ficam abaixo dele
-- O usuario precisa rolar para encontrar a informacao mais importante: "o que preciso fazer agora?"
-
-### 6. Cards de solicitacao muito densos
-- Os cards mostram muita informacao de uma vez (protocolo, status, badges, tipo, empreendimento, fornecedor, valor, data, descricao)
-- No mobile, a informacao fica espremida e dificil de escanear
-
-### 7. Acoes de botoes inconsistentes
-- No Backoffice, cada card tem 3-6 botoes de acao diferentes dependendo do status
-- Os botoes ficam em uma unica linha `flex-wrap`, sem hierarquia visual clara
-- "Ver Detalhes" compete visualmente com "Assumir" e "Rejeitar"
+**Correcao:**
+- Arquivo: `src/pages/NovaSolicitacao.tsx`
+- Linhas 928-934 (validacao do step `fornecedor`): adicionar `!fornecimentoExclusivo` na condicao
+- Linhas 682-700 (validacao do submit): idem
+- Logica correta: `if (requires3CNPJs && !fornecimentoExclusivo && !excecaoFornecedores && (!concorrente1 || !concorrente2)) return false`
+- Tambem validar que `fornecimentoExclusivo` exige `justificativaExclusividade` preenchida
 
 ---
 
-## Solucao Proposta
+## 2. Trigger instrumento_juridico: OC Recebendo Termo/Contrato
 
-### A. Dashboard Enriquecido (Home Inteligente)
+**Problema confirmado no banco:** 3 solicitacoes OC (combustivel/agua/energia) com valores acima de R$10.000 receberam `termo_contratacao` em vez de `oc`:
+- #2026000106 (Energia, R$10.574) - ERRADO: `termo_contratacao`
+- #2026000091 (Energia, R$18.590) - ERRADO: `termo_contratacao`
+- #2026000076 (Agua, R$15.091) - ERRADO: `termo_contratacao`
 
-Transformar o Dashboard em um painel operacional com metricas reais:
-
-```text
-+----------------------------------------------------------+
-|  Bom dia, Joao!                                          |
-|                                                          |
-|  +-----------+ +-----------+ +-----------+ +-----------+ |
-|  | Total     | | Pendentes | | Com Back  | | Concluidas| |
-|  |    42     | |    3 (!!) | |    15     | |    22     | |
-|  +-----------+ +-----------+ +-----------+ +-----------+ |
-|                                                          |
-|  [!! ACOES PENDENTES - Card destacado com contadores !!] |
-|  | 2 Correcoes | 1 Liberar OC |                         |
-|                                                          |
-|  ULTIMAS SOLICITACOES                                    |
-|  +----------------------------------------------------+ |
-|  | #2026000042 | Servico Manutencao | R$5.200 | 2h atras| |
-|  | #2026000041 | Material Eletrico | R$1.800 | 1d atras | |
-|  +----------------------------------------------------+ |
-|                                                          |
-|  [+ Nova Solicitacao]    [Ver Todas ->]                  |
-+----------------------------------------------------------+
-```
-
-**Impacto**: O usuario abre o app e ja sabe o que precisa fazer, sem navegar.
-
-### B. Navegacao Simplificada
-
-Reorganizar a navegacao em grupos logicos:
-
-```text
-ANTES (7 itens soltos):
-[Nova] [Minhas] [Backoffice] [Fluig] [Garantias] [Usuarios] [SLA]
-
-DEPOIS (agrupado por contexto):
-[+ Nova] [Solicitacoes] [Backoffice] [Painel Fluig] [Garantias] [Admin v]
-                                                                    |
-                                                              [Usuarios]
-                                                              [Dashboard SLA]
-```
-
-- Separar botao "Nova Solicitacao" visualmente (cor diferente, destaque)
-- Agrupar itens admin (Usuarios + SLA) em um dropdown "Admin"
-- No mobile: botao "+" flutuante para nova solicitacao + menu simplificado
-
-### C. Busca e Filtros Unificados
-
-Criar um padrao unico de busca/filtro para ambas as telas:
-
-```text
-+----------------------------------------------------------+
-|  [Busca por protocolo, descricao, fornecedor...]         |
-|  [Empreendimento v] [Tipo v] [Minhas apenas: toggle]    |
-|                                                          |
-|  TABS DE STATUS (simplificados):                         |
-|  [Todas (42)] [Pendentes (3)] [Em Andamento (15)]       |
-|  [Emitidas (5)] [Finalizadas (22)]                      |
-+----------------------------------------------------------+
-```
-
-Mudancas-chave:
-- **Busca sempre visivel no topo** (nao escondida dentro de cards)
-- **Filtro de empreendimento JUNTO com a busca** (nao separado)
-- **Tabs de status em uma unica linha**, sem grupos com labels
-- **Mesmo padrao visual** para MinhasSolicitacoes e Backoffice
-- **Contadores nos tabs** para orientacao rapida
-
-### D. Cards de Solicitacao Redesenhados
-
-Simplificar a hierarquia visual dos cards:
-
-```text
-+----------------------------------------------------------+
-| [!! ACAO NECESSARIA - Corrigir Agora !!]    <-- banner   |
-|                                                          |
-| #2026000042  [Recebido]  [AC]  [Emergencial]            |
-|                                                          |
-| Servico de Manutencao Preventiva em Equipamentos de...  |
-| Mega Curitiba  |  ABC Fornecedores Ltda  |  R$ 5.200    |
-|                                                          |
-| [Ver Detalhes]  [Assumir]  [Rejeitar]        [v Expand] |
-+----------------------------------------------------------+
-```
-
-Mudancas:
-- **Descricao resumida como conteudo principal** (nao numa grid key-value)
-- **Dados complementares em linha unica** (empreendimento | fornecedor | valor)
-- **Acoes com hierarquia**: acao primaria (botao cheio), secundaria (outline), destrutiva (texto vermelho)
-- **Expand colapsado por padrao** - historico e anexos so quando pedido
-
-### E. Acoes do Backoffice com Hierarquia Clara
-
-Reorganizar os botoes de acao por importancia:
-
-```text
-ANTES (tudo junto em flex-wrap):
-[Ver Detalhes] [Assumir] [Sol. Ajuste] [Rejeitar] [Fluig] [Projuris] [Cadastro]
-
-DEPOIS (hierarquia visual):
-ACAO PRIMARIA:    [Assumir]  ou  [Registrar OC]  ou  [Concluir]
-ACOES SECUNDARIAS: [Ver Detalhes] [Solicitar Ajuste]
-DESTRUTIVA:       [Rejeitar] (texto, sem destaque)
-UTILITARIOS:      [Fluig: #123 (editar)] [Projuris: #45 (editar)]  (badges clicaveis, nao botoes)
-```
-
-### F. Experiencia Mobile Aprimorada
-
-- Botao flutuante "+" no canto inferior direito para nova solicitacao
-- Cards com layout vertical otimizado (stack em vez de grid)
-- Filtros colapsaveis (dropdown) em vez de tabs horizontais
-- Swipe em cards para acoes rapidas (futuro)
+**Correcao:** Migracao SQL para:
+1. Alterar a funcao `set_instrumento_juridico` adicionando verificacao `IF NEW.tipo = 'OC' THEN` no inicio, forcar `instrumento_juridico = 'oc'` e pular toda a logica de calculo
+2. UPDATE para corrigir os 3 registros existentes
 
 ---
 
-## Detalhes Tecnicos da Implementacao
+## 3. Data dos Servicos +1 Dia (Fuso Horario)
 
-### Fase 1: Dashboard Enriquecido
+**Problema:** Datas `data_inicio` e `data_fim` sao salvas como string (ex: "2026-02-11") mas ao exibir com `new Date("2026-02-11")`, o JavaScript interpreta como UTC meia-noite, que no fuso de Brasilia (UTC-3) vira o dia anterior ou seguinte dependendo do contexto.
 
-**Arquivo: `src/pages/Dashboard.tsx`**
-- Criar hook `useDashboardMetrics` que busca contadores via RPC existente (`get_solicitacoes_count_by_status`)
-- KPI cards com contadores reais
-- PendingActionsCard reutilizado do componente existente
-- Lista "Ultimas 5 solicitacoes" com SolicitacaoCard variant="compact"
-- Botoes "Nova Solicitacao" e "Ver Todas" como CTAs
-
-### Fase 2: Navegacao Simplificada
-
-**Arquivo: `src/components/layout/AppLayout.tsx`**
-- Botao "Nova Solicitacao" estilizado como CTA (bg-primary)
-- Itens admin agrupados em DropdownMenu
-- Mobile: FAB (Floating Action Button) para nova solicitacao
-- Reduzir itens visiveis de 7 para 5 no header
-
-### Fase 3: FilterBar Unificado
-
-**Arquivo: `src/components/ui/FilterBar.tsx`**
-- Simplificar: remover conceito de "tabGroups" com labels
-- Tabs ficam em unica linha horizontal com scroll
-- Busca e filtro de empreendimento na mesma linha
-- Toggle "Apenas minhas" integrado
-
-**Arquivos: `src/pages/MinhasSolicitacoes.tsx` e `src/pages/Backoffice.tsx`**
-- Ambos usam o mesmo padrao de FilterBar
-- Remover o Card separado de filtros do Backoffice
-- Integrar filtro de empreendimento no FilterBar
-
-### Fase 4: Cards Simplificados
-
-**Arquivo: `src/components/ui/SolicitacaoCard.tsx`**
-- Novo layout: descricao como conteudo principal
-- Metadata em linha unica compacta
-- Remover grid key-value do variant "detailed"
-
-**Arquivo: `src/pages/Backoffice.tsx` (SolicitacaoCard local)**
-- Reorganizar botoes de acao com hierarquia visual
-- Acao primaria em destaque, secundarias em outline, destrutivas em texto
+**Correcao:**
+- Arquivo: `src/lib/utils.ts` - a funcao `parseDateString` ja existe e resolve (adiciona `T12:00:00`)
+- Verificar e corrigir TODAS as exibicoes de `data_inicio` e `data_fim` em:
+  - `src/pages/MinhasSolicitacoes.tsx`
+  - `src/pages/Backoffice.tsx`
+  - `src/components/ui/SolicitacaoCard.tsx`
+- Qualquer `new Date(sol.data_inicio)` deve ser substituido por `parseDateString(sol.data_inicio)`
+- Qualquer `format(new Date(sol.created_at))` de campos DATE (nao TIMESTAMP) precisa do mesmo tratamento
 
 ---
 
-## Arquivos a Modificar
+## 4. Ver Anexos sem Precisar Corrigir
 
-| Arquivo | Alteracao |
+**Situacao atual:** Anexos so aparecem quando o usuario expande o card (expandedContent, linhas 1184-1197). Muitos usuarios nao percebem que podem expandir.
+
+**Solucao:**
+- Arquivo: `src/pages/MinhasSolicitacoes.tsx`
+- Adicionar botao "Ver Anexos" (icone `Paperclip`) nos `headerActions` de cada SolicitacaoCard
+- Ao clicar, abre um Dialog simples (somente-leitura) que lista todos os anexos com opcao de download usando o componente `AnexoCard` existente
+- Nao requer acesso ao modal de correcao
+
+---
+
+## 5. Excluir Arquivos na Correcao (Melhorar Visibilidade)
+
+**Situacao atual:** A funcionalidade JA existe (botoes "Excluir" e "Restaurar" no modal de correcao). O problema e visibilidade.
+
+**Correcao:**
+- Arquivo: `src/pages/MinhasSolicitacoes.tsx`
+- Adicionar texto explicativo no topo da secao de anexos existentes: "Clique em Excluir para remover arquivos incorretos"
+- Destacar visualmente o botao "Excluir" (usar `variant="destructive"` em vez de `outline`)
+
+---
+
+## 6. Botao "Informar Lancamento" no Canto Superior Direito (Backoffice)
+
+**Situacao atual:** O botao fica junto com todos os outros no `flex-wrap` do rodape do card (linha 1238).
+
+**Correcao:**
+- Arquivo: `src/pages/Backoffice.tsx`
+- Mover o botao de acao primaria de cada status para o `CardHeader` (ao lado do protocolo, no `justify-between`)
+- Para `aprovado`: "Informar Lancamento" no header
+- Para `aprovado/em_processamento`: "Registrar OC" no header
+- Para `oc_ac_emitida`: "Concluir" no header
+- Manter acoes secundarias (Ver Detalhes, Solicitar Ajuste, Rejeitar) na area inferior
+
+---
+
+## 7. Flag Infraspeak na Tela de Garantias
+
+**Solucao:**
+- Migracao SQL: adicionar coluna `infraspeak_registrada boolean DEFAULT false` na tabela `solicitacoes`
+- Arquivo: `src/hooks/useGarantiasVigentes.ts` - incluir campo na query e funcao de toggle
+- Arquivo: `src/pages/GarantiasVigentes.tsx` - botao toggle com icone em cada card de garantia, com badge visual "Infraspeak" quando ativo
+
+---
+
+## 8. Melhorias Visuais do Backoffice (Hierarquia de Botoes)
+
+Aproveitando a mudanca do item 6, reorganizar TODOS os botoes do Backoffice:
+
+- **Acao primaria** (botao cheio/filled): Assumir, Informar Lancamento, Registrar OC, Concluir - posicionado no header do card
+- **Acoes secundarias** (outline): Ver Detalhes, Solicitar Ajuste - mantidos na area inferior
+- **Destrutiva** (ghost vermelho, sem preenchimento): Rejeitar/Reprovar - mantido na area inferior, menos destaque
+- **Utilitarios** (badges clicaveis): Fluig, Projuris, Cadastro - ja estao como badges, manter
+
+---
+
+## Resumo dos Arquivos
+
+| Arquivo | Alteracoes |
 |---------|-----------|
-| `src/pages/Dashboard.tsx` | Reescrever com metricas reais e acoes pendentes |
-| `src/components/layout/AppLayout.tsx` | Reorganizar navegacao, agrupar admin, CTA nova solicitacao |
-| `src/components/ui/FilterBar.tsx` | Simplificar tabs, integrar empreendimento |
-| `src/pages/MinhasSolicitacoes.tsx` | Usar FilterBar unificado, layout simplificado |
-| `src/pages/Backoffice.tsx` | Remover Card de filtros separado, hierarquia de botoes |
-| `src/components/ui/SolicitacaoCard.tsx` | Novo layout com descricao como foco |
-| `src/hooks/useDashboardMetrics.ts` | **Criar** - Hook para metricas do dashboard |
+| `src/pages/NovaSolicitacao.tsx` | Fix validacao fornecedor exclusivo |
+| `src/pages/Backoffice.tsx` | Botao primario no header + hierarquia de botoes |
+| `src/pages/MinhasSolicitacoes.tsx` | Dialog de anexos somente-leitura + visibilidade exclusao |
+| `src/pages/GarantiasVigentes.tsx` | Botao flag Infraspeak |
+| `src/hooks/useGarantiasVigentes.ts` | Campo infraspeak na query + toggle |
+| `src/lib/utils.ts` | Verificar/padronizar funcoes de data |
+| **Migracao SQL** | Fix trigger OC + campo infraspeak_registrada |
 
----
+## Ordem de Execucao
 
-## Ordem de Implementacao Recomendada
-
-Como sao muitas mudancas, recomendo implementar em etapas para validar cada uma:
-
-1. **Dashboard Enriquecido** - Impacto visual alto, risco baixo (pagina isolada)
-2. **Navegacao Simplificada** - Melhora orientacao global
-3. **FilterBar Unificado** - Padroniza busca entre telas
-4. **Cards Simplificados** - Melhora escaneabilidade
-5. **Hierarquia de Acoes do Backoffice** - Reduz confusao operacional
-
-Cada etapa pode ser validada independentemente antes de avancar.
+1. Fix fornecedor exclusivo (bug bloqueante para usuarios)
+2. Fix trigger OC para combustivel/agua/energia (dados incorretos)
+3. Fix datas +1 dia (timezone)
+4. Dialog de anexos somente-leitura
+5. Botao primario no header do Backoffice + hierarquia
+6. Flag Infraspeak nas garantias
+7. Visibilidade da exclusao de anexos
 
