@@ -1221,21 +1221,31 @@ export default function Backoffice() {
               </div>
             </div>
             
-            {/* SLA Info */}
-            <div className="flex items-center gap-4 pt-2 border-t">
-              <span className={cn(
-                "text-xs",
-                sla.atrasadoAnalise ? "text-destructive font-semibold" : "text-muted-foreground"
+            {/* SLA Info with colored badges */}
+            <div className="flex items-center gap-2 pt-2 border-t flex-wrap">
+              <Badge variant="outline" className={cn(
+                "text-xs gap-1",
+                sla.atrasadoAnalise 
+                  ? "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-700" 
+                  : sla.diasDesdeAbertura >= 3 
+                    ? "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-700"
+                    : "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-700"
               )}>
+                <Clock className="h-3 w-3" />
                 {sla.tempoDesdeAbertura} desde abertura
-              </span>
+              </Badge>
               {sla.tempoDesdeAprovacao !== null && (
-                <span className={cn(
-                  "text-xs",
-                  sla.atrasadoEmissao ? "text-destructive font-semibold" : "text-muted-foreground"
+                <Badge variant="outline" className={cn(
+                  "text-xs gap-1",
+                  sla.atrasadoEmissao 
+                    ? "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-700" 
+                    : (sla.diasDesdeAprovacao ?? 0) >= 2
+                      ? "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-700"
+                      : "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-700"
                 )}>
+                  <Clock className="h-3 w-3" />
                   {sla.tempoDesdeAprovacao} desde assumido
-                </span>
+                </Badge>
               )}
             </div>
 
@@ -1247,92 +1257,97 @@ export default function Backoffice() {
             )}
           </div>
 
-          <div className="flex gap-2 flex-wrap items-center">
-            <Button size="sm" variant="outline" onClick={() => openDetails(sol)}>
-              <Eye className="h-4 w-4 mr-1" /> Ver Detalhes
-            </Button>
-            
-            {/* Secondary actions based on status */}
-            {(sol.status === 'recebido' || sol.status === 'em_analise') && (
-              <>
+          {/* Action buttons - organized in rows */}
+          <div className="space-y-2">
+            {/* Primary row: View details + secondary actions */}
+            <div className="flex gap-2 flex-wrap items-center">
+              <Button size="sm" variant="outline" onClick={() => openDetails(sol)}>
+                <Eye className="h-4 w-4 mr-1" /> Ver Detalhes
+              </Button>
+              
+              {/* Secondary actions based on status */}
+              {(sol.status === 'recebido' || sol.status === 'em_analise') && (
                 <Button size="sm" variant="outline" onClick={() => openAction(sol, 'solicitar_ajuste')}>
                   <HelpCircle className="h-4 w-4 mr-1" /> Solicitar Ajuste
                 </Button>
-                <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => openAction(sol, 'rejeitar')}>
-                  <XCircle className="h-4 w-4 mr-1" /> Rejeitar
-                </Button>
-              </>
-            )}
-            
-            {(sol.status === 'aprovado' || sol.status === 'em_processamento') && (
-              <>
-                {/* Cadastro Contábil Button */}
-                {solCadastroStatus === 'concluido' ? (
-                  <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-700 flex items-center gap-1">
-                    <CheckCircle className="h-3 w-3" />
-                    Cadastro OK
-                  </Badge>
-                ) : (
-                  <Button 
-                    size="sm" 
-                    variant={solCadastroStatus === 'solicitado' ? 'secondary' : 'outline'}
-                    onClick={() => handleSolicitarCadastro(sol)}
-                    disabled={cadastroLoading}
-                  >
-                    {solCadastroStatus === 'solicitado' ? (
-                      <>
-                        <CheckCircle className="h-4 w-4 mr-1" /> Cadastro Concluído
-                      </>
-                    ) : (
-                      <>
-                        <Package className="h-4 w-4 mr-1" /> Solicitar Cadastro
-                      </>
-                    )}
-                  </Button>
-                )}
-                
-                <Button size="sm" variant="outline" onClick={() => openAction(sol, 'solicitar_ajuste')}>
-                  <HelpCircle className="h-4 w-4 mr-1" /> Solicitar Ajuste
-                </Button>
-                <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => openAction(sol, 'rejeitar')}>
-                  <XCircle className="h-4 w-4 mr-1" /> Reprovar
-                </Button>
-              </>
-            )}
-
-            {/* NF/Boleto Actions (legacy) */}
-            {sol.status === 'nf_boleto_enviados' && (
-              <>
-                <Button size="sm" variant="outline" onClick={() => {
-                  setSelectedSolicitacao(sol);
-                  setNfBoletoViewOpen(true);
-                }}>
-                  <Receipt className="h-4 w-4 mr-1" /> Ver NF/Boleto
-                </Button>
-                <Button size="sm" onClick={() => {
-                  setSelectedSolicitacao(sol);
-                  setNfBoletoViewOpen(true);
-                }}>
-                  <Send className="h-4 w-4 mr-1" /> Dar Baixa
-                </Button>
-              </>
-            )}
-            
-            {/* Expand/Collapse button for history */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setExpandedId(expandedId === sol.id ? null : sol.id)}
-              className="ml-auto"
-            >
-              <History className="h-4 w-4 mr-1" />
-              Histórico
-              {expandedId === sol.id ? (
-                <ChevronUp className="h-4 w-4 ml-1" />
-              ) : (
-                <ChevronDown className="h-4 w-4 ml-1" />
               )}
-            </Button>
+              
+              {(sol.status === 'aprovado' || sol.status === 'em_processamento') && (
+                <>
+                  {/* Cadastro Contábil Button */}
+                  {solCadastroStatus === 'concluido' ? (
+                    <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-700 flex items-center gap-1">
+                      <CheckCircle className="h-3 w-3" />
+                      Cadastro OK
+                    </Badge>
+                  ) : (
+                    <Button 
+                      size="sm" 
+                      variant={solCadastroStatus === 'solicitado' ? 'secondary' : 'outline'}
+                      onClick={() => handleSolicitarCadastro(sol)}
+                      disabled={cadastroLoading}
+                    >
+                      {solCadastroStatus === 'solicitado' ? (
+                        <>
+                          <CheckCircle className="h-4 w-4 mr-1" /> Cadastro Concluído
+                        </>
+                      ) : (
+                        <>
+                          <Package className="h-4 w-4 mr-1" /> Solicitar Cadastro
+                        </>
+                      )}
+                    </Button>
+                  )}
+                  
+                  <Button size="sm" variant="outline" onClick={() => openAction(sol, 'solicitar_ajuste')}>
+                    <HelpCircle className="h-4 w-4 mr-1" /> Solicitar Ajuste
+                  </Button>
+                </>
+              )}
+
+              {/* NF/Boleto Actions */}
+              {sol.status === 'nf_boleto_enviados' && (
+                <>
+                  <Button size="sm" variant="outline" onClick={() => {
+                    setSelectedSolicitacao(sol);
+                    setNfBoletoViewOpen(true);
+                  }}>
+                    <Receipt className="h-4 w-4 mr-1" /> Ver NF/Boleto
+                  </Button>
+                  <Button size="sm" onClick={() => {
+                    setSelectedSolicitacao(sol);
+                    setNfBoletoViewOpen(true);
+                  }}>
+                    <Send className="h-4 w-4 mr-1" /> Dar Baixa
+                  </Button>
+                </>
+              )}
+              
+              {/* Expand/Collapse button for history */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setExpandedId(expandedId === sol.id ? null : sol.id)}
+                className="ml-auto"
+              >
+                <History className="h-4 w-4 mr-1" />
+                Histórico
+                {expandedId === sol.id ? (
+                  <ChevronUp className="h-4 w-4 ml-1" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 ml-1" />
+                )}
+              </Button>
+            </div>
+
+            {/* Destructive actions row - separated visually */}
+            {(sol.status === 'recebido' || sol.status === 'em_analise' || sol.status === 'aprovado' || sol.status === 'em_processamento') && (
+              <div className="flex gap-2 pt-1 border-t border-dashed">
+                <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => openAction(sol, 'rejeitar')}>
+                  <XCircle className="h-4 w-4 mr-1" /> {sol.status === 'aprovado' || sol.status === 'em_processamento' ? 'Reprovar' : 'Rejeitar'}
+                </Button>
+              </div>
+            )}
           </div>
           
           {/* Descrição com Ver mais/menos */}

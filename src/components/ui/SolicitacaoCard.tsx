@@ -5,6 +5,7 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { Badge } from '@/components/ui/badge';
 import { ExpandableDescription } from '@/components/ExpandableDescription';
 import { CorrectionDeadlineBadge } from '@/components/CorrectionDeadlineBadge';
+import { WorkflowProgress } from '@/components/WorkflowProgress';
 import { 
   EMPREENDIMENTO_LABELS, 
   TIPO_CONTRATACAO_LABELS,
@@ -155,6 +156,9 @@ export function SolicitacaoCard({
               <span className="text-border">•</span>
               <span>{new Date(sol.created_at).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</span>
             </div>
+            
+            {/* Workflow Progress Bar */}
+            <WorkflowProgress status={sol.status} className="mt-2" />
           </div>
         ) : (
           // Compact variant
