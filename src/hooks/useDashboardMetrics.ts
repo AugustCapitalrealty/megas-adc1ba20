@@ -26,6 +26,7 @@ interface DashboardMetrics {
   pendingCorrections: number;
   pendingAcceptance: number;
   pendingNfBoleto: number;
+  pendingInfoRequests: number;
   inProgress: number;
   concluded: number;
   recentSolicitacoes: RecentSolicitacao[];
@@ -64,13 +65,14 @@ export function useDashboardMetrics(): DashboardMetrics {
     statusCounts.push({ status, count });
   });
 
-  // Pending actions (user-facing)
+  // Pending actions (user-facing) - actions that require the user to do something
   const pendingCorrections = allSol.filter(s => s.status === 'pendente_correcao').length;
-  const pendingAcceptance = allSol.filter(s => s.status === 'oc_ac_emitida' || s.status === 'aguardando_aceite').length;
+  const pendingAcceptance = allSol.filter(s => s.status === 'aguardando_aceite').length;
   const pendingNfBoleto = allSol.filter(s => s.status === 'aguardando_nf_boleto').length;
+  const pendingInfoRequests = allSol.filter(s => s.status === 'aguardando_informacoes').length;
 
-  // In progress statuses
-  const inProgressStatuses: RequestStatus[] = ['recebido', 'em_analise', 'em_processamento', 'aprovado', 'liberado_fornecedor', 'enviado_fornecedor', 'aguardando_informacoes'];
+  // In progress statuses (with backoffice, user doesn't need to act)
+  const inProgressStatuses: RequestStatus[] = ['recebido', 'em_analise', 'em_processamento', 'aprovado', 'liberado_fornecedor', 'enviado_fornecedor'];
   const inProgress = allSol.filter(s => inProgressStatuses.includes(s.status as RequestStatus)).length;
 
   const concluded = allSol.filter(s => s.status === 'concluida').length;
@@ -93,10 +95,11 @@ export function useDashboardMetrics(): DashboardMetrics {
 
   return {
     total: allSol.length,
-    pendingActions: pendingCorrections + pendingAcceptance + pendingNfBoleto,
+    pendingActions: pendingCorrections + pendingAcceptance + pendingNfBoleto + pendingInfoRequests,
     pendingCorrections,
     pendingAcceptance,
     pendingNfBoleto,
+    pendingInfoRequests,
     inProgress,
     concluded,
     recentSolicitacoes,

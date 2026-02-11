@@ -195,34 +195,40 @@ export default function MinhasSolicitacoes() {
         }
       }
 
-      const enrichedData = await Promise.all(
-        data.map(async (sol: any) => {
-          let documentoEmitido = null;
-          let documentosFiscais: DocumentoFiscal[] = [];
-          
-          if (['oc_ac_emitida', 'concluida', 'aguardando_aceite', 'aguardando_nf_boleto', 'nf_boleto_enviados', 'enviado_pagamento', 'liberado_fornecedor', 'enviado_fornecedor'].includes(sol.status)) {
-            const { data: docData } = await supabase
-              .from('documentos_emitidos')
-              .select('*')
-              .eq('solicitacao_id', sol.id)
-              .maybeSingle();
-            documentoEmitido = docData;
-          }
+      // Batch fetch documents instead of N+1 queries
+      const allIds = data.map((s: any) => s.id);
+      const statusesNeedingDocs = ['oc_ac_emitida', 'concluida', 'aguardando_aceite', 'aguardando_nf_boleto', 'nf_boleto_enviados', 'enviado_pagamento', 'liberado_fornecedor', 'enviado_fornecedor'];
+      const idsNeedingDocs = data.filter((s: any) => statusesNeedingDocs.includes(s.status)).map((s: any) => s.id);
 
-          const { data: fiscaisData } = await supabase
-            .from('documentos_fiscais')
-            .select('*')
-            .eq('solicitacao_id', sol.id);
-          if (fiscaisData) documentosFiscais = fiscaisData as DocumentoFiscal[];
-          
-          return { 
-            ...sol, 
-            documentoEmitido, 
-            documentosFiscais,
-            solicitante_nome: profilesMap[sol.user_id] || null
-          } as SolicitacaoComFornecedor;
-        })
-      );
+      // Fetch all documents in 2 batch queries
+      let docsMap: Record<string, any> = {};
+      let fiscaisMap: Record<string, DocumentoFiscal[]> = {};
+
+      const [docsResult, fiscaisResult] = await Promise.all([
+        idsNeedingDocs.length > 0 
+          ? supabase.from('documentos_emitidos').select('*').in('solicitacao_id', idsNeedingDocs)
+          : Promise.resolve({ data: [] }),
+        supabase.from('documentos_fiscais').select('*').in('solicitacao_id', allIds),
+      ]);
+
+      if (docsResult.data) {
+        for (const doc of docsResult.data) {
+          if (!docsMap[doc.solicitacao_id]) docsMap[doc.solicitacao_id] = doc;
+        }
+      }
+      if (fiscaisResult.data) {
+        for (const doc of fiscaisResult.data) {
+          if (!fiscaisMap[doc.solicitacao_id]) fiscaisMap[doc.solicitacao_id] = [];
+          fiscaisMap[doc.solicitacao_id].push(doc as DocumentoFiscal);
+        }
+      }
+
+      const enrichedData = data.map((sol: any) => ({
+        ...sol,
+        documentoEmitido: docsMap[sol.id] || null,
+        documentosFiscais: fiscaisMap[sol.id] || [],
+        solicitante_nome: profilesMap[sol.user_id] || null,
+      } as SolicitacaoComFornecedor));
       
       setSolicitacoes(enrichedData);
       

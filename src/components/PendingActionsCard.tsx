@@ -4,7 +4,7 @@ import { AlertTriangle, Edit, CheckCircle, Receipt, ChevronRight } from 'lucide-
 import { cn } from '@/lib/utils';
 
 interface PendingAction {
-  type: 'correcao' | 'aceite_oc' | 'nf_boleto';
+  type: 'correcao' | 'aceite_oc' | 'nf_boleto' | 'info_requests';
   count: number;
   label: string;
   description: string;
@@ -14,6 +14,7 @@ interface PendingActionsCardProps {
   pendingCorrections: number;
   pendingAcceptance: number;
   pendingNfBoleto: number;
+  pendingInfoRequests?: number;
   onViewPending: (filter: string) => void;
   className?: string;
 }
@@ -22,10 +23,11 @@ export function PendingActionsCard({
   pendingCorrections,
   pendingAcceptance,
   pendingNfBoleto,
+  pendingInfoRequests = 0,
   onViewPending,
   className,
 }: PendingActionsCardProps) {
-  const totalPending = pendingCorrections + pendingAcceptance + pendingNfBoleto;
+  const totalPending = pendingCorrections + pendingAcceptance + pendingNfBoleto + pendingInfoRequests;
   
   if (totalPending === 0) return null;
 
@@ -48,6 +50,12 @@ export function PendingActionsCard({
       label: 'NF/Boleto',
       description: 'Aguardando envio de documentos fiscais',
     },
+    {
+      type: 'info_requests',
+      count: pendingInfoRequests,
+      label: 'Informações',
+      description: 'Backoffice solicitou informações adicionais',
+    },
   ];
   
   const actions = allActions.filter(a => a.count > 0);
@@ -57,6 +65,7 @@ export function PendingActionsCard({
       case 'correcao': return 'correcoes';
       case 'aceite_oc': return 'oc_emitida';
       case 'nf_boleto': return 'aguardando_nf';
+      case 'info_requests': return 'correcoes';
       default: return 'todas';
     }
   };
@@ -66,6 +75,7 @@ export function PendingActionsCard({
       case 'correcao': return <Edit className="h-5 w-5" />;
       case 'aceite_oc': return <CheckCircle className="h-5 w-5" />;
       case 'nf_boleto': return <Receipt className="h-5 w-5" />;
+      case 'info_requests': return <AlertTriangle className="h-5 w-5" />;
       default: return <AlertTriangle className="h-5 w-5" />;
     }
   };
@@ -75,6 +85,7 @@ export function PendingActionsCard({
       case 'correcao': return 'text-destructive bg-destructive/10 border-destructive/20';
       case 'aceite_oc': return 'text-success bg-success/10 border-success/20';
       case 'nf_boleto': return 'text-[hsl(260,70%,50%)] bg-[hsl(260,70%,50%)]/10 border-[hsl(260,70%,50%)]/20';
+      case 'info_requests': return 'text-amber-600 bg-amber-100 border-amber-200 dark:text-amber-400 dark:bg-amber-900/20 dark:border-amber-700';
       default: return 'text-warning bg-warning/10 border-warning/20';
     }
   };

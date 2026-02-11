@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { cn } from '@/lib/utils';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,7 @@ export default function Dashboard() {
       icon: ClipboardList,
       color: 'text-foreground',
       bgColor: 'bg-muted',
+      filter: 'todas',
     },
     {
       label: 'Pendentes',
@@ -38,6 +40,7 @@ export default function Dashboard() {
       color: 'text-destructive',
       bgColor: 'bg-destructive/10',
       highlight: metrics.pendingActions > 0,
+      filter: 'correcoes',
     },
     {
       label: 'Em Andamento',
@@ -45,6 +48,7 @@ export default function Dashboard() {
       icon: LayoutDashboard,
       color: 'text-primary',
       bgColor: 'bg-primary/10',
+      filter: 'com_backoffice',
     },
     {
       label: 'Finalizadas',
@@ -52,6 +56,7 @@ export default function Dashboard() {
       icon: CheckCircle2,
       color: 'text-success',
       bgColor: 'bg-success/10',
+      filter: 'concluidas',
     },
   ];
 
@@ -87,7 +92,11 @@ export default function Dashboard() {
                 return (
                   <Card 
                     key={kpi.label}
-                    className={kpi.highlight ? 'border-destructive/50 shadow-sm' : ''}
+                    className={cn(
+                      'cursor-pointer hover:shadow-md transition-all',
+                      kpi.highlight ? 'border-destructive/50 shadow-sm' : 'hover:border-primary/30'
+                    )}
+                    onClick={() => navigate(`/minhas-solicitacoes?filter=${kpi.filter}`)}
                   >
                     <CardContent className="p-4">
                       <div className="flex items-center gap-3">
@@ -110,6 +119,7 @@ export default function Dashboard() {
               pendingCorrections={metrics.pendingCorrections}
               pendingAcceptance={metrics.pendingAcceptance}
               pendingNfBoleto={metrics.pendingNfBoleto}
+              pendingInfoRequests={metrics.pendingInfoRequests}
               onViewPending={(filter) => navigate(`/minhas-solicitacoes?filter=${filter}`)}
             />
 
