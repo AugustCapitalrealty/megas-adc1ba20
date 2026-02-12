@@ -534,8 +534,8 @@ export default function NovaSolicitacao() {
           attachments.unshift({ tipo: 'chamado_preventiva', label: ANEXO_LABELS.chamado_preventiva, required: true });
         }
         
-        // Cotações concorrentes e mapa só aparecem se NÃO tem exceção de fornecedores
-        if (!excecaoFornecedores) {
+        // Cotações concorrentes e mapa só aparecem se NÃO tem exceção de fornecedores E NÃO é fornecimento exclusivo
+        if (!excecaoFornecedores && !fornecimentoExclusivo) {
           attachments.push(
             { tipo: 'orcamento_concorrente_1', label: ANEXO_LABELS.orcamento_concorrente_1, required: true },
             { tipo: 'orcamento_concorrente_2', label: ANEXO_LABELS.orcamento_concorrente_2, required: true },
