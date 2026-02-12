@@ -1160,7 +1160,7 @@ export default function Backoffice() {
             </div>
             <div className="flex items-center gap-2">
               {/* Primary action in header */}
-              {(sol.status === 'aprovado' || sol.status === 'em_processamento') && (
+              {(sol.status === 'aprovado' || (sol.status === 'em_processamento' && !sol.numero_chamado_fluig)) && (
                 <Button size="sm" onClick={() => openAction(sol, 'processar')}>
                   <Cog className="h-4 w-4 mr-1" /> Informar Lançamento
                 </Button>
