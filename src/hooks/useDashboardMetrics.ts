@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useUserEmpreendimentos } from '@/hooks/useUserEmpreendimentos';
 import type { RequestStatus, Empreendimento } from '@/types';
 
 interface StatusCount {
@@ -34,23 +35,41 @@ interface DashboardMetrics {
   isLoading: boolean;
 }
 
-export function useDashboardMetrics(): DashboardMetrics {
-  const { user } = useAuth();
+type ViewMode = 'minhas' | 'geral';
 
-  // Fetch user's solicitations count by status
+export function useDashboardMetrics(viewMode: ViewMode = 'minhas'): DashboardMetrics {
+  const { user, isBackofficeOrAdmin } = useAuth();
+  const { empreendimentos, loading: loadingEmp, hasAllAccess } = useUserEmpreendimentos(user?.id);
+
+  const isGeralMode = viewMode === 'geral' && (isBackofficeOrAdmin || empreendimentos.length > 0);
+
   const { data: solicitacoes, isLoading: loadingSol } = useQuery({
-    queryKey: ['dashboard-user-solicitacoes', user?.id],
+    queryKey: ['dashboard-user-solicitacoes', user?.id, viewMode, isBackofficeOrAdmin, empreendimentos],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('solicitacoes')
         .select('id, protocolo, descricao, valor, status, tipo, empreendimento, created_at, fornecedor:fornecedores(razao_social, nome_fantasia)')
-        .eq('user_id', user!.id)
         .order('created_at', { ascending: false });
 
+      if (isGeralMode) {
+        if (isBackofficeOrAdmin || hasAllAccess) {
+          // No user_id filter — fetch all
+        } else if (empreendimentos.length > 0) {
+          query = query.in('empreendimento', empreendimentos);
+        }
+      } else {
+        query = query.eq('user_id', user!.id);
+      }
+
+      // Limit to 1000 to avoid Supabase default cap issues
+      query = query.limit(1000);
+
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && !loadingEmp,
+    staleTime: 30_000, // 30s stale time to avoid excessive refetches
   });
 
   const allSol = solicitacoes || [];
@@ -65,13 +84,13 @@ export function useDashboardMetrics(): DashboardMetrics {
     statusCounts.push({ status, count });
   });
 
-  // Pending actions (user-facing) - actions that require the user to do something
+  // Pending actions
   const pendingCorrections = allSol.filter(s => s.status === 'pendente_correcao').length;
   const pendingAcceptance = allSol.filter(s => s.status === 'aguardando_aceite').length;
   const pendingNfBoleto = allSol.filter(s => s.status === 'aguardando_nf_boleto').length;
   const pendingInfoRequests = allSol.filter(s => s.status === 'aguardando_informacoes').length;
 
-  // In progress statuses (with backoffice, user doesn't need to act)
+  // In progress statuses
   const inProgressStatuses: RequestStatus[] = ['recebido', 'em_analise', 'em_processamento', 'aprovado', 'liberado_fornecedor', 'enviado_fornecedor'];
   const inProgress = allSol.filter(s => inProgressStatuses.includes(s.status as RequestStatus)).length;
 
@@ -104,6 +123,6 @@ export function useDashboardMetrics(): DashboardMetrics {
     concluded,
     recentSolicitacoes,
     statusCounts,
-    isLoading: loadingSol,
+    isLoading: loadingSol || loadingEmp,
   };
 }
