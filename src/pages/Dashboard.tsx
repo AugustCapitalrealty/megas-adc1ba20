@@ -1,16 +1,18 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
+import { useUserEmpreendimentos } from '@/hooks/useUserEmpreendimentos';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { PendingActionsCard } from '@/components/PendingActionsCard';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Badge } from '@/components/ui/badge';
 import { 
   Plus, FileText, LayoutDashboard, ClipboardList, 
-  CheckCircle2, Clock, ArrowRight, Loader2 
+  CheckCircle2, Clock, ArrowRight, Loader2, Users, User
 } from 'lucide-react';
 import { EMPREENDIMENTO_LABELS } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
@@ -19,10 +21,17 @@ import { ptBR } from 'date-fns/locale';
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
+type ViewMode = 'minhas' | 'geral';
+
 export default function Dashboard() {
-  const { profile, isBackofficeOrAdmin } = useAuth();
+  const { user, profile, isBackofficeOrAdmin } = useAuth();
   const navigate = useNavigate();
-  const metrics = useDashboardMetrics();
+  const { empreendimentos } = useUserEmpreendimentos(user?.id);
+  
+  const canToggle = isBackofficeOrAdmin || empreendimentos.length > 0;
+  const [viewMode, setViewMode] = useState<ViewMode>(canToggle ? 'geral' : 'minhas');
+  
+  const metrics = useDashboardMetrics(viewMode);
 
   const kpis = [
     {
@@ -63,20 +72,46 @@ export default function Dashboard() {
   return (
     <AppLayout>
       <div className="space-y-6 animate-fade-in">
-        {/* Greeting */}
-        <div className="flex items-center justify-between">
+        {/* Greeting + Toggle */}
+        <div className="flex items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">
               Olá, {profile?.full_name?.split(' ')[0] || 'Usuário'}!
             </h1>
             <p className="text-muted-foreground text-sm mt-0.5">
-              Plataforma de solicitações AC/OC dos Megas
+              {viewMode === 'geral' 
+                ? 'Visão geral de todas as solicitações' 
+                : 'Suas solicitações'}
             </p>
           </div>
-          <Button onClick={() => navigate('/nova-solicitacao')} className="gap-2 hidden sm:flex">
-            <Plus className="h-4 w-4" />
-            Nova Solicitação
-          </Button>
+          <div className="flex items-center gap-2">
+            {canToggle && (
+              <div className="flex items-center bg-muted rounded-lg p-1 gap-0.5">
+                <Button
+                  variant={viewMode === 'minhas' ? 'default' : 'ghost'}
+                  size="sm"
+                  className="gap-1.5 h-8 text-xs"
+                  onClick={() => setViewMode('minhas')}
+                >
+                  <User className="h-3.5 w-3.5" />
+                  Minhas
+                </Button>
+                <Button
+                  variant={viewMode === 'geral' ? 'default' : 'ghost'}
+                  size="sm"
+                  className="gap-1.5 h-8 text-xs"
+                  onClick={() => setViewMode('geral')}
+                >
+                  <Users className="h-3.5 w-3.5" />
+                  Geral
+                </Button>
+              </div>
+            )}
+            <Button onClick={() => navigate('/nova-solicitacao')} className="gap-2 hidden sm:flex">
+              <Plus className="h-4 w-4" />
+              Nova Solicitação
+            </Button>
+          </div>
         </div>
 
         {/* KPI Cards */}
@@ -190,7 +225,9 @@ export default function Dashboard() {
                   <FileText className="h-12 w-12 text-muted-foreground/50 mb-4" />
                   <h3 className="font-semibold text-lg mb-1">Nenhuma solicitação ainda</h3>
                   <p className="text-muted-foreground text-sm mb-4">
-                    Crie sua primeira solicitação de AC ou OC
+                    {viewMode === 'geral' 
+                      ? 'Nenhuma solicitação encontrada no sistema'
+                      : 'Crie sua primeira solicitação de AC ou OC'}
                   </p>
                   <Button onClick={() => navigate('/nova-solicitacao')} className="gap-2">
                     <Plus className="h-4 w-4" />
