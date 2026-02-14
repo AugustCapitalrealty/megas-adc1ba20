@@ -87,6 +87,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
+import { TransferOwnershipModal } from '@/components/TransferOwnershipModal';
 
 // PDF validation types
 interface PdfValidationResult {
@@ -162,6 +163,10 @@ export default function Backoffice() {
   // Solicitar/Concluir Cadastro Contábil
   const [cadastroLoading, setCadastroLoading] = useState(false);
   const [cadastroStatus, setCadastroStatus] = useState<Record<string, 'solicitado' | 'concluido' | null>>({});
+
+  // Transfer modal state
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [transferSolicitacao, setTransferSolicitacao] = useState<SolicitacaoBackoffice | null>(null);
 
   // Fetch details when opening details modal
   useEffect(() => {
@@ -1337,6 +1342,19 @@ export default function Backoffice() {
                 ) : (
                   <ChevronDown className="h-4 w-4 ml-1" />
                 )}
+              </Button>
+
+              {/* Transfer button */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setTransferSolicitacao(sol);
+                  setTransferOpen(true);
+                }}
+                className="text-muted-foreground"
+              >
+                <UserCheck className="h-4 w-4 mr-1" /> Transferir
               </Button>
             </div>
 
@@ -2537,6 +2555,20 @@ export default function Backoffice() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Transfer Ownership Modal */}
+      {transferSolicitacao && (
+        <TransferOwnershipModal
+          open={transferOpen}
+          onOpenChange={setTransferOpen}
+          solicitacaoId={transferSolicitacao.id}
+          solicitacaoProtocolo={transferSolicitacao.protocolo}
+          currentUserId={''} 
+          currentUserName={transferSolicitacao.solicitante_nome || 'Solicitante'}
+          empreendimento={transferSolicitacao.empreendimento}
+          onTransferred={fetchSolicitacoes}
+        />
+      )}
     </AppLayout>
   );
 }

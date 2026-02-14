@@ -105,6 +105,11 @@ const getActionDetails = (acao: string, statusNovo: string | null): { icon: JSX.
     label: 'Solicitante pediu ajuste na OC', 
     color: 'bg-warning text-warning-foreground' 
   };
+  if (acao === 'transferencia_titularidade') return { 
+    icon: <UserCheck className="h-4 w-4" />, 
+    label: 'Titularidade transferida', 
+    color: 'bg-primary text-primary-foreground' 
+  };
   if (acao === 'resposta_informacoes') return { 
     icon: <MessageSquare className="h-4 w-4" />, 
     label: 'Solicitante respondeu às informações', 

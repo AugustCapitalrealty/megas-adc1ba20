@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -12,11 +12,12 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { Badge } from '@/components/ui/badge';
 import { 
   Plus, FileText, LayoutDashboard, ClipboardList, 
-  CheckCircle2, Clock, ArrowRight, Loader2, Users, User
+  CheckCircle2, Clock, ArrowRight, Loader2, Users, User, AlertTriangle, RefreshCw
 } from 'lucide-react';
 import { EMPREENDIMENTO_LABELS } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useQueryClient } from '@tanstack/react-query';
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -26,12 +27,24 @@ type ViewMode = 'minhas' | 'geral';
 export default function Dashboard() {
   const { user, profile, isBackofficeOrAdmin } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { empreendimentos } = useUserEmpreendimentos(user?.id);
   
   const canToggle = isBackofficeOrAdmin || empreendimentos.length > 0;
-  const [viewMode, setViewMode] = useState<ViewMode>(canToggle ? 'geral' : 'minhas');
+  const [viewMode, setViewMode] = useState<ViewMode>('minhas');
+
+  // Sync viewMode when canToggle becomes available (roles load async)
+  useEffect(() => {
+    if (canToggle) {
+      setViewMode('geral');
+    }
+  }, [canToggle]);
   
   const metrics = useDashboardMetrics(viewMode);
+
+  const handleRetry = () => {
+    queryClient.invalidateQueries({ queryKey: ['dashboard-user-solicitacoes'] });
+  };
 
   const kpis = [
     {
@@ -104,6 +117,11 @@ export default function Dashboard() {
                 >
                   <Users className="h-3.5 w-3.5" />
                   Geral
+                  {!metrics.isLoading && viewMode === 'geral' && metrics.total > 0 && (
+                    <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
+                      {metrics.total}
+                    </Badge>
+                  )}
                 </Button>
               </div>
             )}
@@ -113,6 +131,27 @@ export default function Dashboard() {
             </Button>
           </div>
         </div>
+
+        {/* Error state */}
+        {metrics.error && !metrics.isLoading && (
+          <Card className="border-destructive/50 bg-destructive/5">
+            <CardContent className="flex items-center justify-between py-4">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+                <div>
+                  <p className="font-medium text-destructive">Erro ao carregar dados</p>
+                  <p className="text-sm text-muted-foreground">
+                    Não foi possível buscar as solicitações. Tente novamente.
+                  </p>
+                </div>
+              </div>
+              <Button variant="outline" size="sm" onClick={handleRetry} className="gap-2">
+                <RefreshCw className="h-4 w-4" />
+                Tentar novamente
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {/* KPI Cards */}
         {metrics.isLoading ? (
@@ -219,7 +258,7 @@ export default function Dashboard() {
             )}
 
             {/* Empty state */}
-            {metrics.total === 0 && (
+            {metrics.total === 0 && !metrics.error && (
               <Card className="border-dashed">
                 <CardContent className="flex flex-col items-center justify-center py-12 text-center">
                   <FileText className="h-12 w-12 text-muted-foreground/50 mb-4" />

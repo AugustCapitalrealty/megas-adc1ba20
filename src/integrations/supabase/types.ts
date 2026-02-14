@@ -618,6 +618,44 @@ export type Database = {
           },
         ]
       }
+      solicitacao_transfers: {
+        Row: {
+          created_at: string
+          created_by: string
+          from_user_id: string
+          id: string
+          motivo: string
+          solicitacao_id: string
+          to_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          from_user_id: string
+          id?: string
+          motivo: string
+          solicitacao_id: string
+          to_user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          from_user_id?: string
+          id?: string
+          motivo?: string
+          solicitacao_id?: string
+          to_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solicitacao_transfers_solicitacao_id_fkey"
+            columns: ["solicitacao_id"]
+            isOneToOne: false
+            referencedRelation: "solicitacoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       solicitacoes: {
         Row: {
           cliente_id: string | null

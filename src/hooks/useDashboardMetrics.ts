@@ -33,6 +33,7 @@ interface DashboardMetrics {
   recentSolicitacoes: RecentSolicitacao[];
   statusCounts: StatusCount[];
   isLoading: boolean;
+  error: Error | null;
 }
 
 type ViewMode = 'minhas' | 'geral';
@@ -41,11 +42,14 @@ export function useDashboardMetrics(viewMode: ViewMode = 'minhas'): DashboardMet
   const { user, isBackofficeOrAdmin } = useAuth();
   const { empreendimentos, loading: loadingEmp, hasAllAccess } = useUserEmpreendimentos(user?.id);
 
-  const isGeralMode = viewMode === 'geral' && (isBackofficeOrAdmin || empreendimentos.length > 0);
-
-  const { data: solicitacoes, isLoading: loadingSol } = useQuery({
+  const { data: solicitacoes, isLoading: loadingSol, error } = useQuery({
     queryKey: ['dashboard-user-solicitacoes', user?.id, viewMode, isBackofficeOrAdmin, empreendimentos],
     queryFn: async () => {
+      // Compute mode inside queryFn to avoid stale closures
+      const isGeralMode = viewMode === 'geral' && (isBackofficeOrAdmin || empreendimentos.length > 0);
+
+      console.log('[DashboardMetrics] Fetching:', { viewMode, isGeralMode, isBackofficeOrAdmin, empreendimentos, userId: user?.id });
+
       let query = supabase
         .from('solicitacoes')
         .select('id, protocolo, descricao, valor, status, tipo, empreendimento, created_at, fornecedor:fornecedores(razao_social, nome_fantasia)')
@@ -61,15 +65,19 @@ export function useDashboardMetrics(viewMode: ViewMode = 'minhas'): DashboardMet
         query = query.eq('user_id', user!.id);
       }
 
-      // Limit to 1000 to avoid Supabase default cap issues
       query = query.limit(1000);
 
       const { data, error } = await query;
-      if (error) throw error;
+      if (error) {
+        console.error('[DashboardMetrics] Query error:', error);
+        throw error;
+      }
+      console.log('[DashboardMetrics] Fetched:', data?.length, 'solicitações');
       return data;
     },
     enabled: !!user?.id && !loadingEmp,
-    staleTime: 30_000, // 30s stale time to avoid excessive refetches
+    staleTime: 15_000,
+    refetchOnWindowFocus: true,
   });
 
   const allSol = solicitacoes || [];
@@ -124,5 +132,6 @@ export function useDashboardMetrics(viewMode: ViewMode = 'minhas'): DashboardMet
     recentSolicitacoes,
     statusCounts,
     isLoading: loadingSol || loadingEmp,
+    error: error as Error | null,
   };
 }
