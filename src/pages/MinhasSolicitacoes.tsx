@@ -24,7 +24,7 @@ import {
   type DocumentoEmitido,
   type DocumentoFiscal,
 } from '@/types';
-import { Loader2, FileText, Edit, Send, AlertTriangle, Copy, XCircle, Download, FileCheck, CheckCircle, MessageSquare, RotateCcw, Receipt, Upload, User, Building2, Trash2 } from 'lucide-react';
+import { Loader2, FileText, Edit, Send, AlertTriangle, Copy, XCircle, Download, FileCheck, CheckCircle, MessageSquare, RotateCcw, Receipt, Upload, User, Building2, Trash2, UserCheck } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import { SolicitacaoTimeline } from '@/components/SolicitacaoTimeline';
 import { FluigStatusCard } from '@/components/FluigStatusCard';
@@ -32,6 +32,7 @@ import { AnexoCard } from '@/components/AnexoCard';
 import { MultiFileUpload, type UploadedFile } from '@/components/FileUpload';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { TransferOwnershipModal } from '@/components/TransferOwnershipModal';
 
 // Design System Components
 import { SolicitacaoCard, type SolicitacaoWithDetails } from '@/components/ui/SolicitacaoCard';
@@ -146,6 +147,10 @@ export default function MinhasSolicitacoes() {
   const [pagamentoAntecipado, setPagamentoAntecipado] = useState(false);
   const [justificativaAntecipado, setJustificativaAntecipado] = useState('');
   const [nfBoletoLoading, setNfBoletoLoading] = useState(false);
+
+  // Transfer modal state
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [transferSolicitacao, setTransferSolicitacao] = useState<SolicitacaoComFornecedor | null>(null);
 
   useEffect(() => {
     if (effectiveUserId) {
@@ -1175,6 +1180,26 @@ export default function MinhasSolicitacoes() {
         </Button>
       );
     }
+
+    // Transfer button - visible for empreendimento mode or always
+    if (viewMode === 'empreendimento' || sol.user_id === effectiveUserId) {
+      actions.push(
+        <Button
+          key="transferir"
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            setTransferSolicitacao(sol);
+            setTransferOpen(true);
+          }}
+          className="text-muted-foreground"
+        >
+          <UserCheck className="h-4 w-4 mr-1" />
+          Transferir
+        </Button>
+      );
+    }
+
     return <>{actions}</>;
   };
 
@@ -2136,6 +2161,20 @@ export default function MinhasSolicitacoes() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Transfer Ownership Modal */}
+      {transferSolicitacao && (
+        <TransferOwnershipModal
+          open={transferOpen}
+          onOpenChange={setTransferOpen}
+          solicitacaoId={transferSolicitacao.id}
+          solicitacaoProtocolo={transferSolicitacao.protocolo}
+          currentUserId={transferSolicitacao.user_id}
+          currentUserName={transferSolicitacao.solicitante_nome || 'Solicitante'}
+          empreendimento={transferSolicitacao.empreendimento}
+          onTransferred={fetchSolicitacoes}
+        />
+      )}
     </AppLayout>
   );
 }
