@@ -1,172 +1,152 @@
+# Plano de Melhorias Priorizadas
 
+## Contexto Importante: Separacao de Conceitos
 
-# Plano: Dashboard com Dados Reais + Funcionalidade "Assumir Solicitacoes"
+O usuario levantou um ponto critico: existem **dois tempos distintos** no processo que nao devem ser misturados:
 
-## Parte 1: Correcao Definitiva do Dashboard
+1. **Tempo do Backoffice (SLA interno)** - Da chegada da solicitacao ate a emissao da OC/AC. Este e o Dashboard SLA existente (`/admin/sla`), visivel apenas para Admin. Meta: 3 dias uteis.
+2. **Tempo Ponta-a-Ponta (Lead Time)** - Da criacao da solicitacao ate o solicitante receber a OC. Inclui tempo do solicitante corrigindo, enviando NF, etc. Este e o **novo** Dashboard de Eficiencia proposto.
 
-### Diagnostico
-
-O codigo atual do `useDashboardMetrics.ts` esta logicamente correto, mas apresenta problemas de robustez:
-
-1. **Sem tratamento de erros visivel**: Se a query falhar silenciosamente, os KPIs aparecem zerados sem feedback
-2. **Sem logs de debug**: Impossivel diagnosticar se a query retornou vazio ou nem executou
-3. **Dependencia de closure**: O `isGeralMode` e calculado fora do `queryFn`, podendo causar stale closures em edge cases
-4. **Sem refetch automatico**: Ao voltar para a aba do navegador, os dados nao atualizam
-
-### Acoes
-
-**Arquivo: `src/hooks/useDashboardMetrics.ts`**
-
-- Mover a logica de decisao para DENTRO do `queryFn` (evitar stale closures)
-- Adicionar `console.log` com os parametros da query para facilitar debug futuro
-- Adicionar tratamento de erro com toast de feedback visual
-- Adicionar `refetchOnWindowFocus: true` para atualizar ao voltar para a aba
-- Reduzir `staleTime` para 15 segundos
-- Retornar flag `error` no retorno do hook para exibir estado de erro no Dashboard
-
-**Arquivo: `src/pages/Dashboard.tsx`**
-
-- Exibir estado de erro (card com botao "Tentar novamente") quando a query falhar
-- Usar `useEffect` para sincronizar `viewMode` quando `canToggle` mudar (evitar bug do useState inicial)
-- Adicionar badge com contagem total no modo "Geral" para confirmar visualmente que os dados estao carregando
+A metrica "38 processadas em menos de 1 dia" refere-se ao tempo do Backoffice (item 1), nao ao processo completo.
 
 ---
 
-## Parte 2: Funcionalidade "Assumir Solicitacoes"
+## Prioridade 1 (Critica): Painel de Solicitacoes Funcional
 
-### Conceito
+**Problema:** O Dashboard operacional (`/`) continua zerado para alguns usuarios. E a porta de entrada do sistema e precisa funcionar.
 
-Permitir que um usuario (solicitante do mesmo empreendimento ou backoffice/admin) assuma a titularidade de uma solicitacao quando o solicitante original estiver ausente (ferias, licenca). Toda transferencia e registrada em log de auditoria.
+### Acoes:
 
-### Regras de Negocio
+**A. Diagnostico em tempo real** (`src/hooks/useDashboardMetrics.ts`)
 
-1. **Quem pode assumir?**
-   - Admin: qualquer solicitacao
-   - Backoffice: qualquer solicitacao
-   - Solicitante: apenas solicitacoes do mesmo empreendimento (via `user_empreendimentos`)
+- Adicionar log detalhado no console com: `viewMode`, `isBackofficeOrAdmin`, `empreendimentos`, quantidade retornada
+- Verificar se `useAuth` retorna `isBackofficeOrAdmin` como `undefined` inicialmente (race condition)
+- Garantir que o `enabled` do useQuery aguarde TODOS os dados de permissao carregarem
 
-2. **Log de auditoria obrigatorio**: Registra quem assumiu, de quem, quando e o motivo
+**B. Fallback visual** (`src/pages/Dashboard.tsx`)
 
-3. **O solicitante original nao perde acesso**: Continua podendo visualizar a solicitacao
+- Se `metrics.total === 0` e `viewMode === 'geral'` e usuario e backoffice/admin, exibir card de diagnostico: "Nenhuma solicitacao encontrada. Verifique se os filtros estao corretos."
+- Adicionar botao "Recarregar" visivel ao lado do toggle Minhas/Geral
 
-4. **Status nao muda**: Assumir nao altera o status da solicitacao, apenas o responsavel
+**C. Acoes Pendentes claras para ambos os lados**
 
-### Alteracoes de Banco de Dados
-
-**Migration 1: Tabela de log de transferencias**
-
-```sql
-CREATE TABLE public.solicitacao_transfers (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  solicitacao_id uuid NOT NULL REFERENCES solicitacoes(id) ON DELETE CASCADE,
-  from_user_id uuid NOT NULL,
-  to_user_id uuid NOT NULL,
-  motivo text NOT NULL,
-  created_at timestamptz DEFAULT now(),
-  created_by uuid NOT NULL DEFAULT auth.uid()
-);
-
-ALTER TABLE public.solicitacao_transfers ENABLE ROW LEVEL SECURITY;
-
--- Backoffice e admin podem ver todos os logs
-CREATE POLICY "Backoffice can view transfers"
-  ON public.solicitacao_transfers FOR SELECT
-  TO authenticated
-  USING (is_backoffice_or_admin(auth.uid()));
-
--- Usuarios podem ver transfers de solicitacoes que acessam
-CREATE POLICY "Users can view own transfers"
-  ON public.solicitacao_transfers FOR SELECT
-  TO authenticated
-  USING (from_user_id = auth.uid() OR to_user_id = auth.uid());
-
--- Inserir: quem tem acesso a solicitacao pode transferir
-CREATE POLICY "Authorized users can transfer"
-  ON public.solicitacao_transfers FOR INSERT
-  TO authenticated
-  WITH CHECK (
-    is_backoffice_or_admin(auth.uid())
-    OR user_can_access_solicitacao(solicitacao_id)
-  );
-```
-
-**Migration 2: Politica de UPDATE no user_id da solicitacao**
-
-```sql
--- Permitir que admin/backoffice ou usuarios do empreendimento
--- atualizem o user_id (transferencia de titularidade)
-CREATE POLICY "Transfer ownership"
-  ON public.solicitacoes FOR UPDATE
-  TO authenticated
-  USING (
-    is_backoffice_or_admin(auth.uid())
-    OR user_can_access_solicitacao(id)
-  )
-  WITH CHECK (true);
-```
-
-Nota: A politica existente "Users can update own pending solicitacoes" ja cobre updates do proprio usuario. Esta nova politica cobre especificamente o cenario de transferencia.
-
-### Alteracoes de Frontend
-
-**Novo componente: `src/components/TransferOwnershipModal.tsx`**
-
-- Modal com:
-  - Selecao de usuario destino (lista de usuarios do mesmo empreendimento)
-  - Campo obrigatorio de motivo (ex: "Ferias do solicitante original")
-  - Botao de confirmacao
-- Ao confirmar:
-  1. Insere registro em `solicitacao_transfers`
-  2. Atualiza `user_id` na solicitacao para o novo titular
-  3. Registra evento na timeline (`solicitacao_historico`)
-  4. Toast de confirmacao
-
-**Arquivo: `src/pages/MinhasSolicitacoes.tsx`**
-
-- Adicionar botao "Transferir" no card de cada solicitacao (visivel para:
-  - O proprio solicitante
-  - Usuarios com acesso ao empreendimento
-  - Backoffice/Admin)
-- Botao abre o `TransferOwnershipModal`
-
-**Arquivo: `src/pages/Backoffice.tsx`**
-
-- Adicionar botao "Assumir" no painel de analise
-- Ao clicar, o backoffice se torna o titular (ou pode escolher outro usuario)
-- Registra a acao no log de transferencias
-
-**Arquivo: `src/components/SolicitacaoTimeline.tsx`**
-
-- Exibir eventos de transferencia na timeline com icone diferenciado
-- Formato: "Solicitacao transferida de [Nome A] para [Nome B] - Motivo: [texto]"
-
-### Fluxo Visual
-
-```text
-Solicitacao com titular ausente
-    |
-    +-- Colega do empreendimento --> Botao "Assumir" --> Modal com motivo --> Confirma
-    |
-    +-- Backoffice --> Botao "Redistribuir" --> Seleciona usuario --> Confirma
-    |
-    +-- Sistema registra:
-         1. Log em solicitacao_transfers
-         2. Evento na timeline
-         3. Atualiza user_id
-         4. Notificacao por email (opcional)
-```
+- **Para o Solicitante**: Destacar correcoes pendentes, OCs aguardando aceite, NF/Boleto pendentes (ja implementado via PendingActionsCard)
+- **Para o Backoffice**: Adicionar KPIs especificos no modo "Geral":
+  - "Novas (Em Fila)" - solicitacoes com status `recebido` aguardando analise
+  - "Em Analise" - solicitacoes sendo trabalhadas
+  - "Aguardando Solicitante" - devolvidas para correcao ou informacoes
+  - "Em Aprovacao" - no fluxo de aprovacao
 
 ---
 
-## Resumo de Arquivos
+## Prioridade 2 (Alta): Dashboard de Eficiencia (Lead Time Ponta-a-Ponta)
 
-| Arquivo | Acao |
-|---|---|
-| `src/hooks/useDashboardMetrics.ts` | Corrigir robustez, logs, erro, refetch |
-| `src/pages/Dashboard.tsx` | Estado de erro, sincronizar viewMode |
-| `src/components/TransferOwnershipModal.tsx` | Novo - modal de transferencia |
-| `src/pages/MinhasSolicitacoes.tsx` | Botao "Transferir" nos cards |
-| `src/pages/Backoffice.tsx` | Botao "Assumir/Redistribuir" |
-| `src/components/SolicitacaoTimeline.tsx` | Exibir eventos de transferencia |
-| Migration SQL | Tabela `solicitacao_transfers` + politica de update |
+### Escopo
 
+Novo painel focado em **provar o valor da plataforma** comparando o lead time completo (criacao ate OC entregue). Acessivel para Backoffice e Admin.
+
+### A. Os 4 KPIs Principais
+
+
+| KPI                | Calculo                                                                                            | Visual                                               |
+| ------------------ | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| Lead Time Medio    | Media de dias uteis entre `created_at` e data de emissao da OC (`numero_chamado_fluig` preenchido) | Numero grande + seta comparativa vs periodo anterior |
+| % Same-Day (Flash) | % onde OC foi emitida no mesmo dia da criacao                                                      | Icone de raio + percentual                           |
+| Backlog Critico    | Solicitacoes abertas ha > 15 dias sem OC                                                           | Card vermelho, clicavel para filtrar tabela          |
+| Volume vs Vazao    | Entradas (novas) vs Saidas (OCs emitidas) no periodo                                               | Dois numeros lado a lado com indicador de equilibrio |
+
+
+### B. Graficos
+
+**Grafico 1: Histograma de Dispersao**
+
+- Recharts BarChart com faixas: 0-1d, 2-5d, 6-10d, 11-15d, 15-30d, 30d+
+- Dados calculados a partir das solicitacoes com OC emitida no periodo
+- Objetivo: mostrar a concentracao na faixa 0-5 dias
+
+**Grafico 2: Evolucao Temporal (Year-over-Year)**
+
+- Recharts LineChart com media semanal de lead time
+- Checkbox "Comparar com Ano Anterior" que sobrepoe linha de 2025 vs 2026
+- Requer dados historicos (solicitacoes de 2025 importadas ou calculadas do Fluig)
+
+### C. Tabela de Drill-down
+
+- Colunas: Protocolo, Data Abertura, Data OC, Tempo Decorrido, Empreendimento, Status
+- Formatacao condicional: verde (< 24h), vermelho (> 10 dias)
+- Responde a cliques nos KPIs e graficos (filtro dinamico)
+
+### Implementacao Tecnica
+
+**Novo arquivo:** `src/pages/DashboardEficiencia.tsx`
+
+- Nova rota: `/admin/eficiencia` (acessivel para backoffice e admin)
+- Adicionar ao menu Admin no `AppLayout.tsx`
+
+**Novo hook:** `src/hooks/useEficienciaDashboard.ts`
+
+- Query que busca solicitacoes com `numero_chamado_fluig IS NOT NULL` (OC emitida)
+- Calcula lead time: diferenca em dias uteis entre `created_at` e data do historico onde `numero_chamado_fluig` foi preenchido
+- Agrupa por faixas para histograma
+- Calcula medias semanais para grafico temporal
+
+**Nota sobre dados de 2025:** Para o comparativo Year-over-Year, sera necessario ter dados de 2025 no banco. Se nao existirem, o grafico mostrara apenas 2026 com uma nota "Dados historicos indisponiveis para comparacao".
+
+---
+
+## Prioridade 3 (Alta): Backlog de Correcoes Rapidas
+
+### UX-03: Truncagem de Texto
+
+- Aplicar `truncate` ou `line-clamp` nos nomes de arquivos nos componentes `AnexoCard.tsx` e cards de solicitacao
+- CSS: `max-width` + `overflow: hidden` + `text-overflow: ellipsis`
+
+### UI-05: Header do Modal (Backoffice)
+
+- No modal de detalhes do Backoffice, adicionar `gap` ou `padding-right` entre o valor (R$) e o botao "X" de fechar
+
+### UX-05: Confirmacao ao Rejeitar
+
+- Adicionar modal de confirmacao com campo obrigatorio de motivo ao clicar em "Rejeitar" no Backoffice
+- Usar o `ActionModal` existente com variant `destructive`
+
+### UI-03: Botoes de Download
+
+- Substituir botoes "Baixar" por icones de download (`Download` do lucide) nos cards de anexo do solicitante
+- &nbsp;
+
+### UX-07: Link "Ver OC Original" nas Garantias
+
+- No card de garantia em `GarantiasVigentes.tsx`, adicionar botao/link que navega para a solicitacao original em MinhasSolicitacoes
+
+### UX-08: Filtro por KPI nas Garantias
+
+- Tornar os KpiCards clicaveis, passando o filtro de status correspondente ao clicar
+
+---
+
+## Resumo de Arquivos e Estimativas
+
+
+| ID      | Arquivo(s)                                                           | Acao                                                | Esforco |
+| ------- | -------------------------------------------------------------------- | --------------------------------------------------- | ------- |
+| BUG-01  | `useDashboardMetrics.ts`, `Dashboard.tsx`                            | Debug + robustez + KPIs backoffice                  | Medio   |
+| FEAT-01 | `DashboardEficiencia.tsx` (novo), `useEficienciaDashboard.ts` (novo) | Dashboard completo com 4 KPIs + 2 graficos + tabela | Alto    |
+| FEAT-02 | `useEficienciaDashboard.ts`                                          | Calculo de lead time ponta-a-ponta                  | Medio   |
+| UX-03   | `AnexoCard.tsx`, CSS                                                 | Truncagem de nomes                                  | Baixo   |
+| UI-05   | `Backoffice.tsx`                                                     | Spacing no header do modal                          | Baixo   |
+| UX-05   | `Backoffice.tsx`                                                     | Modal de confirmacao ao rejeitar                    | Medio   |
+| UI-03   | `MinhasSolicitacoes.tsx`                                             | Icones no lugar de botoes                           | Baixo   |
+| QA-01   | Migration SQL                                                        | Correcao ortografica                                | Minimo  |
+| UX-07   | `GarantiasVigentes.tsx`                                              | Link para OC original                               | Baixo   |
+| UX-08   | `GarantiasVigentes.tsx`                                              | KPI cards clicaveis                                 | Medio   |
+| NAV     | `AppLayout.tsx`, `App.tsx`                                           | Rota e menu para Dashboard Eficiencia               | Baixo   |
+
+
+### Ordem de Execucao Sugerida
+
+1. **BUG-01** - Painel operacional funcional (critico, bloqueia uso diario)
+2. **QA-01 + UX-03 + UI-05 + UI-03** - Correcoes rapidas em lote
+3. **UX-05** - Confirmacao ao rejeitar (prevencao de erro)
+4. **UX-07 + UX-08** - Melhorias na pagina de Garantias
+5. **FEAT-01 + FEAT-02** - Dashboard de Eficiencia completo (maior esforco)
