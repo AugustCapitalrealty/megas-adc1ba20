@@ -30,6 +30,11 @@ interface DashboardMetrics {
   pendingInfoRequests: number;
   inProgress: number;
   concluded: number;
+  // Backoffice-specific KPIs
+  newInQueue: number;
+  inAnalysis: number;
+  waitingSolicitor: number;
+  inApproval: number;
   recentSolicitacoes: RecentSolicitacao[];
   statusCounts: StatusCount[];
   isLoading: boolean;
@@ -104,6 +109,12 @@ export function useDashboardMetrics(viewMode: ViewMode = 'minhas'): DashboardMet
 
   const concluded = allSol.filter(s => s.status === 'concluida').length;
 
+  // Backoffice-specific KPIs
+  const newInQueue = allSol.filter(s => s.status === 'recebido').length;
+  const inAnalysis = allSol.filter(s => s.status === 'em_analise' || s.status === 'aprovado' || s.status === 'em_processamento').length;
+  const waitingSolicitor = allSol.filter(s => s.status === 'pendente_correcao' || s.status === 'aguardando_informacoes').length;
+  const inApproval = allSol.filter(s => s.status === 'aguardando_aceite').length;
+
   // Recent 5
   const recentSolicitacoes: RecentSolicitacao[] = allSol.slice(0, 5).map(s => {
     const forn = s.fornecedor as any;
@@ -129,6 +140,10 @@ export function useDashboardMetrics(viewMode: ViewMode = 'minhas'): DashboardMet
     pendingInfoRequests,
     inProgress,
     concluded,
+    newInQueue,
+    inAnalysis,
+    waitingSolicitor,
+    inApproval,
     recentSolicitacoes,
     statusCounts,
     isLoading: loadingSol || loadingEmp,

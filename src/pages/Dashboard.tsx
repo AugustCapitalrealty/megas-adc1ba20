@@ -46,41 +46,79 @@ export default function Dashboard() {
     queryClient.invalidateQueries({ queryKey: ['dashboard-user-solicitacoes'] });
   };
 
-  const kpis = [
-    {
-      label: 'Total',
-      value: metrics.total,
-      icon: ClipboardList,
-      color: 'text-foreground',
-      bgColor: 'bg-muted',
-      filter: 'todas',
-    },
-    {
-      label: 'Pendentes',
-      value: metrics.pendingActions,
-      icon: Clock,
-      color: 'text-destructive',
-      bgColor: 'bg-destructive/10',
-      highlight: metrics.pendingActions > 0,
-      filter: 'correcoes',
-    },
-    {
-      label: 'Em Andamento',
-      value: metrics.inProgress,
-      icon: LayoutDashboard,
-      color: 'text-primary',
-      bgColor: 'bg-primary/10',
-      filter: 'com_backoffice',
-    },
-    {
-      label: 'Finalizadas',
-      value: metrics.concluded,
-      icon: CheckCircle2,
-      color: 'text-success',
-      bgColor: 'bg-success/10',
-      filter: 'concluidas',
-    },
-  ];
+  // Different KPIs depending on viewMode
+  const kpis = viewMode === 'geral' && isBackofficeOrAdmin
+    ? [
+        {
+          label: 'Total',
+          value: metrics.total,
+          icon: ClipboardList,
+          color: 'text-foreground',
+          bgColor: 'bg-muted',
+          filter: 'todas',
+        },
+        {
+          label: 'Novas (Em Fila)',
+          value: metrics.newInQueue,
+          icon: Clock,
+          color: 'text-info',
+          bgColor: 'bg-info/10',
+          highlight: metrics.newInQueue > 0,
+          filter: 'com_backoffice',
+        },
+        {
+          label: 'Em Análise',
+          value: metrics.inAnalysis,
+          icon: LayoutDashboard,
+          color: 'text-primary',
+          bgColor: 'bg-primary/10',
+          filter: 'com_backoffice',
+        },
+        {
+          label: 'Aguardando Solicitante',
+          value: metrics.waitingSolicitor,
+          icon: AlertTriangle,
+          color: 'text-warning',
+          bgColor: 'bg-warning/10',
+          highlight: metrics.waitingSolicitor > 0,
+          filter: 'correcoes',
+        },
+      ]
+    : [
+        {
+          label: 'Total',
+          value: metrics.total,
+          icon: ClipboardList,
+          color: 'text-foreground',
+          bgColor: 'bg-muted',
+          filter: 'todas',
+        },
+        {
+          label: 'Pendentes',
+          value: metrics.pendingActions,
+          icon: Clock,
+          color: 'text-destructive',
+          bgColor: 'bg-destructive/10',
+          highlight: metrics.pendingActions > 0,
+          filter: 'correcoes',
+        },
+        {
+          label: 'Em Andamento',
+          value: metrics.inProgress,
+          icon: LayoutDashboard,
+          color: 'text-primary',
+          bgColor: 'bg-primary/10',
+          filter: 'com_backoffice',
+        },
+        {
+          label: 'Finalizadas',
+          value: metrics.concluded,
+          icon: CheckCircle2,
+          color: 'text-success',
+          bgColor: 'bg-success/10',
+          filter: 'concluidas',
+        },
+      ];
 
   return (
     <AppLayout>

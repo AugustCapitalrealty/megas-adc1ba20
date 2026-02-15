@@ -1,11 +1,12 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Shield, ShieldCheck, ShieldAlert, ShieldX, Search, Building2, Calendar, Wrench } from 'lucide-react';
+import { Loader2, Shield, ShieldCheck, ShieldAlert, ShieldX, Search, Building2, Calendar, Wrench, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useGarantiasVigentes, type GarantiaDetalhe, type StatusFiltro, type TipoFiltro } from '@/hooks/useGarantiasVigentes';
@@ -13,11 +14,12 @@ import { EMPREENDIMENTO_LABELS, TIPO_GARANTIA_LABELS } from '@/types';
 import type { Empreendimento } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 
-function KpiCard({ title, value, icon: Icon, variant }: {
+function KpiCard({ title, value, icon: Icon, variant, onClick }: {
   title: string;
   value: number;
   icon: React.ElementType;
   variant: 'vigente' | 'expirando' | 'expirada';
+  onClick?: () => void;
 }) {
   const styles = {
     vigente: 'border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-900',
@@ -36,7 +38,10 @@ function KpiCard({ title, value, icon: Icon, variant }: {
   };
 
   return (
-    <Card className={`${styles[variant]}`}>
+    <Card 
+      className={`${styles[variant]} ${onClick ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}`}
+      onClick={onClick}
+    >
       <CardContent className="p-4 flex items-center gap-4">
         <div className={`p-2 rounded-lg ${iconStyles[variant]} bg-white/60 dark:bg-black/20`}>
           <Icon className="h-6 w-6" />
@@ -101,6 +106,7 @@ function GarantiaProgressBar({ detalhe }: { detalhe: GarantiaDetalhe }) {
 
 export default function GarantiasVigentes() {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [infraspeakLoading, setInfraspeakLoading] = useState<string | null>(null);
   const {
     garantias,
@@ -139,9 +145,9 @@ export default function GarantiasVigentes() {
 
         {/* KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <KpiCard title="Vigentes" value={kpis.vigentes} icon={ShieldCheck} variant="vigente" />
-          <KpiCard title="Expirando em 30 dias" value={kpis.expirando} icon={ShieldAlert} variant="expirando" />
-          <KpiCard title="Expiradas" value={kpis.expiradas} icon={ShieldX} variant="expirada" />
+          <KpiCard title="Vigentes" value={kpis.vigentes} icon={ShieldCheck} variant="vigente" onClick={() => setFiltroStatus('vigente')} />
+          <KpiCard title="Expirando em 30 dias" value={kpis.expirando} icon={ShieldAlert} variant="expirando" onClick={() => setFiltroStatus('expirando')} />
+          <KpiCard title="Expiradas" value={kpis.expiradas} icon={ShieldX} variant="expirada" onClick={() => setFiltroStatus('expirada')} />
         </div>
 
         {/* Filtros */}
@@ -292,8 +298,17 @@ export default function GarantiasVigentes() {
                     </div>
                     </div>
                     
-                    {/* Infraspeak Toggle */}
-                    <div className="flex justify-end pt-2 border-t">
+                    {/* Infraspeak Toggle + Ver Original */}
+                    <div className="flex justify-between items-center pt-2 border-t">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="gap-1.5 text-xs text-muted-foreground hover:text-primary"
+                        onClick={() => navigate(`/minhas-solicitacoes?search=${g.protocolo}`)}
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        Ver OC Original
+                      </Button>
                       <Button
                         size="sm"
                         variant={g.infraspeak_registrada ? 'default' : 'outline'}

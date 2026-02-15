@@ -1554,7 +1554,7 @@ export default function Backoffice() {
                   </Badge>
                 )}
               </DialogTitle>
-              <span className="text-2xl font-bold text-primary whitespace-nowrap">
+              <span className="text-2xl font-bold text-primary whitespace-nowrap pr-8">
                 {selectedSolicitacao?.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
               </span>
             </div>
