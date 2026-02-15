@@ -103,6 +103,11 @@ export function AppLayout({ children }: AppLayoutProps) {
       label: 'Dashboard SLA',
       icon: Timer,
     },
+    {
+      href: '/admin/eficiencia',
+      label: 'Eficiência',
+      icon: BarChart3,
+    },
   ];
 
   const getInitials = (name: string | null, email: string) => {
