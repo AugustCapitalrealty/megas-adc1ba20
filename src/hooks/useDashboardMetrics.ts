@@ -57,7 +57,7 @@ export function useDashboardMetrics(viewMode: ViewMode = 'minhas'): DashboardMet
 
       let query = supabase
         .from('solicitacoes')
-        .select('id, protocolo, descricao, valor, status, tipo, empreendimento, created_at, fornecedor:fornecedores(razao_social, nome_fantasia)')
+        .select('id, protocolo, descricao, valor, status, tipo, empreendimento, created_at, fornecedor:fornecedores!solicitacoes_fornecedor_id_fkey(razao_social, nome_fantasia)')
         .order('created_at', { ascending: false });
 
       if (isGeralMode) {
