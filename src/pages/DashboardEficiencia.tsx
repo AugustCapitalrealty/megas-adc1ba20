@@ -28,6 +28,10 @@ import {
   Building2,
   Filter,
   Activity,
+  RotateCcw,
+  Clock,
+  Users,
+  Truck,
 } from 'lucide-react';
 import {
   BarChart,
@@ -40,12 +44,19 @@ import {
   LineChart,
   Line,
   Legend,
+  Cell,
 } from 'recharts';
 import { useEficienciaDashboard, type EficienciaFilters } from '@/hooks/useEficienciaDashboard';
 import { EMPREENDIMENTO_LABELS, type Empreendimento } from '@/types';
 import { cn } from '@/lib/utils';
 
 type DrilldownFilter = 'all' | 'same_day' | 'backlog' | string;
+
+const EMPREENDIMENTO_COLORS: Record<string, string> = {
+  mega_curitiba: 'hsl(var(--primary))',
+  mega_itajai: 'hsl(var(--warning))',
+  mega_esteio: 'hsl(var(--success))',
+};
 
 export default function DashboardEficiencia() {
   const [filters, setFilters] = useState<EficienciaFilters>({
@@ -66,6 +77,11 @@ export default function DashboardEficiencia() {
     ocEmitted,
     histogram,
     weeklyAverages,
+    leadTimePorEmpreendimento,
+    retrabalho,
+    etapas,
+    topSolicitantes,
+    topFornecedores,
     isLoading,
     refetch,
   } = useEficienciaDashboard(filters);
@@ -86,18 +102,16 @@ export default function DashboardEficiencia() {
     return filtered;
   }, [entries, drilldownFilter]);
 
-  // YoY data - separate current year vs previous year
+  // YoY data
   const yoyData = useMemo(() => {
     if (!showYoY) return weeklyAverages;
     const currentYear = new Date().getFullYear();
     const current = weeklyAverages.filter(w => w.year === currentYear);
     const previous = weeklyAverages.filter(w => w.year === currentYear - 1);
-    // Merge by week index
-    const merged = current.map((c, i) => ({
+    return current.map((c, i) => ({
       ...c,
       avgAnterior: previous[i]?.avg || null,
     }));
-    return merged;
   }, [weeklyAverages, showYoY]);
 
   const handleFilterChange = (key: keyof EficienciaFilters, value: string | null) => {
@@ -109,9 +123,13 @@ export default function DashboardEficiencia() {
 
   const formatDuration = (days: number) => {
     if (days === 0) return 'Mesmo dia';
-    if (days === 1) return '1 dia';
-    return `${days} dias`;
+    if (days === 1) return '1 dia útil';
+    return `${days} dias úteis`;
   };
+
+  const retrabalhoPercent = retrabalho.total > 0
+    ? Math.round((retrabalho.count / retrabalho.total) * 100)
+    : 0;
 
   return (
     <AppLayout>
@@ -124,116 +142,13 @@ export default function DashboardEficiencia() {
               Dashboard de Eficiência
             </h1>
             <p className="text-muted-foreground text-sm mt-1">
-              Lead Time ponta-a-ponta: da criação da solicitação até a emissão da OC
+              Lead Time ponta-a-ponta (dias úteis): da criação até o upload da OC/AC
             </p>
           </div>
           <Button onClick={() => refetch()} variant="outline" size="sm" className="gap-2">
             <RefreshCw className="h-4 w-4" />
             Atualizar
           </Button>
-        </div>
-
-        {/* 4 KPI Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {/* Lead Time Médio */}
-          <Card
-            className="cursor-pointer hover:shadow-md transition-shadow"
-            onClick={() => setDrilldownFilter('all')}
-          >
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Lead Time Médio</p>
-                  {isLoading ? (
-                    <Skeleton className="h-9 w-20 mt-1" />
-                  ) : (
-                    <p className="text-3xl font-bold mt-1">
-                      {avgLeadTime}
-                      <span className="text-sm font-normal text-muted-foreground ml-1">dias</span>
-                    </p>
-                  )}
-                </div>
-                <div className="p-3 rounded-xl bg-primary/10">
-                  <TrendingDown className="h-6 w-6 text-primary" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Same-Day Flash */}
-          <Card
-            className="cursor-pointer hover:shadow-md transition-shadow"
-            onClick={() => setDrilldownFilter('same_day')}
-          >
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Resolução Same-Day</p>
-                  {isLoading ? (
-                    <Skeleton className="h-9 w-20 mt-1" />
-                  ) : (
-                    <p className="text-3xl font-bold mt-1">
-                      {sameDayPercent}%
-                      <span className="text-sm font-normal text-muted-foreground ml-1">({sameDayCount})</span>
-                    </p>
-                  )}
-                </div>
-                <div className="p-3 rounded-xl bg-warning/10">
-                  <Zap className="h-6 w-6 text-warning" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Backlog Crítico */}
-          <Card
-            className={cn(
-              "cursor-pointer hover:shadow-md transition-shadow",
-              backlogCritico > 0 && "border-destructive/50 bg-destructive/5"
-            )}
-            onClick={() => setDrilldownFilter('backlog')}
-          >
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Backlog Crítico</p>
-                  {isLoading ? (
-                    <Skeleton className="h-9 w-20 mt-1" />
-                  ) : (
-                    <p className={cn("text-3xl font-bold mt-1", backlogCritico > 0 && "text-destructive")}>
-                      {backlogCritico}
-                      <span className="text-sm font-normal text-muted-foreground ml-1">{'>'}15 dias</span>
-                    </p>
-                  )}
-                </div>
-                <div className={cn("p-3 rounded-xl", backlogCritico > 0 ? "bg-destructive/10" : "bg-muted")}>
-                  <AlertTriangle className={cn("h-6 w-6", backlogCritico > 0 ? "text-destructive" : "text-muted-foreground")} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Volume vs Vazão */}
-          <Card>
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Vazão (OCs Emitidas)</p>
-                  {isLoading ? (
-                    <Skeleton className="h-9 w-20 mt-1" />
-                  ) : (
-                    <p className="text-3xl font-bold mt-1">
-                      {ocEmitted}
-                      <span className="text-sm font-normal text-muted-foreground ml-1">no período</span>
-                    </p>
-                  )}
-                </div>
-                <div className="p-3 rounded-xl bg-success/10">
-                  <ArrowUpDown className="h-6 w-6 text-success" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
         {/* Filters */}
@@ -294,13 +209,233 @@ export default function DashboardEficiencia() {
           </CardContent>
         </Card>
 
-        {/* Charts */}
+        {/* 4 KPI Cards */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {/* Lead Time Médio */}
+          <Card
+            className="cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => setDrilldownFilter('all')}
+          >
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Lead Time Médio</p>
+                  {isLoading ? (
+                    <Skeleton className="h-9 w-20 mt-1" />
+                  ) : (
+                    <p className="text-3xl font-bold mt-1">
+                      {avgLeadTime}
+                      <span className="text-sm font-normal text-muted-foreground ml-1">dias úteis</span>
+                    </p>
+                  )}
+                </div>
+                <div className="p-3 rounded-xl bg-primary/10">
+                  <TrendingDown className="h-6 w-6 text-primary" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Same-Day */}
+          <Card
+            className="cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => setDrilldownFilter('same_day')}
+          >
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Resolução Same-Day</p>
+                  {isLoading ? (
+                    <Skeleton className="h-9 w-20 mt-1" />
+                  ) : (
+                    <p className="text-3xl font-bold mt-1">
+                      {sameDayPercent}%
+                      <span className="text-sm font-normal text-muted-foreground ml-1">({sameDayCount})</span>
+                    </p>
+                  )}
+                </div>
+                <div className="p-3 rounded-xl bg-warning/10">
+                  <Zap className="h-6 w-6 text-warning" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Backlog Crítico */}
+          <Card
+            className={cn(
+              "cursor-pointer hover:shadow-md transition-shadow",
+              backlogCritico > 0 && "border-destructive/50 bg-destructive/5"
+            )}
+            onClick={() => setDrilldownFilter('backlog')}
+          >
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Backlog Crítico</p>
+                  {isLoading ? (
+                    <Skeleton className="h-9 w-20 mt-1" />
+                  ) : (
+                    <p className={cn("text-3xl font-bold mt-1", backlogCritico > 0 && "text-destructive")}>
+                      {backlogCritico}
+                      <span className="text-sm font-normal text-muted-foreground ml-1">{'>'}15 dias úteis</span>
+                    </p>
+                  )}
+                </div>
+                <div className={cn("p-3 rounded-xl", backlogCritico > 0 ? "bg-destructive/10" : "bg-muted")}>
+                  <AlertTriangle className={cn("h-6 w-6", backlogCritico > 0 ? "text-destructive" : "text-muted-foreground")} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Vazão */}
+          <Card>
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Vazão (OCs Emitidas)</p>
+                  {isLoading ? (
+                    <Skeleton className="h-9 w-20 mt-1" />
+                  ) : (
+                    <p className="text-3xl font-bold mt-1">
+                      {ocEmitted}
+                      <span className="text-sm font-normal text-muted-foreground ml-1">no período</span>
+                    </p>
+                  )}
+                </div>
+                <div className="p-3 rounded-xl bg-success/10">
+                  <ArrowUpDown className="h-6 w-6 text-success" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Row: Retrabalho + Lead Time por Empreendimento */}
+        <div className="grid gap-6 lg:grid-cols-3">
+          {/* Taxa de Retrabalho */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <RotateCcw className="h-4 w-4 text-warning" />
+                Taxa de Retrabalho
+              </CardTitle>
+              <CardDescription>Solicitações devolvidas para correção</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <Skeleton className="h-24 w-full" />
+              ) : (
+                <div className="text-center space-y-2">
+                  <p className="text-4xl font-bold">
+                    {retrabalhoPercent}%
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {retrabalho.count} de {retrabalho.total} solicitações
+                  </p>
+                  <div className="w-full bg-muted rounded-full h-2.5 mt-3">
+                    <div
+                      className={cn(
+                        "h-2.5 rounded-full transition-all",
+                        retrabalhoPercent > 30 ? "bg-destructive" : retrabalhoPercent > 15 ? "bg-warning" : "bg-success"
+                      )}
+                      style={{ width: `${Math.min(retrabalhoPercent, 100)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Lead Time por Empreendimento */}
+          <Card className="lg:col-span-2">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-primary" />
+                Lead Time por Empreendimento
+              </CardTitle>
+              <CardDescription>Média de dias úteis por unidade</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <Skeleton className="h-[180px] w-full" />
+              ) : leadTimePorEmpreendimento.length === 0 ? (
+                <div className="h-[180px] flex items-center justify-center text-muted-foreground text-sm">
+                  Dados insuficientes
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={180}>
+                  <BarChart
+                    layout="vertical"
+                    data={leadTimePorEmpreendimento.map(e => ({
+                      ...e,
+                      label: EMPREENDIMENTO_LABELS[e.empreendimento],
+                    }))}
+                    margin={{ left: 80 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis type="number" tick={{ fontSize: 12 }} unit="d" className="fill-muted-foreground" />
+                    <YAxis type="category" dataKey="label" tick={{ fontSize: 12 }} className="fill-muted-foreground" width={80} />
+                    <Tooltip
+                      contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
+                      formatter={(value: number) => [`${value} dias úteis`, 'Média']}
+                    />
+                    <Bar dataKey="avg" radius={[0, 4, 4, 0]}>
+                      {leadTimePorEmpreendimento.map((entry) => (
+                        <Cell
+                          key={entry.empreendimento}
+                          fill={EMPREENDIMENTO_COLORS[entry.empreendimento] || 'hsl(var(--primary))'}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Tempo por Etapa */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Clock className="h-4 w-4 text-primary" />
+              Tempo Médio por Etapa
+            </CardTitle>
+            <CardDescription>Dias úteis médios em cada fase do processo</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <Skeleton className="h-[220px] w-full" />
+            ) : etapas.length === 0 ? (
+              <div className="h-[220px] flex items-center justify-center text-muted-foreground text-sm">
+                Dados insuficientes para o período
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={etapas}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                  <XAxis dataKey="etapa" tick={{ fontSize: 11 }} className="fill-muted-foreground" />
+                  <YAxis tick={{ fontSize: 12 }} unit="d" className="fill-muted-foreground" />
+                  <Tooltip
+                    contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
+                    formatter={(value: number) => [`${value} dias úteis`, 'Média']}
+                  />
+                  <Bar dataKey="avgDias" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Charts Row: Histogram + Weekly */}
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Histogram */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Distribuição do Lead Time</CardTitle>
-              <CardDescription>Clique em uma faixa para filtrar a tabela</CardDescription>
+              <CardDescription>Em dias úteis — clique em uma faixa para filtrar</CardDescription>
             </CardHeader>
             <CardContent>
               {isLoading ? (
@@ -332,13 +467,13 @@ export default function DashboardEficiencia() {
             </CardContent>
           </Card>
 
-          {/* Line Chart - Weekly Evolution */}
+          {/* Weekly Evolution */}
           <Card>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-base">Evolução Semanal</CardTitle>
-                  <CardDescription>Média de lead time por semana</CardDescription>
+                  <CardDescription>Média de lead time em dias úteis</CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
                   <Checkbox
@@ -393,6 +528,69 @@ export default function DashboardEficiencia() {
           </Card>
         </div>
 
+        {/* Rankings: Top Solicitantes + Top Fornecedores */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Top Solicitantes */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Users className="h-4 w-4 text-primary" />
+                Top 10 Solicitantes
+              </CardTitle>
+              <CardDescription>Por volume de pedidos no período</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <Skeleton className="h-[200px] w-full" />
+              ) : topSolicitantes.length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground text-sm">Sem dados</div>
+              ) : (
+                <div className="space-y-2">
+                  {topSolicitantes.map((s, i) => (
+                    <div key={s.id} className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-mono text-muted-foreground w-5">{i + 1}.</span>
+                        <span className="text-sm truncate max-w-[200px]">{s.nome}</span>
+                      </div>
+                      <Badge variant="secondary" className="text-xs">{s.count}</Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Top Fornecedores */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Truck className="h-4 w-4 text-primary" />
+                Top 10 Fornecedores
+              </CardTitle>
+              <CardDescription>Mais frequentes no período</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <Skeleton className="h-[200px] w-full" />
+              ) : topFornecedores.length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground text-sm">Sem dados</div>
+              ) : (
+                <div className="space-y-2">
+                  {topFornecedores.map((f, i) => (
+                    <div key={f.id} className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-mono text-muted-foreground w-5">{i + 1}.</span>
+                        <span className="text-sm truncate max-w-[200px]">{f.nome}</span>
+                      </div>
+                      <Badge variant="secondary" className="text-xs">{f.count}</Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Drill-down Table */}
         <Card>
           <CardHeader>
@@ -400,7 +598,7 @@ export default function DashboardEficiencia() {
               Detalhamento
               {drilldownFilter !== 'all' && (
                 <Badge variant="secondary" className="text-xs">
-                  Filtro ativo: {drilldownFilter === 'same_day' ? 'Same-Day' : drilldownFilter === 'backlog' ? '>15 dias' : drilldownFilter.replace('bucket_', '')}
+                  Filtro ativo: {drilldownFilter === 'same_day' ? 'Same-Day' : drilldownFilter === 'backlog' ? '>15 dias úteis' : drilldownFilter.replace('bucket_', '')}
                 </Badge>
               )}
             </CardTitle>
@@ -422,8 +620,8 @@ export default function DashboardEficiencia() {
                     <TableRow>
                       <TableHead>Protocolo</TableHead>
                       <TableHead>Data Abertura</TableHead>
-                      <TableHead>Data OC</TableHead>
-                      <TableHead className="text-center">Tempo Decorrido</TableHead>
+                      <TableHead>Data Upload OC</TableHead>
+                      <TableHead className="text-center">Lead Time (dias úteis)</TableHead>
                       <TableHead>Empreendimento</TableHead>
                       <TableHead className="text-right">Valor</TableHead>
                     </TableRow>
