@@ -35,7 +35,11 @@ import {
   Search,
   Calendar,
   Building2,
+  Info,
+  ExternalLink,
 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useNavigate } from 'react-router-dom';
 import { useSlaDashboard, SlaFilters } from '@/hooks/useSlaDashboard';
 import { SlaBadge, SlaStatus } from '@/components/SlaBadge';
 import { SlaTimelineModal } from '@/components/SlaTimelineModal';
@@ -44,6 +48,8 @@ import { EMPREENDIMENTO_LABELS, Empreendimento, RequestStatus } from '@/types';
 import { cn } from '@/lib/utils';
 
 export default function DashboardSLA() {
+  const navigate = useNavigate();
+
   // Default to last 30 days
   const [filters, setFilters] = useState<SlaFilters>({
     dataInicio: format(subDays(new Date(), 30), 'yyyy-MM-dd'),
@@ -96,12 +102,21 @@ export default function DashboardSLA() {
         </div>
 
         {/* Stats Cards */}
+        <TooltipProvider>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
           <Card>
             <CardHeader className="pb-2">
               <CardDescription className="flex items-center gap-2">
                 <Clock className="h-4 w-4" />
                 Total de Solicitações
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-muted-foreground cursor-help ml-auto" />
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[220px]">
+                    <p className="text-xs">Total de solicitações no período selecionado, excluindo canceladas e rejeitadas.</p>
+                  </TooltipContent>
+                </Tooltip>
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -118,6 +133,14 @@ export default function DashboardSLA() {
               <CardDescription className="flex items-center gap-2 text-emerald-700">
                 <CheckCircle2 className="h-4 w-4" />
                 No Prazo (≤2 dias)
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3.5 w-3.5 text-emerald-700/60 hover:text-emerald-700 cursor-help ml-auto" />
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[220px]">
+                    <p className="text-xs">Solicitações onde o backoffice respondeu em até 2 dias úteis. Tempo contado excluindo fins de semana, feriados e períodos em que a solicitação estava aguardando correção.</p>
+                  </TooltipContent>
+                </Tooltip>
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -139,6 +162,14 @@ export default function DashboardSLA() {
               <CardDescription className="flex items-center gap-2 text-amber-700">
                 <AlertTriangle className="h-4 w-4" />
                 Atenção (3 dias)
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3.5 w-3.5 text-amber-700/60 hover:text-amber-700 cursor-help ml-auto" />
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[220px]">
+                    <p className="text-xs">Solicitações que atingiram exatamente 3 dias úteis de atendimento — no limite da meta. Requerem atenção imediata.</p>
+                  </TooltipContent>
+                </Tooltip>
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -160,6 +191,14 @@ export default function DashboardSLA() {
               <CardDescription className="flex items-center gap-2 text-red-700">
                 <XCircle className="h-4 w-4" />
                 {'Estourado (>3 dias)'}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3.5 w-3.5 text-red-700/60 hover:text-red-700 cursor-help ml-auto" />
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[220px]">
+                    <p className="text-xs">Solicitações que ultrapassaram a meta de 3 dias úteis de atendimento pelo backoffice. Meta: responder em até 3 dias úteis.</p>
+                  </TooltipContent>
+                </Tooltip>
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -181,6 +220,14 @@ export default function DashboardSLA() {
               <CardDescription className="flex items-center gap-2">
                 <TrendingUp className="h-4 w-4" />
                 Tempo Médio
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-muted-foreground cursor-help ml-auto" />
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[220px]">
+                    <p className="text-xs">Média de dias úteis de atendimento do backoffice no período. Calculado excluindo fins de semana, feriados e tempo aguardando correção do solicitante.</p>
+                  </TooltipContent>
+                </Tooltip>
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -195,6 +242,7 @@ export default function DashboardSLA() {
             </CardContent>
           </Card>
         </div>
+        </TooltipProvider>
 
         {/* Filters */}
         <Card>
@@ -334,7 +382,13 @@ export default function DashboardSLA() {
                         })}
                       >
                         <TableCell className="font-medium font-mono">
-                          {item.protocolo}
+                          <button
+                            className="hover:underline text-primary font-mono font-medium flex items-center gap-1"
+                            onClick={(e) => { e.stopPropagation(); navigate(`/minhas-solicitacoes?search=${item.protocolo}`); }}
+                          >
+                            {item.protocolo}
+                            <ExternalLink className="h-3 w-3 opacity-60" />
+                          </button>
                         </TableCell>
                         <TableCell>
                           {format(new Date(item.created_at), 'dd/MM/yyyy', { locale: ptBR })}
