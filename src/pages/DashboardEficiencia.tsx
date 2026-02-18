@@ -32,14 +32,18 @@ import {
   Clock,
   Users,
   Truck,
+  Info,
+  ExternalLink,
 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useNavigate } from 'react-router-dom';
 import {
   BarChart,
   Bar,
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   ResponsiveContainer,
   LineChart,
   Line,
@@ -64,6 +68,8 @@ export default function DashboardEficiencia() {
     dataFim: format(new Date(), 'yyyy-MM-dd'),
     empreendimento: null,
   });
+
+  const navigate = useNavigate();
 
   const [showYoY, setShowYoY] = useState(false);
   const [drilldownFilter, setDrilldownFilter] = useState<DrilldownFilter>('all');
@@ -210,6 +216,7 @@ export default function DashboardEficiencia() {
         </Card>
 
         {/* 4 KPI Cards */}
+        <TooltipProvider>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {/* Lead Time Médio */}
           <Card
@@ -218,8 +225,18 @@ export default function DashboardEficiencia() {
           >
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Lead Time Médio</p>
+                <div className="flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Lead Time Médio</p>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-muted-foreground cursor-help shrink-0" />
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[250px]">
+                        <p className="text-xs">Média de dias úteis entre a criação da solicitação e o upload do documento de OC/AC pelo backoffice. Exclui fins de semana e feriados.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                   {isLoading ? (
                     <Skeleton className="h-9 w-20 mt-1" />
                   ) : (
@@ -243,8 +260,18 @@ export default function DashboardEficiencia() {
           >
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Resolução Same-Day</p>
+                <div className="flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Resolução Same-Day</p>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-muted-foreground cursor-help shrink-0" />
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[250px]">
+                        <p className="text-xs">Percentual de solicitações onde a OC foi emitida no mesmo dia calendário da criação.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                   {isLoading ? (
                     <Skeleton className="h-9 w-20 mt-1" />
                   ) : (
@@ -271,8 +298,18 @@ export default function DashboardEficiencia() {
           >
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Backlog Crítico</p>
+                <div className="flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Backlog Crítico</p>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-muted-foreground cursor-help shrink-0" />
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[250px]">
+                        <p className="text-xs">Solicitações abertas há mais de 15 dias úteis sem documento de OC emitido. Exclui concluídas, rejeitadas e canceladas.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                   {isLoading ? (
                     <Skeleton className="h-9 w-20 mt-1" />
                   ) : (
@@ -293,8 +330,18 @@ export default function DashboardEficiencia() {
           <Card>
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Vazão (OCs Emitidas)</p>
+                <div className="flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Vazão (OCs Emitidas)</p>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-muted-foreground cursor-help shrink-0" />
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[250px]">
+                        <p className="text-xs">Total de OCs/ACs emitidas (documentos uploadados pelo backoffice) no período filtrado.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                   {isLoading ? (
                     <Skeleton className="h-9 w-20 mt-1" />
                   ) : (
@@ -311,6 +358,7 @@ export default function DashboardEficiencia() {
             </CardContent>
           </Card>
         </div>
+        </TooltipProvider>
 
         {/* Row: Retrabalho + Lead Time por Empreendimento */}
         <div className="grid gap-6 lg:grid-cols-3">
@@ -320,6 +368,16 @@ export default function DashboardEficiencia() {
               <CardTitle className="text-base flex items-center gap-2">
                 <RotateCcw className="h-4 w-4 text-warning" />
                 Taxa de Retrabalho
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[250px]">
+                      <p className="text-xs">Percentual de solicitações que foram devolvidas ao solicitante para correção (status "pendente_correção") antes da emissão da OC.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </CardTitle>
               <CardDescription>Solicitações devolvidas para correção</CardDescription>
             </CardHeader>
@@ -377,7 +435,7 @@ export default function DashboardEficiencia() {
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                     <XAxis type="number" tick={{ fontSize: 12 }} unit="d" className="fill-muted-foreground" />
                     <YAxis type="category" dataKey="label" tick={{ fontSize: 12 }} className="fill-muted-foreground" width={80} />
-                    <Tooltip
+                    <RechartsTooltip
                       contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
                       formatter={(value: number) => [`${value} dias úteis`, 'Média']}
                     />
@@ -418,7 +476,7 @@ export default function DashboardEficiencia() {
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                   <XAxis dataKey="etapa" tick={{ fontSize: 11 }} className="fill-muted-foreground" />
                   <YAxis tick={{ fontSize: 12 }} unit="d" className="fill-muted-foreground" />
-                  <Tooltip
+                  <RechartsTooltip
                     contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
                     formatter={(value: number) => [`${value} dias úteis`, 'Média']}
                   />
@@ -446,7 +504,7 @@ export default function DashboardEficiencia() {
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                     <XAxis dataKey="label" tick={{ fontSize: 12 }} className="fill-muted-foreground" />
                     <YAxis tick={{ fontSize: 12 }} className="fill-muted-foreground" />
-                    <Tooltip
+                    <RechartsTooltip
                       contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
                       labelStyle={{ color: 'hsl(var(--foreground))' }}
                     />
@@ -498,7 +556,7 @@ export default function DashboardEficiencia() {
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                     <XAxis dataKey="weekLabel" tick={{ fontSize: 11 }} className="fill-muted-foreground" />
                     <YAxis tick={{ fontSize: 12 }} className="fill-muted-foreground" unit="d" />
-                    <Tooltip
+                    <RechartsTooltip
                       contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
                     />
                     <Legend />
@@ -636,7 +694,13 @@ export default function DashboardEficiencia() {
                         )}
                       >
                         <TableCell className="font-mono font-medium">
-                          {entry.protocolo}
+                          <button
+                            className="hover:underline text-primary font-mono font-medium flex items-center gap-1"
+                            onClick={(e) => { e.stopPropagation(); navigate(`/minhas-solicitacoes?search=${entry.protocolo}`); }}
+                          >
+                            {entry.protocolo}
+                            <ExternalLink className="h-3 w-3 opacity-60" />
+                          </button>
                         </TableCell>
                         <TableCell>
                           {format(new Date(entry.created_at), 'dd/MM HH:mm', { locale: ptBR })}
