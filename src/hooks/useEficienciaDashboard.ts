@@ -268,24 +268,24 @@ export function useEficienciaDashboard(filters: EficienciaFilters) {
     }));
   })();
 
-  // Taxa de Retrabalho
+  // Taxa de Retrabalho — calculada via RPC no banco para evitar truncamento de 1000 linhas
   const { data: retrabalhoData } = useQuery({
     queryKey: ['eficiencia-retrabalho', filters],
     queryFn: async () => {
-      // Count solicitações that had pendente_correcao in history
-      const solIds = entries.map(e => e.id);
-      if (solIds.length === 0) return { count: 0, total: entries.length };
+      const { data, error } = await supabase.rpc('get_retrabalho_eficiencia', {
+        p_data_inicio: filters.dataInicio,
+        p_data_fim: filters.dataFim + 'T23:59:59',
+        p_empreendimento: filters.empreendimento || null,
+      });
 
-      const { data: hist } = await supabase
-        .from('historico_solicitacoes')
-        .select('solicitacao_id')
-        .in('solicitacao_id', solIds)
-        .eq('status_novo', 'pendente_correcao');
-
-      const uniqueIds = new Set((hist || []).map(h => h.solicitacao_id));
-      return { count: uniqueIds.size, total: entries.length };
+      if (error) throw error;
+      const row = data?.[0];
+      return {
+        count: Number(row?.retrabalho_count ?? 0),
+        total: Number(row?.total_count ?? 0),
+      };
     },
-    enabled: entries.length > 0,
+    enabled: !!user?.id,
     staleTime: 30_000,
   });
 

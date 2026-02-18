@@ -992,6 +992,17 @@ export type Database = {
         Returns: Json
       }
       generate_protocolo: { Args: never; Returns: string }
+      get_retrabalho_eficiencia: {
+        Args: {
+          p_data_fim: string
+          p_data_inicio: string
+          p_empreendimento?: Database["public"]["Enums"]["empreendimento"]
+        }
+        Returns: {
+          retrabalho_count: number
+          total_count: number
+        }[]
+      }
       get_sla_dashboard: {
         Args: {
           p_data_fim?: string
