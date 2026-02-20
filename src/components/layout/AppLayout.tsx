@@ -344,7 +344,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       </header>
 
       {/* Main Content */}
-      <main className="container py-6">
+      <main className="container max-w-screen-2xl py-6">
         {children}
       </main>
     </div>

@@ -374,7 +374,7 @@ export default function DashboardEficiencia() {
                       <Info className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-muted-foreground cursor-help" />
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-[250px]">
-                      <p className="text-xs">Percentual de solicitações que foram devolvidas ao solicitante para correção (status "pendente_correção") antes da emissão da OC.</p>
+                      <p className="text-xs">Percentual de solicitações que foram devolvidas ao solicitante para informações adicionais antes da emissão da OC.</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -417,13 +417,13 @@ export default function DashboardEficiencia() {
             </CardHeader>
             <CardContent>
               {isLoading ? (
-                <Skeleton className="h-[180px] w-full" />
+                <Skeleton className="h-[240px] w-full" />
               ) : leadTimePorEmpreendimento.length === 0 ? (
-                <div className="h-[180px] flex items-center justify-center text-muted-foreground text-sm">
+                <div className="h-[240px] flex items-center justify-center text-muted-foreground text-sm">
                   Dados insuficientes
                 </div>
               ) : (
-                <ResponsiveContainer width="100%" height={180}>
+                <ResponsiveContainer width="100%" height={240}>
                   <BarChart
                     layout="vertical"
                     data={leadTimePorEmpreendimento.map(e => ({
@@ -465,13 +465,13 @@ export default function DashboardEficiencia() {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <Skeleton className="h-[220px] w-full" />
+              <Skeleton className="h-[280px] w-full" />
             ) : etapas.length === 0 ? (
-              <div className="h-[220px] flex items-center justify-center text-muted-foreground text-sm">
+              <div className="h-[280px] flex items-center justify-center text-muted-foreground text-sm">
                 Dados insuficientes para o período
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height={220}>
+              <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={etapas}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                   <XAxis dataKey="etapa" tick={{ fontSize: 11 }} className="fill-muted-foreground" />
@@ -497,9 +497,9 @@ export default function DashboardEficiencia() {
             </CardHeader>
             <CardContent>
               {isLoading ? (
-                <Skeleton className="h-[250px] w-full" />
+                <Skeleton className="h-[280px] w-full" />
               ) : (
-                <ResponsiveContainer width="100%" height={250}>
+                <ResponsiveContainer width="100%" height={280}>
                   <BarChart data={histogram}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                     <XAxis dataKey="label" tick={{ fontSize: 12 }} className="fill-muted-foreground" />
@@ -545,13 +545,13 @@ export default function DashboardEficiencia() {
             </CardHeader>
             <CardContent>
               {isLoading ? (
-                <Skeleton className="h-[250px] w-full" />
+                <Skeleton className="h-[280px] w-full" />
               ) : weeklyAverages.length === 0 ? (
-                <div className="h-[250px] flex items-center justify-center text-muted-foreground text-sm">
+                <div className="h-[280px] flex items-center justify-center text-muted-foreground text-sm">
                   Dados insuficientes para o período selecionado
                 </div>
               ) : (
-                <ResponsiveContainer width="100%" height={250}>
+                <ResponsiveContainer width="100%" height={280}>
                   <LineChart data={yoyData}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                     <XAxis dataKey="weekLabel" tick={{ fontSize: 11 }} className="fill-muted-foreground" />
@@ -608,7 +608,7 @@ export default function DashboardEficiencia() {
                     <div key={s.id} className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-mono text-muted-foreground w-5">{i + 1}.</span>
-                        <span className="text-sm truncate max-w-[200px]">{s.nome}</span>
+                        <span className="text-sm truncate max-w-[250px]">{s.nome}</span>
                       </div>
                       <Badge variant="secondary" className="text-xs">{s.count}</Badge>
                     </div>
@@ -638,7 +638,7 @@ export default function DashboardEficiencia() {
                     <div key={f.id} className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-mono text-muted-foreground w-5">{i + 1}.</span>
-                        <span className="text-sm truncate max-w-[200px]">{f.nome}</span>
+                        <span className="text-sm truncate max-w-[250px]">{f.nome}</span>
                       </div>
                       <Badge variant="secondary" className="text-xs">{f.count}</Badge>
                     </div>
@@ -672,7 +672,7 @@ export default function DashboardEficiencia() {
                 Nenhuma solicitação encontrada para os filtros selecionados
               </div>
             ) : (
-              <div className="rounded-md border">
+              <div className="rounded-md border overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>

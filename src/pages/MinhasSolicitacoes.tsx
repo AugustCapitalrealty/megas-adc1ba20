@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -78,20 +78,25 @@ export default function MinhasSolicitacoes() {
   const { user, effectiveProfile, isImpersonating } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const effectiveUserId = (isImpersonating ? effectiveProfile?.id : user?.id) ?? user?.id;
   
   const { empreendimentos: userEmpreendimentos, hasAllAccess } = useUserEmpreendimentos(effectiveUserId);
+
+  // Read URL params
+  const urlSearch = searchParams.get('search') || '';
+  const urlFilter = searchParams.get('filter') || '';
   
   const [solicitacoes, setSolicitacoes] = useState<SolicitacaoComFornecedor[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<FilterTab>('todas');
+  const [activeTab, setActiveTab] = useState<FilterTab>(urlFilter ? (urlFilter as FilterTab) : 'todas');
   const [rejectionReasons, setRejectionReasons] = useState<Record<string, RejectionInfo>>({});
   const [infoRequests, setInfoRequests] = useState<Record<string, InfoRequest>>({});
-  const [viewMode, setViewMode] = useState<ViewMode>('minhas');
+  const [viewMode, setViewMode] = useState<ViewMode>(urlSearch ? 'empreendimento' : 'minhas');
   
   // Search state with debounce
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(urlSearch);
   const debouncedSearch = useDebounce(searchTerm, 300);
   
   // Edit modal state
