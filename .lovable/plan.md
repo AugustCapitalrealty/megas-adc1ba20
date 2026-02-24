@@ -1,38 +1,48 @@
 
-# Correção: Exibir Email e Telefone do Fornecedor no Backoffice
+
+# Correção: Exibir Email e Telefone do Fornecedor no Card do Backoffice
 
 ## Problema
 
-Quando o solicitante libera a OC para o fornecedor, ele informa o email e telefone de contato do fornecedor (campos `fornecedor_email_contato` e `fornecedor_telefone_contato`). Esses dados são salvos corretamente no banco, mas **nunca são exibidos** na visão do Backoffice.
+Os campos `fornecedor_email_contato` e `fornecedor_telefone_contato` existem no banco e estão preenchidos (ex: protocolo #2026000141 tem `jean.tecservi@gmail.com` e `48 98418-4244`), mas:
 
-O Backoffice precisa dessas informações para enviar a OC ao fornecedor.
+1. A RPC `get_solicitacoes_backoffice` **não retorna** esses campos na listagem
+2. O card na lista do Backoffice **não exibe** esses dados
+3. A seção de contato só aparece no painel lateral "Ver Detalhes", que o analista pode não abrir
+
+O analista precisa ver o email e telefone diretamente no card da solicitação para enviar a OC.
 
 ## Solução
 
-Adicionar uma seção destacada no painel de detalhes do Backoffice que aparece quando a solicitação está nos status `liberado_fornecedor` ou `enviado_fornecedor`, mostrando os dados de contato informados pelo solicitante.
+Adicionar os campos de contato à RPC da listagem e exibi-los diretamente no card do Backoffice quando o status for `liberado_fornecedor` ou `enviado_fornecedor`.
 
-A seção será exibida logo após o card do Documento Emitido (que é a primeira coisa que o analista vê), com destaque visual em verde para chamar a atenção.
-
-## Arquivo modificado
+## Arquivos modificados
 
 | Arquivo | Alteração |
 |---|---|
-| `src/pages/Backoffice.tsx` | Adicionar bloco de "Contato do Fornecedor" no painel de detalhes, visível para status `liberado_fornecedor` e `enviado_fornecedor` |
+| Migration SQL | Atualizar RPC `get_solicitacoes_backoffice` para incluir `fornecedor_email_contato` e `fornecedor_telefone_contato` |
+| `src/hooks/useBackofficeSolicitacoes.ts` | Adicionar os dois campos à interface `SolicitacaoBackoffice` |
+| `src/pages/Backoffice.tsx` | Adicionar bloco de contato diretamente no card (antes dos botões de ação), visível nos status `liberado_fornecedor` e `enviado_fornecedor` |
 
 ## Detalhes técnicos
 
-No painel de detalhes (`detalhes?.solicitacao`), logo após a seção de Documento Emitido (linha ~1619), será inserido um novo bloco:
-
+**Migration SQL** - Adicionar ao SELECT da RPC:
 ```text
-Contato do Fornecedor (para envio da OC)
------------------------------------------
-Email: fornecedor_email_contato
-Telefone: fornecedor_telefone_contato
+s.fornecedor_email_contato,
+s.fornecedor_telefone_contato
 ```
 
-- Os dados já existem no objeto `detalhes.solicitacao` (vêm do `s.*` na RPC `get_solicitacao_detalhes`)
-- A seção só aparece quando pelo menos um dos campos estiver preenchido
-- Inclui ícones de Mail e Phone para facilitar a leitura
-- Card com destaque visual (borda verde) para o analista localizar rapidamente
+**Interface `SolicitacaoBackoffice`** - Novos campos:
+```text
+fornecedor_email_contato: string | null;
+fornecedor_telefone_contato: string | null;
+```
 
-Também será adicionada uma indicação visual no card da lista (não apenas no detalhe) quando o status for `liberado_fornecedor`, mostrando que há dados de contato disponíveis.
+**Card do Backoffice** - Novo bloco visual entre as infos do card e os botões de ação (linha ~1265), com destaque em verde:
+```text
+Contato para envio da OC:
+  [Mail icon] jean.tecservi@gmail.com
+  [Phone icon] 48 98418-4244
+```
+
+A seção existente no painel lateral "Ver Detalhes" será mantida como está.
