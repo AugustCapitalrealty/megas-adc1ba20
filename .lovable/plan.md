@@ -1,93 +1,38 @@
 
-# Refatoracao: Visualizacao de Solicitacoes, Links Diretos e Retrabalho
+# Correção: Exibir Email e Telefone do Fornecedor no Backoffice
 
-## Problema 1: Taxa de Retrabalho mostrando 0%
+## Problema
 
-### Diagnostico
-A funcao `get_retrabalho_eficiencia` procura por `status_novo = 'pendente_correcao'` no historico, mas esse status **nunca aparece** na tabela. O fluxo real de correcao usa:
-- `status_novo = 'aguardando_informacoes'` (acao "Solicitacao de informacoes") — 61 ocorrencias
+Quando o solicitante libera a OC para o fornecedor, ele informa o email e telefone de contato do fornecedor (campos `fornecedor_email_contato` e `fornecedor_telefone_contato`). Esses dados são salvos corretamente no banco, mas **nunca são exibidos** na visão do Backoffice.
 
-### Correcao
-Alterar a RPC para buscar `status_novo = 'aguardando_informacoes'` ao inves de `'pendente_correcao'`.
+O Backoffice precisa dessas informações para enviar a OC ao fornecedor.
 
-```text
--- Trecho corrigido na CTE com_retrabalho:
-WHERE h.status_novo = 'aguardando_informacoes'  -- era 'pendente_correcao'
-```
+## Solução
 
-Isso fara o calculo refletir a realidade: das 99 solicitacoes com OC emitida, quantas passaram por devolucao de informacoes.
+Adicionar uma seção destacada no painel de detalhes do Backoffice que aparece quando a solicitação está nos status `liberado_fornecedor` ou `enviado_fornecedor`, mostrando os dados de contato informados pelo solicitante.
 
----
+A seção será exibida logo após o card do Documento Emitido (que é a primeira coisa que o analista vê), com destaque visual em verde para chamar a atenção.
 
-## Problema 2: Links nao funcionam para solicitacoes
+## Arquivo modificado
 
-### Diagnostico
-Os dashboards navegam para `/minhas-solicitacoes?search=PROTOCOLO`, mas o componente `MinhasSolicitacoes` nao le parametros da URL (`useSearchParams` nao existe no codigo). O parametro e ignorado.
-
-Alem disso, para admin/backoffice que tem acesso total, a pagina "Minhas Solicitacoes" mostra apenas as solicitacoes proprias por padrao, entao mesmo com busca o protocolo pode nao aparecer.
-
-### Correcao
-1. **Ler parametros da URL**: Adicionar `useSearchParams` ao `MinhasSolicitacoes` para inicializar `searchTerm` e `activeTab` a partir dos query params `search` e `filter`
-2. **Auto-switch para visao Empreendimento**: Quando usuario admin/backoffice chega via link com `?search=`, automaticamente mudar para `viewMode = 'empreendimento'` para garantir que a solicitacao apareca
-3. **Auto-expandir resultado unico**: Se a busca resultar em exatamente 1 solicitacao, expandir automaticamente o card dela
-
----
-
-## Problema 3: Telas comprimidas
-
-### Correcao
-- Aumentar `max-w` do container principal do `AppLayout` (se houver restricao)
-- Aumentar altura minima dos graficos no `DashboardEficiencia` (de 180px/220px para 240px/280px)
-- Dar mais espaco entre secoes
-- Tabela de drill-down: permitir scroll horizontal em telas menores
-
----
-
-## Secao Tecnica
-
-### Arquivos modificados
-
-| Arquivo | Acao |
+| Arquivo | Alteração |
 |---|---|
-| Migration SQL | Atualizar RPC `get_retrabalho_eficiencia`: trocar `pendente_correcao` por `aguardando_informacoes` |
-| `src/pages/MinhasSolicitacoes.tsx` | Ler `search` e `filter` da URL; auto-switch viewMode para admin; auto-expand resultado unico |
-| `src/pages/DashboardEficiencia.tsx` | Aumentar alturas dos graficos; melhorar espacamento; ajustar tabela de drill-down |
-| `src/components/layout/AppLayout.tsx` | Verificar e ajustar max-width do container principal |
+| `src/pages/Backoffice.tsx` | Adicionar bloco de "Contato do Fornecedor" no painel de detalhes, visível para status `liberado_fornecedor` e `enviado_fornecedor` |
 
-### Detalhes da implementacao
+## Detalhes técnicos
 
-**MinhasSolicitacoes.tsx — leitura de URL params:**
+No painel de detalhes (`detalhes?.solicitacao`), logo após a seção de Documento Emitido (linha ~1619), será inserido um novo bloco:
+
 ```text
-// Adicionar ao inicio do componente:
-const [searchParams] = useSearchParams();
-
-// Inicializar estados a partir da URL:
-const urlSearch = searchParams.get('search') || '';
-const urlFilter = searchParams.get('filter') || '';
-
-// useEffect para aplicar params da URL:
-useEffect(() => {
-  if (urlSearch) {
-    setSearchTerm(urlSearch);
-    // Admin/backoffice com empreendimentos: auto-switch para ver tudo
-    if (userEmpreendimentos.length > 0 || hasAllAccess) {
-      setViewMode('empreendimento');
-    }
-  }
-  if (urlFilter) setActiveTab(urlFilter as FilterTab);
-}, [urlSearch, urlFilter]);
+Contato do Fornecedor (para envio da OC)
+-----------------------------------------
+Email: fornecedor_email_contato
+Telefone: fornecedor_telefone_contato
 ```
 
-**Migration SQL — correcao da RPC:**
-```text
--- Na CTE com_retrabalho, trocar:
-WHERE h.status_novo = 'pendente_correcao'
--- Por:
-WHERE h.status_novo = 'aguardando_informacoes'
-```
+- Os dados já existem no objeto `detalhes.solicitacao` (vêm do `s.*` na RPC `get_solicitacao_detalhes`)
+- A seção só aparece quando pelo menos um dos campos estiver preenchido
+- Inclui ícones de Mail e Phone para facilitar a leitura
+- Card com destaque visual (borda verde) para o analista localizar rapidamente
 
-**DashboardEficiencia.tsx — melhorias visuais:**
-- Graficos de barras: altura 180px passa para 240px
-- Tempo por Etapa: altura 220px passa para 280px
-- Histograma e Evolucao Semanal: 250px passa para 280px
-- Rankings: truncar nomes com max-w maior (250px ao inves de 200px)
+Também será adicionada uma indicação visual no card da lista (não apenas no detalhe) quando o status for `liberado_fornecedor`, mostrando que há dados de contato disponíveis.
