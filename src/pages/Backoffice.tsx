@@ -1264,6 +1264,35 @@ export default function Backoffice() {
             )}
           </div>
 
+          {/* Contato do Fornecedor - visível nos status liberado_fornecedor e enviado_fornecedor */}
+          {['liberado_fornecedor', 'enviado_fornecedor'].includes(sol.status) &&
+           (sol.fornecedor_email_contato || sol.fornecedor_telefone_contato) && (
+            <div className="mb-4 p-3 rounded-lg border-2 border-green-300 bg-green-50/50 dark:bg-green-950/20 dark:border-green-700">
+              <p className="text-xs font-semibold text-green-800 dark:text-green-300 mb-2 flex items-center gap-1.5">
+                <Send className="h-3.5 w-3.5" />
+                Contato para envio da OC
+              </p>
+              <div className="space-y-1">
+                {sol.fornecedor_email_contato && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Mail className="h-4 w-4 text-green-600 dark:text-green-400" />
+                    <a href={`mailto:${sol.fornecedor_email_contato}`} className="text-green-700 dark:text-green-300 hover:underline">
+                      {sol.fornecedor_email_contato}
+                    </a>
+                  </div>
+                )}
+                {sol.fornecedor_telefone_contato && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Phone className="h-4 w-4 text-green-600 dark:text-green-400" />
+                    <a href={`tel:${sol.fornecedor_telefone_contato}`} className="text-green-700 dark:text-green-300 hover:underline">
+                      {sol.fornecedor_telefone_contato}
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Action buttons - organized in rows */}
           <div className="space-y-2">
             {/* Primary row: View details + secondary actions */}

@@ -25,6 +25,8 @@ export interface SolicitacaoBackoffice {
   total_docs_emitidos: number;
   ultima_atualizacao_status: string | null;
   data_pendente_correcao: string | null;
+  fornecedor_email_contato: string | null;
+  fornecedor_telefone_contato: string | null;
   // Computed fields
   responsavelId?: string | null;
   responsavelNome?: string | null;
