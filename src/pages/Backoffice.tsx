@@ -78,7 +78,9 @@ import {
   Banknote,
   Edit,
   ShieldAlert,
-  Shield
+  Shield,
+  Mail,
+  Phone
 } from 'lucide-react';
 import { format, differenceInDays, differenceInHours } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -1615,6 +1617,36 @@ export default function Backoffice() {
                         </div>
                       ))}
                     </div>
+                    <Separator />
+                  </>
+                )}
+
+                {/* Contato do Fornecedor (para envio da OC) */}
+                {(['liberado_fornecedor', 'enviado_fornecedor'].includes(detalhes.solicitacao.status)) &&
+                 ((detalhes.solicitacao as any).fornecedor_email_contato || (detalhes.solicitacao as any).fornecedor_telefone_contato) && (
+                  <>
+                    <Card className="border-2 border-green-300 dark:border-green-700 bg-green-50/50 dark:bg-green-950/20">
+                      <CardHeader className="pb-2 pt-3">
+                        <CardTitle className="text-sm flex items-center gap-2 text-green-800 dark:text-green-200">
+                          <Send className="h-4 w-4" />
+                          Contato do Fornecedor (para envio da OC)
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-2 pb-3">
+                        {(detalhes.solicitacao as any).fornecedor_email_contato && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Mail className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">{(detalhes.solicitacao as any).fornecedor_email_contato}</span>
+                          </div>
+                        )}
+                        {(detalhes.solicitacao as any).fornecedor_telefone_contato && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Phone className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">{(detalhes.solicitacao as any).fornecedor_telefone_contato}</span>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
                     <Separator />
                   </>
                 )}
