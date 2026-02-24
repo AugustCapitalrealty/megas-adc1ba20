@@ -1055,7 +1055,9 @@ export type Database = {
           emergencial: boolean
           empreendimento: Database["public"]["Enums"]["empreendimento"]
           fornecedor_cnpj: string
+          fornecedor_email_contato: string
           fornecedor_razao: string
+          fornecedor_telefone_contato: string
           id: string
           numero_chamado_fluig: string
           numero_projuris: string
