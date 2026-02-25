@@ -41,6 +41,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useNavigate } from 'react-router-dom';
 import { useSlaDashboard, SlaFilters } from '@/hooks/useSlaDashboard';
+import { useAuth } from '@/hooks/useAuth';
 import { SlaBadge, SlaStatus } from '@/components/SlaBadge';
 import { SlaTimelineModal } from '@/components/SlaTimelineModal';
 import { StatusBadge } from '@/components/ui/status-badge';
@@ -49,6 +50,7 @@ import { cn } from '@/lib/utils';
 
 export default function DashboardSLA() {
   const navigate = useNavigate();
+  const { isBackofficeOrAdmin } = useAuth();
 
   // Default to last 30 days
   const [filters, setFilters] = useState<SlaFilters>({
@@ -384,7 +386,7 @@ export default function DashboardSLA() {
                         <TableCell className="font-medium font-mono">
                           <button
                             className="hover:underline text-primary font-mono font-medium flex items-center gap-1"
-                            onClick={(e) => { e.stopPropagation(); navigate(`/minhas-solicitacoes?search=${item.protocolo}`); }}
+                            onClick={(e) => { e.stopPropagation(); navigate(isBackofficeOrAdmin ? `/backoffice?search=${item.protocolo}` : `/minhas-solicitacoes?search=${item.protocolo}`); }}
                           >
                             {item.protocolo}
                             <ExternalLink className="h-3 w-3 opacity-60" />
