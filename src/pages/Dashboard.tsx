@@ -258,7 +258,7 @@ export default function Dashboard() {
                     <Card 
                       key={sol.id}
                       className="cursor-pointer hover:shadow-sm hover:border-primary/30 transition-all"
-                      onClick={() => navigate('/minhas-solicitacoes')}
+                      onClick={() => navigate(`/minhas-solicitacoes?search=${sol.protocolo}`)}
                     >
                       <CardContent className="p-3">
                         <div className="flex items-start justify-between gap-3">

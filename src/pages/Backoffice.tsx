@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -104,7 +105,9 @@ type BackofficeTab = 'recebidas' | 'pendentes' | 'em_processamento' | 'oc_emitid
 export default function Backoffice() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchParams] = useSearchParams();
+  const urlSearch = searchParams.get('search') || '';
+  const [searchTerm, setSearchTerm] = useState(urlSearch);
   const debouncedSearch = useDebounce(searchTerm, 500);
   const [selectedEmpreendimento, setSelectedEmpreendimento] = useState<string>('todos');
   const [selectedSolicitacao, setSelectedSolicitacao] = useState<SolicitacaoBackoffice | null>(null);

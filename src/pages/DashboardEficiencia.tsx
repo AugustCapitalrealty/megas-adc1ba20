@@ -37,6 +37,7 @@ import {
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 import {
   BarChart,
   Bar,
@@ -70,6 +71,7 @@ export default function DashboardEficiencia() {
   });
 
   const navigate = useNavigate();
+  const { isBackofficeOrAdmin } = useAuth();
 
   const [showYoY, setShowYoY] = useState(false);
   const [drilldownFilter, setDrilldownFilter] = useState<DrilldownFilter>('all');
@@ -696,7 +698,7 @@ export default function DashboardEficiencia() {
                         <TableCell className="font-mono font-medium">
                           <button
                             className="hover:underline text-primary font-mono font-medium flex items-center gap-1"
-                            onClick={(e) => { e.stopPropagation(); navigate(`/minhas-solicitacoes?search=${entry.protocolo}`); }}
+                            onClick={(e) => { e.stopPropagation(); navigate(isBackofficeOrAdmin ? `/backoffice?search=${entry.protocolo}` : `/minhas-solicitacoes?search=${entry.protocolo}`); }}
                           >
                             {entry.protocolo}
                             <ExternalLink className="h-3 w-3 opacity-60" />

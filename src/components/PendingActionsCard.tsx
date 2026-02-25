@@ -64,7 +64,7 @@ export function PendingActionsCard({
     switch (type) {
       case 'correcao': return 'correcoes';
       case 'aceite_oc': return 'oc_emitida';
-      case 'nf_boleto': return 'aguardando_nf';
+      case 'nf_boleto': return 'liberadas';
       case 'info_requests': return 'correcoes';
       default: return 'todas';
     }

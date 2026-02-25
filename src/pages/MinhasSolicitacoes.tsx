@@ -93,7 +93,7 @@ export default function MinhasSolicitacoes() {
   const [activeTab, setActiveTab] = useState<FilterTab>(urlFilter ? (urlFilter as FilterTab) : 'todas');
   const [rejectionReasons, setRejectionReasons] = useState<Record<string, RejectionInfo>>({});
   const [infoRequests, setInfoRequests] = useState<Record<string, InfoRequest>>({});
-  const [viewMode, setViewMode] = useState<ViewMode>(urlSearch ? 'empreendimento' : 'minhas');
+  const [viewMode, setViewMode] = useState<ViewMode>((urlSearch || urlFilter) ? 'empreendimento' : 'minhas');
   
   // Search state with debounce
   const [searchTerm, setSearchTerm] = useState(urlSearch);

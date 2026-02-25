@@ -98,10 +98,20 @@ export function NotificationBell() {
     setUnreadCount(0);
   };
 
-  const handleNotificationClick = (notification: Notification) => {
+  const handleNotificationClick = async (notification: Notification) => {
     markAsRead(notification.id);
     if (notification.solicitacao_id) {
-      navigate('/minhas-solicitacoes');
+      const { data } = await supabase
+        .from('solicitacoes')
+        .select('protocolo')
+        .eq('id', notification.solicitacao_id)
+        .single();
+
+      if (data?.protocolo) {
+        navigate(`/minhas-solicitacoes?search=${data.protocolo}`);
+      } else {
+        navigate('/minhas-solicitacoes');
+      }
     }
   };
 
