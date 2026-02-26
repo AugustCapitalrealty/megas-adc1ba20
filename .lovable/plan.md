@@ -1,36 +1,62 @@
 
 
-# Fix: Financeiro mostrando "aprovado" quando devolveu para Facilities
+# Deep Links Bidirecionais: Painel Fluig ↔ Solicitações
 
-## Problema
+## Alterações
 
-No caso do 150010: `localizacao` indica que está com Facilities (stage 1), mas `gerencia_financeiro_conclusao` está preenchido. A lógica atual só marca Financeiro como `rejected` quando `currentStage === 0` (Início). Quando `currentStage === 1` (Facilities), cai no `else` e fica como `pending` — mas a UI mostra a data de conclusão em verde porque `financeiroConclusao` existe.
+### 1. `src/pages/PainelFluig.tsx`
 
-A regra correta: se Financeiro tem data de conclusão mas o processo voltou para antes dele (stage < 2), significa **rejeição** — independente de ter voltado para Início ou para Facilities.
+**Imports:** Adicionar `useNavigate` de `react-router-dom`.
 
-## Alteração
+**Estado e fetch:** Após linha 134, adicionar:
+- `const navigate = useNavigate()`
+- Estado `linkedProtocolos: Record<string, string>` (mapa fluig_number → protocolo)
+- `useEffect` que busca protocolos vinculados em 2 passos:
+  1. Via `solicitacao_interna_id` direto (query em `solicitacoes` por IDs)
+  2. Fallback via `numero_chamado_fluig` para snapshots sem vínculo direto
 
-**Arquivo:** `src/lib/fluig-utils.ts`, linhas 233-243
-
-Remover a distinção `currentStage === 0` vs `currentStage === 1`. Se `financeiroConclusao` existe e `currentStage < 2`, é sempre `rejected`:
-
+**Tabela — coluna Nº (linhas 704-713):** Abaixo do link externo do Fluig, adicionar botão condicional:
 ```text
-// ANTES (linha 234-240):
-if (financeiroConclusao && currentStage < 2) {
-  if (currentStage === 0) {
-    financeiro = 'rejected';
-  } else {
-    financeiro = 'pending';
-  }
-}
-
-// DEPOIS:
-if (financeiroConclusao && currentStage < 2) {
-  financeiro = 'rejected';
-}
+{linkedProtocolos[snapshot.solicitacao_fluig] && (
+  <button
+    onClick={() => navigate(
+      isBackofficeOrAdmin
+        ? `/backoffice?search=${linkedProtocolos[snapshot.solicitacao_fluig]}`
+        : `/minhas-solicitacoes?search=${linkedProtocolos[snapshot.solicitacao_fluig]}`
+    )}
+    className="text-xs text-blue-600 hover:underline flex items-center gap-0.5 mx-auto"
+  >
+    <FileText className="h-3 w-3" />
+    #{linkedProtocolos[snapshot.solicitacao_fluig]}
+  </button>
+)}
 ```
 
-Mesma lógica já limpa a `financeiroConclusao` na linha 268 quando status é `rejected`, garantindo que a data não aparece em verde.
+Também extrair `isBackofficeOrAdmin` do `useAuth()` (linha 132).
 
-Nenhum outro arquivo precisa ser alterado — a correção é apenas na função centralizada `getFluigApprovalStatus`.
+---
+
+### 2. `src/components/FluigStatusCard.tsx`
+
+**Imports:** Adicionar `Link` de `react-router-dom` e `ExternalLink` de `lucide-react`.
+
+**Header (linhas 308-319):** Após o badge de situação, adicionar link:
+```text
+<Link
+  to="/painel-fluig"
+  className="text-xs text-blue-600 hover:underline flex items-center gap-1 ml-auto"
+>
+  Ver no Painel
+  <ExternalLink className="h-3 w-3" />
+</Link>
+```
+
+---
+
+### Resumo de arquivos
+
+| Arquivo | Alteração |
+|---|---|
+| `src/pages/PainelFluig.tsx` | Import `useNavigate`, estado `linkedProtocolos`, fetch de protocolos, botão deep link na coluna Nº, extrair `isBackofficeOrAdmin` |
+| `src/components/FluigStatusCard.tsx` | Import `Link` + `ExternalLink`, link "Ver no Painel" no header do card |
 
