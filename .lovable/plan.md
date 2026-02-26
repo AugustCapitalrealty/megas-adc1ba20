@@ -1,91 +1,36 @@
 
 
-# Unificação da Lógica Fluig entre Painel e Solicitações
+# Fix: Financeiro mostrando "aprovado" quando devolveu para Facilities
 
-## Diagnóstico: 3 Lógicas Diferentes para a Mesma Coisa
+## Problema
 
-Existem **3 implementações independentes** para determinar o status de aprovação Fluig:
+No caso do 150010: `localizacao` indica que está com Facilities (stage 1), mas `gerencia_financeiro_conclusao` está preenchido. A lógica atual só marca Financeiro como `rejected` quando `currentStage === 0` (Início). Quando `currentStage === 1` (Facilities), cai no `else` e fica como `pending` — mas a UI mostra a data de conclusão em verde porque `financeiroConclusao` existe.
 
-### 1. `FluigStatusCard.tsx` (dentro da solicitação no Backoffice)
-- Usa `getAprovacoesPorLocalizacao()` de `fluig-utils.ts` (baseado em **localização**)
-- Usa `RESPONSAVEL_PROXIMA_ETAPA` com nomes hardcoded de pessoas
-- Detecta devoluções comparando níveis de localização no histórico de eventos
+A regra correta: se Financeiro tem data de conclusão mas o processo voltou para antes dele (stage < 2), significa **rejeição** — independente de ter voltado para Início ou para Facilities.
 
-### 2. `PainelFluig.tsx` (tabela do painel)
-- Usa `LOCALIZACAO_TO_ETAPA` para determinar estágio atual
-- Implementa lógica **própria** de rejeição com combinação de `currentStage`, nomes de responsáveis, e campos `*_conclusao`
-- Lógica de "fechado" baseada em valor (≤ R$2.500 não precisa de Diretoria)
-- Usa `RESPONSAVEL_LABELS` para traduzir nomes → departamentos (hardcoded diferente)
+## Alteração
 
-### 3. `FluigDashboard.tsx` (dashboard antigo, ainda usado)
-- Lógica **simplificada**: se tem `diretoria_conclusao` = aprovado, senão = pendente
-- Ignora completamente `localizacao`, devoluções e regra de valor ≤ R$2.500
-- Sem detecção de rejeição
+**Arquivo:** `src/lib/fluig-utils.ts`, linhas 233-243
 
-## Inconsistências Concretas
-
-| Aspecto | FluigStatusCard | PainelFluig | FluigDashboard |
-|---|---|---|---|
-| Fonte de verdade | `localizacao` | `localizacao` + `responsavel_atual` + `*_conclusao` | apenas `*_conclusao` |
-| Regra R$≤2.500 | Não implementa | Implementa | Não implementa |
-| Detecção de devolução | Sim (via eventos) | Sim (via estágio atual) | Não |
-| Mapa de pessoas | `RESPONSAVEL_PROXIMA_ETAPA` | `RESPONSAVEL_LABELS` + `USER_FLUIG_ROLES` | Nenhum |
-| Contagem de pendentes | N/A | `isFechado()` + `isCancelado()` | `!diretoria_conclusao` |
-
-## Solução Proposta
-
-Centralizar **toda** a lógica de status Fluig em `fluig-utils.ts`, criando funções compartilhadas que ambos os componentes usam.
-
-### Arquivos modificados
-
-| Arquivo | Alteração |
-|---|---|
-| `src/lib/fluig-utils.ts` | Adicionar funções centralizadas: `isFluigFechado()`, `isFluigCancelado()`, `getFluigApprovalStatus()`, `formatResponsavelFluig()`, mapa unificado de pessoas |
-| `src/pages/PainelFluig.tsx` | Substituir lógica local por chamadas às funções de `fluig-utils.ts` |
-| `src/components/FluigStatusCard.tsx` | Substituir mapas locais por funções de `fluig-utils.ts` |
-| `src/components/FluigDashboard.tsx` | Usar `isFluigFechado()` ao invés de checar apenas `diretoria_conclusao` |
-
-### Detalhes Técnicos
-
-**`fluig-utils.ts` — Novas funções centralizadas:**
+Remover a distinção `currentStage === 0` vs `currentStage === 1`. Se `financeiroConclusao` existe e `currentStage < 2`, é sempre `rejected`:
 
 ```text
-// Mapa unificado de pessoas → departamentos (substitui 3 mapas diferentes)
-RESPONSAVEL_TO_DEPARTAMENTO: Record<string, string>
-  - Laureane, Paloma, Roberta → 'Início'
-  - Jonatas → 'Gerência de Facilities'
-  - Kethli → 'Gerência Financeira'
-  - Thiago → 'Diretoria'
-
-// Regra de negócio: valor <= 2500 não precisa de Diretoria
-isFluigFechado(snapshot): boolean
-  - valor <= 2500: retorna true se gerencia_financeiro_conclusao preenchido
-  - valor > 2500: retorna true se diretoria_conclusao preenchido
-
-isFluigCancelado(snapshot): boolean
-  - situacao inclui 'cancelado'/'cancelada'
-
-// Status de cada aprovação considerando localização + valor
-getFluigApprovalStatus(snapshot): {
-  facilities: 'pending' | 'approved' | 'rejected' | 'in_progress',
-  financeiro: 'pending' | 'approved' | 'rejected' | 'in_progress',
-  diretoria: 'pending' | 'approved' | 'rejected' | 'not_required' | 'in_progress'
+// ANTES (linha 234-240):
+if (financeiroConclusao && currentStage < 2) {
+  if (currentStage === 0) {
+    financeiro = 'rejected';
+  } else {
+    financeiro = 'pending';
+  }
 }
 
-// Traduz responsavel_atual para nome de departamento
-formatResponsavelFluig(responsavelAtual: string | null): string
+// DEPOIS:
+if (financeiroConclusao && currentStage < 2) {
+  financeiro = 'rejected';
+}
 ```
 
-**`PainelFluig.tsx` — Simplificação:**
-- Remover `isFechado()`, `isCancelado()`, `RESPONSAVEL_LABELS`, `USER_FLUIG_ROLES` locais
-- Usar `isFluigFechado()`, `isFluigCancelado()`, `getFluigApprovalStatus()`, `formatResponsavelFluig()` importados
-- Remover a lógica complexa de ~60 linhas dentro do `.map()` da tabela (linhas 780-845) e substituir por uma chamada a `getFluigApprovalStatus(snapshot)`
+Mesma lógica já limpa a `financeiroConclusao` na linha 268 quando status é `rejected`, garantindo que a data não aparece em verde.
 
-**`FluigStatusCard.tsx` — Simplificação:**
-- Remover `ETAPA_LABELS`, `RESPONSAVEL_PROXIMA_ETAPA`, `RESPONSAVEL_ETAPA_INDEX` locais
-- Usar `formatResponsavelFluig()` e `getAprovacoesPorLocalizacao()` (já existente)
-
-**`FluigDashboard.tsx` — Correção:**
-- Stats `pendentes`/`aprovados` passam a usar `isFluigFechado()` ao invés de `!!diretoria_conclusao`
-- Assim os números batem com o PainelFluig
+Nenhum outro arquivo precisa ser alterado — a correção é apenas na função centralizada `getFluigApprovalStatus`.
 
