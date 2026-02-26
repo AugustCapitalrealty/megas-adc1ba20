@@ -232,12 +232,8 @@ export function getFluigApprovalStatus(snapshot: FluigSnapshotLike): FluigApprov
   } else {
     // Antes de Financeiro
     if (financeiroConclusao && currentStage < 2) {
-      // Financeiro atuou mas voltou = rejeitado (mas só se não está com Facilities por re-aprovação)
-      if (currentStage === 0) {
-        financeiro = 'rejected';
-      } else {
-        financeiro = 'pending';
-      }
+      // Financeiro atuou mas voltou para antes dele = rejeitado/devolvido
+      financeiro = 'rejected';
     } else {
       financeiro = 'pending';
     }
