@@ -25,7 +25,6 @@ export const LOCALIZACAO_TO_ETAPA: Record<string, number> = {
   // Concluído (Diretoria já aprovou)
   'Emitir Solicitação': 4,
   'Emitir Solicitacao': 4,
-  'Fim': 4,
 };
 
 // Mapa: etapa numérica → nome do departamento (para exibição)
@@ -131,21 +130,13 @@ interface FluigSnapshotLike {
 /**
  * Regra de negócio: valor <= 2500 não precisa de Diretoria.
  * Fecha quando Financeiro aprova. valor > 2500 precisa de Diretoria.
- * IMPORTANTE: a conclusão só conta como aprovação se a localização atual
- * confirma que o processo AVANÇOU (não retornou).
  */
 export function isFluigFechado(snapshot: FluigSnapshotLike): boolean {
-  // Situação "Finalizada" é definitiva
-  const sit = snapshot.situacao?.toLowerCase() || '';
-  if (sit === 'finalizada') return true;
-  
   if (!snapshot.valor) return false;
-  const currentStage = LOCALIZACAO_TO_ETAPA[snapshot.localizacao || ''] ?? 0;
-  
   if (snapshot.valor <= 2500) {
-    return !!snapshot.gerencia_financeiro_conclusao && currentStage >= 3;
+    return !!snapshot.gerencia_financeiro_conclusao;
   }
-  return !!snapshot.diretoria_conclusao && currentStage >= 4;
+  return !!snapshot.diretoria_conclusao;
 }
 
 /**
@@ -161,12 +152,10 @@ export function isFluigCancelado(snapshot: FluigSnapshotLike): boolean {
  */
 export function getDataConclusaoFluig(snapshot: FluigSnapshotLike): Date | null {
   if (!snapshot.valor) return null;
-  const currentStage = LOCALIZACAO_TO_ETAPA[snapshot.localizacao || ''] ?? 0;
-  
-  if (snapshot.valor <= 2500 && snapshot.gerencia_financeiro_conclusao && currentStage >= 3) {
+  if (snapshot.valor <= 2500 && snapshot.gerencia_financeiro_conclusao) {
     return new Date(snapshot.gerencia_financeiro_conclusao);
   }
-  if (snapshot.diretoria_conclusao && currentStage >= 4) {
+  if (snapshot.diretoria_conclusao) {
     return new Date(snapshot.diretoria_conclusao);
   }
   return null;
@@ -231,16 +220,24 @@ export function getFluigApprovalStatus(snapshot: FluigSnapshotLike): FluigApprov
   // Determinar status de Financeiro
   let financeiro: FluigApprovalStatus;
   if (currentStage >= 3) {
-    // Já passou de Financeiro → aprovado
+    // Já passou de Financeiro
     financeiro = 'approved';
   } else if (currentStage === 2) {
     // Está com Financeiro
-    financeiro = 'in_progress';
-  } else {
-    // Antes de Financeiro (stage 0 ou 1)
     if (financeiroConclusao) {
-      // Financeiro já atuou mas o processo voltou para trás → rejeitado
-      financeiro = 'rejected';
+      financeiro = 'in_progress'; // Re-aprovação
+    } else {
+      financeiro = 'in_progress';
+    }
+  } else {
+    // Antes de Financeiro
+    if (financeiroConclusao && currentStage < 2) {
+      // Financeiro atuou mas voltou = rejeitado (mas só se não está com Facilities por re-aprovação)
+      if (currentStage === 0) {
+        financeiro = 'rejected';
+      } else {
+        financeiro = 'pending';
+      }
     } else {
       financeiro = 'pending';
     }
