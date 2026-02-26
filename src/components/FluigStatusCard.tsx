@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { RefreshCw, MapPin, User, Calendar, Clock, ChevronDown, ChevronUp, CheckCircle, XCircle, UserCircle, ArrowRight, AlertCircle, RotateCcw } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { RefreshCw, MapPin, User, Calendar, Clock, ChevronDown, ChevronUp, CheckCircle, XCircle, UserCircle, ArrowRight, AlertCircle, RotateCcw, ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -316,6 +317,13 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
             {status.situacao}
           </Badge>
         )}
+        <Link
+          to="/painel-fluig"
+          className="text-xs text-blue-600 hover:underline flex items-center gap-1 ml-auto"
+        >
+          Ver no Painel
+          <ExternalLink className="h-3 w-3" />
+        </Link>
       </div>
 
       <div className="grid gap-2 text-sm">

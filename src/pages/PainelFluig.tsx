@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -129,9 +130,55 @@ export default function PainelFluig() {
   const [userEmpreendimentos, setUserEmpreendimentos] = useState<string[]>([]);
   const [loadingEmps, setLoadingEmps] = useState(true);
   
-  const { effectiveProfile, user, isImpersonating } = useAuth();
+  const { effectiveProfile, user, isImpersonating, isBackofficeOrAdmin } = useAuth();
   const effectiveUserId = (isImpersonating ? effectiveProfile?.id : user?.id) ?? user?.id;
+  const navigate = useNavigate();
   const { snapshots: allSnapshots, loading, refetch } = useFluigSnapshots({});
+  const [linkedProtocolos, setLinkedProtocolos] = useState<Record<string, string>>({});
+
+  // Fetch linked protocolos for deep links
+  useEffect(() => {
+    const fetchLinkedProtocolos = async () => {
+      if (!allSnapshots.length) return;
+      const map: Record<string, string> = {};
+
+      // Step 1: snapshots with solicitacao_interna_id
+      const withInternalId = allSnapshots.filter(s => s.solicitacao_interna_id);
+      if (withInternalId.length > 0) {
+        const ids = withInternalId.map(s => s.solicitacao_interna_id!);
+        const { data } = await supabase
+          .from('solicitacoes')
+          .select('id, protocolo')
+          .in('id', ids);
+        if (data) {
+          for (const sol of data) {
+            const snap = withInternalId.find(s => s.solicitacao_interna_id === sol.id);
+            if (snap && sol.protocolo) map[snap.solicitacao_fluig] = sol.protocolo;
+          }
+        }
+      }
+
+      // Step 2: fallback via numero_chamado_fluig
+      const unmapped = allSnapshots.filter(s => !map[s.solicitacao_fluig]);
+      if (unmapped.length > 0) {
+        const fluigNumbers = unmapped.map(s => s.solicitacao_fluig);
+        const { data } = await supabase
+          .from('solicitacoes')
+          .select('numero_chamado_fluig, protocolo')
+          .in('numero_chamado_fluig', fluigNumbers);
+        if (data) {
+          for (const sol of data) {
+            if (sol.numero_chamado_fluig && sol.protocolo) {
+              map[sol.numero_chamado_fluig] = sol.protocolo;
+            }
+          }
+        }
+      }
+
+      setLinkedProtocolos(map);
+    };
+    fetchLinkedProtocolos();
+  }, [allSnapshots]);
 
   // Fetch user's assigned empreendimentos
   useEffect(() => {
@@ -711,6 +758,19 @@ export default function PainelFluig() {
                                 {snapshot.solicitacao_fluig}
                                 <ExternalLink className="h-3 w-3 flex-shrink-0" />
                               </a>
+                              {linkedProtocolos[snapshot.solicitacao_fluig] && (
+                                <button
+                                  onClick={() => navigate(
+                                    isBackofficeOrAdmin
+                                      ? `/backoffice?search=${linkedProtocolos[snapshot.solicitacao_fluig]}`
+                                      : `/minhas-solicitacoes?search=${linkedProtocolos[snapshot.solicitacao_fluig]}`
+                                  )}
+                                  className="text-xs text-blue-600 hover:underline flex items-center gap-0.5 mx-auto"
+                                >
+                                  <FileText className="h-3 w-3" />
+                                  #{linkedProtocolos[snapshot.solicitacao_fluig]}
+                                </button>
+                              )}
                             </td>
                             <td className="px-2 py-2 whitespace-nowrap">
                               {formatDateShort(snapshot.data_lancamento)}
