@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
+import { isFluigFechado, isFluigCancelado } from '@/lib/fluig-utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -60,8 +61,8 @@ export function FluigDashboard({ onNavigateToSolicitacao }: FluigDashboardProps)
   // Stats calculations
   const stats = useMemo(() => {
     const totalValor = snapshots.reduce((acc, s) => acc + (s.valor || 0), 0);
-    const pendentes = snapshots.filter(s => !s.diretoria_conclusao).length;
-    const aprovados = snapshots.filter(s => s.diretoria_conclusao).length;
+    const pendentes = snapshots.filter(s => !isFluigCancelado(s) && !isFluigFechado(s)).length;
+    const aprovados = snapshots.filter(s => isFluigFechado(s)).length;
     return { total: snapshots.length, totalValor, pendentes, aprovados };
   }, [snapshots]);
 
