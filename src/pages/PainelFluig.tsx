@@ -27,7 +27,10 @@ import {
   Inbox,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { LOCALIZACAO_TO_ETAPA } from '@/lib/fluig-utils';
+import { 
+  isFluigFechado, isFluigCancelado, getDataConclusaoFluig, 
+  getFluigApprovalStatus, formatResponsavelFluig, isUserResponsibleFluig,
+} from '@/lib/fluig-utils';
 import { FluigImport } from '@/components/FluigImport';
 import {
   Dialog,
@@ -168,59 +171,19 @@ export default function PainelFluig() {
     return userEmpreendimentos.includes(empMap[emp]);
   };
 
-  // Mapeamento de usuário para papéis que ele assume no Fluig
-  const USER_FLUIG_ROLES: Record<string, string[]> = {
-    'jonatas': ['gestor condominio', 'gestor condomínio', 'gerência de facilities', 'gerencia de facilities'],
-    'kethli': ['gerência financeira', 'gerencia financeira', 'financeiro'],
-    'thiago': ['diretoria', 'diretor'],
-  };
-
   // Check if current user (or impersonated user) is the responsible for a snapshot
   const isCurrentUserResponsible = (responsavelAtual: string | null) => {
-    if (!effectiveProfile?.full_name || !responsavelAtual) return false;
-    const userFirstName = effectiveProfile.full_name.split(' ')[0].toLowerCase();
-    const responsavelLower = responsavelAtual.toLowerCase();
-    
-    // Verifica se o nome do usuário está no responsável
-    if (responsavelLower.includes(userFirstName)) return true;
-    
-    // Verifica se algum dos papéis do usuário está no responsável
-    const userRoles = USER_FLUIG_ROLES[userFirstName] || [];
-    return userRoles.some(role => responsavelLower.includes(role));
-  };
-
-  // Business rule: valor <= 2500 doesn't need Diretoria approval
-  // Closes when Financeiro approves. valor > 2500 needs Diretoria.
-  const isFechado = (s: Snapshot) => {
-    if (!s.valor) return false;
-    if (s.valor <= 2500) {
-      return !!s.gerencia_financeiro_conclusao;
-    }
-    return !!s.diretoria_conclusao;
-  };
-
-  const isCancelado = (s: Snapshot) => {
-    return s.situacao?.toLowerCase() === 'cancelado' || 
-           s.situacao?.toLowerCase() === 'cancelada';
+    return isUserResponsibleFluig(effectiveProfile?.full_name || null, responsavelAtual);
   };
 
   // Get the final conclusion date for a snapshot
-  const getDataConclusao = (s: Snapshot): Date | null => {
-    if (!s.valor) return null;
-    if (s.valor <= 2500 && s.gerencia_financeiro_conclusao) {
-      return new Date(s.gerencia_financeiro_conclusao);
-    }
-    if (s.diretoria_conclusao) {
-      return new Date(s.diretoria_conclusao);
-    }
-    return null;
-  };
+  const getDataConclusao = (s: Snapshot): Date | null => getDataConclusaoFluig(s);
 
   // Calculate duration in days
   const calcularDuracao = (s: Snapshot): { dias: number; status: 'aberto' | 'fechado' | 'cancelado' } => {
     const dataInicio = s.data_lancamento ? new Date(s.data_lancamento) : new Date(s.created_at);
     
-    if (isCancelado(s)) {
+    if (isFluigCancelado(s)) {
       // For cancelled, use the most recent date available
       const timestamps = [
         s.gerencia_conclusao,
@@ -233,7 +196,7 @@ export default function PainelFluig() {
       return { dias: differenceInDays(dataFim, dataInicio), status: 'cancelado' };
     }
     
-    if (isFechado(s)) {
+    if (isFluigFechado(s)) {
       const dataConclusao = getDataConclusao(s);
       if (dataConclusao) {
         return { dias: differenceInDays(dataConclusao, dataInicio), status: 'fechado' };
@@ -278,7 +241,7 @@ export default function PainelFluig() {
     if (!effectiveProfile?.full_name) return [];
     return allSnapshots.filter(s => {
       // Only count open items
-      if (isCancelado(s) || isFechado(s)) return false;
+      if (isFluigCancelado(s) || isFluigFechado(s)) return false;
       return isCurrentUserResponsible(s.responsavel_atual);
     });
   }, [allSnapshots, effectiveProfile?.full_name]);
@@ -288,9 +251,9 @@ export default function PainelFluig() {
   // Separate by status within selected empreendimento
   const { abertos, fechados, cancelados } = useMemo(() => {
     const filtered = filterByEmpreendimento(allSnapshots, empreendimentoTab);
-    const cancelados = filtered.filter(isCancelado);
-    const fechados = filtered.filter(s => !isCancelado(s) && isFechado(s));
-    const abertos = filtered.filter(s => !isCancelado(s) && !isFechado(s));
+    const cancelados = filtered.filter(isFluigCancelado);
+    const fechados = filtered.filter(s => !isFluigCancelado(s) && isFluigFechado(s));
+    const abertos = filtered.filter(s => !isFluigCancelado(s) && !isFluigFechado(s));
     return { abertos, fechados, cancelados };
   }, [allSnapshots, empreendimentoTab]);
 
@@ -319,21 +282,21 @@ export default function PainelFluig() {
 
     // Concluídas este mês: data de conclusão no mês atual
     const concluidasEsteMes = filtered.filter(s => {
-      if (isCancelado(s)) return false;
+      if (isFluigCancelado(s)) return false;
       const dataConclusao = getDataConclusao(s);
       if (!dataConclusao) return false;
       return isWithinInterval(dataConclusao, { start: currentMonthStart, end: currentMonthEnd });
     }).length;
 
     const concluidasMesAnterior = filtered.filter(s => {
-      if (isCancelado(s)) return false;
+      if (isFluigCancelado(s)) return false;
       const dataConclusao = getDataConclusao(s);
       if (!dataConclusao) return false;
       return isWithinInterval(dataConclusao, { start: previousMonthStart, end: previousMonthEnd });
     }).length;
 
     // Backlog: total de abertos
-    const backlog = filtered.filter(s => !isCancelado(s) && !isFechado(s)).length;
+    const backlog = filtered.filter(s => !isFluigCancelado(s) && !isFluigFechado(s)).length;
 
     // Para comparar backlog com mês anterior, precisamos simular o estado no final do mês anterior
     // Simplificação: usamos o mesmo valor como referência (não temos snapshot histórico)
@@ -343,7 +306,7 @@ export default function PainelFluig() {
 
     // Tempo médio: média de dias dos concluídos este mês
     const concluidosEsteMesSnapshots = filtered.filter(s => {
-      if (isCancelado(s)) return false;
+      if (isFluigCancelado(s)) return false;
       const dataConclusao = getDataConclusao(s);
       if (!dataConclusao) return false;
       return isWithinInterval(dataConclusao, { start: currentMonthStart, end: currentMonthEnd });
@@ -354,7 +317,7 @@ export default function PainelFluig() {
       : 0;
 
     const concluidosMesAnteriorSnapshots = filtered.filter(s => {
-      if (isCancelado(s)) return false;
+      if (isFluigCancelado(s)) return false;
       const dataConclusao = getDataConclusao(s);
       if (!dataConclusao) return false;
       return isWithinInterval(dataConclusao, { start: previousMonthStart, end: previousMonthEnd });
@@ -392,57 +355,6 @@ export default function PainelFluig() {
     }
   };
 
-  // Mapa de tradução para responsáveis do Fluig
-  const RESPONSAVEL_LABELS: Record<string, string> = {
-    // Gestor Condomínio variants
-    'Gestor Condominio': 'Gerência de Facilities',
-    'Gestor Condomínio': 'Gerência de Facilities',
-    // Nomes de pessoas que são Gerência de Facilities
-    'Jonatas Augusto Ferreira': 'Gerência de Facilities',
-    'Jonatas': 'Gerência de Facilities',
-    // Nomes de pessoas que são Gerência Financeira  
-    'Kethli Pereira Bezerra': 'Gerência Financeira',
-    'Kethli': 'Gerência Financeira',
-    // Nomes de pessoas que são Diretoria
-    'Thiago Demeterco Lucchesi': 'Diretoria',
-    'Thiago': 'Diretoria',
-  };
-
-  // Format name: remove "Para o Papel" prefix and Pool:Role suffix, map to department
-  const formatName = (name: string | null) => {
-    if (!name) return '-';
-
-    // Remove "Para o Papel" prefix
-    let cleaned = name.replace(/^Para o Papel\s*/i, '').trim();
-
-    // Remove ", Pool:Role:..." suffix (Fluig system metadata)
-    cleaned = cleaned.replace(/,\s*Pool:Role:[^\s,]*/gi, '').trim();
-
-    // Verificar se o nome completo existe no mapeamento
-    if (RESPONSAVEL_LABELS[cleaned]) {
-      return RESPONSAVEL_LABELS[cleaned];
-    }
-
-    // Verificar se o primeiro nome existe no mapeamento
-    const firstName = cleaned.split(' ')[0];
-    if (RESPONSAVEL_LABELS[firstName]) {
-      return RESPONSAVEL_LABELS[firstName];
-    }
-
-    // For role/area names, keep full label (ex: "Gerência de Facilities")
-    const normalized = cleaned
-      .normalize('NFD')
-      .replace(/\p{Diacritic}/gu, '')
-      .toLowerCase();
-
-    const roleKeywords = ['gestor', 'analista', 'coordenador', 'diretor', 'gerente', 'gerencia', 'supervisor', 'assistente'];
-    const isRole = roleKeywords.some((kw) => normalized.includes(kw));
-
-    if (isRole) return cleaned;
-
-    // Otherwise it's a person's name - return first name only
-    return firstName;
-  };
 
   // Build Fluig portal URL
   const getFluigUrl = (numero: string) => {
@@ -497,7 +409,7 @@ export default function PainelFluig() {
           <div className="flex items-center gap-1">
             <XCircle className="h-3 w-3 flex-shrink-0" />
             <span className="text-xs font-medium" title={responsavel || undefined}>
-              {formatName(responsavel)}
+              {formatResponsavelFluig(responsavel)}
             </span>
           </div>
           <span className="text-[10px] text-muted-foreground">{dateStr}</span>
@@ -519,7 +431,7 @@ export default function PainelFluig() {
         <div className="flex items-center gap-1">
           <CheckCircle2 className="h-3 w-3 flex-shrink-0" />
           <span className="text-xs font-medium" title={responsavel}>
-            {formatName(responsavel)}
+            {formatResponsavelFluig(responsavel)}
           </span>
         </div>
         <span className="text-[10px] text-muted-foreground">{dateStr}</span>
@@ -777,73 +689,7 @@ export default function PainelFluig() {
                     </thead>
                     <tbody className="divide-y divide-border">
                       {currentSnapshots.map((snapshot, idx) => {
-                        // Facilities uses gerencia_conclusao (Gerência Nivel 1)
-                        // If gerencia_facilities has data (and not System:Auto), use it; otherwise fallback to gerencia
-                        const facilitiesResponsavel = (snapshot.gerencia_facilities_responsavel && snapshot.gerencia_facilities_responsavel !== 'System:Auto') 
-                          ? snapshot.gerencia_facilities_responsavel 
-                          : snapshot.gerencia_responsavel;
-                        const facilitiesConclusao = snapshot.gerencia_facilities_conclusao || snapshot.gerencia_conclusao;
-                        
-                        // Use LOCALIZACAO_TO_ETAPA to determine current stage
-                        const currentStage = LOCALIZACAO_TO_ETAPA[snapshot.localizacao || ''] ?? 0;
-                        const responsavelLower = snapshot.responsavel_atual?.toLowerCase() || '';
-                        
-                        // Stage-based detection (more reliable than name matching)
-                        const isAtFacilitiesStage = currentStage === 1 || responsavelLower.includes('gestor');
-                        const isAtFinanceiroStage = currentStage === 2 || 
-                          responsavelLower.includes('gerente financeiro') || 
-                          responsavelLower.includes('financeiro');
-                        const isAtDiretoriaStage = currentStage === 3 || 
-                          responsavelLower.includes('diretor') || 
-                          responsavelLower.includes('diretoria');
-                        const isPastFacilities = currentStage >= 2;
-                        const isPastFinanceiro = currentStage >= 3;
-                        
-                        // Detect if item is back with Facilities for re-approval
-                        const facilitiesFirstName = facilitiesResponsavel?.split(' ')[0]?.toLowerCase() || '';
-                        const isBackWithFacilities = isAtFacilitiesStage && facilitiesConclusao;
-                        
-                        // Check if current responsible is the Financeiro person (by name or by stage)
-                        const financeiroFirstName = snapshot.gerencia_financeiro_responsavel?.split(' ')[0]?.toLowerCase() || '';
-                        const isWithFinanceiro = isAtFinanceiroStage || 
-                          (financeiroFirstName && responsavelLower.includes(financeiroFirstName));
-                        
-                        // If back with Facilities, show blank (pending re-approval)
-                        // If past Facilities stage, show the conclusion
-                        const showFacilitiesConclusao = isBackWithFacilities ? null : (isPastFacilities ? facilitiesConclusao : facilitiesConclusao);
-                        
-                        // Detect rejection: Facilities acted but item returned to stage 0/1 without progressing
-                        // If currently at Financeiro stage or beyond, Facilities approved (not rejected)
-                        const facilitiesRejected = !!(
-                          facilitiesConclusao && 
-                          !isPastFacilities &&
-                          !isAtFacilitiesStage &&
-                          currentStage === 0 // Returned to Início
-                        );
-                        
-                        // Financeiro rejection logic
-                        const isBackWithFinanceiro = isAtFinanceiroStage && snapshot.gerencia_financeiro_conclusao;
-                        
-                        // Check if with Diretoria
-                        const diretoriaFirstName = snapshot.diretoria_responsavel?.split(' ')[0]?.toLowerCase() || '';
-                        const isWithDiretoria = isAtDiretoriaStage || 
-                          (diretoriaFirstName && responsavelLower.includes(diretoriaFirstName));
-                        
-                        // If back with Financeiro, show blank (pending re-approval)
-                        const showFinanceiroConclusao = isBackWithFinanceiro ? null : snapshot.gerencia_financeiro_conclusao;
-                        
-                        // Financeiro rejected if: acted, valor > 2500, not approved by Diretoria, not with Diretoria, not back with Financeiro
-                        // Valores <= 2500 não precisam de Diretoria, então não são considerados rejeitados
-                        const financeiroRejected = !!(
-                          snapshot.gerencia_financeiro_conclusao && 
-                          snapshot.valor && snapshot.valor > 2500 &&
-                          !snapshot.diretoria_conclusao &&
-                          !isPastFinanceiro &&
-                          !isAtDiretoriaStage &&
-                          !isBackWithFinanceiro &&
-                          !isBackWithFacilities
-                        );
-                        
+                        const approval = getFluigApprovalStatus(snapshot);
                         const isMyResponsibility = isCurrentUserResponsible(snapshot.responsavel_atual);
                         
                         return (
@@ -910,9 +756,6 @@ export default function PainelFluig() {
                             {statusTab === 'abertos' && (
                               <td className="px-2 py-2">
                                 {(() => {
-                                  // Calculate time since responsibility changed
-                                  // Use the most recent conclusion timestamp from any stage
-                                  // That's when the item was assigned to the current responsible
                                   const timestamps = [
                                     snapshot.gerencia_conclusao,
                                     snapshot.gerencia_facilities_conclusao,
@@ -920,7 +763,6 @@ export default function PainelFluig() {
                                     snapshot.diretoria_conclusao,
                                   ].filter(Boolean).map(t => new Date(t!).getTime());
                                   
-                                  // If no stage concluded yet, use data_lancamento (creation)
                                   const lastChangeTime = timestamps.length > 0 
                                     ? Math.max(...timestamps)
                                     : (snapshot.data_lancamento ? new Date(snapshot.data_lancamento).getTime() : new Date(snapshot.created_at).getTime());
@@ -938,7 +780,7 @@ export default function PainelFluig() {
                                   ) : (
                                     <div className="flex flex-col items-center gap-0.5">
                                       <span className="font-medium text-xs" title={snapshot.responsavel_atual || undefined}>
-                                        {formatName(snapshot.responsavel_atual)}
+                                        {formatResponsavelFluig(snapshot.responsavel_atual)}
                                       </span>
                                       <span className="text-[10px] text-muted-foreground">{tempoCom}</span>
                                     </div>
@@ -948,23 +790,28 @@ export default function PainelFluig() {
                             )}
                             <td className="px-2 py-2">
                               <ApprovalCell 
-                                responsavel={facilitiesResponsavel} 
-                                conclusao={showFacilitiesConclusao}
-                                rejected={facilitiesRejected}
+                                responsavel={approval.facilitiesResponsavel} 
+                                conclusao={approval.facilitiesConclusao}
+                                rejected={approval.facilities === 'rejected'}
                               />
                             </td>
                             <td className="px-2 py-2">
                               <ApprovalCell 
-                                responsavel={snapshot.gerencia_financeiro_responsavel} 
-                                conclusao={showFinanceiroConclusao}
-                                rejected={financeiroRejected}
+                                responsavel={approval.financeiroResponsavel} 
+                                conclusao={approval.financeiroConclusao}
+                                rejected={approval.financeiro === 'rejected'}
                               />
                             </td>
                             <td className="px-2 py-2">
-                              <ApprovalCell 
-                                responsavel={snapshot.diretoria_responsavel} 
-                                conclusao={snapshot.diretoria_conclusao} 
-                              />
+                              {approval.diretoria === 'not_required' ? (
+                                <span className="text-[10px] text-muted-foreground">N/A</span>
+                              ) : (
+                                <ApprovalCell 
+                                  responsavel={approval.diretoriaResponsavel} 
+                                  conclusao={approval.diretoriaConclusao}
+                                  rejected={approval.diretoria === 'rejected'}
+                                />
+                              )}
                             </td>
                           </tr>
                         );

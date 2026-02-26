@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { getAprovacoesPorLocalizacao, CAMPO_APROVACAO_LABELS, getDevolucaoLabel, LOCALIZACAO_TO_ETAPA, mapEtapaToDepartamento } from '@/lib/fluig-utils';
+import { getAprovacoesPorLocalizacao, CAMPO_APROVACAO_LABELS, getDevolucaoLabel, LOCALIZACAO_TO_ETAPA, mapEtapaToDepartamento, formatResponsavelFluig, getEtapaIndexPorResponsavel, getProximaEtapaFluig } from '@/lib/fluig-utils';
 import { useFluigStatus } from '@/hooks/useFluigStatus';
 interface FluigEvento {
   id: string;
@@ -24,85 +24,8 @@ interface FluigStatusCardProps {
   numeroChamadoFluig: string;
 }
 
-const ETAPA_LABELS: Record<string, string> = {
-  'Para o Papel Gestor Condominio': 'Gerência de Facilities',
-  'Para o Papel Gestor Condomínio': 'Gerência de Facilities',
-  'Aprovação Nivel 1': 'Gerência de Facilities',
-  'Aprovação Nível 1': 'Gerência de Facilities',
-  'Aprovação Nivel 2': 'Gerência Financeira',
-  'Aprovação Nível 2': 'Gerência Financeira',
-  'Aprovação Nivel 3': 'Diretoria',
-  'Aprovação Nível 3': 'Diretoria',
-};
-
-// Mapa: nome do responsável → próxima etapa
-const RESPONSAVEL_PROXIMA_ETAPA: Record<string, string> = {
-  // Início → Facilities
-  'Laureane Bransin': 'Gerência de Facilities',
-  'Paloma Correa Grigoletto': 'Gerência de Facilities',
-  'Roberta Gonçalves Pires da Costa': 'Gerência de Facilities',
-  // Facilities → Financeiro
-  'Jonatas Augusto Ferreira': 'Gerência Financeira',
-  // Financeiro → Diretoria
-  'Kethli Pereira Bezerra': 'Diretoria',
-  // Diretoria → Conclusão
-  'Thiago Demeterco Lucchesi': 'Conclusão',
-};
-
-// Mapa: nome do responsável → etapa atual (índice -1=início, 0=facilities, 1=financeiro, 2=diretoria)
-const RESPONSAVEL_ETAPA_INDEX: Record<string, number> = {
-  'Laureane Bransin': -1,                    // início
-  'Paloma Correa Grigoletto': -1,            // início
-  'Roberta Gonçalves Pires da Costa': -1,    // início
-  'Jonatas Augusto Ferreira': 0,             // facilities
-  'Kethli Pereira Bezerra': 1,               // financeiro
-  'Thiago Demeterco Lucchesi': 2,            // diretoria
-  'Para o Papel Gestor Condominio': 0,       // aguardando facilities
-  'Para o Papel Gestor Condomínio': 0,       // aguardando facilities (com acento)
-};
-
-const getEtapaAtualIndex = (responsavelAtual: string | null): number => {
-  if (!responsavelAtual) return -1;
-  for (const [nome, index] of Object.entries(RESPONSAVEL_ETAPA_INDEX)) {
-    if (responsavelAtual.includes(nome)) {
-      return index;
-    }
-  }
-  return -1;
-};
-
-// Fallback por localização (quando não há pessoa específica)
-const PROXIMA_ETAPA_FALLBACK: Record<string, string> = {
-  'Início': 'Gerência de Facilities',
-  'Para o Papel Gestor Condominio': 'Gerência Financeira',
-  'Para o Papel Gestor Condomínio': 'Gerência Financeira',
-  'Aprovação Nivel 1': 'Gerência Financeira',
-  'Aprovação Nível 1': 'Gerência Financeira',
-  'Aprovação Financeiro': 'Diretoria',
-  'Aprovação Nivel 2': 'Diretoria',
-  'Aprovação Nível 2': 'Diretoria',
-  'Aprovação Nivel 3': 'Conclusão',
-  'Aprovação Nível 3': 'Conclusão',
-};
-
-const getProximaEtapa = (responsavelAtual: string | null, localizacao: string | null): string => {
-  const responsavel = responsavelAtual || '';
-  
-  // Verifica se o responsável atual contém algum nome conhecido
-  for (const [nome, proximaEtapa] of Object.entries(RESPONSAVEL_PROXIMA_ETAPA)) {
-    if (responsavel.includes(nome)) {
-      return proximaEtapa;
-    }
-  }
-  
-  // Fallback: usa localização se não encontrar pelo nome
-  return PROXIMA_ETAPA_FALLBACK[localizacao || ''] || localizacao || '-';
-};
-
-
 // Obtém a data real do evento (para aprovações, usa valor_novo que contém a data ISO)
 const getEventoDataReal = (evento: FluigEvento): Date => {
-  // Para aprovações, a data real está no valor_novo (ISO string)
   if (evento.campo_alterado.includes('_conclusao') && evento.valor_novo) {
     try {
       return new Date(evento.valor_novo);
@@ -110,11 +33,10 @@ const getEventoDataReal = (evento: FluigEvento): Date => {
       return new Date(evento.created_at);
     }
   }
-  // Para outros eventos, usar created_at
   return new Date(evento.created_at);
 };
 
-// Mapa: localização técnica → texto amigável para movimentações
+// Kept for localizacao-to-text mappings in event formatting
 const LOCALIZACAO_TEXTO_AMIGAVEL: Record<string, string> = {
   'Aprovação Nivel 1': 'aprovação de Facilities',
   'Aprovação Nível 1': 'aprovação de Facilities',
@@ -351,7 +273,7 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
     : 0;
 
   // Determine current stage based on responsavel_atual
-  const etapaAtualIndex = getEtapaAtualIndex(status.responsavel_atual);
+  const etapaAtualIndex = getEtapaIndexPorResponsavel(status.responsavel_atual);
 
   // Determine approval stages based on localizacao (source of truth)
   // Também considera devoluções para marcar badges corretamente
@@ -403,11 +325,11 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
             <User className={`h-3.5 w-3.5 ${devolucaoDetectada ? 'text-amber-500' : 'text-blue-500'}`} />
             <span className="text-muted-foreground">Responsável atual:</span>
             <span className={`font-medium ${devolucaoDetectada ? 'text-amber-600 dark:text-amber-400' : 'text-foreground'}`}>
-              {/* Sempre mostrar o responsável REAL baseado em responsavel_atual/localização */}
-              {ETAPA_LABELS[status.responsavel_atual || ''] || 
-               ETAPA_LABELS[status.localizacao || ''] || 
-               status.responsavel_atual || 
-               'Não definido'}
+              {formatResponsavelFluig(status.responsavel_atual) !== '-' 
+                ? formatResponsavelFluig(status.responsavel_atual)
+                : formatResponsavelFluig(status.localizacao) !== '-'
+                  ? formatResponsavelFluig(status.localizacao)
+                  : 'Não definido'}
             </span>
             {!devolucaoDetectada && (
               <Badge variant="outline" className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700 flex items-center gap-1">
@@ -428,7 +350,7 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
           <div className="flex items-center gap-2">
             <MapPin className="h-3.5 w-3.5 text-blue-500" />
             <span className="text-muted-foreground">Próxima etapa:</span>
-            <span className="font-medium text-foreground">{getProximaEtapa(status.responsavel_atual, status.localizacao)}</span>
+            <span className="font-medium text-foreground">{getProximaEtapaFluig(status.responsavel_atual, status.localizacao)}</span>
           </div>
         )}
 
