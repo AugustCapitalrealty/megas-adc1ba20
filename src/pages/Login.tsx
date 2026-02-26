@@ -126,6 +126,7 @@ export default function Login() {
               alt="Mega Centro Logístico" 
               width={138}
               height={64}
+              fetchPriority="high"
               className="h-16 w-auto object-contain"
             />
           </div>
