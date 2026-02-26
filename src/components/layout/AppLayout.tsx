@@ -29,7 +29,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { NotificationBell } from '@/components/NotificationBell';
-import logoMega from '@/assets/logos/logo-mega.png';
+import logoMega from '@/assets/logos/logo-mega.webp';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -175,6 +175,8 @@ export function AppLayout({ children }: AppLayoutProps) {
             <img 
               src={logoMega} 
               alt="Mega Centro Logístico" 
+              width={86}
+              height={40}
               className="h-10 w-auto object-contain"
             />
           </Link>
@@ -285,6 +287,8 @@ export function AppLayout({ children }: AppLayoutProps) {
                   <img 
                     src={logoMega} 
                     alt="Mega Centro Logístico" 
+                    width={69}
+                    height={32}
                     className="h-8 w-auto object-contain"
                   />
                 </div>

@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import logoMega from '@/assets/logos/logo-mega.png';
+import logoMega from '@/assets/logos/logo-mega.webp';
 
 export default function Login() {
   const { user, loading, isApproved, isMasterUser, signInWithGoogle } = useAuth();
@@ -124,6 +124,8 @@ export default function Login() {
             <img 
               src={logoMega} 
               alt="Mega Centro Logístico" 
+              width={138}
+              height={64}
               className="h-16 w-auto object-contain"
             />
           </div>
