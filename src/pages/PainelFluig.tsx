@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -129,9 +130,67 @@ export default function PainelFluig() {
   const [userEmpreendimentos, setUserEmpreendimentos] = useState<string[]>([]);
   const [loadingEmps, setLoadingEmps] = useState(true);
   
-  const { effectiveProfile, user, isImpersonating } = useAuth();
+  const { effectiveProfile, effectiveRoles, user, isImpersonating } = useAuth();
   const effectiveUserId = (isImpersonating ? effectiveProfile?.id : user?.id) ?? user?.id;
+  const isBackofficeOrAdmin = effectiveRoles?.includes('backoffice') || effectiveRoles?.includes('admin');
+  const navigate = useNavigate();
   const { snapshots: allSnapshots, loading, refetch } = useFluigSnapshots({});
+  
+  // Map fluig_number → protocolo for deep linking
+  const [linkedProtocolos, setLinkedProtocolos] = useState<Record<string, string>>({});
+  
+  useEffect(() => {
+    if (!allSnapshots.length) return;
+    
+    const fetchLinkedProtocolos = async () => {
+      const result: Record<string, string> = {};
+      
+      // 1. Direct links via solicitacao_interna_id
+      const linkedIds = allSnapshots
+        .filter(s => s.solicitacao_interna_id)
+        .map(s => s.solicitacao_interna_id as string);
+      
+      if (linkedIds.length > 0) {
+        const { data: directLinks } = await supabase
+          .from('solicitacoes')
+          .select('id, protocolo')
+          .in('id', linkedIds);
+        
+        if (directLinks) {
+          for (const sol of directLinks) {
+            const snap = allSnapshots.find(s => s.solicitacao_interna_id === sol.id);
+            if (snap && sol.protocolo) {
+              result[snap.solicitacao_fluig] = sol.protocolo;
+            }
+          }
+        }
+      }
+      
+      // 2. Fallback: match by numero_chamado_fluig
+      const unlinkedFluigNums = allSnapshots
+        .filter(s => !s.solicitacao_interna_id && !result[s.solicitacao_fluig])
+        .map(s => s.solicitacao_fluig);
+      
+      if (unlinkedFluigNums.length > 0) {
+        const { data: fallbackLinks } = await supabase
+          .from('solicitacoes')
+          .select('numero_chamado_fluig, protocolo')
+          .in('numero_chamado_fluig', unlinkedFluigNums);
+        
+        if (fallbackLinks) {
+          for (const sol of fallbackLinks) {
+            if (sol.numero_chamado_fluig && sol.protocolo) {
+              result[sol.numero_chamado_fluig] = sol.protocolo;
+            }
+          }
+        }
+      }
+      
+      setLinkedProtocolos(result);
+    };
+    
+    fetchLinkedProtocolos();
+  }, [allSnapshots]);
 
   // Fetch user's assigned empreendimentos
   useEffect(() => {
@@ -702,15 +761,32 @@ export default function PainelFluig() {
                             )}
                           >
                             <td className="px-2 py-2">
-                              <a 
-                                href={getFluigUrl(snapshot.solicitacao_fluig)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="font-semibold text-primary hover:underline inline-flex items-center gap-1 justify-center"
-                              >
-                                {snapshot.solicitacao_fluig}
-                                <ExternalLink className="h-3 w-3 flex-shrink-0" />
-                              </a>
+                              <div className="flex flex-col items-center gap-0.5">
+                                <a 
+                                  href={getFluigUrl(snapshot.solicitacao_fluig)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="font-semibold text-primary hover:underline inline-flex items-center gap-1 justify-center"
+                                >
+                                  {snapshot.solicitacao_fluig}
+                                  <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                                </a>
+                                {linkedProtocolos[snapshot.solicitacao_fluig] && (
+                                  <button
+                                    onClick={() => {
+                                      const protocolo = linkedProtocolos[snapshot.solicitacao_fluig];
+                                      const targetPath = isBackofficeOrAdmin 
+                                        ? `/backoffice?search=${protocolo}` 
+                                        : `/minhas-solicitacoes?search=${protocolo}`;
+                                      navigate(targetPath);
+                                    }}
+                                    className="text-[10px] text-primary/70 hover:text-primary hover:underline flex items-center gap-0.5"
+                                  >
+                                    <FileText className="h-3 w-3" />
+                                    #{linkedProtocolos[snapshot.solicitacao_fluig]}
+                                  </button>
+                                )}
+                              </div>
                             </td>
                             <td className="px-2 py-2 whitespace-nowrap">
                               {formatDateShort(snapshot.data_lancamento)}

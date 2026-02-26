@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { RefreshCw, MapPin, User, Calendar, Clock, ChevronDown, ChevronUp, CheckCircle, XCircle, UserCircle, ArrowRight, AlertCircle, RotateCcw } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { RefreshCw, MapPin, User, Calendar, Clock, ChevronDown, ChevronUp, CheckCircle, XCircle, UserCircle, ArrowRight, AlertCircle, RotateCcw, ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -306,7 +307,7 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
 
   return (
     <div className="p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
-      <div className="flex items-center gap-2 mb-2">
+      <div className="flex items-center gap-2 mb-2 flex-wrap">
         <RefreshCw className="h-4 w-4 text-blue-600 dark:text-blue-400" />
         <span className="font-medium text-blue-700 dark:text-blue-300 text-sm">
           Status Fluig #{status.solicitacao_fluig}
@@ -316,6 +317,12 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
             {status.situacao}
           </Badge>
         )}
+        <Link 
+          to="/painel-fluig" 
+          className="ml-auto text-xs text-primary/70 hover:text-primary hover:underline flex items-center gap-1"
+        >
+          Ver no Painel <ExternalLink className="h-3 w-3" />
+        </Link>
       </div>
 
       <div className="grid gap-2 text-sm">
