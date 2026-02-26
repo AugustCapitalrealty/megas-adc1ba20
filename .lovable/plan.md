@@ -1,91 +1,70 @@
 
 
-# Unificação da Lógica Fluig entre Painel e Solicitações
+# Conectar Painel Fluig ↔ Solicitações com Deep Links
 
-## Diagnóstico: 3 Lógicas Diferentes para a Mesma Coisa
+## Situação Atual
 
-Existem **3 implementações independentes** para determinar o status de aprovação Fluig:
+- `fluig_painel_snapshot` tem campo `solicitacao_interna_id` (50 de 428 registros vinculados)
+- `solicitacoes` tem campo `numero_chamado_fluig` (preenchido pelo backoffice)
+- **Nenhum dos dois** exibe links de navegação cruzada na UI
 
-### 1. `FluigStatusCard.tsx` (dentro da solicitação no Backoffice)
-- Usa `getAprovacoesPorLocalizacao()` de `fluig-utils.ts` (baseado em **localização**)
-- Usa `RESPONSAVEL_PROXIMA_ETAPA` com nomes hardcoded de pessoas
-- Detecta devoluções comparando níveis de localização no histórico de eventos
+## Alterações
 
-### 2. `PainelFluig.tsx` (tabela do painel)
-- Usa `LOCALIZACAO_TO_ETAPA` para determinar estágio atual
-- Implementa lógica **própria** de rejeição com combinação de `currentStage`, nomes de responsáveis, e campos `*_conclusao`
-- Lógica de "fechado" baseada em valor (≤ R$2.500 não precisa de Diretoria)
-- Usa `RESPONSAVEL_LABELS` para traduzir nomes → departamentos (hardcoded diferente)
+### 1. PainelFluig — Botão "Ver Solicitação" na tabela
 
-### 3. `FluigDashboard.tsx` (dashboard antigo, ainda usado)
-- Lógica **simplificada**: se tem `diretoria_conclusao` = aprovado, senão = pendente
-- Ignora completamente `localizacao`, devoluções e regra de valor ≤ R$2.500
-- Sem detecção de rejeição
+Na coluna "Nº" da tabela, quando o snapshot tem `solicitacao_interna_id`, adicionar um ícone-link abaixo do número Fluig que navega para `/minhas-solicitacoes?search=PROTOCOLO` (ou `/backoffice?search=PROTOCOLO` para backoffice/admin).
 
-## Inconsistências Concretas
-
-| Aspecto | FluigStatusCard | PainelFluig | FluigDashboard |
-|---|---|---|---|
-| Fonte de verdade | `localizacao` | `localizacao` + `responsavel_atual` + `*_conclusao` | apenas `*_conclusao` |
-| Regra R$≤2.500 | Não implementa | Implementa | Não implementa |
-| Detecção de devolução | Sim (via eventos) | Sim (via estágio atual) | Não |
-| Mapa de pessoas | `RESPONSAVEL_PROXIMA_ETAPA` | `RESPONSAVEL_LABELS` + `USER_FLUIG_ROLES` | Nenhum |
-| Contagem de pendentes | N/A | `isFechado()` + `isCancelado()` | `!diretoria_conclusao` |
-
-## Solução Proposta
-
-Centralizar **toda** a lógica de status Fluig em `fluig-utils.ts`, criando funções compartilhadas que ambos os componentes usam.
-
-### Arquivos modificados
+Para isso, preciso buscar os protocolos das solicitações vinculadas. Farei um batch query após carregar os snapshots.
 
 | Arquivo | Alteração |
 |---|---|
-| `src/lib/fluig-utils.ts` | Adicionar funções centralizadas: `isFluigFechado()`, `isFluigCancelado()`, `getFluigApprovalStatus()`, `formatResponsavelFluig()`, mapa unificado de pessoas |
-| `src/pages/PainelFluig.tsx` | Substituir lógica local por chamadas às funções de `fluig-utils.ts` |
-| `src/components/FluigStatusCard.tsx` | Substituir mapas locais por funções de `fluig-utils.ts` |
-| `src/components/FluigDashboard.tsx` | Usar `isFluigFechado()` ao invés de checar apenas `diretoria_conclusao` |
+| `src/pages/PainelFluig.tsx` | Adicionar estado `linkedProtocolos` (mapa id→protocolo), buscar protocolos das solicitações vinculadas, renderizar link na coluna Nº |
 
-### Detalhes Técnicos
+### 2. FluigStatusCard — Botão "Ver no Painel Fluig"
 
-**`fluig-utils.ts` — Novas funções centralizadas:**
+Adicionar um botão/link no card que navega para `/painel-fluig` (a página já existe como rota).
 
+| Arquivo | Alteração |
+|---|---|
+| `src/components/FluigStatusCard.tsx` | Adicionar link "Ver no Painel" que navega para `/painel-fluig` (não filtra, mas o usuário já sabe o número) |
+
+### 3. Vincular automaticamente snapshots sem `solicitacao_interna_id`
+
+Muitos snapshots não têm `solicitacao_interna_id` mas a solicitação tem `numero_chamado_fluig` preenchido. Adicionar ao PainelFluig um match por `numero_chamado_fluig` como fallback.
+
+| Arquivo | Alteração |
+|---|---|
+| `src/pages/PainelFluig.tsx` | No batch query, também buscar solicitações por `numero_chamado_fluig` para snapshots sem `solicitacao_interna_id` |
+
+## Detalhes Técnicos
+
+**PainelFluig.tsx — Buscar protocolos vinculados:**
 ```text
-// Mapa unificado de pessoas → departamentos (substitui 3 mapas diferentes)
-RESPONSAVEL_TO_DEPARTAMENTO: Record<string, string>
-  - Laureane, Paloma, Roberta → 'Início'
-  - Jonatas → 'Gerência de Facilities'
-  - Kethli → 'Gerência Financeira'
-  - Thiago → 'Diretoria'
+// Após carregar snapshots, buscar protocolos:
+// 1. IDs diretos via solicitacao_interna_id
+// 2. Fallback via numero_chamado_fluig matching solicitacao_fluig
 
-// Regra de negócio: valor <= 2500 não precisa de Diretoria
-isFluigFechado(snapshot): boolean
-  - valor <= 2500: retorna true se gerencia_financeiro_conclusao preenchido
-  - valor > 2500: retorna true se diretoria_conclusao preenchido
+const linkedIds = snapshots.filter(s => s.solicitacao_interna_id).map(s => s.solicitacao_interna_id);
+const unlinkedFluigNums = snapshots.filter(s => !s.solicitacao_interna_id).map(s => s.solicitacao_fluig);
 
-isFluigCancelado(snapshot): boolean
-  - situacao inclui 'cancelado'/'cancelada'
-
-// Status de cada aprovação considerando localização + valor
-getFluigApprovalStatus(snapshot): {
-  facilities: 'pending' | 'approved' | 'rejected' | 'in_progress',
-  financeiro: 'pending' | 'approved' | 'rejected' | 'in_progress',
-  diretoria: 'pending' | 'approved' | 'rejected' | 'not_required' | 'in_progress'
-}
-
-// Traduz responsavel_atual para nome de departamento
-formatResponsavelFluig(responsavelAtual: string | null): string
+// Batch queries para ambos
+// Resultado: Map<fluig_number, protocolo>
 ```
 
-**`PainelFluig.tsx` — Simplificação:**
-- Remover `isFechado()`, `isCancelado()`, `RESPONSAVEL_LABELS`, `USER_FLUIG_ROLES` locais
-- Usar `isFluigFechado()`, `isFluigCancelado()`, `getFluigApprovalStatus()`, `formatResponsavelFluig()` importados
-- Remover a lógica complexa de ~60 linhas dentro do `.map()` da tabela (linhas 780-845) e substituir por uma chamada a `getFluigApprovalStatus(snapshot)`
+**PainelFluig.tsx — Renderizar link na coluna Nº:**
+```text
+// Abaixo do número Fluig, se tem protocolo vinculado:
+<button onClick={() => navigate(targetPath)} className="text-xs text-blue-600 hover:underline flex items-center gap-0.5">
+  <FileText className="h-3 w-3" />
+  #{protocolo}
+</button>
+```
 
-**`FluigStatusCard.tsx` — Simplificação:**
-- Remover `ETAPA_LABELS`, `RESPONSAVEL_PROXIMA_ETAPA`, `RESPONSAVEL_ETAPA_INDEX` locais
-- Usar `formatResponsavelFluig()` e `getAprovacoesPorLocalizacao()` (já existente)
-
-**`FluigDashboard.tsx` — Correção:**
-- Stats `pendentes`/`aprovados` passam a usar `isFluigFechado()` ao invés de `!!diretoria_conclusao`
-- Assim os números batem com o PainelFluig
+**FluigStatusCard.tsx — Link para o Painel:**
+```text
+// No header do card, ao lado do título "Status Fluig #149899":
+<Link to="/painel-fluig" className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+  Ver no Painel <ExternalLink className="h-3 w-3" />
+</Link>
+```
 
