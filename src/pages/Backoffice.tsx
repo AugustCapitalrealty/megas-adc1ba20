@@ -29,6 +29,7 @@ import { MEIAlertBadge } from '@/components/MEIAlertBadge';
 import { EscopoMinutaCard } from '@/components/EscopoMinutaCard';
 import { InstrumentoJuridicoBadge } from '@/components/InstrumentoJuridicoBadge';
 import { type Fornecedor, type CNAESecundario, INSTRUMENTO_JURIDICO_LABELS, type InstrumentoJuridico } from '@/types';
+import { RateioCard } from '@/components/RateioCard';
 import { supabase } from '@/integrations/supabase/client';
 import { useBackofficeSolicitacoes, type SolicitacaoBackoffice } from '@/hooks/useBackofficeSolicitacoes';
 import { useSolicitacaoDetalhes } from '@/hooks/useSolicitacaoDetalhes';
@@ -1790,6 +1791,18 @@ export default function Backoffice() {
                     <Label className="text-xs uppercase tracking-wide text-muted-foreground">Empreendimento</Label>
                     <p className="font-medium mt-1">{EMPREENDIMENTO_LABELS[detalhes.solicitacao.empreendimento]}</p>
                   </div>
+
+                  {/* Rateio Card - when empreendimento = todos */}
+                  {detalhes.solicitacao.empreendimento === 'todos' && (detalhes.solicitacao as any).rateio_valores && (
+                    <div className="col-span-2">
+                      <RateioCard
+                        tipoRateio={(detalhes.solicitacao as any).tipo_rateio || 'por_area'}
+                        rateioValores={(detalhes.solicitacao as any).rateio_valores}
+                        protocolo={detalhes.solicitacao.protocolo || undefined}
+                        valorTotal={detalhes.solicitacao.valor}
+                      />
+                    </div>
+                  )}
                   
                   {/* Natureza Orçamentária - Redesigned */}
                   <div className="col-span-2 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">

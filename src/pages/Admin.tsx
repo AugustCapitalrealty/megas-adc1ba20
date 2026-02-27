@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { Loader2, Search, Shield, Users, UserCheck, UserCog, X, Building2, CheckCircle, XCircle, Clock, FileText, Mail, Pencil, Check } from 'lucide-react';
 import { AppRole, ROLE_LABELS, Empreendimento, EMPREENDIMENTO_LABELS } from '@/types';
 import { SolicitacoesManagement } from '@/components/admin/SolicitacoesManagement';
+import { RateioConfigTab } from '@/components/RateioConfigTab';
 
 const EMPREENDIMENTOS: Empreendimento[] = ['mega_curitiba', 'mega_itajai', 'mega_esteio', 'todos'];
 
@@ -386,6 +387,10 @@ export default function Admin() {
               <FileText className="h-4 w-4" />
               Solicitações
             </TabsTrigger>
+            <TabsTrigger value="rateio" className="gap-2">
+              <Building2 className="h-4 w-4" />
+              Rateio
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="usuarios" className="space-y-6 mt-6">
@@ -650,6 +655,10 @@ export default function Admin() {
 
           <TabsContent value="solicitacoes" className="mt-6">
             <SolicitacoesManagement />
+          </TabsContent>
+
+          <TabsContent value="rateio" className="mt-6">
+            <RateioConfigTab />
           </TabsContent>
         </Tabs>
       </div>
