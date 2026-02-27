@@ -6,6 +6,24 @@ import { EMPREENDIMENTO_LABELS, type Empreendimento } from '@/types';
 import { Download, PieChart } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import logoMega from '@/assets/logos/logo-mega.png';
+
+const loadImageAsBase64 = (src: string): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      ctx?.drawImage(img, 0, 0);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = reject;
+    img.src = src;
+  });
+};
 
 interface RateioValor {
   empreendimento: string;
@@ -27,25 +45,50 @@ export function RateioCard({ tipoRateio, rateioValores, protocolo, valorTotal }:
   const total = rateioValores.reduce((s, r) => s + r.valor, 0);
   const totalArea = rateioValores.reduce((s, r) => s + r.area_m2, 0);
 
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const orange: [number, number, number] = [232, 119, 34];
+    const grey: [number, number, number] = [100, 102, 106];
+    const white: [number, number, number] = [255, 255, 255];
 
-    // Title
-    doc.setFontSize(16);
-    doc.text('Demonstrativo de Rateio entre Condomínios', 14, 20);
+    // Orange header band
+    doc.setFillColor(...orange);
+    doc.rect(0, 0, pageWidth, 40, 'F');
 
-    // Info
+    // Logo
+    try {
+      const logoBase64 = await loadImageAsBase64(logoMega);
+      doc.addImage(logoBase64, 'PNG', 14, 6, 28, 28);
+    } catch { /* proceed without logo */ }
+
+    // Title on orange band
+    doc.setTextColor(...white);
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Demonstrativo de Rateio', 50, 20);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+    doc.text('entre Condomínios', 50, 28);
+
+    // Info section below header
+    let yPos = 52;
+    doc.setTextColor(...grey);
     doc.setFontSize(10);
     if (protocolo) {
-      doc.text(`Protocolo: ${protocolo}`, 14, 30);
+      doc.text(`Protocolo: ${protocolo}`, 14, yPos);
+      yPos += 6;
     }
-    doc.text(`Tipo de Rateio: ${tipoRateio === 'por_unidade' ? 'Por Unidade (igual)' : 'Por Área (proporcional)'}`, 14, 36);
-    doc.text(`Valor Total: ${(valorTotal ?? total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`, 14, 42);
-    doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 14, 48);
+    doc.text(`Tipo de Rateio: ${tipoRateio === 'por_unidade' ? 'Por Unidade (igual)' : 'Por Área (proporcional)'}`, 14, yPos);
+    yPos += 6;
+    doc.text(`Valor Total: ${(valorTotal ?? total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`, 14, yPos);
+    yPos += 6;
+    doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 14, yPos);
+    yPos += 10;
 
     // Table
     autoTable(doc, {
-      startY: 56,
+      startY: yPos,
       head: [['Condomínio', 'Área (m²)', '%', 'Valor (R$)']],
       body: [
         ...rateioValores.map(r => [
@@ -55,15 +98,25 @@ export function RateioCard({ tipoRateio, rateioValores, protocolo, valorTotal }:
           r.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
         ]),
         [
-          { content: 'Total', styles: { fontStyle: 'bold' } },
-          { content: totalArea.toLocaleString('pt-BR', { minimumFractionDigits: 2 }), styles: { fontStyle: 'bold' } },
-          { content: '100,00%', styles: { fontStyle: 'bold' } },
-          { content: (valorTotal ?? total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), styles: { fontStyle: 'bold' } },
+          { content: 'Total', styles: { fontStyle: 'bold', fillColor: grey, textColor: white } },
+          { content: totalArea.toLocaleString('pt-BR', { minimumFractionDigits: 2 }), styles: { fontStyle: 'bold', fillColor: grey, textColor: white } },
+          { content: '100,00%', styles: { fontStyle: 'bold', fillColor: grey, textColor: white } },
+          { content: (valorTotal ?? total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), styles: { fontStyle: 'bold', fillColor: grey, textColor: white } },
         ],
       ],
       styles: { fontSize: 10 },
-      headStyles: { fillColor: [41, 128, 185] },
+      headStyles: { fillColor: orange, textColor: white, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [248, 248, 248] },
     });
+
+    // Footer
+    const pageHeight = doc.internal.pageSize.getHeight();
+    doc.setDrawColor(...grey);
+    doc.setLineWidth(0.5);
+    doc.line(14, pageHeight - 20, pageWidth - 14, pageHeight - 20);
+    doc.setFontSize(8);
+    doc.setTextColor(...grey);
+    doc.text(`Mega Centro Logístico — Documento gerado em ${new Date().toLocaleDateString('pt-BR')}`, 14, pageHeight - 14);
 
     doc.save(`rateio_${protocolo || 'demonstrativo'}.pdf`);
   };
