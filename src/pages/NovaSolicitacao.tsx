@@ -45,6 +45,7 @@ import { NaturezaServicoStep } from '@/components/NaturezaServicoStep';
 import { DueDiligenceModule } from '@/components/DueDiligenceModule';
 import { EscopoDetalhadoField } from '@/components/EscopoDetalhadoField';
 import { RetencaoTecnicaAlert } from '@/components/RetencaoTecnicaAlert';
+import { RateioPreview, type RateioValor } from '@/components/RateioPreview';
 
 type Step = 'empreendimento' | 'descricao' | 'tipo' | 'natureza_servico' | 'detalhes' | 'fornecedor' | 'anexos' | 'revisao';
 
@@ -209,6 +210,10 @@ export default function NovaSolicitacao() {
   const [dueDiligenceConfirmada, setDueDiligenceConfirmada] = useState(false);
   const [dueDiligenceNumeroProjuris, setDueDiligenceNumeroProjuris] = useState('');
   const [temProcessoProjuris, setTemProcessoProjuris] = useState(false);
+  
+  // Rateio
+  const [tipoRateio, setTipoRateio] = useState('por_area');
+  const [rateioValores, setRateioValores] = useState<RateioValor[]>([]);
   
   // AI Description Validation
   const { isValidating: isValidatingDescription, validationResult: descriptionValidation } = useDescriptionValidation(descricao);
@@ -784,7 +789,10 @@ export default function NovaSolicitacao() {
         escopo_detalhado_minuta: requerEscopoDetalhado ? escopoDetalhadoMinuta.trim() : null,
         due_diligence_confirmada: requerDueDiligence ? dueDiligenceConfirmada : false,
         due_diligence_numero_projuris: temProcessoProjuris ? dueDiligenceNumeroProjuris.trim() || null : null,
-      };
+        // Rateio
+        tipo_rateio: empreendimento === 'todos' ? tipoRateio : null,
+        rateio_valores: empreendimento === 'todos' && rateioValores.length > 0 ? rateioValores : null,
+      } as any;
       
       // Tentar inserir com retry automático para conflitos de protocolo (23505)
       let data: { id: string; protocolo: string } | null = null;
@@ -1089,6 +1097,16 @@ export default function NovaSolicitacao() {
                   </RadioGroup>
                 )}
               </div>
+            )}
+
+            {/* Rateio Preview - shown on descricao step when empreendimento = todos and valor > 0 */}
+            {currentStep === 'descricao' && empreendimento === 'todos' && valorNumerico > 0 && (
+              <RateioPreview
+                valorTotal={valorNumerico}
+                tipoRateio={tipoRateio}
+                onTipoRateioChange={setTipoRateio}
+                onRateioValoresChange={setRateioValores}
+              />
             )}
 
             {currentStep === 'descricao' && (

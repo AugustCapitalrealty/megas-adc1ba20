@@ -586,6 +586,30 @@ export type Database = {
         }
         Relationships: []
       }
+      rateio_configuracao: {
+        Row: {
+          area_m2: number
+          empreendimento: Database["public"]["Enums"]["empreendimento"]
+          id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          area_m2: number
+          empreendimento: Database["public"]["Enums"]["empreendimento"]
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          area_m2?: number
+          empreendimento?: Database["public"]["Enums"]["empreendimento"]
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       solicitacao_mensagens: {
         Row: {
           created_at: string
@@ -713,6 +737,7 @@ export type Database = {
           parcelas: number | null
           prazo_liberacao_retencao_dias: number | null
           protocolo: string | null
+          rateio_valores: Json | null
           requer_retencao_tecnica: boolean | null
           resposta_informacoes: string | null
           retencao_6_porcento: boolean | null
@@ -722,6 +747,7 @@ export type Database = {
             | Database["public"]["Enums"]["tipo_contratacao"]
             | null
           tipo_garantia: Database["public"]["Enums"]["tipo_garantia"] | null
+          tipo_rateio: string | null
           updated_at: string
           user_id: string
           valor: number
@@ -784,6 +810,7 @@ export type Database = {
           parcelas?: number | null
           prazo_liberacao_retencao_dias?: number | null
           protocolo?: string | null
+          rateio_valores?: Json | null
           requer_retencao_tecnica?: boolean | null
           resposta_informacoes?: string | null
           retencao_6_porcento?: boolean | null
@@ -793,6 +820,7 @@ export type Database = {
             | Database["public"]["Enums"]["tipo_contratacao"]
             | null
           tipo_garantia?: Database["public"]["Enums"]["tipo_garantia"] | null
+          tipo_rateio?: string | null
           updated_at?: string
           user_id: string
           valor: number
@@ -855,6 +883,7 @@ export type Database = {
           parcelas?: number | null
           prazo_liberacao_retencao_dias?: number | null
           protocolo?: string | null
+          rateio_valores?: Json | null
           requer_retencao_tecnica?: boolean | null
           resposta_informacoes?: string | null
           retencao_6_porcento?: boolean | null
@@ -864,6 +893,7 @@ export type Database = {
             | Database["public"]["Enums"]["tipo_contratacao"]
             | null
           tipo_garantia?: Database["public"]["Enums"]["tipo_garantia"] | null
+          tipo_rateio?: string | null
           updated_at?: string
           user_id?: string
           valor?: number
