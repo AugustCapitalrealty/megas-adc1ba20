@@ -99,7 +99,7 @@ export function AnexoCard({ anexo, showTipo = true }: AnexoCardProps) {
 
   return (
     <div className={cn(
-      "group flex items-center gap-3 p-3 rounded-lg border transition-all duration-200 w-full",
+      "group flex items-center gap-3 p-3 rounded-lg border transition-all duration-200 w-full overflow-hidden",
       "hover:shadow-sm cursor-pointer",
       // Visual hierarchy based on importance
       importancia === 'primary' && "bg-primary/5 border-primary/30 hover:bg-primary/10 hover:border-primary/50",
@@ -139,7 +139,7 @@ export function AnexoCard({ anexo, showTipo = true }: AnexoCardProps) {
         </div>
         <Tooltip>
           <TooltipTrigger asChild>
-            <p className="text-sm font-medium truncate mt-0.5 max-w-full cursor-help">
+            <p className="text-sm font-medium truncate mt-0.5 max-w-[200px] sm:max-w-[300px] md:max-w-[400px] cursor-help">
               {anexo.nome_arquivo}
             </p>
           </TooltipTrigger>
