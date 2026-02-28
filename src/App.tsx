@@ -6,6 +6,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { Loader2 } from "lucide-react";
+import { ScrollToTop } from "@/components/ScrollToTop";
+import logoMega from "@/assets/logos/logo-mega.webp";
 
 const Login = lazy(() => import("./pages/Login"));
 const AwaitingApproval = lazy(() => import("./pages/AwaitingApproval"));
@@ -35,8 +37,12 @@ function ProtectedRoute({
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
+        <img src={logoMega} alt="Mega" className="h-10 w-auto opacity-50" />
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span className="text-sm">Carregando...</span>
+        </div>
       </div>
     );
   }
@@ -62,8 +68,12 @@ function ProtectedRoute({
 }
 
 const SuspenseFallback = () => (
-  <div className="min-h-screen flex items-center justify-center bg-background">
-    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+  <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
+    <img src={logoMega} alt="Mega" className="h-10 w-auto opacity-50" />
+    <div className="flex items-center gap-2 text-muted-foreground">
+      <Loader2 className="h-5 w-5 animate-spin" />
+      <span className="text-sm">Carregando...</span>
+    </div>
   </div>
 );
 
@@ -95,6 +105,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <ScrollToTop />
           <AppRoutes />
         </AuthProvider>
       </BrowserRouter>

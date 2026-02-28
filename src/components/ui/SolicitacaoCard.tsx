@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/status-badge';
@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { ExpandableDescription } from '@/components/ExpandableDescription';
 import { CorrectionDeadlineBadge } from '@/components/CorrectionDeadlineBadge';
 import { WorkflowProgress } from '@/components/WorkflowProgress';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { 
   EMPREENDIMENTO_LABELS, 
   TIPO_CONTRATACAO_LABELS,
@@ -14,7 +15,7 @@ import {
   type DocumentoEmitido,
   type DocumentoFiscal,
 } from '@/types';
-import { ChevronDown, ChevronUp, User } from 'lucide-react';
+import { ChevronDown, ChevronUp, User, Copy, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export interface SolicitacaoWithDetails extends Solicitacao {
@@ -59,7 +60,16 @@ export function SolicitacaoCard({
   className,
 }: SolicitacaoCardProps) {
   const fornecedorNome = getFornecedorNome(sol);
-  
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyProtocolo = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (sol.protocolo) {
+      navigator.clipboard.writeText(sol.protocolo);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
   const valorTotal = sol.faturamento_direto && sol.valor_servico !== null && sol.valor_material !== null
     ? (sol.valor_servico || 0) + (sol.valor_material || 0)
     : sol.valor;
@@ -80,7 +90,25 @@ export function SolicitacaoCard({
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-semibold text-base">#{sol.protocolo}</span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={handleCopyProtocolo}
+                  className="font-semibold text-base inline-flex items-center gap-1 hover:text-primary transition-colors group/proto"
+                  aria-label={`Copiar protocolo ${sol.protocolo}`}
+                >
+                  #{sol.protocolo}
+                  {copied ? (
+                    <Check className="h-3.5 w-3.5 text-green-600" />
+                  ) : (
+                    <Copy className="h-3.5 w-3.5 opacity-0 group-hover/proto:opacity-50 transition-opacity" />
+                  )}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs">
+                {copied ? 'Copiado!' : 'Clique para copiar'}
+              </TooltipContent>
+            </Tooltip>
             <StatusBadge status={sol.status} />
             <CorrectionDeadlineBadge 
               dataPendenteCorrecao={sol.data_pendente_correcao} 
@@ -114,6 +142,7 @@ export function SolicitacaoCard({
                 variant="ghost"
                 size="sm"
                 onClick={onToggleExpand}
+                aria-label={isExpanded ? 'Recolher detalhes' : 'Expandir detalhes'}
               >
                 {isExpanded ? (
                   <ChevronUp className="h-4 w-4" />
