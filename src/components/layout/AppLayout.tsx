@@ -29,6 +29,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { NotificationBell } from '@/components/NotificationBell';
+import { AppBreadcrumbs } from '@/components/layout/AppBreadcrumbs';
 import logoMega from '@/assets/logos/logo-mega.webp';
 
 interface AppLayoutProps {
@@ -349,6 +350,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 
       {/* Main Content */}
       <main className="container max-w-screen-2xl py-6">
+        <AppBreadcrumbs />
         {children}
       </main>
     </div>
