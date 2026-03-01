@@ -535,6 +535,57 @@ export type Database = {
           },
         ]
       }
+      oc_acompanhamento: {
+        Row: {
+          created_at: string
+          documento_emitido_id: string | null
+          id: string
+          justificativa: string
+          previsao_execucao: string | null
+          previsao_nf: string | null
+          solicitacao_id: string
+          tipo_acao: Database["public"]["Enums"]["tipo_acao_oc"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          documento_emitido_id?: string | null
+          id?: string
+          justificativa: string
+          previsao_execucao?: string | null
+          previsao_nf?: string | null
+          solicitacao_id: string
+          tipo_acao: Database["public"]["Enums"]["tipo_acao_oc"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          documento_emitido_id?: string | null
+          id?: string
+          justificativa?: string
+          previsao_execucao?: string | null
+          previsao_nf?: string | null
+          solicitacao_id?: string
+          tipo_acao?: Database["public"]["Enums"]["tipo_acao_oc"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "oc_acompanhamento_documento_emitido_id_fkey"
+            columns: ["documento_emitido_id"]
+            isOneToOne: false
+            referencedRelation: "documentos_emitidos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "oc_acompanhamento_solicitacao_id_fkey"
+            columns: ["solicitacao_id"]
+            isOneToOne: false
+            referencedRelation: "solicitacoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           approved: boolean
@@ -682,6 +733,7 @@ export type Database = {
       }
       solicitacoes: {
         Row: {
+          cancelamento_pendente: boolean
           cliente_id: string | null
           contrato_mensal: boolean | null
           created_at: string
@@ -755,6 +807,7 @@ export type Database = {
           valor_servico: number | null
         }
         Insert: {
+          cancelamento_pendente?: boolean
           cliente_id?: string | null
           contrato_mensal?: boolean | null
           created_at?: string
@@ -828,6 +881,7 @@ export type Database = {
           valor_servico?: number | null
         }
         Update: {
+          cancelamento_pendente?: boolean
           cliente_id?: string | null
           contrato_mensal?: boolean | null
           created_at?: string
@@ -1188,6 +1242,12 @@ export type Database = {
         | "enviado_fornecedor"
         | "cancelado"
       request_type: "AC" | "OC"
+      tipo_acao_oc:
+        | "justificativa_adiamento"
+        | "previsao_atualizada"
+        | "cancelamento_solicitado"
+        | "cancelamento_aprovado"
+        | "cancelamento_rejeitado"
       tipo_contratacao:
         | "servicos"
         | "material_construcao"
@@ -1371,6 +1431,13 @@ export const Constants = {
         "cancelado",
       ],
       request_type: ["AC", "OC"],
+      tipo_acao_oc: [
+        "justificativa_adiamento",
+        "previsao_atualizada",
+        "cancelamento_solicitado",
+        "cancelamento_aprovado",
+        "cancelamento_rejeitado",
+      ],
       tipo_contratacao: [
         "servicos",
         "material_construcao",

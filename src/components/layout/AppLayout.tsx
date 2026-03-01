@@ -25,6 +25,7 @@ import {
   Shield,
   Settings,
   ChevronDown,
+  FileCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -108,6 +109,11 @@ export function AppLayout({ children }: AppLayoutProps) {
       href: '/admin/eficiencia',
       label: 'Eficiência',
       icon: BarChart3,
+    },
+    {
+      href: '/monitoramento-oc',
+      label: 'Monitoramento OC',
+      icon: FileCheck,
     },
   ];
 
