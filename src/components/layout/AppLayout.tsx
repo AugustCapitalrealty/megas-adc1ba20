@@ -91,6 +91,12 @@ export function AppLayout({ children }: AppLayoutProps) {
       icon: Shield,
       show: true,
     },
+    {
+      href: '/monitoramento-oc',
+      label: 'OC x NF',
+      icon: FileCheck,
+      show: true,
+    },
   ];
 
   // Admin sub-items for dropdown
@@ -109,11 +115,6 @@ export function AppLayout({ children }: AppLayoutProps) {
       href: '/admin/eficiencia',
       label: 'Eficiência',
       icon: BarChart3,
-    },
-    {
-      href: '/monitoramento-oc',
-      label: 'Monitoramento OC',
-      icon: FileCheck,
     },
   ];
 

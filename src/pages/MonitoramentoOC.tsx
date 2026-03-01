@@ -1,23 +1,25 @@
 import { useEffect, useState, useMemo } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { EMPREENDIMENTO_LABELS, type Empreendimento, type DocumentoEmitido } from '@/types';
+import { EMPREENDIMENTO_LABELS, type Empreendimento } from '@/types';
 import { 
   FileCheck, Clock, AlertTriangle, XCircle, CheckCircle, 
-  DollarSign, CalendarDays, Eye, Loader2, BarChart3,
-  FileText, Ban, History
+  CalendarDays, Loader2, BarChart3,
+  FileText, Ban, History, AlertCircle
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { OCDetalhesModal } from '@/components/monitoramento/OCDetalhesModal';
+import { JustificativaModal } from '@/components/monitoramento/JustificativaModal';
 
 interface OCMonitorRow {
   id: string;
@@ -26,13 +28,13 @@ interface OCMonitorRow {
   fornecedor_razao: string | null;
   valor: number;
   empreendimento: Empreendimento;
+  natureza_orcamentaria: string;
   status: string;
   cancelamento_pendente: boolean;
   data_oc: string;
   dias_aberto: number;
   tem_nf: boolean;
   documento_numero: string;
-  // Acompanhamento data
   ultima_justificativa?: string | null;
   previsao_nf?: string | null;
   previsao_execucao?: string | null;
@@ -70,6 +72,10 @@ export default function MonitoramentoOC() {
   const [selectedRow, setSelectedRow] = useState<OCMonitorRow | null>(null);
   const [historyEvents, setHistoryEvents] = useState<AcompanhamentoEvent[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  // Detail modal state
+  const [detailRow, setDetailRow] = useState<OCMonitorRow | null>(null);
+  // Justification modal state
+  const [justificativaRow, setJustificativaRow] = useState<OCMonitorRow | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -96,7 +102,7 @@ export default function MonitoramentoOC() {
       // Fetch solicitações data
       const { data: sols } = await supabase
         .from('solicitacoes')
-        .select('id, protocolo, valor, empreendimento, status, cancelamento_pendente, fornecedor_id')
+        .select('id, protocolo, valor, empreendimento, status, cancelamento_pendente, fornecedor_id, natureza_orcamentaria')
         .in('id', solIds);
 
       // Fetch fornecedores
@@ -140,6 +146,8 @@ export default function MonitoramentoOC() {
       const enrichedRows: OCMonitorRow[] = docs.map(doc => {
         const sol = solMap[doc.solicitacao_id] as any;
         if (!sol) return null;
+        // Filter out utilities (agua/energia)
+        if (sol.natureza_orcamentaria === 'agua' || sol.natureza_orcamentaria === 'energia_eletrica') return null;
         const diasAberto = differenceInDays(new Date(), new Date(doc.created_at));
         const acomp = latestAcomp[sol.id];
 
@@ -150,6 +158,7 @@ export default function MonitoramentoOC() {
           fornecedor_razao: sol.fornecedor_id ? fornecedorMap[sol.fornecedor_id] || null : null,
           valor: sol.valor,
           empreendimento: sol.empreendimento,
+          natureza_orcamentaria: sol.natureza_orcamentaria,
           status: sol.status,
           cancelamento_pendente: sol.cancelamento_pendente || false,
           data_oc: doc.created_at,
@@ -417,10 +426,15 @@ export default function MonitoramentoOC() {
                 filteredRows.map(row => {
                   const monitorStatus = getRowMonitorStatus(row);
                   return (
-                    <TableRow key={row.id} className={cn(
-                      row.cancelamento_pendente && 'bg-destructive/5',
-                      monitorStatus === 'pendente_justificativa' && 'bg-amber-50/50 dark:bg-amber-950/10'
-                    )}>
+                    <TableRow 
+                      key={row.id} 
+                      className={cn(
+                        'cursor-pointer',
+                        row.cancelamento_pendente && 'bg-destructive/5',
+                        monitorStatus === 'pendente_justificativa' && 'bg-amber-50/50 dark:bg-amber-950/10'
+                      )}
+                      onClick={() => setDetailRow(row)}
+                    >
                       <TableCell className="font-mono text-sm font-medium">#{row.protocolo}</TableCell>
                       <TableCell className="text-sm">{row.documento_numero}</TableCell>
                       <TableCell className="text-sm max-w-[200px] truncate">{row.fornecedor_razao || '—'}</TableCell>
@@ -429,10 +443,18 @@ export default function MonitoramentoOC() {
                       <TableCell>{getAgingBadge(row.dias_aberto, !!row.ultima_justificativa)}</TableCell>
                       <TableCell>{getStatusBadge(monitorStatus)}</TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="sm" onClick={() => openHistory(row)}>
-                          <History className="h-4 w-4 mr-1" />
-                          Histórico
-                        </Button>
+                        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                          {monitorStatus === 'pendente_justificativa' && (
+                            <Button variant="outline" size="sm" className="text-amber-600 border-amber-300" onClick={() => setJustificativaRow(row)}>
+                              <AlertCircle className="h-4 w-4 mr-1" />
+                              Justificar
+                            </Button>
+                          )}
+                          <Button variant="ghost" size="sm" onClick={() => openHistory(row)}>
+                            <History className="h-4 w-4 mr-1" />
+                            Histórico
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -492,6 +514,25 @@ export default function MonitoramentoOC() {
           </ScrollArea>
         </DialogContent>
       </Dialog>
+
+      {/* Detail Modal */}
+      <OCDetalhesModal
+        open={!!detailRow}
+        onOpenChange={(open) => !open && setDetailRow(null)}
+        solicitacaoId={detailRow?.solicitacao_id || null}
+        protocolo={detailRow?.protocolo || null}
+      />
+
+      {/* Justification Modal */}
+      {justificativaRow && (
+        <JustificativaModal
+          open={!!justificativaRow}
+          onOpenChange={(open) => !open && setJustificativaRow(null)}
+          solicitacaoId={justificativaRow.solicitacao_id}
+          protocolo={justificativaRow.protocolo}
+          onSuccess={fetchData}
+        />
+      )}
     </AppLayout>
   );
 }
