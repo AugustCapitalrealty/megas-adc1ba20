@@ -148,6 +148,7 @@ export default function MonitoramentoOC() {
         if (!sol) return null;
         // Filter out utilities (agua/energia)
         if (sol.natureza_orcamentaria === 'agua' || sol.natureza_orcamentaria === 'energia_eletrica') return null;
+        if (sol.status === 'concluida') return null;
         const diasAberto = differenceInDays(new Date(), new Date(doc.created_at));
         const acomp = latestAcomp[sol.id];
 
