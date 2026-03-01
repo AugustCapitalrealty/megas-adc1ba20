@@ -20,6 +20,7 @@ const Admin = lazy(() => import("./pages/Admin"));
 const DashboardSLA = lazy(() => import("./pages/DashboardSLA"));
 const GarantiasVigentes = lazy(() => import("./pages/GarantiasVigentes"));
 const DashboardEficiencia = lazy(() => import("./pages/DashboardEficiencia"));
+const MonitoramentoOC = lazy(() => import("./pages/MonitoramentoOC"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -92,6 +93,7 @@ function AppRoutes() {
         <Route path="/admin/sla" element={<ProtectedRoute requireBackoffice><DashboardSLA /></ProtectedRoute>} />
         <Route path="/admin/eficiencia" element={<ProtectedRoute requireBackoffice><DashboardEficiencia /></ProtectedRoute>} />
         <Route path="/garantias" element={<ProtectedRoute><GarantiasVigentes /></ProtectedRoute>} />
+        <Route path="/monitoramento-oc" element={<ProtectedRoute requireBackoffice><MonitoramentoOC /></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>

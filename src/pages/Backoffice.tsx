@@ -101,7 +101,7 @@ interface PdfValidationResult {
   diferenca: number | null;
 }
 
-type BackofficeTab = 'recebidas' | 'pendentes' | 'em_processamento' | 'oc_emitidas' | 'liberadas' | 'concluidas' | 'rejeitadas';
+type BackofficeTab = 'recebidas' | 'pendentes' | 'em_processamento' | 'oc_emitidas' | 'liberadas' | 'concluidas' | 'rejeitadas' | 'cancelamento_pendente';
 
 export default function Backoffice() {
   const { user } = useAuth();
@@ -1042,6 +1042,94 @@ export default function Backoffice() {
     ).length
   , [solicitacoes, user?.id]);
 
+  // Cancelamento pendente state
+  const [cancelamentoPendenteIds, setCancelamentoPendenteIds] = useState<Set<string>>(new Set());
+  const [cancelamentoActionLoading, setCancelamentoActionLoading] = useState(false);
+
+  // Fetch cancelamento_pendente flags
+  useEffect(() => {
+    const fetchCancelamentoPendente = async () => {
+      const { data } = await supabase
+        .from('solicitacoes')
+        .select('id')
+        .eq('cancelamento_pendente', true);
+      if (data) {
+        setCancelamentoPendenteIds(new Set(data.map((d: any) => d.id)));
+      }
+    };
+    if (solicitacoes.length > 0) fetchCancelamentoPendente();
+  }, [solicitacoes]);
+
+  const handleAprovarCancelamento = async (sol: SolicitacaoBackoffice) => {
+    if (!user) return;
+    setCancelamentoActionLoading(true);
+    try {
+      await supabase
+        .from('solicitacoes')
+        .update({ status: 'cancelado' as any, cancelamento_pendente: false } as any)
+        .eq('id', sol.id);
+
+      await supabase.from('oc_acompanhamento' as any).insert({
+        solicitacao_id: sol.id,
+        tipo_acao: 'cancelamento_aprovado',
+        justificativa: 'Cancelamento aprovado pelo backoffice',
+        user_id: user.id,
+      } as any);
+
+      await supabase.from('historico_solicitacoes').insert({
+        solicitacao_id: sol.id,
+        user_id: user.id,
+        acao: 'cancelamento_aprovado',
+        status_anterior: sol.status,
+        status_novo: 'cancelado',
+        motivo: 'Cancelamento aprovado pelo backoffice',
+      });
+
+      toast({ title: 'Cancelamento aprovado', description: `Solicitação #${sol.protocolo} cancelada.` });
+      fetchSolicitacoes();
+    } catch (error) {
+      console.error('Error approving cancellation:', error);
+      toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível aprovar o cancelamento.' });
+    } finally {
+      setCancelamentoActionLoading(false);
+    }
+  };
+
+  const handleRejeitarCancelamento = async (sol: SolicitacaoBackoffice) => {
+    if (!user) return;
+    setCancelamentoActionLoading(true);
+    try {
+      await supabase
+        .from('solicitacoes')
+        .update({ cancelamento_pendente: false } as any)
+        .eq('id', sol.id);
+
+      await supabase.from('oc_acompanhamento' as any).insert({
+        solicitacao_id: sol.id,
+        tipo_acao: 'cancelamento_rejeitado',
+        justificativa: 'Cancelamento rejeitado pelo backoffice',
+        user_id: user.id,
+      } as any);
+
+      await supabase.from('historico_solicitacoes').insert({
+        solicitacao_id: sol.id,
+        user_id: user.id,
+        acao: 'cancelamento_rejeitado',
+        status_anterior: sol.status,
+        status_novo: sol.status,
+        motivo: 'Cancelamento rejeitado pelo backoffice',
+      });
+
+      toast({ title: 'Cancelamento rejeitado', description: `Solicitação #${sol.protocolo} mantida.` });
+      fetchSolicitacoes();
+    } catch (error) {
+      console.error('Error rejecting cancellation:', error);
+      toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível rejeitar o cancelamento.' });
+    } finally {
+      setCancelamentoActionLoading(false);
+    }
+  };
+
   // Group by tab - reordered as requested
   const groupedSolicitacoes = useMemo(() => ({
     recebidas: filteredSolicitacoes.filter(s => s.status === 'recebido' || s.status === 'em_analise'),
@@ -1054,7 +1142,8 @@ export default function Backoffice() {
     pendentes: filteredSolicitacoes.filter(s => s.status === 'pendente_correcao' || s.status === 'aguardando_informacoes'),
     concluidas: filteredSolicitacoes.filter(s => s.status === 'concluida' || s.status === 'enviado_pagamento'),
     rejeitadas: filteredSolicitacoes.filter(s => s.status === 'rejeitado'),
-  }), [filteredSolicitacoes]);
+    cancelamento_pendente: filteredSolicitacoes.filter(s => cancelamentoPendenteIds.has(s.id)),
+  }), [filteredSolicitacoes, cancelamentoPendenteIds]);
 
   // SLA calculation
   const getSLAInfo = (sol: SolicitacaoBackoffice) => {
@@ -1090,6 +1179,7 @@ export default function Backoffice() {
     
     // Get cadastro status for this solicitation
     const solCadastroStatus = cadastroStatus[sol.id];
+    const hasCancelamentoPendente = cancelamentoPendenteIds.has(sol.id);
 
     return (
       <Card className={cn(
@@ -1151,6 +1241,22 @@ export default function Backoffice() {
             {sol.total_docs_fiscais > 0 && (
               <Badge variant="outline" className="text-xs">{sol.total_docs_fiscais} documento(s)</Badge>
             )}
+          </div>
+        )}
+
+        {/* Cancelamento Pendente Banner */}
+        {hasCancelamentoPendente && (
+          <div className="bg-destructive/10 border-b border-destructive/30 px-4 py-1.5 flex items-center gap-2 flex-wrap">
+            <XCircle className="h-4 w-4 text-destructive" />
+            <span className="text-xs font-medium text-destructive">CANCELAMENTO SOLICITADO - AGUARDANDO APROVAÇÃO</span>
+            <div className="ml-auto flex gap-1">
+              <Button size="sm" variant="destructive" className="h-6 px-2 text-xs" onClick={() => handleAprovarCancelamento(sol)} disabled={cancelamentoActionLoading}>
+                <CheckCircle className="h-3 w-3 mr-1" /> Aprovar
+              </Button>
+              <Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => handleRejeitarCancelamento(sol)} disabled={cancelamentoActionLoading}>
+                <XCircle className="h-3 w-3 mr-1" /> Rejeitar
+              </Button>
+            </div>
           </div>
         )}
         
@@ -1467,7 +1573,7 @@ export default function Backoffice() {
           <h1 className="text-2xl font-bold">Backoffice</h1>
           <p className="text-muted-foreground">Gerencie as solicitações de AC e OC</p>
         </div>
-
+    const hasCancelamentoPendente = cancelamentoPendenteIds.has(sol.id);
 
         {/* Filters */}
         <Card>
@@ -1527,6 +1633,7 @@ export default function Backoffice() {
               labelClassName: 'text-warning',
               tabs: [
                 { id: 'pendentes', label: 'Correções', count: groupedSolicitacoes.pendentes.length, variant: 'warning' as const, icon: <AlertTriangle className="h-3.5 w-3.5" />, showCountWhenZero: false },
+                { id: 'cancelamento_pendente', label: 'Cancel. Pendente', count: groupedSolicitacoes.cancelamento_pendente.length, variant: 'destructive' as const, icon: <XCircle className="h-3.5 w-3.5" />, showCountWhenZero: false },
               ],
             },
             {
@@ -1564,6 +1671,9 @@ export default function Backoffice() {
           )}
           {activeTab === 'rejeitadas' && (
             <TabContent items={groupedSolicitacoes.rejeitadas} emptyMessage="Nenhuma solicitação rejeitada" />
+          )}
+          {activeTab === 'cancelamento_pendente' && (
+            <TabContent items={groupedSolicitacoes.cancelamento_pendente} emptyMessage="Nenhum cancelamento pendente de aprovação" />
           )}
         </div>
       </div>

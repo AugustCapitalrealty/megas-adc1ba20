@@ -426,31 +426,69 @@ export default function MinhasSolicitacoes() {
     setCancelOpen(true);
   };
 
+  // Post-OC statuses that require approval for cancellation
+  const POST_OC_STATUSES = ['oc_ac_emitida', 'aguardando_aceite', 'liberado_fornecedor', 'enviado_fornecedor', 'aguardando_nf_boleto', 'nf_boleto_enviados', 'enviado_pagamento'];
+
+  const isPostOCStatus = (status: string) => POST_OC_STATUSES.includes(status);
+
   const handleCancelar = async () => {
     if (!cancelSolicitacao || !user) return;
     
     setCancelLoading(true);
     try {
-      const { error: updateError } = await supabase
-        .from('solicitacoes')
-        .update({ status: 'cancelado' as any })
-        .eq('id', cancelSolicitacao.id);
+      if (isPostOCStatus(cancelSolicitacao.status)) {
+        // Post-OC: request cancellation approval instead of canceling directly
+        const { error: updateError } = await supabase
+          .from('solicitacoes')
+          .update({ cancelamento_pendente: true } as any)
+          .eq('id', cancelSolicitacao.id);
 
-      if (updateError) throw updateError;
+        if (updateError) throw updateError;
 
-      await supabase.from('historico_solicitacoes').insert({
-        solicitacao_id: cancelSolicitacao.id,
-        user_id: user.id,
-        acao: 'cancelamento',
-        status_anterior: cancelSolicitacao.status,
-        status_novo: 'cancelado',
-        motivo: motivoCancelamento.trim() || 'Cancelado pelo solicitante',
-      });
+        // Register in oc_acompanhamento
+        await supabase.from('oc_acompanhamento' as any).insert({
+          solicitacao_id: cancelSolicitacao.id,
+          tipo_acao: 'cancelamento_solicitado',
+          justificativa: motivoCancelamento.trim() || 'Cancelamento solicitado pelo solicitante',
+          user_id: user.id,
+        } as any);
 
-      toast({
-        title: 'Solicitação cancelada',
-        description: 'A solicitação foi cancelada com sucesso.',
-      });
+        await supabase.from('historico_solicitacoes').insert({
+          solicitacao_id: cancelSolicitacao.id,
+          user_id: user.id,
+          acao: 'cancelamento_solicitado',
+          status_anterior: cancelSolicitacao.status,
+          status_novo: cancelSolicitacao.status,
+          motivo: motivoCancelamento.trim() || 'Cancelamento solicitado - aguardando aprovação do backoffice',
+        });
+
+        toast({
+          title: 'Cancelamento solicitado',
+          description: 'Sua solicitação de cancelamento foi enviada para aprovação do Backoffice.',
+        });
+      } else {
+        // Pre-OC: cancel directly
+        const { error: updateError } = await supabase
+          .from('solicitacoes')
+          .update({ status: 'cancelado' as any })
+          .eq('id', cancelSolicitacao.id);
+
+        if (updateError) throw updateError;
+
+        await supabase.from('historico_solicitacoes').insert({
+          solicitacao_id: cancelSolicitacao.id,
+          user_id: user.id,
+          acao: 'cancelamento',
+          status_anterior: cancelSolicitacao.status,
+          status_novo: 'cancelado',
+          motivo: motivoCancelamento.trim() || 'Cancelado pelo solicitante',
+        });
+
+        toast({
+          title: 'Solicitação cancelada',
+          description: 'A solicitação foi cancelada com sucesso.',
+        });
+      }
 
       setCancelOpen(false);
       fetchSolicitacoes();
@@ -2122,21 +2160,45 @@ export default function MinhasSolicitacoes() {
         variant="destructive"
         loading={cancelLoading}
         onConfirm={handleCancelar}
-        confirmText="Confirmar Cancelamento"
+        confirmText={cancelSolicitacao && isPostOCStatus(cancelSolicitacao.status) ? 'Solicitar Cancelamento' : 'Confirmar Cancelamento'}
       >
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Tem certeza que deseja cancelar esta solicitação? Esta ação não pode ser desfeita.
-          </p>
-          <div className="space-y-2">
-            <Label>Motivo do cancelamento (opcional)</Label>
-            <Textarea
-              placeholder="Informe o motivo do cancelamento..."
-              value={motivoCancelamento}
-              onChange={(e) => setMotivoCancelamento(e.target.value)}
-              rows={3}
-            />
-          </div>
+          {cancelSolicitacao && isPostOCStatus(cancelSolicitacao.status) ? (
+            <>
+              <div className="p-3 rounded-lg bg-warning/10 border border-warning/30">
+                <p className="text-sm font-medium text-warning">
+                  ⚠️ Esta solicitação já possui OC emitida
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  O cancelamento será enviado para aprovação do Backoffice antes de ser efetivado.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label>Motivo do cancelamento (obrigatório)</Label>
+                <Textarea
+                  placeholder="Informe o motivo do cancelamento..."
+                  value={motivoCancelamento}
+                  onChange={(e) => setMotivoCancelamento(e.target.value)}
+                  rows={3}
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-muted-foreground">
+                Tem certeza que deseja cancelar esta solicitação? Esta ação não pode ser desfeita.
+              </p>
+              <div className="space-y-2">
+                <Label>Motivo do cancelamento (opcional)</Label>
+                <Textarea
+                  placeholder="Informe o motivo do cancelamento..."
+                  value={motivoCancelamento}
+                  onChange={(e) => setMotivoCancelamento(e.target.value)}
+                  rows={3}
+                />
+              </div>
+            </>
+          )}
         </div>
       </ActionModal>
 
