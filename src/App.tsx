@@ -93,7 +93,7 @@ function AppRoutes() {
         <Route path="/admin/sla" element={<ProtectedRoute requireBackoffice><DashboardSLA /></ProtectedRoute>} />
         <Route path="/admin/eficiencia" element={<ProtectedRoute requireBackoffice><DashboardEficiencia /></ProtectedRoute>} />
         <Route path="/garantias" element={<ProtectedRoute><GarantiasVigentes /></ProtectedRoute>} />
-        <Route path="/monitoramento-oc" element={<ProtectedRoute requireBackoffice><MonitoramentoOC /></ProtectedRoute>} />
+        <Route path="/monitoramento-oc" element={<ProtectedRoute><MonitoramentoOC /></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>
