@@ -1,102 +1,92 @@
 
 
-# Plano: Melhorias de Experiência do Usuário (UX)
+# Painel de Monitoramento OC x NF
 
-Após análise detalhada do codebase, identifiquei melhorias organizadas por impacto.
+## Visao geral
 
----
+Criar uma nova pagina `/monitoramento-oc` com painel interativo para controle de OCs emitidas vs NFs recebidas, aging, justificativas de adiamento, e fluxo de cancelamento com aprovacao do backoffice.
 
-## 1. Página 404 — Em português e com navegação
+## Escopo dividido em fases
 
-**Arquivo:** `src/pages/NotFound.tsx`
+### Fase 1: Infraestrutura de dados (migracao SQL)
 
-Atualmente está em inglês ("Oops! Page not found") e sem layout corporativo. Trocar para português, adicionar logo Mega, e botão estilizado para voltar ao Dashboard.
+**Nova tabela `oc_acompanhamento`** para rastrear acoes sobre OCs emitidas:
 
----
+| Coluna | Tipo | Descricao |
+|--------|------|-----------|
+| id | uuid PK | |
+| solicitacao_id | uuid FK | Referencia solicitacao |
+| documento_emitido_id | uuid FK | Referencia ao doc OC |
+| tipo_acao | enum | `justificativa_adiamento`, `previsao_atualizada`, `cancelamento_solicitado`, `cancelamento_aprovado`, `cancelamento_rejeitado` |
+| justificativa | text | Motivo obrigatorio |
+| previsao_execucao | date | Nova previsao de execucao |
+| previsao_nf | date | Nova previsao de NF |
+| user_id | uuid | Quem registrou |
+| created_at | timestamptz | |
 
-## 2. Página Index — Redirecionar para Dashboard
+RLS: solicitante ve os proprios, backoffice ve todos.
 
-**Arquivo:** `src/pages/Index.tsx`
+**Nova coluna em `solicitacoes`**: `cancelamento_pendente boolean default false` — flag para travar cancelamento direto e exigir aprovacao do backoffice.
 
-A rota `/` renderiza um "Welcome to Your Blank App" genérico do template. O `App.tsx` já aponta `/` para `<Dashboard />`, mas o `Index.tsx` ainda tem o conteúdo padrão. Substituir por redirect ou pelo Dashboard propriamente.
+**Alterar `status_transitions`**: Remover transicoes diretas para `cancelado` a partir de status pos-OC (`oc_ac_emitida`, `aguardando_aceite`, `liberado_fornecedor`, `enviado_fornecedor`, `aguardando_nf_boleto`, `nf_boleto_enviados`, `enviado_pagamento`). Nesses casos, o cancelamento passa por aprovacao.
 
-**Verificação:** O `App.tsx` já mapeia `/` para `<Dashboard />`, então o `Index.tsx` não é usado. Porém, se alguém importar diretamente, deve redirecionar. Limpar esse arquivo.
+### Fase 2: Fluxo de cancelamento com aprovacao
 
----
+**Em `MinhasSolicitacoes.tsx`** — alterar `handleCancelar`:
+- Se status e pos-OC: em vez de cancelar direto, setar `cancelamento_pendente = true` e registrar na `oc_acompanhamento` com `tipo_acao = 'cancelamento_solicitado'`. Status muda para um indicador visual mas nao para `cancelado`.
+- Se status e pre-OC: manter fluxo atual (cancelamento direto).
 
-## 3. Loading states mais informativos
+**Em `Backoffice.tsx`** — adicionar acoes:
+- Botao "Aprovar Cancelamento" e "Rejeitar Cancelamento" para solicitacoes com `cancelamento_pendente = true`.
+- Ao aprovar: status → `cancelado`, registrar historico e `oc_acompanhamento`.
+- Ao rejeitar: limpar flag, notificar solicitante.
 
-**Arquivos:** `src/App.tsx` (SuspenseFallback), `src/pages/Login.tsx`, `src/pages/MinhasSolicitacoes.tsx`
+### Fase 3: Pagina do Painel de Monitoramento
 
-Os loading states são apenas um spinner sem contexto. Adicionar o logo Mega e texto sutil "Carregando..." para dar feedback visual ao usuário e manter a identidade da marca durante transições.
+**Novo arquivo: `src/pages/MonitoramentoOC.tsx`**
 
----
+Layout:
+- KPIs no topo: Total OCs ativas, Sem NF este mes, Pendentes justificativa (dia 23+), Cancelamentos pendentes
+- Tabela principal com colunas: Protocolo, Fornecedor, Valor, Data OC, Dias em aberto (aging), Status NF, Acoes
+- Filtros: Empreendimento, Status, Periodo
+- Badges de aging com cores: verde (< 15 dias), amarelo (15-23 dias), vermelho (> 23 dias ou sem justificativa apos dia 23)
 
-## 4. Breadcrumbs nas páginas internas
+**Status possiveis no painel:**
+- `em_prazo` — OC emitida, dentro do mes
+- `pendente_justificativa` — Dia 23+ sem NF e sem justificativa
+- `aguardando_nf` — NF esperada (com previsao informada)
+- `adiado_proximo_mes` — Solicitante justificou adiamento
+- `cancelamento_solicitado` — Aguardando aprovacao backoffice
+- `cancelado_aprovado` — Cancelamento efetivado
 
-**Arquivo:** `src/components/layout/AppLayout.tsx`
+### Fase 4: Modal de justificativa (solicitante)
 
-Não há breadcrumbs. Adicionar uma barra sutil abaixo do header com o caminho atual (ex: "Dashboard > Solicitações > #AC-2025-042") para orientação do usuário.
+**Em `MinhasSolicitacoes.tsx`** — para solicitacoes com OC emitida e sem NF:
+- Apos dia 23: exibir alerta obrigatorio com formulario:
+  - Motivo do adiamento (textarea obrigatorio)
+  - Previsao de execucao do servico (date picker)
+  - Previsao de emissao da NF (date picker)
+- Salvar em `oc_acompanhamento`
 
-**Implementação:** Criar um componente `Breadcrumb` simples que lê a rota atual e exibe labels correspondentes.
+### Fase 5: Historico completo
 
----
+No modal de detalhes (Backoffice e MonitoramentoOC):
+- Timeline de todas as acoes da `oc_acompanhamento` ordenadas por data
+- Mostra: emissao, justificativas, alteracoes de prazo, cancelamentos
 
-## 5. Scroll-to-top ao navegar entre páginas
+### Fase 6: Rota e navegacao
 
-**Arquivo:** `src/App.tsx`
-
-Ao navegar entre páginas, o scroll permanece na posição anterior. Adicionar um componente `ScrollToTop` que reseta o scroll ao mudar de rota.
-
----
-
-## 6. Confirmação visual ao copiar protocolo
-
-**Arquivo:** `src/components/ui/SolicitacaoCard.tsx`
-
-O protocolo `#AC-2025-XXX` não tem ação de copiar. Adicionar click-to-copy no número do protocolo com feedback visual (tooltip "Copiado!").
-
----
-
-## 7. Empty states mais amigáveis
-
-**Arquivos:** `src/pages/MinhasSolicitacoes.tsx`, `src/pages/Backoffice.tsx`
-
-Quando não há resultados de busca ou filtro, o estado vazio deve ter ilustração/ícone contextual e sugestão de ação clara, ao invés de apenas texto.
-
----
-
-## 8. Skeleton loading nos cards de solicitação
-
-**Arquivo:** `src/pages/MinhasSolicitacoes.tsx`, `src/pages/Dashboard.tsx`
-
-Substituir o spinner centralizado por skeletons que simulam a forma dos cards durante carregamento, evitando layout shift e dando percepção de velocidade.
-
----
-
-## 9. Toast de sucesso ao submeter formulário NovaSolicitação
-
-**Verificação:** Já existe. Porém o feedback de navegação pós-submit pode ser melhorado com um estado intermediário de "Enviado com sucesso" antes do redirect.
-
----
-
-## 10. Acessibilidade: foco visível e aria-labels
-
-**Arquivos:** Vários componentes
-
-Adicionar `focus-visible` rings consistentes e `aria-label` nos botões de ação que só têm ícone (ex: botão de expandir, botão de copiar).
+- Adicionar rota `/monitoramento-oc` em `App.tsx` (requireBackoffice)
+- Adicionar link no menu de navegacao em `AppLayout.tsx` na secao admin
+- Lazy load do componente
 
 ---
 
-## Ordem de Implementação
+## Ordem de implementacao
 
-1. **Página 404 em português** — rápido, alto impacto visual
-2. **Limpar Index.tsx** — eliminar conteúdo genérico
-3. **ScrollToTop** — melhoria de navegação imediata
-4. **Loading com logo Mega** — identidade durante transições
-5. **Skeleton loading nos cards** — percepção de velocidade
-6. **Click-to-copy no protocolo** — micro-interação útil
-7. **Breadcrumbs** — orientação contextual
-8. **Empty states melhorados** — feedback mais amigável
-9. **Acessibilidade (aria-labels)** — conformidade e usabilidade
+1. Migracao SQL (tabela + enum + RLS)
+2. Fluxo de cancelamento com aprovacao (MinhasSolicitacoes + Backoffice)
+3. Pagina MonitoramentoOC com tabela e filtros
+4. Modal de justificativa do solicitante
+5. Rota e navegacao
 
