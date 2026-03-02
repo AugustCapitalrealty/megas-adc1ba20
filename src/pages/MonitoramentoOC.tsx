@@ -138,8 +138,7 @@ export default function MonitoramentoOC() {
       const { data: fiscais } = await supabase
         .from('documentos_fiscais')
         .select('solicitacao_id')
-        .in('solicitacao_id', solIds)
-        .eq('tipo', 'nota_fiscal');
+        .in('solicitacao_id', solIds);
       
       const nfSet = new Set((fiscais || []).map(f => f.solicitacao_id));
 
