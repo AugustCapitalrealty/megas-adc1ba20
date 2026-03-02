@@ -1,44 +1,26 @@
 
 
-# Plano: Expiração de previsão de NF e limpeza de type cast
+# Plano: Destacar linhas do solicitante no Monitoramento OC
 
-## Problema identificado
-
-A lógica atual considera uma `previsao_nf` como válida **para sempre**. Exemplo: #2025837655 tem previsão 09/03/2026. Após essa data, se não houver NF, a OC deve voltar a exigir justificativa. Atualmente não volta — fica como "Adiado" indefinidamente.
-
-Além disso, as queries de `oc_acompanhamento` usam `as any` desnecessariamente (a tabela existe nos types).
+## Problema
+O painel mostra OCs do empreendimento inteiro, mas o solicitante não consegue identificar rapidamente quais são as **suas** solicitações. Precisa de um destaque visual nas linhas que ele abriu.
 
 ## Alterações
 
-### 1. `src/pages/MonitoramentoOC.tsx`
+### `src/pages/MonitoramentoOC.tsx`
 
-**Expiração de previsão:** Ao montar `previsao_nf` na row, verificar se a data já passou. Se `previsao_nf < hoje`, tratar como `null` (precisa justificar de novo):
-```typescript
-const previsaoNf = acomp?.previsao_nf || null;
-const previsaoValida = previsaoNf && new Date(previsaoNf + 'T00:00:00') >= new Date(new Date().toDateString()) ? previsaoNf : null;
-// usar previsaoValida no lugar de previsao_nf
-```
+1. **Adicionar `user_id` à interface `OCMonitorRow`** — novo campo `user_id: string`.
 
-**Remover `as any`** nas queries de `oc_acompanhamento` (linhas 146 e 311).
+2. **Buscar `user_id` na query de solicitações** — adicionar `user_id` ao `.select()` da query de `solicitacoes` (linha ~121).
 
-### 2. `src/hooks/useDashboardMetrics.ts`
+3. **Popular `user_id` no mapeamento de rows** — incluir `user_id: sol.user_id` ao montar cada row (linha ~170).
 
-**Expiração de previsão no Dashboard:** No filtro `solsWithForecast`, considerar apenas previsões futuras:
-```typescript
-const today = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
-const solsWithForecast = new Set(
-  (acompResult.data || [])
-    .filter(a => a.previsao_nf && a.previsao_nf >= today)
-    .map(a => a.solicitacao_id)
-);
-```
+4. **Destacar visualmente a linha do solicitante** — na `TableRow` (linha ~536), adicionar uma classe condicional:
+   - Borda esquerda azul (ex: `border-l-4 border-l-primary`) quando `row.user_id === user?.id`
+   - Isso se soma aos destaques existentes (amarelo para pendente, vermelho para cancelamento)
 
-Isso garante que após 09/03, se não houver NF, #2025837655 volta a contar como pendente de justificativa.
+5. **Legenda** — Adicionar um pequeno indicador na área de filtros: "🔵 Suas solicitações" para explicar o destaque.
 
-## Arquivos alterados
-
-| Arquivo | Alteração |
-|---------|-----------|
-| `src/pages/MonitoramentoOC.tsx` | Expirar previsão passada, remover `as any` |
-| `src/hooks/useDashboardMetrics.ts` | Filtrar previsões futuras no `solsWithForecast` |
+## Resultado
+Linhas abertas pelo usuário logado terão uma borda lateral colorida, tornando imediato identificar quais OCs são de sua responsabilidade.
 
