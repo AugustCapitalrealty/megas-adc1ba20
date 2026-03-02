@@ -3,23 +3,29 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useUserEmpreendimentos } from '@/hooks/useUserEmpreendimentos';
 import { EMPREENDIMENTO_LABELS, type Empreendimento } from '@/types';
 import { 
   FileCheck, Clock, AlertTriangle, XCircle, CheckCircle, 
   CalendarDays, Loader2, BarChart3,
-  FileText, Ban, History, AlertCircle
+  FileText, Ban, History, AlertCircle, Search, XOctagon
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { OCDetalhesModal } from '@/components/monitoramento/OCDetalhesModal';
 import { JustificativaModal } from '@/components/monitoramento/JustificativaModal';
+import { toast } from 'sonner';
 
 interface OCMonitorRow {
   id: string;
@@ -62,29 +68,40 @@ const MONITOR_STATUS_LABELS: Record<MonitorStatus, string> = {
   cancelado_aprovado: 'Cancelado',
 };
 
+const EMPREENDIMENTO_BADGE_COLORS: Record<string, string> = {
+  mega_curitiba: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700',
+  mega_itajai: 'bg-teal-100 text-teal-800 border-teal-200 dark:bg-teal-900/30 dark:text-teal-300 dark:border-teal-700',
+  mega_esteio: 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700',
+};
+
 export default function MonitoramentoOC() {
   const { user } = useAuth();
+  const { empreendimentos: userEmpreendimentos, loading: loadingEmpreendimentos, hasAllAccess } = useUserEmpreendimentos(user?.id);
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<OCMonitorRow[]>([]);
   const [filterEmpreendimento, setFilterEmpreendimento] = useState<string>('todos');
   const [filterStatus, setFilterStatus] = useState<MonitorStatus>('todos');
+  const [searchTerm, setSearchTerm] = useState('');
   const [historyOpen, setHistoryOpen] = useState(false);
   const [selectedRow, setSelectedRow] = useState<OCMonitorRow | null>(null);
   const [historyEvents, setHistoryEvents] = useState<AcompanhamentoEvent[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-  // Detail modal state
   const [detailRow, setDetailRow] = useState<OCMonitorRow | null>(null);
-  // Justification modal state
   const [justificativaRow, setJustificativaRow] = useState<OCMonitorRow | null>(null);
+  // Cancellation modal state
+  const [cancelRow, setCancelRow] = useState<OCMonitorRow | null>(null);
+  const [cancelJustificativa, setCancelJustificativa] = useState('');
+  const [cancelSaving, setCancelSaving] = useState(false);
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (!loadingEmpreendimentos) {
+      fetchData();
+    }
+  }, [loadingEmpreendimentos]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch solicitações with OC emitida (documentos_emitidos)
       const { data: docs } = await supabase
         .from('documentos_emitidos')
         .select('id, solicitacao_id, numero_documento, created_at, tipo_documento')
@@ -99,13 +116,11 @@ export default function MonitoramentoOC() {
 
       const solIds = [...new Set(docs.map(d => d.solicitacao_id))];
 
-      // Fetch solicitações data
       const { data: sols } = await supabase
         .from('solicitacoes')
         .select('id, protocolo, valor, empreendimento, status, cancelamento_pendente, fornecedor_id, natureza_orcamentaria')
         .in('id', solIds);
 
-      // Fetch fornecedores
       const fornecedorIds = [...new Set((sols || []).map(s => (s as any).fornecedor_id).filter(Boolean))];
       let fornecedorMap: Record<string, string> = {};
       if (fornecedorIds.length > 0) {
@@ -120,7 +135,6 @@ export default function MonitoramentoOC() {
         }
       }
 
-      // Fetch documentos_fiscais to check if NF exists
       const { data: fiscais } = await supabase
         .from('documentos_fiscais')
         .select('solicitacao_id')
@@ -129,7 +143,6 @@ export default function MonitoramentoOC() {
       
       const nfSet = new Set((fiscais || []).map(f => f.solicitacao_id));
 
-      // Fetch latest oc_acompanhamento per solicitacao
       const { data: acompanhamentos } = await supabase
         .from('oc_acompanhamento' as any)
         .select('solicitacao_id, tipo_acao, justificativa, previsao_execucao, previsao_nf, created_at')
@@ -146,9 +159,12 @@ export default function MonitoramentoOC() {
       const enrichedRows: OCMonitorRow[] = docs.map(doc => {
         const sol = solMap[doc.solicitacao_id] as any;
         if (!sol) return null;
-        // Filter out utilities (agua/energia)
         if (sol.natureza_orcamentaria === 'agua' || sol.natureza_orcamentaria === 'energia_eletrica') return null;
         if (sol.status === 'concluida') return null;
+        
+        // Filter by user empreendimentos
+        if (!hasAllAccess && !userEmpreendimentos.includes(sol.empreendimento)) return null;
+
         const diasAberto = differenceInDays(new Date(), new Date(doc.created_at));
         const acomp = latestAcomp[sol.id];
 
@@ -172,6 +188,9 @@ export default function MonitoramentoOC() {
         };
       }).filter(Boolean) as OCMonitorRow[];
 
+      // Default sort: dias_aberto descending
+      enrichedRows.sort((a, b) => b.dias_aberto - a.dias_aberto);
+
       setRows(enrichedRows);
     } catch (error) {
       console.error('Error fetching monitoring data:', error);
@@ -183,7 +202,7 @@ export default function MonitoramentoOC() {
   const getRowMonitorStatus = (row: OCMonitorRow): MonitorStatus => {
     if (row.status === 'cancelado') return 'cancelado_aprovado';
     if (row.cancelamento_pendente) return 'cancelamento_solicitado';
-    if (row.tem_nf) return 'aguardando_nf'; // has NF
+    if (row.tem_nf) return 'aguardando_nf';
     
     const now = new Date();
     const dayOfMonth = now.getDate();
@@ -197,13 +216,33 @@ export default function MonitoramentoOC() {
     return 'pendente_justificativa';
   };
 
-  const getAgingBadge = (dias: number, hasJustificativa: boolean) => {
-    if (dias < 15) return <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300">{dias}d</Badge>;
-    if (dias <= 23) return <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300">{dias}d</Badge>;
-    return <Badge variant={hasJustificativa ? 'outline' : 'destructive'} className={hasJustificativa ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300' : ''}>{dias}d</Badge>;
+  const getAgingBadge = (dias: number, hasJustificativa: boolean, dataOc: string) => {
+    const badge = (
+      <Badge 
+        variant={dias > 23 && !hasJustificativa ? 'destructive' : 'outline'} 
+        className={cn(
+          dias < 15 && 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300',
+          dias >= 15 && dias <= 23 && 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300',
+          dias > 23 && hasJustificativa && 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300'
+        )}
+      >
+        {dias}d
+      </Badge>
+    );
+
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>{badge}</TooltipTrigger>
+          <TooltipContent>
+            <p>OC emitida em {format(new Date(dataOc), 'dd/MM/yyyy', { locale: ptBR })}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
   };
 
-  const getStatusBadge = (status: MonitorStatus) => {
+  const getStatusBadge = (status: MonitorStatus, previsaoNf?: string | null) => {
     const config: Record<MonitorStatus, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: React.ReactNode }> = {
       todos: { label: 'Todos', variant: 'default', icon: null },
       em_prazo: { label: 'Em prazo', variant: 'outline', icon: <CheckCircle className="h-3 w-3" /> },
@@ -215,10 +254,17 @@ export default function MonitoramentoOC() {
     };
     const c = config[status];
     return (
-      <Badge variant={c.variant} className="gap-1">
-        {c.icon}
-        {c.label}
-      </Badge>
+      <div className="flex flex-col gap-1">
+        <Badge variant={c.variant} className="gap-1 w-fit">
+          {c.icon}
+          {c.label}
+        </Badge>
+        {status === 'adiado_proximo_mes' && previsaoNf && (
+          <span className="text-xs text-muted-foreground">
+            Prev. NF: {format(new Date(previsaoNf + 'T00:00:00'), 'dd/MM/yy')}
+          </span>
+        )}
+      </div>
     );
   };
 
@@ -226,9 +272,16 @@ export default function MonitoramentoOC() {
     return rows.filter(row => {
       if (filterEmpreendimento !== 'todos' && row.empreendimento !== filterEmpreendimento) return false;
       if (filterStatus !== 'todos' && getRowMonitorStatus(row) !== filterStatus) return false;
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        const matchProtocolo = row.protocolo?.toLowerCase().includes(term);
+        const matchFornecedor = row.fornecedor_razao?.toLowerCase().includes(term);
+        const matchDocumento = row.documento_numero?.toLowerCase().includes(term);
+        if (!matchProtocolo && !matchFornecedor && !matchDocumento) return false;
+      }
       return true;
     });
-  }, [rows, filterEmpreendimento, filterStatus]);
+  }, [rows, filterEmpreendimento, filterStatus, searchTerm]);
 
   // KPIs
   const kpis = useMemo(() => {
@@ -242,6 +295,14 @@ export default function MonitoramentoOC() {
       cancelamento_pendente: rows.filter(r => r.cancelamento_pendente).length,
     };
   }, [rows]);
+
+  // Empreendimentos available for filter
+  const availableEmpreendimentos = useMemo(() => {
+    if (hasAllAccess) {
+      return Object.entries(EMPREENDIMENTO_LABELS).filter(([k]) => k !== 'todos');
+    }
+    return Object.entries(EMPREENDIMENTO_LABELS).filter(([k]) => k !== 'todos' && userEmpreendimentos.includes(k as Empreendimento));
+  }, [userEmpreendimentos, hasAllAccess]);
 
   const openHistory = async (row: OCMonitorRow) => {
     setSelectedRow(row);
@@ -278,6 +339,39 @@ export default function MonitoramentoOC() {
     }
   };
 
+  // Cancellation request handler
+  const handleSolicitarCancelamento = async () => {
+    if (!cancelRow || !user || cancelJustificativa.trim().length < 10) return;
+    setCancelSaving(true);
+    try {
+      const { error: acompError } = await supabase
+        .from('oc_acompanhamento')
+        .insert({
+          solicitacao_id: cancelRow.solicitacao_id,
+          tipo_acao: 'cancelamento_solicitado' as const,
+          justificativa: cancelJustificativa.trim(),
+          user_id: user.id,
+        });
+      if (acompError) throw acompError;
+
+      const { error: solError } = await supabase
+        .from('solicitacoes')
+        .update({ cancelamento_pendente: true })
+        .eq('id', cancelRow.solicitacao_id);
+      if (solError) throw solError;
+
+      toast.success('Solicitação de cancelamento registrada com sucesso');
+      setCancelRow(null);
+      setCancelJustificativa('');
+      fetchData();
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Erro ao solicitar cancelamento');
+    } finally {
+      setCancelSaving(false);
+    }
+  };
+
   const formatCurrency = (value: number) => 
     value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -289,7 +383,7 @@ export default function MonitoramentoOC() {
     cancelamento_rejeitado: 'Cancelamento rejeitado',
   };
 
-  if (loading) {
+  if (loading || loadingEmpreendimentos) {
     return (
       <AppLayout>
         <div className="flex items-center justify-center h-64">
@@ -310,7 +404,7 @@ export default function MonitoramentoOC() {
 
         {/* KPIs */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card>
+          <Card className="border-l-4 border-l-primary">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-primary/10">
@@ -323,7 +417,7 @@ export default function MonitoramentoOC() {
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="border-l-4 border-l-amber-500">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-amber-500/10">
@@ -336,7 +430,7 @@ export default function MonitoramentoOC() {
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="border-l-4 border-l-destructive">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-destructive/10">
@@ -349,11 +443,11 @@ export default function MonitoramentoOC() {
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="border-l-4 border-l-orange-500">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-destructive/10">
-                  <XCircle className="h-5 w-5 text-destructive" />
+                <div className="p-2 rounded-lg bg-orange-500/10">
+                  <XCircle className="h-5 w-5 text-orange-600" />
                 </div>
                 <div>
                   <p className="text-2xl font-bold">{kpis.cancelamento_pendente}</p>
@@ -367,15 +461,24 @@ export default function MonitoramentoOC() {
         {/* Filters */}
         <Card>
           <CardContent className="pt-6">
-            <div className="flex flex-wrap gap-4">
+            <div className="flex flex-wrap gap-4 items-center">
+              <div className="relative w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar protocolo, fornecedor..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
               <div className="w-48">
                 <Select value={filterEmpreendimento} onValueChange={setFilterEmpreendimento}>
                   <SelectTrigger>
                     <SelectValue placeholder="Empreendimento" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="todos">Todos</SelectItem>
-                    {Object.entries(EMPREENDIMENTO_LABELS).filter(([k]) => k !== 'todos').map(([key, label]) => (
+                    {availableEmpreendimentos.length > 1 && <SelectItem value="todos">Todos</SelectItem>}
+                    {availableEmpreendimentos.map(([key, label]) => (
                       <SelectItem key={key} value={key}>{label}</SelectItem>
                     ))}
                   </SelectContent>
@@ -408,10 +511,11 @@ export default function MonitoramentoOC() {
               <TableRow>
                 <TableHead>Protocolo</TableHead>
                 <TableHead>Nº OC</TableHead>
+                <TableHead>Empreendimento</TableHead>
                 <TableHead>Fornecedor</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
                 <TableHead>Data OC</TableHead>
-                <TableHead>Aging</TableHead>
+                <TableHead>Dias em aberto</TableHead>
                 <TableHead>Status NF</TableHead>
                 <TableHead>Ações</TableHead>
               </TableRow>
@@ -419,7 +523,7 @@ export default function MonitoramentoOC() {
             <TableBody>
               {filteredRows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
                     Nenhuma OC encontrada com os filtros selecionados.
                   </TableCell>
                 </TableRow>
@@ -438,17 +542,28 @@ export default function MonitoramentoOC() {
                     >
                       <TableCell className="font-mono text-sm font-medium">#{row.protocolo}</TableCell>
                       <TableCell className="text-sm">{row.documento_numero}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={cn('text-xs', EMPREENDIMENTO_BADGE_COLORS[row.empreendimento] || '')}>
+                          {EMPREENDIMENTO_LABELS[row.empreendimento] || row.empreendimento}
+                        </Badge>
+                      </TableCell>
                       <TableCell className="text-sm max-w-[200px] truncate">{row.fornecedor_razao || '—'}</TableCell>
                       <TableCell className="text-right text-sm font-medium">{formatCurrency(row.valor)}</TableCell>
                       <TableCell className="text-sm">{format(new Date(row.data_oc), 'dd/MM/yy', { locale: ptBR })}</TableCell>
-                      <TableCell>{getAgingBadge(row.dias_aberto, !!row.ultima_justificativa)}</TableCell>
-                      <TableCell>{getStatusBadge(monitorStatus)}</TableCell>
+                      <TableCell>{getAgingBadge(row.dias_aberto, !!row.ultima_justificativa, row.data_oc)}</TableCell>
+                      <TableCell>{getStatusBadge(monitorStatus, row.previsao_nf)}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                           {monitorStatus === 'pendente_justificativa' && (
                             <Button variant="outline" size="sm" className="text-amber-600 border-amber-300" onClick={() => setJustificativaRow(row)}>
                               <AlertCircle className="h-4 w-4 mr-1" />
                               Justificar
+                            </Button>
+                          )}
+                          {row.status !== 'cancelado' && !row.cancelamento_pendente && (
+                            <Button variant="outline" size="sm" className="text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => setCancelRow(row)}>
+                              <XOctagon className="h-4 w-4 mr-1" />
+                              Cancelar
                             </Button>
                           )}
                           <Button variant="ghost" size="sm" onClick={() => openHistory(row)}>
@@ -513,6 +628,50 @@ export default function MonitoramentoOC() {
               </div>
             )}
           </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancellation Request Modal */}
+      <Dialog open={!!cancelRow} onOpenChange={(open) => { if (!open) { setCancelRow(null); setCancelJustificativa(''); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <XOctagon className="h-5 w-5 text-destructive" />
+              Solicitar Cancelamento — #{cancelRow?.protocolo}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              OC nº <strong>{cancelRow?.documento_numero}</strong> • {cancelRow?.fornecedor_razao || 'Sem fornecedor'}
+            </p>
+            <div>
+              <Label htmlFor="cancel-justificativa">Motivo do cancelamento *</Label>
+              <Textarea
+                id="cancel-justificativa"
+                placeholder="Descreva o motivo pelo qual a OC deve ser cancelada (mín. 10 caracteres)..."
+                value={cancelJustificativa}
+                onChange={(e) => setCancelJustificativa(e.target.value)}
+                rows={4}
+                className="mt-1"
+              />
+              {cancelJustificativa.length > 0 && cancelJustificativa.length < 10 && (
+                <p className="text-xs text-destructive mt-1">Mínimo 10 caracteres</p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setCancelRow(null); setCancelJustificativa(''); }}>
+              Voltar
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleSolicitarCancelamento}
+              disabled={cancelJustificativa.trim().length < 10 || cancelSaving}
+            >
+              {cancelSaving && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Solicitar Cancelamento
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
