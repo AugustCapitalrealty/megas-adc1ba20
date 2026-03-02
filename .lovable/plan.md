@@ -1,38 +1,40 @@
 
 
-# Melhorias no Monitoramento OC x NF
+# Plano: Justificativas pendentes no card de Acoes Pendentes do Dashboard
+
+## Objetivo
+
+Adicionar uma nova categoria "Justificativas OC" no card de Acoes Pendentes do Dashboard. Mostra OCs do empreendimento do usuario que precisam de justificativa (dia >= 23, sem NF, sem previsao). Destaque visual para as que o usuario e o proprio solicitante.
 
 ## Alteracoes
 
-### 1. Filtrar por empreendimento do usuario
+### 1. `src/hooks/useDashboardMetrics.ts`
 
-Usar o hook `useUserEmpreendimentos` para obter os empreendimentos do usuario. No enriquecimento dos dados, filtrar apenas as solicitacoes cujo `empreendimento` esta na lista do usuario (ou mostrar todos se `hasAllAccess`). Tambem limitar o dropdown de filtro para mostrar apenas os empreendimentos acessiveis.
+Adicionar uma segunda query para buscar OCs que precisam de justificativa:
+- Query em `documentos_emitidos` com join em `solicitacoes` (tipo_documento = 'OC')
+- Filtrar: status != 'concluida', natureza_orcamentaria not in ('agua', 'energia_eletrica')
+- Filtrar por empreendimentos do usuario
+- Verificar se nao tem NF associada e nao tem previsao_nf em `oc_acompanhamento`
+- Calcular `pendingJustificativas` (total do empreendimento) e `pendingJustificativasOwn` (onde user_id = usuario logado)
+- Retornar ambos no objeto de metricas
 
-### 2. Trocar "Aging" por "Dias em aberto"
+### 2. `src/components/PendingActionsCard.tsx`
 
-Alterar o `TableHead` na linha 414 de "Aging" para "Dias em aberto".
+- Adicionar novo tipo `justificativa_oc` na interface
+- Receber props `pendingJustificativas` e `pendingJustificativasOwn`
+- Renderizar botao com icone `CalendarDays`, cor amber/laranja
+- Texto: "Justificativas OC (X)" -- se houver proprias, adicionar badge "Y suas" com destaque
+- Ao clicar, navegar para `/monitoramento-oc?status=pendente_justificativa`
 
-### 3. Botao "Solicitar Cancelamento" na tabela
+### 3. `src/pages/Dashboard.tsx`
 
-Adicionar botao "Cancelar OC" nas acoes da tabela (para linhas que nao estao canceladas e nao tem `cancelamento_pendente`). Ao clicar, abre um modal com textarea obrigatoria para justificativa. Ao salvar:
-- Insere em `oc_acompanhamento` com `tipo_acao = 'cancelamento_solicitado'`
-- Atualiza `solicitacoes.cancelamento_pendente = true`
-- Recarrega dados
-
-Criar estado para o modal de cancelamento (`cancelRow`) e componente inline no mesmo arquivo.
-
-### 4. Melhorias de UX e visualizacao
-
-- Empreendimento como coluna na tabela (com badge colorido)
-- Tooltip no badge de dias em aberto mostrando data da OC
-- Linha com previsao de NF mostra a data inline na coluna Status
-- Melhorar KPIs com cores mais contrastantes
-- Busca por protocolo ou fornecedor (input de search)
-- Ordenacao padrao por dias em aberto (decrescente)
+- Passar as novas props para `PendingActionsCard`
 
 ## Arquivos alterados
 
 | Arquivo | Alteracao |
 |---------|-----------|
-| `src/pages/MonitoramentoOC.tsx` | Filtro por empreendimento do usuario, renomear Aging, botao cancelamento com modal, search, coluna empreendimento, melhorias visuais |
+| `src/hooks/useDashboardMetrics.ts` | Query para contar OCs pendentes de justificativa por empreendimento e proprias |
+| `src/components/PendingActionsCard.tsx` | Novo tipo justificativa_oc com destaque para proprias |
+| `src/pages/Dashboard.tsx` | Passar novas props |
 
