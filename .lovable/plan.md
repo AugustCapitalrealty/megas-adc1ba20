@@ -1,54 +1,44 @@
 
 
-# Plano: Corrigir visibilidade do Monitoramento OC x NF para todos os usuários
+# Plano: Expiração de previsão de NF e limpeza de type cast
 
-## Problema raiz
+## Problema identificado
 
-As tabelas `documentos_emitidos` e `oc_acompanhamento` têm políticas RLS que só permitem SELECT para o dono da solicitação ou backoffice/admin. Usuários com acesso por empreendimento não conseguem ver os dados — o painel fica vazio para eles.
+A lógica atual considera uma `previsao_nf` como válida **para sempre**. Exemplo: #2025837655 tem previsão 09/03/2026. Após essa data, se não houver NF, a OC deve voltar a exigir justificativa. Atualmente não volta — fica como "Adiado" indefinidamente.
+
+Além disso, as queries de `oc_acompanhamento` usam `as any` desnecessariamente (a tabela existe nos types).
 
 ## Alterações
 
-### 1. Adicionar políticas RLS por empreendimento
+### 1. `src/pages/MonitoramentoOC.tsx`
 
-Criar novas políticas SELECT nas tabelas:
-
-**`documentos_emitidos`** — Permitir SELECT quando o usuário tem acesso ao empreendimento da solicitação vinculada:
-```sql
-CREATE POLICY "Users can view documentos from their empreendimento"
-ON public.documentos_emitidos FOR SELECT
-USING (user_can_access_solicitacao(solicitacao_id));
+**Expiração de previsão:** Ao montar `previsao_nf` na row, verificar se a data já passou. Se `previsao_nf < hoje`, tratar como `null` (precisa justificar de novo):
+```typescript
+const previsaoNf = acomp?.previsao_nf || null;
+const previsaoValida = previsaoNf && new Date(previsaoNf + 'T00:00:00') >= new Date(new Date().toDateString()) ? previsaoNf : null;
+// usar previsaoValida no lugar de previsao_nf
 ```
 
-**`oc_acompanhamento`** — Mesma lógica:
-```sql
-CREATE POLICY "Users can view oc_acompanhamento from their empreendimento"
-ON public.oc_acompanhamento FOR SELECT
-USING (user_can_access_solicitacao(solicitacao_id));
+**Remover `as any`** nas queries de `oc_acompanhamento` (linhas 146 e 311).
+
+### 2. `src/hooks/useDashboardMetrics.ts`
+
+**Expiração de previsão no Dashboard:** No filtro `solsWithForecast`, considerar apenas previsões futuras:
+```typescript
+const today = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
+const solsWithForecast = new Set(
+  (acompResult.data || [])
+    .filter(a => a.previsao_nf && a.previsao_nf >= today)
+    .map(a => a.solicitacao_id)
+);
 ```
 
-A função `user_can_access_solicitacao` já existe e verifica: dono da solicitação OU backoffice/admin OU empreendimento do usuário. Isso resolve o acesso sem expor dados indevidos.
-
-### 2. Adicionar política INSERT em `oc_acompanhamento` por empreendimento
-
-Usuários com acesso ao empreendimento precisam inserir justificativas e solicitações de cancelamento:
-```sql
-CREATE POLICY "Users can insert oc_acompanhamento for their empreendimento"
-ON public.oc_acompanhamento FOR INSERT
-WITH CHECK (auth.uid() = user_id AND user_can_access_solicitacao(solicitacao_id));
-```
-
-### 3. Corrigir filtro de NF em `documentos_fiscais`
-
-No `MonitoramentoOC.tsx` (linha 142), o filtro `.eq('tipo', 'nota_fiscal')` pode não corresponder aos dados reais. Remover esse filtro para considerar qualquer documento fiscal como NF recebida (a tabela é exclusiva para documentos fiscais).
-
-### 4. Ajuste no `useDashboardMetrics.ts`
-
-A query de justificativas pendentes faz as mesmas consultas em `documentos_emitidos` e `oc_acompanhamento`. Com as novas políticas RLS, os dados passarão a ser retornados corretamente — nenhuma mudança de código necessária aqui.
+Isso garante que após 09/03, se não houver NF, #2025837655 volta a contar como pendente de justificativa.
 
 ## Arquivos alterados
 
 | Arquivo | Alteração |
 |---------|-----------|
-| Migration SQL | 3 novas políticas RLS |
-| `src/pages/MonitoramentoOC.tsx` | Remover `.eq('tipo', 'nota_fiscal')` do filtro de documentos fiscais |
+| `src/pages/MonitoramentoOC.tsx` | Expirar previsão passada, remover `as any` |
+| `src/hooks/useDashboardMetrics.ts` | Filtrar previsões futuras no `solsWithForecast` |
 
