@@ -44,6 +44,7 @@ interface OCMonitorRow {
   ultima_justificativa?: string | null;
   previsao_nf?: string | null;
   previsao_execucao?: string | null;
+  user_id: string;
 }
 
 interface AcompanhamentoEvent {
@@ -118,7 +119,7 @@ export default function MonitoramentoOC() {
 
       const { data: sols } = await supabase
         .from('solicitacoes')
-        .select('id, protocolo, valor, empreendimento, status, cancelamento_pendente, fornecedor_id, natureza_orcamentaria')
+        .select('id, protocolo, valor, empreendimento, status, cancelamento_pendente, fornecedor_id, natureza_orcamentaria, user_id')
         .in('id', solIds);
 
       const fornecedorIds = [...new Set((sols || []).map(s => (s as any).fornecedor_id).filter(Boolean))];
@@ -189,6 +190,7 @@ export default function MonitoramentoOC() {
             return pnf >= today ? pnf : null;
           })(),
           previsao_execucao: acomp?.previsao_execucao || null,
+          user_id: sol.user_id,
         };
       }).filter(Boolean) as OCMonitorRow[];
 
@@ -498,9 +500,15 @@ export default function MonitoramentoOC() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="ml-auto text-sm text-muted-foreground flex items-center gap-1">
-                <BarChart3 className="h-4 w-4" />
-                {filteredRows.length} registro(s)
+              <div className="ml-auto flex items-center gap-4">
+                <div className="flex items-center gap-1.5 text-xs text-primary">
+                  <div className="w-3 h-3 rounded-sm border-l-[3px] border-l-primary bg-primary/10" />
+                  Suas solicitações
+                </div>
+                <div className="text-sm text-muted-foreground flex items-center gap-1">
+                  <BarChart3 className="h-4 w-4" />
+                  {filteredRows.length} registro(s)
+                </div>
               </div>
             </div>
           </CardContent>
@@ -538,7 +546,8 @@ export default function MonitoramentoOC() {
                       className={cn(
                         'cursor-pointer',
                         row.cancelamento_pendente && 'bg-destructive/5',
-                        monitorStatus === 'pendente_justificativa' && 'bg-amber-50/50 dark:bg-amber-950/10'
+                        monitorStatus === 'pendente_justificativa' && 'bg-amber-50/50 dark:bg-amber-950/10',
+                        row.user_id === user?.id && 'border-l-4 border-l-primary bg-primary/[0.03]'
                       )}
                       onClick={() => setDetailRow(row)}
                     >
