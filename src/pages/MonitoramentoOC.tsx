@@ -143,7 +143,7 @@ export default function MonitoramentoOC() {
       const nfSet = new Set((fiscais || []).map(f => f.solicitacao_id));
 
       const { data: acompanhamentos } = await supabase
-        .from('oc_acompanhamento' as any)
+        .from('oc_acompanhamento')
         .select('solicitacao_id, tipo_acao, justificativa, previsao_execucao, previsao_nf, created_at')
         .in('solicitacao_id', solIds)
         .order('created_at', { ascending: false });
@@ -182,7 +182,12 @@ export default function MonitoramentoOC() {
           tem_nf: nfSet.has(sol.id),
           documento_numero: doc.numero_documento,
           ultima_justificativa: acomp?.justificativa || null,
-          previsao_nf: acomp?.previsao_nf || null,
+          previsao_nf: (() => {
+            const pnf = acomp?.previsao_nf || null;
+            if (!pnf) return null;
+            const today = new Date().toISOString().slice(0, 10);
+            return pnf >= today ? pnf : null;
+          })(),
           previsao_execucao: acomp?.previsao_execucao || null,
         };
       }).filter(Boolean) as OCMonitorRow[];
@@ -308,7 +313,7 @@ export default function MonitoramentoOC() {
 
     try {
       const { data } = await supabase
-        .from('oc_acompanhamento' as any)
+        .from('oc_acompanhamento')
         .select('id, tipo_acao, justificativa, previsao_execucao, previsao_nf, created_at, user_id')
         .eq('solicitacao_id', row.solicitacao_id)
         .order('created_at', { ascending: false });
