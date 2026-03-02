@@ -285,12 +285,10 @@ export default function MonitoramentoOC() {
   // KPIs
   const kpis = useMemo(() => {
     const activeOCs = rows.filter(r => r.status !== 'cancelado' && r.status !== 'concluida');
-    const now = new Date();
-    const dayOfMonth = now.getDate();
     return {
       total_ativas: activeOCs.length,
       sem_nf_mes: activeOCs.filter(r => !r.tem_nf).length,
-      pendente_justificativa: activeOCs.filter(r => dayOfMonth >= 23 && !r.tem_nf && !r.previsao_nf).length,
+      pendente_justificativa: activeOCs.filter(r => !r.tem_nf && !r.previsao_nf).length,
       cancelamento_pendente: rows.filter(r => r.cancelamento_pendente).length,
     };
   }, [rows]);
