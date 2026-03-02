@@ -1,13 +1,14 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, Edit, CheckCircle, Receipt, ChevronRight } from 'lucide-react';
+import { AlertTriangle, Edit, CheckCircle, Receipt, ChevronRight, CalendarDays } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface PendingAction {
-  type: 'correcao' | 'aceite_oc' | 'nf_boleto' | 'info_requests';
+  type: 'correcao' | 'aceite_oc' | 'nf_boleto' | 'info_requests' | 'justificativa_oc';
   count: number;
   label: string;
   description: string;
+  ownCount?: number;
 }
 
 interface PendingActionsCardProps {
@@ -15,6 +16,8 @@ interface PendingActionsCardProps {
   pendingAcceptance: number;
   pendingNfBoleto: number;
   pendingInfoRequests?: number;
+  pendingJustificativas?: number;
+  pendingJustificativasOwn?: number;
   onViewPending: (filter: string) => void;
   className?: string;
 }
@@ -24,10 +27,12 @@ export function PendingActionsCard({
   pendingAcceptance,
   pendingNfBoleto,
   pendingInfoRequests = 0,
+  pendingJustificativas = 0,
+  pendingJustificativasOwn = 0,
   onViewPending,
   className,
 }: PendingActionsCardProps) {
-  const totalPending = pendingCorrections + pendingAcceptance + pendingNfBoleto + pendingInfoRequests;
+  const totalPending = pendingCorrections + pendingAcceptance + pendingNfBoleto + pendingInfoRequests + pendingJustificativas;
   
   if (totalPending === 0) return null;
 
@@ -56,6 +61,13 @@ export function PendingActionsCard({
       label: 'Informações',
       description: 'Backoffice solicitou informações adicionais',
     },
+    {
+      type: 'justificativa_oc',
+      count: pendingJustificativas,
+      label: 'Justificativas OC',
+      description: 'OCs sem NF que precisam de justificativa',
+      ownCount: pendingJustificativasOwn,
+    },
   ];
   
   const actions = allActions.filter(a => a.count > 0);
@@ -66,6 +78,7 @@ export function PendingActionsCard({
       case 'aceite_oc': return 'oc_emitida';
       case 'nf_boleto': return 'liberadas';
       case 'info_requests': return 'correcoes';
+      case 'justificativa_oc': return 'justificativa_oc';
       default: return 'todas';
     }
   };
@@ -76,6 +89,7 @@ export function PendingActionsCard({
       case 'aceite_oc': return <CheckCircle className="h-5 w-5" />;
       case 'nf_boleto': return <Receipt className="h-5 w-5" />;
       case 'info_requests': return <AlertTriangle className="h-5 w-5" />;
+      case 'justificativa_oc': return <CalendarDays className="h-5 w-5" />;
       default: return <AlertTriangle className="h-5 w-5" />;
     }
   };
@@ -86,7 +100,16 @@ export function PendingActionsCard({
       case 'aceite_oc': return 'text-success bg-success/10 border-success/20';
       case 'nf_boleto': return 'text-[hsl(260,70%,50%)] bg-[hsl(260,70%,50%)]/10 border-[hsl(260,70%,50%)]/20';
       case 'info_requests': return 'text-amber-600 bg-amber-100 border-amber-200 dark:text-amber-400 dark:bg-amber-900/20 dark:border-amber-700';
+      case 'justificativa_oc': return 'text-orange-600 bg-orange-100 border-orange-200 dark:text-orange-400 dark:bg-orange-900/20 dark:border-orange-700';
       default: return 'text-warning bg-warning/10 border-warning/20';
+    }
+  };
+
+  const handleClick = (action: PendingAction) => {
+    if (action.type === 'justificativa_oc') {
+      onViewPending('justificativa_oc');
+    } else {
+      onViewPending(getFilterForAction(action.type));
     }
   };
 
@@ -124,7 +147,7 @@ export function PendingActionsCard({
                   key={action.type}
                   variant="outline"
                   size="sm"
-                  onClick={() => onViewPending(getFilterForAction(action.type))}
+                  onClick={() => handleClick(action)}
                   className={cn(
                     "gap-2 h-9 border",
                     getColorForAction(action.type)
@@ -133,6 +156,11 @@ export function PendingActionsCard({
                   {getIconForAction(action.type)}
                   <span>{action.label}</span>
                   <span className="font-bold">({action.count})</span>
+                  {action.type === 'justificativa_oc' && action.ownCount != null && action.ownCount > 0 && (
+                    <span className="ml-0.5 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-orange-600 text-white dark:bg-orange-500">
+                      {action.ownCount} {action.ownCount === 1 ? 'sua' : 'suas'}
+                    </span>
+                  )}
                   <ChevronRight className="h-4 w-4 ml-1" />
                 </Button>
               ))}
