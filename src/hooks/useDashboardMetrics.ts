@@ -121,8 +121,9 @@ export function useDashboardMetrics(viewMode: ViewMode = 'minhas'): DashboardMet
       ]);
 
       const solsWithNf = new Set((nfResult.data || []).map(d => d.solicitacao_id));
+      const today = new Date().toISOString().slice(0, 10);
       const solsWithForecast = new Set(
-        (acompResult.data || []).filter(a => a.previsao_nf).map(a => a.solicitacao_id)
+        (acompResult.data || []).filter(a => a.previsao_nf && a.previsao_nf >= today).map(a => a.solicitacao_id)
       );
 
       const pendingOcs = validOcs.filter(oc => !solsWithNf.has(oc.solicitacao_id) && !solsWithForecast.has(oc.solicitacao_id));
