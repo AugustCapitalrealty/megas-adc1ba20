@@ -28,6 +28,8 @@ interface DashboardMetrics {
   pendingAcceptance: number;
   pendingNfBoleto: number;
   pendingInfoRequests: number;
+  pendingJustificativas: number;
+  pendingJustificativasOwn: number;
   inProgress: number;
   concluded: number;
   // Backoffice-specific KPIs
@@ -85,6 +87,60 @@ export function useDashboardMetrics(viewMode: ViewMode = 'minhas'): DashboardMet
     refetchOnWindowFocus: true,
   });
 
+  // Query for OCs pending justification (day >= 23, no NF, no forecast)
+  const { data: justificativasData, isLoading: loadingJust } = useQuery({
+    queryKey: ['dashboard-justificativas-pendentes', user?.id, empreendimentos],
+    queryFn: async () => {
+      const today = new Date();
+      const dayOfMonth = today.getDate();
+      
+      // Only relevant after day 23
+      if (dayOfMonth < 23) return { total: 0, own: 0 };
+
+      // Fetch OCs with their solicitacoes
+      const { data: ocs, error } = await supabase
+        .from('documentos_emitidos')
+        .select('id, solicitacao_id, solicitacoes!documentos_emitidos_solicitacao_id_fkey(user_id, status, natureza_orcamentaria, empreendimento)')
+        .eq('tipo_documento', 'OC');
+
+      if (error) throw error;
+      if (!ocs) return { total: 0, own: 0 };
+
+      // Filter valid OCs
+      const validOcs = ocs.filter(oc => {
+        const sol = oc.solicitacoes as any;
+        if (!sol) return false;
+        if (sol.status === 'concluida' || sol.status === 'cancelado') return false;
+        if (sol.natureza_orcamentaria === 'agua' || sol.natureza_orcamentaria === 'energia_eletrica') return false;
+        if (!hasAllAccess && empreendimentos.length > 0 && !empreendimentos.includes(sol.empreendimento)) return false;
+        return true;
+      });
+
+      // Check which OCs have NFs or forecasts
+      const solIds = [...new Set(validOcs.map(oc => oc.solicitacao_id))];
+      if (solIds.length === 0) return { total: 0, own: 0 };
+
+      const [nfResult, acompResult] = await Promise.all([
+        supabase.from('documentos_fiscais').select('solicitacao_id').in('solicitacao_id', solIds),
+        supabase.from('oc_acompanhamento').select('solicitacao_id, previsao_nf').in('solicitacao_id', solIds),
+      ]);
+
+      const solsWithNf = new Set((nfResult.data || []).map(d => d.solicitacao_id));
+      const solsWithForecast = new Set(
+        (acompResult.data || []).filter(a => a.previsao_nf).map(a => a.solicitacao_id)
+      );
+
+      const pendingOcs = validOcs.filter(oc => !solsWithNf.has(oc.solicitacao_id) && !solsWithForecast.has(oc.solicitacao_id));
+
+      const total = pendingOcs.length;
+      const own = pendingOcs.filter(oc => (oc.solicitacoes as any)?.user_id === user!.id).length;
+
+      return { total, own };
+    },
+    enabled: !!user?.id && !loadingEmp,
+    staleTime: 30_000,
+  });
+
   const allSol = solicitacoes || [];
 
   // Count by status
@@ -131,13 +187,18 @@ export function useDashboardMetrics(viewMode: ViewMode = 'minhas'): DashboardMet
     };
   });
 
+  const pendingJustificativas = justificativasData?.total ?? 0;
+  const pendingJustificativasOwn = justificativasData?.own ?? 0;
+
   return {
     total: allSol.length,
-    pendingActions: pendingCorrections + pendingAcceptance + pendingNfBoleto + pendingInfoRequests,
+    pendingActions: pendingCorrections + pendingAcceptance + pendingNfBoleto + pendingInfoRequests + pendingJustificativas,
     pendingCorrections,
     pendingAcceptance,
     pendingNfBoleto,
     pendingInfoRequests,
+    pendingJustificativas,
+    pendingJustificativasOwn,
     inProgress,
     concluded,
     newInQueue,
@@ -146,7 +207,7 @@ export function useDashboardMetrics(viewMode: ViewMode = 'minhas'): DashboardMet
     inApproval,
     recentSolicitacoes,
     statusCounts,
-    isLoading: loadingSol || loadingEmp,
+    isLoading: loadingSol || loadingEmp || loadingJust,
     error: error as Error | null,
   };
 }

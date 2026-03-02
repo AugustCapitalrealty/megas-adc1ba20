@@ -232,7 +232,15 @@ export default function Dashboard() {
               pendingAcceptance={metrics.pendingAcceptance}
               pendingNfBoleto={metrics.pendingNfBoleto}
               pendingInfoRequests={metrics.pendingInfoRequests}
-              onViewPending={(filter) => navigate(`/minhas-solicitacoes?filter=${filter}`)}
+              pendingJustificativas={metrics.pendingJustificativas}
+              pendingJustificativasOwn={metrics.pendingJustificativasOwn}
+              onViewPending={(filter) => {
+                if (filter === 'justificativa_oc') {
+                  navigate('/monitoramento-oc?status=pendente_justificativa');
+                } else {
+                  navigate(`/minhas-solicitacoes?filter=${filter}`);
+                }
+              }}
             />
 
             {/* Recent Requests */}
