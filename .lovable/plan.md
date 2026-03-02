@@ -1,40 +1,54 @@
 
 
-# Plano: Justificativas pendentes no card de Acoes Pendentes do Dashboard
+# Plano: Corrigir visibilidade do Monitoramento OC x NF para todos os usuários
 
-## Objetivo
+## Problema raiz
 
-Adicionar uma nova categoria "Justificativas OC" no card de Acoes Pendentes do Dashboard. Mostra OCs do empreendimento do usuario que precisam de justificativa (dia >= 23, sem NF, sem previsao). Destaque visual para as que o usuario e o proprio solicitante.
+As tabelas `documentos_emitidos` e `oc_acompanhamento` têm políticas RLS que só permitem SELECT para o dono da solicitação ou backoffice/admin. Usuários com acesso por empreendimento não conseguem ver os dados — o painel fica vazio para eles.
 
-## Alteracoes
+## Alterações
 
-### 1. `src/hooks/useDashboardMetrics.ts`
+### 1. Adicionar políticas RLS por empreendimento
 
-Adicionar uma segunda query para buscar OCs que precisam de justificativa:
-- Query em `documentos_emitidos` com join em `solicitacoes` (tipo_documento = 'OC')
-- Filtrar: status != 'concluida', natureza_orcamentaria not in ('agua', 'energia_eletrica')
-- Filtrar por empreendimentos do usuario
-- Verificar se nao tem NF associada e nao tem previsao_nf em `oc_acompanhamento`
-- Calcular `pendingJustificativas` (total do empreendimento) e `pendingJustificativasOwn` (onde user_id = usuario logado)
-- Retornar ambos no objeto de metricas
+Criar novas políticas SELECT nas tabelas:
 
-### 2. `src/components/PendingActionsCard.tsx`
+**`documentos_emitidos`** — Permitir SELECT quando o usuário tem acesso ao empreendimento da solicitação vinculada:
+```sql
+CREATE POLICY "Users can view documentos from their empreendimento"
+ON public.documentos_emitidos FOR SELECT
+USING (user_can_access_solicitacao(solicitacao_id));
+```
 
-- Adicionar novo tipo `justificativa_oc` na interface
-- Receber props `pendingJustificativas` e `pendingJustificativasOwn`
-- Renderizar botao com icone `CalendarDays`, cor amber/laranja
-- Texto: "Justificativas OC (X)" -- se houver proprias, adicionar badge "Y suas" com destaque
-- Ao clicar, navegar para `/monitoramento-oc?status=pendente_justificativa`
+**`oc_acompanhamento`** — Mesma lógica:
+```sql
+CREATE POLICY "Users can view oc_acompanhamento from their empreendimento"
+ON public.oc_acompanhamento FOR SELECT
+USING (user_can_access_solicitacao(solicitacao_id));
+```
 
-### 3. `src/pages/Dashboard.tsx`
+A função `user_can_access_solicitacao` já existe e verifica: dono da solicitação OU backoffice/admin OU empreendimento do usuário. Isso resolve o acesso sem expor dados indevidos.
 
-- Passar as novas props para `PendingActionsCard`
+### 2. Adicionar política INSERT em `oc_acompanhamento` por empreendimento
+
+Usuários com acesso ao empreendimento precisam inserir justificativas e solicitações de cancelamento:
+```sql
+CREATE POLICY "Users can insert oc_acompanhamento for their empreendimento"
+ON public.oc_acompanhamento FOR INSERT
+WITH CHECK (auth.uid() = user_id AND user_can_access_solicitacao(solicitacao_id));
+```
+
+### 3. Corrigir filtro de NF em `documentos_fiscais`
+
+No `MonitoramentoOC.tsx` (linha 142), o filtro `.eq('tipo', 'nota_fiscal')` pode não corresponder aos dados reais. Remover esse filtro para considerar qualquer documento fiscal como NF recebida (a tabela é exclusiva para documentos fiscais).
+
+### 4. Ajuste no `useDashboardMetrics.ts`
+
+A query de justificativas pendentes faz as mesmas consultas em `documentos_emitidos` e `oc_acompanhamento`. Com as novas políticas RLS, os dados passarão a ser retornados corretamente — nenhuma mudança de código necessária aqui.
 
 ## Arquivos alterados
 
-| Arquivo | Alteracao |
+| Arquivo | Alteração |
 |---------|-----------|
-| `src/hooks/useDashboardMetrics.ts` | Query para contar OCs pendentes de justificativa por empreendimento e proprias |
-| `src/components/PendingActionsCard.tsx` | Novo tipo justificativa_oc com destaque para proprias |
-| `src/pages/Dashboard.tsx` | Passar novas props |
+| Migration SQL | 3 novas políticas RLS |
+| `src/pages/MonitoramentoOC.tsx` | Remover `.eq('tipo', 'nota_fiscal')` do filtro de documentos fiscais |
 
