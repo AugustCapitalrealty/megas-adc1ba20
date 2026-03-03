@@ -1,76 +1,90 @@
 
 
-# Plano: Eliminar carregamento duplo e acelerar transições
+# Plano: App Shell + Prefetch de Dados + Nova Logo
 
-## Diagnóstico
+## Problema raiz
 
-O usuário vê **até 3 telas de loading** ao trocar de página:
+Toda página importa e renderiza `<AppLayout>` individualmente. Quando o React Router troca de rota, o componente da página anterior desmonta completamente (incluindo o AppLayout com header, logo, menu) e a nova página monta um novo AppLayout do zero. Isso causa:
 
-1. **Suspense fallback** (tela cheia com logo + spinner) — enquanto o chunk JS carrega via lazy import
-2. **ProtectedRoute loading** (outra tela cheia idêntica) — enquanto o auth verifica `loading === true`
-3. **Loading interno da página** (spinner dentro do conteúdo) — enquanto os dados são buscados
+- Logo "pisca" a cada navegação (remonta a `<img>`)
+- Header e menu recarregam desnecessariamente
+- Transição visualmente lenta mesmo com chunks já carregados
 
-Além disso, o `QueryClient` não tem `staleTime` global, então toda navegação re-busca dados do zero.
+## Estratégia
 
-## Alterações
+### 1. App Shell: Layout fixo no Router (maior impacto)
 
-### 1. `src/App.tsx` — Eliminar loading duplo
+Mover o `<AppLayout>` para o nível do Router, envolvendo todas as rotas protegidas. As páginas deixam de importar/renderizar `AppLayout` internamente.
 
-- Mover o `<Suspense>` para **dentro** do `ProtectedRoute`, após o check de auth. Assim o usuário vê no máximo 1 tela de loading (auth), nunca duas sequenciais.
-- Alternativamente, o `ProtectedRoute` pode retornar `null` durante loading (sem tela cheia) já que o Suspense já está mostrando. Melhor: deixar o Suspense com fallback **mínimo** (sem tela cheia) e manter apenas o ProtectedRoute como loading principal.
+```text
+Antes:
+  Route "/" → ProtectedRoute → Dashboard (monta AppLayout)
+  Route "/backoffice" → ProtectedRoute → Backoffice (monta OUTRO AppLayout)
 
-**Solução escolhida**: Remover a tela cheia do Suspense. Usar um fallback mínimo (vazio ou só spinner pequeno) no Suspense, pois os chunks carregam em <200ms após primeira visita. O loading "real" fica apenas no ProtectedRoute.
-
-### 2. `src/App.tsx` — Adicionar `staleTime` global ao QueryClient
-
-```typescript
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutos
-      gcTime: 1000 * 60 * 10,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
+Depois:
+  Route "/" → ProtectedRoute → AppLayout (monta UMA VEZ)
+    ├── Route index → Dashboard (só conteúdo)
+    ├── Route "backoffice" → Backoffice (só conteúdo)
+    └── Route "minhas-solicitacoes" → MinhasSolicitacoes (só conteúdo)
 ```
 
-Isso faz com que ao navegar de volta para uma página já visitada, os dados apareçam instantaneamente do cache.
+Com isso, ao trocar de página o header/logo/menu permanecem fixos na tela e apenas o conteúdo central é substituído via `<Outlet />`.
 
-### 3. `src/pages/MinhasSolicitacoes.tsx` — Converter para React Query
+**Arquivos afetados:**
+- `src/App.tsx` — Reestruturar rotas com layout wrapper usando `<Outlet />`
+- `src/components/layout/AppLayout.tsx` — Trocar `{children}` por `<Outlet />`
+- **Todas as 10 páginas protegidas** — Remover import e wrapper `<AppLayout>`
 
-A página usa `useState` + `useEffect` + `fetchSolicitacoes()` manual. Isso significa que **cada vez que o usuário volta para esta tela, todos os dados são buscados do zero** com loading spinner.
+### 2. Prefetch de dados após login
 
-Converter para `useQuery` com `queryKey: ['minhas-solicitacoes', effectiveUserId, viewMode]`. Isso mantém cache entre navegações e mostra dados antigos instantaneamente enquanto revalida em background.
-
-### 4. `src/components/layout/AppLayout.tsx` — Prefetch ao hover nos links
-
-Adicionar `onMouseEnter` nos links de navegação para pré-carregar o chunk da página antes do clique, eliminando o delay do lazy loading.
+Quando o usuário faz login e cai no Dashboard, aproveitar esse momento para pré-carregar dados das rotas mais usadas em background:
 
 ```typescript
-const prefetchRoute = (path: string) => {
-  // Trigger chunk preload
-  const routeMap: Record<string, () => Promise<any>> = {
-    '/': () => import('@/pages/Dashboard'),
-    '/minhas-solicitacoes': () => import('@/pages/MinhasSolicitacoes'),
-    // ...
-  };
-  routeMap[path]?.();
-};
+// No Dashboard, após montar:
+useEffect(() => {
+  // Prefetch dados de MinhasSolicitacoes em background
+  queryClient.prefetchQuery({
+    queryKey: ['minhas-solicitacoes', userId],
+    queryFn: fetchSolicitacoes,
+    staleTime: 1000 * 60 * 5,
+  });
+}, []);
 ```
+
+Isso garante que quando o usuário clicar em "Solicitações", os dados já estarão no cache.
+
+### 3. Atualizar logo
+
+Substituir `src/assets/logos/logo-mega.webp` pelo arquivo PNG enviado pelo usuário. Atualizar referências para usar o novo arquivo.
+
+### 4. Cache de retorno (já parcialmente implementado)
+
+O `staleTime: 5min` global no QueryClient já garante que dados cacheados são exibidos instantaneamente ao voltar para uma página. Com o App Shell, o efeito será ainda mais visível pois o layout não remonta.
 
 ## Arquivos alterados
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `src/App.tsx` | Suspense fallback mínimo, QueryClient com staleTime global |
-| `src/pages/MinhasSolicitacoes.tsx` | Converter fetch para useQuery |
-| `src/components/layout/AppLayout.tsx` | Prefetch de chunks ao hover |
+| `src/assets/logos/logo-mega.png` | Nova logo (copiar upload do usuário) |
+| `src/App.tsx` | Reestruturar rotas com layout wrapper + Outlet |
+| `src/components/layout/AppLayout.tsx` | Usar Outlet, atualizar import da logo |
+| `src/pages/Dashboard.tsx` | Remover AppLayout, adicionar prefetch |
+| `src/pages/MinhasSolicitacoes.tsx` | Remover AppLayout |
+| `src/pages/Backoffice.tsx` | Remover AppLayout |
+| `src/pages/NovaSolicitacao.tsx` | Remover AppLayout |
+| `src/pages/PainelFluig.tsx` | Remover AppLayout |
+| `src/pages/Admin.tsx` | Remover AppLayout |
+| `src/pages/DashboardSLA.tsx` | Remover AppLayout |
+| `src/pages/DashboardEficiencia.tsx` | Remover AppLayout |
+| `src/pages/GarantiasVigentes.tsx` | Remover AppLayout |
+| `src/pages/MonitoramentoOC.tsx` | Remover AppLayout |
+| `src/pages/Login.tsx` | Atualizar import da logo |
 
 ## Resultado esperado
 
-- Transição entre telas: dados do cache aparecem **instantaneamente**, sem loading
-- Apenas 1 tela de loading na primeira visita (nunca dupla)
-- Hover nos links pré-carrega o chunk antes do clique
-- Dados revalidam silenciosamente em background
+- Header, logo e menu **nunca mais recarregam** durante navegação
+- Transições entre páginas são instantâneas (só o conteúdo central muda)
+- Dados pré-carregados em background após login
+- Retorno a páginas já visitadas é imediato via cache
+- Logo atualizada para a versão enviada
 
