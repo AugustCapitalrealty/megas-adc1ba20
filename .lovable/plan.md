@@ -1,67 +1,60 @@
 
 
-# Plano: Persistir resultados de IA no banco e evitar chamadas repetidas
+# Plano: Otimização de Performance
 
-## Problema
+## Diagnóstico (Performance Profile)
 
-Os campos `ia_cnae_status`, `ia_cnae_justificativa`, `ia_descricao_vaga`, `ia_descricao_sugestao` já existem na tabela `solicitacoes`, mas nunca são gravados. Toda vez que alguém abre os detalhes de uma solicitação (no Backoffice ou em NovaSolicitacao ao duplicar), a IA é chamada novamente via edge function. Isso gera custo desnecessário e lentidão.
-
-## Estratégia
-
-1. **Gravar os resultados na submissão** — No `NovaSolicitacao.tsx`, ao submeter (`handleSubmit`), salvar os resultados de IA que já estão em memória nos campos da solicitação.
-
-2. **No Backoffice, usar dados do banco** — O `CNAECompatibilityBadge` no Backoffice recebe `descricao` e `fornecedor` e dispara a IA. Alterá-lo para aceitar um prop `cachedResult` opcional. Quando existir, exibe direto sem chamar a edge function.
-
-3. **No NovaSolicitacao, manter IA ao vivo** — Durante a criação/edição, a IA continua rodando normalmente (o usuário está digitando, os dados mudam). Mas os resultados finais são persistidos na submissão.
+| Problema | Impacto |
+|----------|---------|
+| **Logo 743KB** carregada 3x na mesma página | +2.2MB de transferência, FCP de 4.6s |
+| **lucide-react 158KB** bundle completo | Maior script da app |
+| **useUserEmpreendimentos** não usa cache (useEffect + useState) | Refetch em cada mount de componente |
+| **NotificationBell** sem staleTime, refetch em cada navegação | Queries desnecessárias |
+| **MinhasSolicitacoes** fetch sequencial (correções e info requests após dados principais) | Waterfall de queries |
+| **`select('*')`** em várias queries traz colunas desnecessárias | Payload inflado |
+| **App.css** com estilos Vite default não usados | CSS morto |
 
 ## Alterações
 
-### 1. `src/pages/NovaSolicitacao.tsx`
+### 1. Comprimir logo (~743KB → ~15KB)
+O arquivo `logo-mega.webp` é uma imagem de alta resolução exibida a 40px de altura. Redimensionar para 200px de largura máxima e recomprimir. Também adicionar `loading="eager"` no header e `loading="lazy"` onde não é above-the-fold.
 
-No `handleSubmit`, incluir os campos de cache na inserção do Supabase:
-```typescript
-ia_cnae_status: validationResult?.status || null,
-ia_cnae_justificativa: validationResult?.justificativa_curta || null,
-ia_descricao_vaga: descriptionValidation?.isVague || null,
-ia_descricao_sugestao: descriptionValidation?.suggestion || null,
-ia_cnae_avaliado_em: validationResult ? new Date().toISOString() : null,
-ia_descricao_avaliado_em: descriptionValidation ? new Date().toISOString() : null,
-```
+### 2. Otimizar imports do lucide-react
+Configurar `vite.config.ts` com `optimizeDeps.include` para lucide-react e adicionar `iconResolver` para tree-shaking mais eficiente no build de produção.
 
-### 2. `src/components/CNAECompatibilityBadge.tsx`
+### 3. Converter `useUserEmpreendimentos` para React Query
+Substituir `useEffect` + `useState` por `useQuery` com `staleTime: 5min`. Evita refetch em cada mount (Dashboard, MinhasSolicitacoes, MonitoramentoOC, Backoffice todos usam esse hook).
 
-Adicionar prop `cachedResult?: { status: string; justificativa: string } | null`. Quando fornecido, renderizar diretamente sem chamar `useCNAEValidation`.
+### 4. Adicionar staleTime ao NotificationBell
+Converter para `useQuery` com `staleTime: 30s` mantendo o realtime channel para novas notificações.
 
-### 3. `src/pages/Backoffice.tsx`
+### 5. Paralelizar queries em MinhasSolicitacoes
+As queries de `rejectionReasons` e `infoRequests` são feitas após o fetch principal. Executá-las em `Promise.all` junto com os documentos.
 
-Ao renderizar `CNAECompatibilityBadge`, passar os dados cacheados do `detalhes.solicitacao`:
-```typescript
-<CNAECompatibilityBadge
-  descricao={detalhes.solicitacao.descricao}
-  fornecedor={buildFornecedorFromDetalhes(detalhes.solicitacao)}
-  cachedResult={detalhes.solicitacao.ia_cnae_status ? {
-    status: detalhes.solicitacao.ia_cnae_status,
-    justificativa: detalhes.solicitacao.ia_cnae_justificativa
-  } : null}
-/>
-```
+### 6. Remover App.css (CSS morto)
+O arquivo `src/App.css` contém estilos do template Vite que não são usados (`.logo`, `.read-the-docs`, etc). Remover o arquivo e qualquer import dele.
 
-### 4. `src/hooks/useDescriptionValidation.ts`
+### 7. Selects específicos nas queries
+Em `MinhasSolicitacoes.fetchSolicitacoes`, trocar `select('*')` por campos necessários para reduzir payload.
 
-Sem mudanças — usado apenas na criação.
-
-## Resultado
-
-- IA roda **uma vez** durante a criação da solicitação
-- Resultados são gravados no banco na submissão
-- Visualizações subsequentes (Backoffice, detalhes) usam dados do banco
-- O trigger `reset_ia_cache_fields` já existe para limpar os campos se a descrição mudar (em caso de resubmissão)
+### 8. React.memo no SolicitacaoCard
+Envolver `SolicitacaoCard` em `React.memo` para evitar re-renders desnecessários quando a lista é filtrada.
 
 ## Arquivos alterados
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `src/pages/NovaSolicitacao.tsx` | Persistir campos `ia_*` no insert |
-| `src/components/CNAECompatibilityBadge.tsx` | Aceitar `cachedResult` prop |
-| `src/pages/Backoffice.tsx` | Passar `cachedResult` ao badge |
+| `vite.config.ts` | Otimizar deps do lucide-react, manual chunks |
+| `src/App.css` | **Deletar** |
+| `src/hooks/useUserEmpreendimentos.ts` | Converter para React Query |
+| `src/components/NotificationBell.tsx` | useQuery com staleTime |
+| `src/pages/MinhasSolicitacoes.tsx` | Paralelizar queries, select específico |
+| `src/components/ui/SolicitacaoCard.tsx` | React.memo |
+| `src/assets/logos/logo-mega.webp` | Comprimir/redimensionar imagem |
+
+## Resultado esperado
+- FCP reduzido de ~4.6s para ~2s
+- ~2MB menos de transferência (logo)
+- Menos queries redundantes por navegação
+- Navegação mais fluida entre páginas
 
