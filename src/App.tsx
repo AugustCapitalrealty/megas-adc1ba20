@@ -23,7 +23,15 @@ const DashboardEficiencia = lazy(() => import("./pages/DashboardEficiencia"));
 const MonitoramentoOC = lazy(() => import("./pages/MonitoramentoOC"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5,
+      gcTime: 1000 * 60 * 10,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 function ProtectedRoute({ 
   children, 
@@ -68,15 +76,7 @@ function ProtectedRoute({
   return <>{children}</>;
 }
 
-const SuspenseFallback = () => (
-  <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
-    <img src={logoMega} alt="Mega" className="h-10 w-auto opacity-50" />
-    <div className="flex items-center gap-2 text-muted-foreground">
-      <Loader2 className="h-5 w-5 animate-spin" />
-      <span className="text-sm">Carregando...</span>
-    </div>
-  </div>
-);
+const SuspenseFallback = () => null;
 
 function AppRoutes() {
   return (
