@@ -34,68 +34,30 @@ const queryClient = new QueryClient({
   },
 });
 
-function ProtectedRoute({ 
-  requireBackoffice = false,
-  requireAdmin = false 
-}: { 
-  requireBackoffice?: boolean;
-  requireAdmin?: boolean;
-}) {
-  const { user, loading, isBackofficeOrAdmin, isAdmin, isApproved, isMasterUser } = useAuth();
+/** Unified shell: auth check + AppLayout rendered ONCE */
+function ProtectedShell() {
+  const { user, loading, isApproved, isMasterUser } = useAuth();
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
-        <img src={logoMega} alt="Mega" className="h-10 w-auto opacity-50" />
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <Loader2 className="h-5 w-5 animate-spin" />
-          <span className="text-sm">Carregando...</span>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (!isApproved && !isMasterUser) {
-    return <Navigate to="/aguardando-aprovacao" replace />;
-  }
-
-  if (requireAdmin && !isAdmin) {
-    return <Navigate to="/" replace />;
-  }
-
-  if (requireBackoffice && !isBackofficeOrAdmin) {
-    return <Navigate to="/" replace />;
-  }
-
-  return <Outlet />;
-}
-
-/** Shell layout: ProtectedRoute + AppLayout, rendered once for all protected routes */
-function ProtectedShell({ requireBackoffice = false, requireAdmin = false }: { requireBackoffice?: boolean; requireAdmin?: boolean }) {
-  const { user, loading, isBackofficeOrAdmin, isAdmin, isApproved, isMasterUser } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
-        <img src={logoMega} alt="Mega" className="h-10 w-auto opacity-50" />
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <Loader2 className="h-5 w-5 animate-spin" />
-          <span className="text-sm">Carregando...</span>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   if (!user) return <Navigate to="/login" replace />;
   if (!isApproved && !isMasterUser) return <Navigate to="/aguardando-aprovacao" replace />;
-  if (requireAdmin && !isAdmin) return <Navigate to="/" replace />;
-  if (requireBackoffice && !isBackofficeOrAdmin) return <Navigate to="/" replace />;
 
   return <AppLayout />;
+}
+
+/** Inline role guard — no loading state (auth already verified by shell) */
+function RequireRole({ role, children }: { role: 'backoffice' | 'admin'; children: React.ReactNode }) {
+  const { isBackofficeOrAdmin, isAdmin } = useAuth();
+  const allowed = role === 'admin' ? isAdmin : isBackofficeOrAdmin;
+  if (!allowed) return <Navigate to="/" replace />;
+  return <>{children}</>;
 }
 
 const SuspenseFallback = () => null;
@@ -106,8 +68,8 @@ function AppRoutes() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/aguardando-aprovacao" element={<AwaitingApproval />} />
-        
-        {/* All standard protected routes share a single AppLayout shell */}
+
+        {/* Single shell — AppLayout mounts once, never remounts on navigation */}
         <Route element={<ProtectedShell />}>
           <Route index element={<Dashboard />} />
           <Route path="nova-solicitacao" element={<NovaSolicitacao />} />
@@ -115,18 +77,10 @@ function AppRoutes() {
           <Route path="painel-fluig" element={<PainelFluig />} />
           <Route path="garantias" element={<GarantiasVigentes />} />
           <Route path="monitoramento-oc" element={<MonitoramentoOC />} />
-        </Route>
-
-        {/* Backoffice-level routes */}
-        <Route element={<ProtectedShell requireBackoffice />}>
-          <Route path="backoffice" element={<Backoffice />} />
-          <Route path="admin/sla" element={<DashboardSLA />} />
-          <Route path="admin/eficiencia" element={<DashboardEficiencia />} />
-        </Route>
-
-        {/* Admin-level routes */}
-        <Route element={<ProtectedShell requireAdmin />}>
-          <Route path="admin/usuarios" element={<Admin />} />
+          <Route path="backoffice" element={<RequireRole role="backoffice"><Backoffice /></RequireRole>} />
+          <Route path="admin/sla" element={<RequireRole role="backoffice"><DashboardSLA /></RequireRole>} />
+          <Route path="admin/eficiencia" element={<RequireRole role="backoffice"><DashboardEficiencia /></RequireRole>} />
+          <Route path="admin/usuarios" element={<RequireRole role="admin"><Admin /></RequireRole>} />
         </Route>
 
         <Route path="*" element={<NotFound />} />
