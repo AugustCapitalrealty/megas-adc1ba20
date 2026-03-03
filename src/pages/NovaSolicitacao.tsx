@@ -37,6 +37,7 @@ import { SupplierSearch } from '@/components/SupplierSearch';
 import { ClienteSelect } from '@/components/ClienteSelect';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useDescriptionValidation } from '@/hooks/useDescriptionValidation';
+import { useCNAEValidation } from '@/hooks/useCNAEValidation';
 import { notifyBackofficeNewSolicitacao } from '@/hooks/useNotificationEmail';
 import { StepIndicator, type Step as StepIndicatorStep } from '@/components/StepIndicator';
 import { CNAECompatibilityBadge } from '@/components/CNAECompatibilityBadge';
@@ -217,6 +218,13 @@ export default function NovaSolicitacao() {
   
   // AI Description Validation
   const { isValidating: isValidatingDescription, validationResult: descriptionValidation } = useDescriptionValidation(descricao);
+  
+  // AI CNAE Validation (used to persist results on submit)
+  const { validationResult: cnaeValidationResult } = useCNAEValidation({
+    descricao,
+    fornecedor,
+    enabled: !!fornecedor?.cnae_principal_codigo && descricao.length >= 20
+  });
   // Load fornecedor from duplicateFrom
   useEffect(() => {
     if (duplicateFrom?.fornecedor_id) {
@@ -792,6 +800,13 @@ export default function NovaSolicitacao() {
         // Rateio
         tipo_rateio: empreendimento === 'todos' ? tipoRateio : null,
         rateio_valores: empreendimento === 'todos' && rateioValores.length > 0 ? rateioValores : null,
+        // Persistir resultados de IA para evitar chamadas repetidas
+        ia_cnae_status: cnaeValidationResult?.status || null,
+        ia_cnae_justificativa: cnaeValidationResult?.justificativa_curta || null,
+        ia_cnae_avaliado_em: cnaeValidationResult ? new Date().toISOString() : null,
+        ia_descricao_vaga: descriptionValidation?.isVague ?? null,
+        ia_descricao_sugestao: descriptionValidation?.suggestion || null,
+        ia_descricao_avaliado_em: descriptionValidation ? new Date().toISOString() : null,
       } as any;
       
       // Tentar inserir com retry automático para conflitos de protocolo (23505)

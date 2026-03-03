@@ -121,6 +121,13 @@ export interface SolicitacaoDetalhes {
     // Justificativas
     justificativa_sem_chamado?: string;
     justificativa_sem_memorial?: string;
+    // IA cache fields
+    ia_cnae_status?: string;
+    ia_cnae_justificativa?: string;
+    ia_cnae_avaliado_em?: string;
+    ia_descricao_vaga?: boolean;
+    ia_descricao_sugestao?: string;
+    ia_descricao_avaliado_em?: string;
   };
   solicitante: Profile | null;
   cliente: Cliente | null;

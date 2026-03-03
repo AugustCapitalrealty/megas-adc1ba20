@@ -2103,6 +2103,10 @@ export default function Backoffice() {
                           descricao={detalhes.solicitacao.descricao}
                           fornecedor={buildFornecedorFromDetalhes(detalhes.solicitacao)}
                           enabled={detalhes.solicitacao.descricao.length >= 20}
+                          cachedResult={detalhes.solicitacao.ia_cnae_status ? {
+                            status: detalhes.solicitacao.ia_cnae_status,
+                            justificativa: detalhes.solicitacao.ia_cnae_justificativa || ''
+                          } : null}
                         />
                       )}
                     </div>
