@@ -170,7 +170,23 @@ export default function MinhasSolicitacoes() {
     let query = supabase
       .from('solicitacoes')
       .select(`
-        *,
+        id, protocolo, descricao, tipo, status, empreendimento, valor, valor_servico, valor_material,
+        faturamento_direto, emergencial, created_at, updated_at, user_id, fornecedor_id,
+        fornecedor_concorrente_1_id, fornecedor_concorrente_2_id, natureza_orcamentaria,
+        numero_chamado_fluig, data_pendente_correcao, cancelamento_pendente, contrato_mensal,
+        tipo_contratacao, data_conclusao, data_inicio, data_fim, parcelas, dias_garantia,
+        tipo_garantia, dias_garantia_produto, dias_garantia_servico, instrumento_juridico,
+        escopo_detalhado_minuta, cliente_id, custo_cliente, origem_custo, infraspeak_registrada,
+        justificativa_sem_chamado, fornecimento_exclusivo, justificativa_exclusividade,
+        excecao_fornecedores, justificativa_fornecedores, justificativa_sem_memorial,
+        numero_projuris, fornecedor_email_contato, fornecedor_telefone_contato,
+        data_enviado_fornecedor, enviado_fornecedor_por, data_liberado_fornecedor,
+        liberado_fornecedor_por, resposta_informacoes, retencao_6_porcento,
+        requer_retencao_tecnica, prazo_liberacao_retencao_dias, rateio_valores, tipo_rateio,
+        natureza_servico_altura_risco, natureza_servico_fossa_filtro, natureza_servico_obra_civil,
+        natureza_servico_preco_variavel, due_diligence_confirmada, due_diligence_numero_projuris,
+        ia_cnae_status, ia_cnae_justificativa, ia_cnae_avaliado_em,
+        ia_descricao_vaga, ia_descricao_sugestao, ia_descricao_avaliado_em,
         fornecedor:fornecedores!solicitacoes_fornecedor_id_fkey(id, razao_social, nome_fantasia)
       `)
       .order('created_at', { ascending: false });
@@ -242,50 +258,52 @@ export default function MinhasSolicitacoes() {
       
       setSolicitacoes(enrichedData);
       
+      // Parallelize correction reasons and info requests fetches
       const needsCorrectionIds = data
         .filter((s: any) => s.status === 'rejeitado' || s.status === 'pendente_correcao')
         .map((s: any) => s.id);
       
-      if (needsCorrectionIds.length > 0) {
-        const { data: histData } = await supabase
-          .from('historico_solicitacoes')
-          .select('solicitacao_id, motivo, created_at, anexos_com_problema')
-          .in('solicitacao_id', needsCorrectionIds)
-          .in('status_novo', ['rejeitado', 'pendente_correcao'])
-          .order('created_at', { ascending: false });
-        
-        if (histData) {
-          const reasons: Record<string, RejectionInfo> = {};
-          histData.forEach((h: any) => {
-            if (!reasons[h.solicitacao_id]) {
-              reasons[h.solicitacao_id] = h;
-            }
-          });
-          setRejectionReasons(reasons);
-        }
-      }
-
       const infoIds = data
         .filter((s: any) => s.status === 'aguardando_informacoes')
         .map((s: any) => s.id);
-      
-      if (infoIds.length > 0) {
-        const { data: infoData } = await supabase
-          .from('historico_solicitacoes')
-          .select('solicitacao_id, motivo, created_at, anexos_com_problema')
-          .in('solicitacao_id', infoIds)
-          .eq('status_novo', 'aguardando_informacoes')
-          .order('created_at', { ascending: false });
-        
-        if (infoData) {
-          const requests: Record<string, InfoRequest> = {};
-          infoData.forEach((h: any) => {
-            if (!requests[h.solicitacao_id]) {
-              requests[h.solicitacao_id] = h;
-            }
-          });
-          setInfoRequests(requests);
-        }
+
+      const [correctionResult, infoResult] = await Promise.all([
+        needsCorrectionIds.length > 0
+          ? supabase
+              .from('historico_solicitacoes')
+              .select('solicitacao_id, motivo, created_at, anexos_com_problema')
+              .in('solicitacao_id', needsCorrectionIds)
+              .in('status_novo', ['rejeitado', 'pendente_correcao'])
+              .order('created_at', { ascending: false })
+          : Promise.resolve({ data: null }),
+        infoIds.length > 0
+          ? supabase
+              .from('historico_solicitacoes')
+              .select('solicitacao_id, motivo, created_at, anexos_com_problema')
+              .in('solicitacao_id', infoIds)
+              .eq('status_novo', 'aguardando_informacoes')
+              .order('created_at', { ascending: false })
+          : Promise.resolve({ data: null }),
+      ]);
+
+      if (correctionResult.data) {
+        const reasons: Record<string, RejectionInfo> = {};
+        correctionResult.data.forEach((h: any) => {
+          if (!reasons[h.solicitacao_id]) {
+            reasons[h.solicitacao_id] = h;
+          }
+        });
+        setRejectionReasons(reasons);
+      }
+
+      if (infoResult.data) {
+        const requests: Record<string, InfoRequest> = {};
+        infoResult.data.forEach((h: any) => {
+          if (!requests[h.solicitacao_id]) {
+            requests[h.solicitacao_id] = h;
+          }
+        });
+        setInfoRequests(requests);
       }
     }
     setLoading(false);

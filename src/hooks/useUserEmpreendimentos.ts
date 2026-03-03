@@ -1,35 +1,28 @@
-import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Empreendimento } from '@/types';
 
 export function useUserEmpreendimentos(userId: string | undefined) {
-  const [empreendimentos, setEmpreendimentos] = useState<Empreendimento[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [hasAllAccess, setHasAllAccess] = useState(false);
-
-  useEffect(() => {
-    if (!userId) {
-      setEmpreendimentos([]);
-      setLoading(false);
-      return;
-    }
-
-    const fetch = async () => {
+  const { data, isLoading } = useQuery({
+    queryKey: ['user-empreendimentos', userId],
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('user_empreendimentos')
         .select('empreendimento')
-        .eq('user_id', userId);
+        .eq('user_id', userId!);
 
-      if (!error && data) {
-        const list = data.map(d => d.empreendimento as Empreendimento);
-        setEmpreendimentos(list);
-        setHasAllAccess(list.includes('todos'));
-      }
-      setLoading(false);
-    };
+      if (error) throw error;
+      return (data || []).map(d => d.empreendimento as Empreendimento);
+    },
+    enabled: !!userId,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
 
-    fetch();
-  }, [userId]);
+  const empreendimentos = data || [];
 
-  return { empreendimentos, loading, hasAllAccess };
+  return {
+    empreendimentos,
+    loading: isLoading,
+    hasAllAccess: empreendimentos.includes('todos'),
+  };
 }

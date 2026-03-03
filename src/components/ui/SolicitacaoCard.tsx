@@ -1,4 +1,4 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, memo } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/status-badge';
@@ -47,7 +47,7 @@ const getFornecedorNome = (sol: SolicitacaoWithDetails) => {
   return sol.fornecedor.nome_fantasia || sol.fornecedor.razao_social || null;
 };
 
-export function SolicitacaoCard({
+export const SolicitacaoCard = memo(function SolicitacaoCard({
   solicitacao: sol,
   variant = 'detailed',
   isExpanded = false,
@@ -209,4 +209,4 @@ export function SolicitacaoCard({
       </CardContent>
     </Card>
   );
-}
+});
