@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useCallback } from 'react';
 import { Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,6 +14,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface Notification {
   id: string;
@@ -28,64 +29,64 @@ interface Notification {
 export function NotificationBell() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const queryClient = useQueryClient();
 
+  const { data: notifications = [] } = useQuery({
+    queryKey: ['notifications', user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('id, tipo, titulo, mensagem, lida, solicitacao_id, created_at')
+        .eq('user_id', user!.id)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+      return (data || []) as Notification[];
+    },
+    enabled: !!user,
+    staleTime: 1000 * 30, // 30 seconds
+  });
+
+  const unreadCount = notifications.filter(n => !n.lida).length;
+
+  // Realtime subscription
   useEffect(() => {
-    if (user) {
-      fetchNotifications();
-      
-      // Subscribe to realtime notifications
-      const channel = supabase
-        .channel('notifications')
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'notifications',
-            filter: `user_id=eq.${user.id}`,
-          },
-          (payload) => {
-            setNotifications(prev => [payload.new as Notification, ...prev]);
-            setUnreadCount(prev => prev + 1);
-          }
-        )
-        .subscribe();
+    if (!user) return;
 
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-  }, [user]);
+    const channel = supabase
+      .channel('notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['notifications', user.id] });
+        }
+      )
+      .subscribe();
 
-  const fetchNotifications = async () => {
-    const { data, error } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('user_id', user!.id)
-      .order('created_at', { ascending: false })
-      .limit(20);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, queryClient]);
 
-    if (!error && data) {
-      setNotifications(data);
-      setUnreadCount(data.filter(n => !n.lida).length);
-    }
-  };
-
-  const markAsRead = async (notificationId: string) => {
+  const markAsRead = useCallback(async (notificationId: string) => {
     await supabase
       .from('notifications')
       .update({ lida: true })
       .eq('id', notificationId);
 
-    setNotifications(prev =>
-      prev.map(n => (n.id === notificationId ? { ...n, lida: true } : n))
+    queryClient.setQueryData<Notification[]>(['notifications', user?.id], old =>
+      old?.map(n => (n.id === notificationId ? { ...n, lida: true } : n)) || []
     );
-    setUnreadCount(prev => Math.max(0, prev - 1));
-  };
+  }, [queryClient, user?.id]);
 
-  const markAllAsRead = async () => {
+  const markAllAsRead = useCallback(async () => {
     const unreadIds = notifications.filter(n => !n.lida).map(n => n.id);
     if (unreadIds.length === 0) return;
 
@@ -94,11 +95,12 @@ export function NotificationBell() {
       .update({ lida: true })
       .in('id', unreadIds);
 
-    setNotifications(prev => prev.map(n => ({ ...n, lida: true })));
-    setUnreadCount(0);
-  };
+    queryClient.setQueryData<Notification[]>(['notifications', user?.id], old =>
+      old?.map(n => ({ ...n, lida: true })) || []
+    );
+  }, [notifications, queryClient, user?.id]);
 
-  const handleNotificationClick = async (notification: Notification) => {
+  const handleNotificationClick = useCallback(async (notification: Notification) => {
     markAsRead(notification.id);
     if (notification.solicitacao_id) {
       const { data } = await supabase
@@ -113,7 +115,7 @@ export function NotificationBell() {
         navigate('/minhas-solicitacoes');
       }
     }
-  };
+  }, [markAsRead, navigate]);
 
   return (
     <DropdownMenu>
