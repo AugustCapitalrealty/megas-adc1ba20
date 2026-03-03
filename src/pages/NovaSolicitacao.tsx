@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { AppLayout } from '@/components/layout/AppLayout';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -993,7 +993,7 @@ export default function NovaSolicitacao() {
   };
 
   return (
-    <AppLayout>
+    <>
       <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
         <div>
           <h1 className="text-2xl font-bold">Nova Solicitação</h1>
@@ -2042,6 +2042,6 @@ export default function NovaSolicitacao() {
           )}
         </div>
       </div>
-    </AppLayout>
+    </>
   );
 }

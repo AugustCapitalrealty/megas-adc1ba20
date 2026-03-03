@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { AppLayout } from '@/components/layout/AppLayout';
+
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -1390,16 +1390,14 @@ export default function MinhasSolicitacoes() {
 
   if (loading) {
     return (
-      <AppLayout>
-        <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center h-64">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-      </AppLayout>
     );
   }
 
   return (
-    <AppLayout>
+    <>
       <div className="space-y-6 animate-fade-in">
         {/* Header with improved view selector */}
         <div className="space-y-4">
@@ -2260,6 +2258,6 @@ export default function MinhasSolicitacoes() {
           onTransferred={fetchSolicitacoes}
         />
       )}
-    </AppLayout>
+    </>
   );
 }
