@@ -1,90 +1,59 @@
 
 
-# Plano: App Shell + Prefetch de Dados + Nova Logo
+# Plano: Trocar Logo + Eliminar Loading Duplo
 
-## Problema raiz
+## Diagnóstico
 
-Toda página importa e renderiza `<AppLayout>` individualmente. Quando o React Router troca de rota, o componente da página anterior desmonta completamente (incluindo o AppLayout com header, logo, menu) e a nova página monta um novo AppLayout do zero. Isso causa:
+Dois problemas distintos:
 
-- Logo "pisca" a cada navegação (remonta a `<img>`)
-- Header e menu recarregam desnecessariamente
-- Transição visualmente lenta mesmo com chunks já carregados
+**1. Logo desatualizada** — Precisa trocar para a nova versão enviada.
 
-## Estratégia
-
-### 1. App Shell: Layout fixo no Router (maior impacto)
-
-Mover o `<AppLayout>` para o nível do Router, envolvendo todas as rotas protegidas. As páginas deixam de importar/renderizar `AppLayout` internamente.
+**2. Três shells separados causam remontagem do layout:**
 
 ```text
-Antes:
-  Route "/" → ProtectedRoute → Dashboard (monta AppLayout)
-  Route "/backoffice" → ProtectedRoute → Backoffice (monta OUTRO AppLayout)
+Atual (App.tsx):
+  <Route element={<ProtectedShell />}>           ← Shell A (monta AppLayout)
+    Dashboard, MinhasSolicitacoes, etc.
+  </Route>
+  <Route element={<ProtectedShell requireBackoffice />}>  ← Shell B (OUTRO AppLayout)
+    Backoffice, DashboardSLA, etc.
+  </Route>
+  <Route element={<ProtectedShell requireAdmin />}>       ← Shell C (OUTRO AppLayout)
+    Admin
+  </Route>
+```
 
+Ao navegar de Dashboard (Shell A) para Backoffice (Shell B), o React desmonta o Shell A inteiro (incluindo header/logo/menu) e monta o Shell B do zero. Isso causa o efeito de "carregar duas vezes" — primeiro o loading do auth no novo shell, depois o loading dos dados da página.
+
+## Alterações
+
+### 1. Trocar logo
+Copiar `user-uploads://logo-mega-removebg-preview-2.png` para `src/assets/logos/logo-mega.png`. Todas as referências já apontam para esse arquivo.
+
+### 2. Unificar em um único Shell (`src/App.tsx`)
+Usar **um único** `<ProtectedShell>` para todas as rotas protegidas. Cheques de permissão (backoffice/admin) movidos para componentes wrapper inline nas rotas individuais:
+
+```text
 Depois:
-  Route "/" → ProtectedRoute → AppLayout (monta UMA VEZ)
-    ├── Route index → Dashboard (só conteúdo)
-    ├── Route "backoffice" → Backoffice (só conteúdo)
-    └── Route "minhas-solicitacoes" → MinhasSolicitacoes (só conteúdo)
+  <Route element={<ProtectedShell />}>     ← UM ÚNICO Shell (AppLayout monta 1 vez)
+    Dashboard
+    MinhasSolicitacoes
+    Backoffice         ← permissão checada internamente
+    Admin              ← permissão checada internamente
+    DashboardSLA       ← permissão checada internamente
+    etc.
+  </Route>
 ```
 
-Com isso, ao trocar de página o header/logo/menu permanecem fixos na tela e apenas o conteúdo central é substituído via `<Outlet />`.
+Criar um componente `<RequireRole>` que checa permissão e redireciona se não autorizado, sem mostrar loading (auth já foi verificado pelo shell pai).
 
-**Arquivos afetados:**
-- `src/App.tsx` — Reestruturar rotas com layout wrapper usando `<Outlet />`
-- `src/components/layout/AppLayout.tsx` — Trocar `{children}` por `<Outlet />`
-- **Todas as 10 páginas protegidas** — Remover import e wrapper `<AppLayout>`
-
-### 2. Prefetch de dados após login
-
-Quando o usuário faz login e cai no Dashboard, aproveitar esse momento para pré-carregar dados das rotas mais usadas em background:
-
-```typescript
-// No Dashboard, após montar:
-useEffect(() => {
-  // Prefetch dados de MinhasSolicitacoes em background
-  queryClient.prefetchQuery({
-    queryKey: ['minhas-solicitacoes', userId],
-    queryFn: fetchSolicitacoes,
-    staleTime: 1000 * 60 * 5,
-  });
-}, []);
-```
-
-Isso garante que quando o usuário clicar em "Solicitações", os dados já estarão no cache.
-
-### 3. Atualizar logo
-
-Substituir `src/assets/logos/logo-mega.webp` pelo arquivo PNG enviado pelo usuário. Atualizar referências para usar o novo arquivo.
-
-### 4. Cache de retorno (já parcialmente implementado)
-
-O `staleTime: 5min` global no QueryClient já garante que dados cacheados são exibidos instantaneamente ao voltar para uma página. Com o App Shell, o efeito será ainda mais visível pois o layout não remonta.
+### 3. Loading mais leve no ProtectedShell
+Ao invés da tela cheia com logo + spinner (que compete visualmente com o Suspense), usar apenas um spinner discreto centralizado. A logo já está no header do AppLayout — não precisa repetir no loading.
 
 ## Arquivos alterados
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `src/assets/logos/logo-mega.png` | Nova logo (copiar upload do usuário) |
-| `src/App.tsx` | Reestruturar rotas com layout wrapper + Outlet |
-| `src/components/layout/AppLayout.tsx` | Usar Outlet, atualizar import da logo |
-| `src/pages/Dashboard.tsx` | Remover AppLayout, adicionar prefetch |
-| `src/pages/MinhasSolicitacoes.tsx` | Remover AppLayout |
-| `src/pages/Backoffice.tsx` | Remover AppLayout |
-| `src/pages/NovaSolicitacao.tsx` | Remover AppLayout |
-| `src/pages/PainelFluig.tsx` | Remover AppLayout |
-| `src/pages/Admin.tsx` | Remover AppLayout |
-| `src/pages/DashboardSLA.tsx` | Remover AppLayout |
-| `src/pages/DashboardEficiencia.tsx` | Remover AppLayout |
-| `src/pages/GarantiasVigentes.tsx` | Remover AppLayout |
-| `src/pages/MonitoramentoOC.tsx` | Remover AppLayout |
-| `src/pages/Login.tsx` | Atualizar import da logo |
-
-## Resultado esperado
-
-- Header, logo e menu **nunca mais recarregam** durante navegação
-- Transições entre páginas são instantâneas (só o conteúdo central muda)
-- Dados pré-carregados em background após login
-- Retorno a páginas já visitadas é imediato via cache
-- Logo atualizada para a versão enviada
+| `src/assets/logos/logo-mega.png` | Substituir pela nova logo |
+| `src/App.tsx` | Unificar 3 shells em 1, criar RequireRole, loading simplificado |
 
