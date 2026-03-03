@@ -1,4 +1,4 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -128,6 +128,23 @@ export function AppLayout({ children }: AppLayoutProps) {
   const isActive = (href: string) => location.pathname === href;
   const isAdminActive = adminItems.some(item => location.pathname === item.href);
 
+  // Prefetch route chunks on hover for instant navigation
+  const prefetchRoute = useCallback((path: string) => {
+    const routeMap: Record<string, () => Promise<any>> = {
+      '/': () => import('@/pages/Dashboard'),
+      '/nova-solicitacao': () => import('@/pages/NovaSolicitacao'),
+      '/minhas-solicitacoes': () => import('@/pages/MinhasSolicitacoes'),
+      '/backoffice': () => import('@/pages/Backoffice'),
+      '/painel-fluig': () => import('@/pages/PainelFluig'),
+      '/garantias': () => import('@/pages/GarantiasVigentes'),
+      '/monitoramento-oc': () => import('@/pages/MonitoramentoOC'),
+      '/admin/usuarios': () => import('@/pages/Admin'),
+      '/admin/sla': () => import('@/pages/DashboardSLA'),
+      '/admin/eficiencia': () => import('@/pages/DashboardEficiencia'),
+    };
+    routeMap[path]?.();
+  }, []);
+
   const NavLinks = ({ mobile = false }: { mobile?: boolean }) => (
     <>
       {mainNavItems
@@ -139,6 +156,7 @@ export function AppLayout({ children }: AppLayoutProps) {
               key={item.href}
               to={item.href}
               onClick={() => mobile && setMobileMenuOpen(false)}
+              onMouseEnter={() => !mobile && prefetchRoute(item.href)}
               className={cn(
                 'flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors',
                 isActive(item.href)
@@ -194,6 +212,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             {/* CTA: Nova Solicitação - highlighted */}
             <Link
               to="/nova-solicitacao"
+              onMouseEnter={() => prefetchRoute('/nova-solicitacao')}
               className={cn(
                 'flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-semibold transition-colors mr-1',
                 isActive('/nova-solicitacao')
@@ -228,7 +247,7 @@ export function AppLayout({ children }: AppLayoutProps) {
                   {adminItems.map((item) => {
                     const Icon = item.icon;
                     return (
-                      <DropdownMenuItem key={item.href} onClick={() => navigate(item.href)}>
+                      <DropdownMenuItem key={item.href} onClick={() => navigate(item.href)} onMouseEnter={() => prefetchRoute(item.href)}>
                         <Icon className="mr-2 h-4 w-4" />
                         {item.label}
                       </DropdownMenuItem>
