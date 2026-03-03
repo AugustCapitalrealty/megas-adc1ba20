@@ -1,60 +1,76 @@
 
 
-# Plano: Otimização de Performance
+# Plano: Eliminar carregamento duplo e acelerar transições
 
-## Diagnóstico (Performance Profile)
+## Diagnóstico
 
-| Problema | Impacto |
-|----------|---------|
-| **Logo 743KB** carregada 3x na mesma página | +2.2MB de transferência, FCP de 4.6s |
-| **lucide-react 158KB** bundle completo | Maior script da app |
-| **useUserEmpreendimentos** não usa cache (useEffect + useState) | Refetch em cada mount de componente |
-| **NotificationBell** sem staleTime, refetch em cada navegação | Queries desnecessárias |
-| **MinhasSolicitacoes** fetch sequencial (correções e info requests após dados principais) | Waterfall de queries |
-| **`select('*')`** em várias queries traz colunas desnecessárias | Payload inflado |
-| **App.css** com estilos Vite default não usados | CSS morto |
+O usuário vê **até 3 telas de loading** ao trocar de página:
+
+1. **Suspense fallback** (tela cheia com logo + spinner) — enquanto o chunk JS carrega via lazy import
+2. **ProtectedRoute loading** (outra tela cheia idêntica) — enquanto o auth verifica `loading === true`
+3. **Loading interno da página** (spinner dentro do conteúdo) — enquanto os dados são buscados
+
+Além disso, o `QueryClient` não tem `staleTime` global, então toda navegação re-busca dados do zero.
 
 ## Alterações
 
-### 1. Comprimir logo (~743KB → ~15KB)
-O arquivo `logo-mega.webp` é uma imagem de alta resolução exibida a 40px de altura. Redimensionar para 200px de largura máxima e recomprimir. Também adicionar `loading="eager"` no header e `loading="lazy"` onde não é above-the-fold.
+### 1. `src/App.tsx` — Eliminar loading duplo
 
-### 2. Otimizar imports do lucide-react
-Configurar `vite.config.ts` com `optimizeDeps.include` para lucide-react e adicionar `iconResolver` para tree-shaking mais eficiente no build de produção.
+- Mover o `<Suspense>` para **dentro** do `ProtectedRoute`, após o check de auth. Assim o usuário vê no máximo 1 tela de loading (auth), nunca duas sequenciais.
+- Alternativamente, o `ProtectedRoute` pode retornar `null` durante loading (sem tela cheia) já que o Suspense já está mostrando. Melhor: deixar o Suspense com fallback **mínimo** (sem tela cheia) e manter apenas o ProtectedRoute como loading principal.
 
-### 3. Converter `useUserEmpreendimentos` para React Query
-Substituir `useEffect` + `useState` por `useQuery` com `staleTime: 5min`. Evita refetch em cada mount (Dashboard, MinhasSolicitacoes, MonitoramentoOC, Backoffice todos usam esse hook).
+**Solução escolhida**: Remover a tela cheia do Suspense. Usar um fallback mínimo (vazio ou só spinner pequeno) no Suspense, pois os chunks carregam em <200ms após primeira visita. O loading "real" fica apenas no ProtectedRoute.
 
-### 4. Adicionar staleTime ao NotificationBell
-Converter para `useQuery` com `staleTime: 30s` mantendo o realtime channel para novas notificações.
+### 2. `src/App.tsx` — Adicionar `staleTime` global ao QueryClient
 
-### 5. Paralelizar queries em MinhasSolicitacoes
-As queries de `rejectionReasons` e `infoRequests` são feitas após o fetch principal. Executá-las em `Promise.all` junto com os documentos.
+```typescript
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutos
+      gcTime: 1000 * 60 * 10,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+```
 
-### 6. Remover App.css (CSS morto)
-O arquivo `src/App.css` contém estilos do template Vite que não são usados (`.logo`, `.read-the-docs`, etc). Remover o arquivo e qualquer import dele.
+Isso faz com que ao navegar de volta para uma página já visitada, os dados apareçam instantaneamente do cache.
 
-### 7. Selects específicos nas queries
-Em `MinhasSolicitacoes.fetchSolicitacoes`, trocar `select('*')` por campos necessários para reduzir payload.
+### 3. `src/pages/MinhasSolicitacoes.tsx` — Converter para React Query
 
-### 8. React.memo no SolicitacaoCard
-Envolver `SolicitacaoCard` em `React.memo` para evitar re-renders desnecessários quando a lista é filtrada.
+A página usa `useState` + `useEffect` + `fetchSolicitacoes()` manual. Isso significa que **cada vez que o usuário volta para esta tela, todos os dados são buscados do zero** com loading spinner.
+
+Converter para `useQuery` com `queryKey: ['minhas-solicitacoes', effectiveUserId, viewMode]`. Isso mantém cache entre navegações e mostra dados antigos instantaneamente enquanto revalida em background.
+
+### 4. `src/components/layout/AppLayout.tsx` — Prefetch ao hover nos links
+
+Adicionar `onMouseEnter` nos links de navegação para pré-carregar o chunk da página antes do clique, eliminando o delay do lazy loading.
+
+```typescript
+const prefetchRoute = (path: string) => {
+  // Trigger chunk preload
+  const routeMap: Record<string, () => Promise<any>> = {
+    '/': () => import('@/pages/Dashboard'),
+    '/minhas-solicitacoes': () => import('@/pages/MinhasSolicitacoes'),
+    // ...
+  };
+  routeMap[path]?.();
+};
+```
 
 ## Arquivos alterados
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `vite.config.ts` | Otimizar deps do lucide-react, manual chunks |
-| `src/App.css` | **Deletar** |
-| `src/hooks/useUserEmpreendimentos.ts` | Converter para React Query |
-| `src/components/NotificationBell.tsx` | useQuery com staleTime |
-| `src/pages/MinhasSolicitacoes.tsx` | Paralelizar queries, select específico |
-| `src/components/ui/SolicitacaoCard.tsx` | React.memo |
-| `src/assets/logos/logo-mega.webp` | Comprimir/redimensionar imagem |
+| `src/App.tsx` | Suspense fallback mínimo, QueryClient com staleTime global |
+| `src/pages/MinhasSolicitacoes.tsx` | Converter fetch para useQuery |
+| `src/components/layout/AppLayout.tsx` | Prefetch de chunks ao hover |
 
 ## Resultado esperado
-- FCP reduzido de ~4.6s para ~2s
-- ~2MB menos de transferência (logo)
-- Menos queries redundantes por navegação
-- Navegação mais fluida entre páginas
+
+- Transição entre telas: dados do cache aparecem **instantaneamente**, sem loading
+- Apenas 1 tela de loading na primeira visita (nunca dupla)
+- Hover nos links pré-carrega o chunk antes do clique
+- Dados revalidam silenciosamente em background
 
