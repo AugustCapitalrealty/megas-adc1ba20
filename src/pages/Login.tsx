@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import logoMega from '@/assets/logos/logo-mega.webp';
+import logoMega from '@/assets/logos/logo-mega.png';
 
 export default function Login() {
   const { user, loading, isApproved, isMasterUser, signInWithGoogle } = useAuth();

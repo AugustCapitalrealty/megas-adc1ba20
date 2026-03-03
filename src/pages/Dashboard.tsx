@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
 import { useUserEmpreendimentos } from '@/hooks/useUserEmpreendimentos';
-import { AppLayout } from '@/components/layout/AppLayout';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { PendingActionsCard } from '@/components/PendingActionsCard';
@@ -121,8 +121,7 @@ export default function Dashboard() {
       ];
 
   return (
-    <AppLayout>
-      <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
         {/* Greeting + Toggle */}
         <div className="flex items-center justify-between gap-4">
           <div>
@@ -334,6 +333,5 @@ export default function Dashboard() {
           </>
         )}
       </div>
-    </AppLayout>
   );
 }

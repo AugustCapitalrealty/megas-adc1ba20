@@ -2,7 +2,7 @@ import { useLocation, Link } from "react-router-dom";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Home, ArrowLeft } from "lucide-react";
-import logoMega from "@/assets/logos/logo-mega.webp";
+import logoMega from "@/assets/logos/logo-mega.png";
 
 const NotFound = () => {
   const location = useLocation();

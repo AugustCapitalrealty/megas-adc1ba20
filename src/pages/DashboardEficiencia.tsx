@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { format, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { AppLayout } from '@/components/layout/AppLayout';
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -140,7 +140,7 @@ export default function DashboardEficiencia() {
     : 0;
 
   return (
-    <AppLayout>
+    <>
       <div className="space-y-6 animate-fade-in">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -738,6 +738,6 @@ export default function DashboardEficiencia() {
           </CardContent>
         </Card>
       </div>
-    </AppLayout>
+    </>
   );
 }

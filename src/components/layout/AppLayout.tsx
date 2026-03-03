@@ -1,5 +1,5 @@
-import { ReactNode, useState, useCallback } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useState, useCallback } from 'react';
+import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -31,13 +31,9 @@ import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { NotificationBell } from '@/components/NotificationBell';
 import { AppBreadcrumbs } from '@/components/layout/AppBreadcrumbs';
-import logoMega from '@/assets/logos/logo-mega.webp';
+import logoMega from '@/assets/logos/logo-mega.png';
 
-interface AppLayoutProps {
-  children: ReactNode;
-}
-
-export function AppLayout({ children }: AppLayoutProps) {
+export function AppLayout() {
   const { 
     user, 
     profile, 
@@ -65,70 +61,29 @@ export function AppLayout({ children }: AppLayoutProps) {
   const displayProfile = isImpersonating ? impersonatedProfile : profile;
   const displayEmail = isImpersonating ? impersonatedProfile?.email : user?.email;
 
-  // Main nav items (without admin items and without "Nova Solicitação")
+  // Main nav items
   const mainNavItems = [
-    {
-      href: '/minhas-solicitacoes',
-      label: 'Solicitações',
-      icon: FileText,
-      show: true,
-    },
-    {
-      href: '/backoffice',
-      label: 'Backoffice',
-      icon: LayoutDashboard,
-      show: isBackofficeOrAdmin,
-    },
-    {
-      href: '/painel-fluig',
-      label: 'Painel Fluig',
-      icon: BarChart3,
-      show: true,
-    },
-    {
-      href: '/garantias',
-      label: 'Garantias',
-      icon: Shield,
-      show: true,
-    },
-    {
-      href: '/monitoramento-oc',
-      label: 'OC x NF',
-      icon: FileCheck,
-      show: true,
-    },
+    { href: '/minhas-solicitacoes', label: 'Solicitações', icon: FileText, show: true },
+    { href: '/backoffice', label: 'Backoffice', icon: LayoutDashboard, show: isBackofficeOrAdmin },
+    { href: '/painel-fluig', label: 'Painel Fluig', icon: BarChart3, show: true },
+    { href: '/garantias', label: 'Garantias', icon: Shield, show: true },
+    { href: '/monitoramento-oc', label: 'OC x NF', icon: FileCheck, show: true },
   ];
 
-  // Admin sub-items for dropdown
   const adminItems = [
-    {
-      href: '/admin/usuarios',
-      label: 'Usuários',
-      icon: Users,
-    },
-    {
-      href: '/admin/sla',
-      label: 'Dashboard SLA',
-      icon: Timer,
-    },
-    {
-      href: '/admin/eficiencia',
-      label: 'Eficiência',
-      icon: BarChart3,
-    },
+    { href: '/admin/usuarios', label: 'Usuários', icon: Users },
+    { href: '/admin/sla', label: 'Dashboard SLA', icon: Timer },
+    { href: '/admin/eficiencia', label: 'Eficiência', icon: BarChart3 },
   ];
 
   const getInitials = (name: string | null, email: string) => {
-    if (name) {
-      return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
-    }
+    if (name) return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
     return email.slice(0, 2).toUpperCase();
   };
 
   const isActive = (href: string) => location.pathname === href;
   const isAdminActive = adminItems.some(item => location.pathname === item.href);
 
-  // Prefetch route chunks on hover for instant navigation
   const prefetchRoute = useCallback((path: string) => {
     const routeMap: Record<string, () => Promise<any>> = {
       '/': () => import('@/pages/Dashboard'),
@@ -181,12 +136,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           <span className="text-sm font-medium">
             Visualizando como: <strong>{impersonatedProfile.full_name || impersonatedProfile.email}</strong>
           </span>
-          <Button 
-            variant="secondary" 
-            size="sm" 
-            onClick={handleStopImpersonation}
-            className="h-6 px-2 text-xs gap-1"
-          >
+          <Button variant="secondary" size="sm" onClick={handleStopImpersonation} className="h-6 px-2 text-xs gap-1">
             <X className="h-3 w-3" />
             Sair
           </Button>
@@ -196,20 +146,12 @@ export function AppLayout({ children }: AppLayoutProps) {
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
         <div className="container flex h-16 items-center justify-between">
-          {/* Logo */}
           <Link to="/" className="flex items-center gap-3 shrink-0">
-            <img 
-              src={logoMega} 
-              alt="Mega Centro Logístico" 
-              width={86}
-              height={40}
-              className="h-10 w-auto object-contain"
-            />
+            <img src={logoMega} alt="Mega Centro Logístico" width={86} height={40} className="h-10 w-auto object-contain" />
           </Link>
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-1">
-            {/* CTA: Nova Solicitação - highlighted */}
             <Link
               to="/nova-solicitacao"
               onMouseEnter={() => prefetchRoute('/nova-solicitacao')}
@@ -226,7 +168,6 @@ export function AppLayout({ children }: AppLayoutProps) {
 
             <NavLinks />
 
-            {/* Admin Dropdown */}
             {isAdmin && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -275,17 +216,9 @@ export function AppLayout({ children }: AppLayoutProps) {
               <DropdownMenuContent className="w-56" align="end" forceMount>
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">
-                      {displayProfile?.full_name || 'Usuário'}
-                    </p>
-                    <p className="text-xs leading-none text-muted-foreground">
-                      {displayEmail}
-                    </p>
-                    {isImpersonating && (
-                      <p className="text-xs leading-none text-warning mt-1">
-                        (Impersonando)
-                      </p>
-                    )}
+                    <p className="text-sm font-medium leading-none">{displayProfile?.full_name || 'Usuário'}</p>
+                    <p className="text-xs leading-none text-muted-foreground">{displayEmail}</p>
+                    {isImpersonating && <p className="text-xs leading-none text-warning mt-1">(Impersonando)</p>}
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
@@ -311,16 +244,9 @@ export function AppLayout({ children }: AppLayoutProps) {
               </SheetTrigger>
               <SheetContent side="right" className="w-64">
                 <div className="flex items-center gap-2 mb-8">
-                  <img 
-                    src={logoMega} 
-                    alt="Mega Centro Logístico" 
-                    width={69}
-                    height={32}
-                    className="h-8 w-auto object-contain"
-                  />
+                  <img src={logoMega} alt="Mega Centro Logístico" width={69} height={32} className="h-8 w-auto object-contain" />
                 </div>
                 <nav className="flex flex-col gap-2">
-                  {/* CTA in mobile */}
                   <Link
                     to="/nova-solicitacao"
                     onClick={() => setMobileMenuOpen(false)}
@@ -334,18 +260,12 @@ export function AppLayout({ children }: AppLayoutProps) {
                     <Plus className="h-4 w-4" />
                     Nova Solicitação
                   </Link>
-
                   <div className="h-px bg-border my-1" />
-
                   <NavLinks mobile />
-
-                  {/* Admin items inline in mobile */}
                   {isAdmin && (
                     <>
                       <div className="h-px bg-border my-1" />
-                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-3 py-1">
-                        Administração
-                      </span>
+                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-3 py-1">Administração</span>
                       {adminItems.map((item) => {
                         const Icon = item.icon;
                         return (
@@ -374,10 +294,10 @@ export function AppLayout({ children }: AppLayoutProps) {
         </div>
       </header>
 
-      {/* Main Content */}
+      {/* Main Content — Outlet replaces {children} for App Shell */}
       <main className="container max-w-screen-2xl py-6">
         <AppBreadcrumbs />
-        {children}
+        <Outlet />
       </main>
     </div>
   );

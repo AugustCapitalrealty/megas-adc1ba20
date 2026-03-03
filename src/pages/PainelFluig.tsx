@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { AppLayout } from '@/components/layout/AppLayout';
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -494,7 +494,7 @@ export default function PainelFluig() {
   const currentMonthName = format(new Date(), 'MMMM', { locale: ptBR });
 
   return (
-    <AppLayout>
+    <>
       <div className="container mx-auto py-6 px-4">
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -887,6 +887,6 @@ export default function PainelFluig() {
           </>
         )}
       </div>
-    </AppLayout>
+    </>
   );
 }

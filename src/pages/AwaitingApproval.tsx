@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Clock, LogOut } from 'lucide-react';
-import logoMega from '@/assets/logos/logo-mega.webp';
+import logoMega from '@/assets/logos/logo-mega.png';
 
 export default function AwaitingApproval() {
   const { user, loading, isApproved, signOut, isMasterUser } = useAuth();
