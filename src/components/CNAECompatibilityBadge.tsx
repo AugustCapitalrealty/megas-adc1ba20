@@ -17,26 +17,45 @@ import { cn } from '@/lib/utils';
 import { useCNAEValidation, type CNAEValidationResult } from '@/hooks/useCNAEValidation';
 import type { Fornecedor } from '@/types';
 
+interface CachedCNAEResult {
+  status: string;
+  justificativa: string;
+}
+
 interface CNAECompatibilityBadgeProps {
   descricao: string;
   fornecedor: Fornecedor | null;
   enabled?: boolean;
   className?: string;
+  cachedResult?: CachedCNAEResult | null;
 }
 
 export function CNAECompatibilityBadge({ 
   descricao, 
   fornecedor, 
   enabled = true,
-  className 
+  className,
+  cachedResult 
 }: CNAECompatibilityBadgeProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   
-  const { isValidating, validationResult, error } = useCNAEValidation({
+  // Skip AI call when we have cached results from the database
+  const { isValidating, validationResult: liveResult, error } = useCNAEValidation({
     descricao,
     fornecedor,
-    enabled
+    enabled: enabled && !cachedResult
   });
+  
+  // Use cached result if available, otherwise use live AI result
+  const validationResult: CNAEValidationResult | null = cachedResult
+    ? {
+        status: cachedResult.status as CNAEValidationResult['status'],
+        score_confianca: 0,
+        justificativa_curta: cachedResult.justificativa || '',
+        itens_extraidos: [],
+        cnaes_considerados: [],
+      }
+    : liveResult;
   
   // Não renderiza nada se não há fornecedor ou CNAE
   if (!fornecedor || !fornecedor.cnae_principal_codigo) {
