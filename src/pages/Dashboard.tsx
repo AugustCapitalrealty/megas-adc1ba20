@@ -7,6 +7,7 @@ import { useUserEmpreendimentos } from '@/hooks/useUserEmpreendimentos';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { PendingActionsCard } from '@/components/PendingActionsCard';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Badge } from '@/components/ui/badge';
