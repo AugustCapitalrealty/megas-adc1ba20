@@ -82,7 +82,8 @@ import {
   ShieldAlert,
   Shield,
   Mail,
-  Phone
+  Phone,
+  Plus
 } from 'lucide-react';
 import { format, differenceInDays, differenceInHours } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
