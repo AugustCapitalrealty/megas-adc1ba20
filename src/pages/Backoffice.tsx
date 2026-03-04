@@ -130,17 +130,18 @@ export default function Backoffice() {
   // Use RPC for details
   const { detalhes, loading: detalhesLoading, fetchDetalhes, clearDetalhes } = useSolicitacaoDetalhes();
 
-  // Registro OC Modal
+  // Registro OC Modal - Multiple OCs
   const [registroOpen, setRegistroOpen] = useState(false);
-  const [numeroDocumento, setNumeroDocumento] = useState('');
+  const [registroMode, setRegistroMode] = useState<'new' | 'add'>('new'); // 'add' = adding to existing OCs without status change
+  const [documentosOC, setDocumentosOC] = useState<Array<{
+    numero: string;
+    file: File | null;
+    pdfValidation: PdfValidationResult | null;
+    validating: boolean;
+    confirmarDivergencia: boolean;
+  }>>([{ numero: '', file: null, pdfValidation: null, validating: false, confirmarDivergencia: false }]);
   const [observacao, setObservacao] = useState('');
-  const [documentoFile, setDocumentoFile] = useState<File | null>(null);
   const [registroLoading, setRegistroLoading] = useState(false);
-
-  // PDF Value Validation
-  const [validatingPdf, setValidatingPdf] = useState(false);
-  const [pdfValidation, setPdfValidation] = useState<PdfValidationResult | null>(null);
-  const [confirmarDivergencia, setConfirmarDivergencia] = useState(false);
 
   // Download ZIP
   const [downloadingZip, setDownloadingZip] = useState(false);
@@ -283,81 +284,101 @@ export default function Backoffice() {
   };
 
   const handleRegistrarOCAC = async () => {
-    if (!selectedSolicitacao || !user || !documentoFile || !numeroDocumento) return;
+    if (!selectedSolicitacao || !user) return;
+    
+    // Validate all OCs have number and file
+    const validDocs = documentosOC.filter(d => d.numero && d.file);
+    if (validDocs.length === 0) return;
     
     setRegistroLoading(true);
     try {
-      // Upload document
-      const fileExt = documentoFile.name.split('.').pop();
-      const filePath = `${selectedSolicitacao.id}/OC_${numeroDocumento}_${Date.now()}.${fileExt}`;
+      const numeros: string[] = [];
       
-      const { error: uploadError } = await supabase.storage
-        .from('documentos-emitidos')
-        .upload(filePath, documentoFile);
-      
-      if (uploadError) throw uploadError;
+      for (const doc of validDocs) {
+        // Upload document
+        const fileExt = doc.file!.name.split('.').pop();
+        const filePath = `${selectedSolicitacao.id}/OC_${doc.numero}_${Date.now()}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('documentos-emitidos')
+          .upload(filePath, doc.file!);
+        
+        if (uploadError) throw uploadError;
 
-      // Insert document record
-      const { error: insertError } = await supabase
-        .from('documentos_emitidos')
-        .insert({
-          solicitacao_id: selectedSolicitacao.id,
-          tipo_documento: 'OC',
-          numero_documento: numeroDocumento,
-          storage_path: filePath,
-          nome_arquivo: documentoFile.name,
-          observacao: observacao || null,
-          emitido_por: user.id,
-        });
+        // Insert document record
+        const { error: insertError } = await supabase
+          .from('documentos_emitidos')
+          .insert({
+            solicitacao_id: selectedSolicitacao.id,
+            tipo_documento: 'OC',
+            numero_documento: doc.numero,
+            storage_path: filePath,
+            nome_arquivo: doc.file!.name,
+            observacao: observacao || null,
+            emitido_por: user.id,
+          });
 
-      if (insertError) throw insertError;
+        if (insertError) throw insertError;
+        numeros.push(doc.numero);
+      }
 
-      // Update status to aguardando_aceite (waiting for requester acceptance)
-      const { error: updateError } = await supabase
-        .from('solicitacoes')
-        .update({ status: 'aguardando_aceite' as any })
-        .eq('id', selectedSolicitacao.id);
+      // Only change status if the solicitation is in aprovado/em_processamento (initial OC registration)
+      const shouldChangeStatus = registroMode === 'new' && 
+        ['aprovado', 'em_processamento'].includes(selectedSolicitacao.status);
 
-      if (updateError) throw updateError;
+      if (shouldChangeStatus) {
+        const { error: updateError } = await supabase
+          .from('solicitacoes')
+          .update({ status: 'aguardando_aceite' as any })
+          .eq('id', selectedSolicitacao.id);
+        if (updateError) throw updateError;
+      }
 
       // Create history entry
+      const numerosStr = numeros.join(', ');
       await supabase.from('historico_solicitacoes').insert({
         solicitacao_id: selectedSolicitacao.id,
         user_id: user.id,
-        acao: `OC nº ${numeroDocumento} emitida - Aguardando aceite`,
+        acao: shouldChangeStatus 
+          ? `OC nº ${numerosStr} emitida(s) - Aguardando aceite`
+          : `OC nº ${numerosStr} adicionada(s)`,
         status_anterior: selectedSolicitacao.status,
-        status_novo: 'aguardando_aceite',
-        motivo: `OC nº ${numeroDocumento} emitida`,
+        status_novo: shouldChangeStatus ? 'aguardando_aceite' : selectedSolicitacao.status,
+        motivo: `OC nº ${numerosStr} emitida(s)`,
       });
 
       // Send email notification for OC issued
       notifyOwnerOCEmitido(selectedSolicitacao.id, {
         protocolo: selectedSolicitacao.protocolo,
         documento_tipo: 'OC',
-        documento_numero: numeroDocumento,
+        documento_numero: numerosStr,
       });
 
       toast({
-        title: 'OC Registrada!',
-        description: `Número: ${numeroDocumento}`,
+        title: numeros.length > 1 ? `${numeros.length} OCs Registradas!` : 'OC Registrada!',
+        description: `Número(s): ${numerosStr}`,
       });
 
       setRegistroOpen(false);
       setDetailsOpen(false);
-      setNumeroDocumento('');
-      setObservacao('');
-      setDocumentoFile(null);
+      resetRegistroState();
       fetchSolicitacoes();
     } catch (error) {
       console.error('Error registering OC:', error);
       toast({
         variant: 'destructive',
         title: 'Erro ao registrar',
-        description: 'Não foi possível registrar o documento',
+        description: 'Não foi possível registrar o(s) documento(s)',
       });
     } finally {
       setRegistroLoading(false);
     }
+  };
+
+  const resetRegistroState = () => {
+    setDocumentosOC([{ numero: '', file: null, pdfValidation: null, validating: false, confirmarDivergencia: false }]);
+    setObservacao('');
+    setRegistroMode('new');
   };
 
   // Validate PDF value against expected solicitation value
