@@ -985,11 +985,10 @@ export default function Backoffice() {
     setActionOpen(true);
   };
 
-  const openRegistro = (sol: SolicitacaoBackoffice) => {
+  const openRegistro = (sol: SolicitacaoBackoffice, mode: 'new' | 'add' = 'new') => {
     setSelectedSolicitacao(sol);
-    setNumeroDocumento('');
-    setObservacao('');
-    setDocumentoFile(null);
+    resetRegistroState();
+    setRegistroMode(mode);
     setRegistroOpen(true);
   };
 
