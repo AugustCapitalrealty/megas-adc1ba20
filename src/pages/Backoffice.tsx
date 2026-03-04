@@ -381,14 +381,11 @@ export default function Backoffice() {
     setRegistroMode('new');
   };
 
-  // Validate PDF value against expected solicitation value
-  const validatePdfValue = async (file: File, valorEsperado: number) => {
-    setValidatingPdf(true);
-    setPdfValidation(null);
-    setConfirmarDivergencia(false);
+  // Validate PDF value against expected solicitation value (per OC index)
+  const validatePdfValueForOC = async (file: File, valorEsperado: number, index: number) => {
+    setDocumentosOC(prev => prev.map((d, i) => i === index ? { ...d, validating: true, pdfValidation: null, confirmarDivergencia: false } : d));
 
     try {
-      // Convert file to base64
       const buffer = await file.arrayBuffer();
       const bytes = new Uint8Array(buffer);
       let binary = '';
@@ -397,73 +394,65 @@ export default function Backoffice() {
       }
       const pdfBase64 = btoa(binary);
 
-      console.log('[Backoffice] Validating PDF, size:', bytes.length, 'expected value:', valorEsperado);
-
-      // Call edge function
       const { data, error } = await supabase.functions.invoke('validate-oc-value', {
         body: { pdfBase64, valorEsperado }
       });
 
       if (error) {
-        console.error('[Backoffice] PDF validation error:', error);
-        toast({
-          variant: 'destructive',
-          title: 'Erro na validação',
-          description: 'Não foi possível validar o documento automaticamente.',
-        });
-        setPdfValidation(null);
+        toast({ variant: 'destructive', title: 'Erro na validação', description: 'Não foi possível validar o documento automaticamente.' });
+        setDocumentosOC(prev => prev.map((d, i) => i === index ? { ...d, pdfValidation: null, validating: false } : d));
       } else if (data) {
-        console.log('[Backoffice] PDF validation result:', data);
-        setPdfValidation(data as PdfValidationResult);
+        setDocumentosOC(prev => prev.map((d, i) => i === index ? { ...d, pdfValidation: data as PdfValidationResult, validating: false } : d));
       }
     } catch (error) {
       console.error('[Backoffice] PDF validation exception:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Erro na validação',
-        description: 'Não foi possível validar o documento automaticamente.',
-      });
-      setPdfValidation(null);
-    } finally {
-      setValidatingPdf(false);
+      toast({ variant: 'destructive', title: 'Erro na validação', description: 'Não foi possível validar o documento automaticamente.' });
+      setDocumentosOC(prev => prev.map((d, i) => i === index ? { ...d, pdfValidation: null, validating: false } : d));
     }
   };
 
-  // Handle PDF file selection with validation
-  const handlePdfFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle PDF file selection for a specific OC index
+  const handlePdfFileSelectForOC = async (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
     const file = e.target.files?.[0] || null;
-    setDocumentoFile(file);
-    setPdfValidation(null);
-    setConfirmarDivergencia(false);
+    setDocumentosOC(prev => prev.map((d, i) => i === index ? { ...d, file, pdfValidation: null, confirmarDivergencia: false } : d));
 
     if (file && selectedSolicitacao) {
-      await validatePdfValue(file, selectedSolicitacao.valor);
+      await validatePdfValueForOC(file, selectedSolicitacao.valor, index);
     }
   };
 
-  // Check if OC can be submitted
+  // Check if all OCs can be submitted
   const canSubmitOC = useMemo(() => {
-    if (!numeroDocumento || !documentoFile) return false;
-    if (validatingPdf) return false;
+    const validDocs = documentosOC.filter(d => d.numero && d.file);
+    if (validDocs.length === 0) return false;
+    if (documentosOC.some(d => d.validating)) return false;
     
-    // If validation found a mismatch, require confirmation
-    if (pdfValidation && !pdfValidation.match && pdfValidation.valorPdf !== null) {
-      return confirmarDivergencia;
+    // For docs with mismatch, require confirmation
+    for (const doc of documentosOC) {
+      if (doc.file && doc.numero) {
+        if (doc.pdfValidation && !doc.pdfValidation.match && doc.pdfValidation.valorPdf !== null && !doc.confirmarDivergencia) {
+          return false;
+        }
+      }
     }
     
     return true;
-  }, [numeroDocumento, documentoFile, validatingPdf, pdfValidation, confirmarDivergencia]);
+  }, [documentosOC]);
 
   // Reset OC modal state when closing
   const handleRegistroModalClose = (open: boolean) => {
     if (!open) {
-      setPdfValidation(null);
-      setConfirmarDivergencia(false);
-      setDocumentoFile(null);
-      setNumeroDocumento('');
-      setObservacao('');
+      resetRegistroState();
     }
     setRegistroOpen(open);
+  };
+
+  const addOCRow = () => {
+    setDocumentosOC(prev => [...prev, { numero: '', file: null, pdfValidation: null, validating: false, confirmarDivergencia: false }]);
+  };
+
+  const removeOCRow = (index: number) => {
+    setDocumentosOC(prev => prev.filter((_, i) => i !== index));
   };
 
   const downloadAnexosZip = async (solicitacaoId: string, anexos: { storage_path: string; nome_arquivo: string }[], protocolo: string) => {
