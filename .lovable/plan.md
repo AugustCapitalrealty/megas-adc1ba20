@@ -1,59 +1,51 @@
 
 
-# Plano: Trocar Logo + Eliminar Loading Duplo
+# Plano: Múltiplas OCs + Melhorias de UX
 
-## Diagnóstico
+## 1. Permitir múltiplas OCs por solicitação
 
-Dois problemas distintos:
+**Problema atual**: O modal de registro de OC aceita apenas um documento por vez e ao registrar, muda o status para `aguardando_aceite`, impedindo registrar mais OCs.
 
-**1. Logo desatualizada** — Precisa trocar para a nova versão enviada.
+**Solução**: Refatorar o modal para aceitar múltiplas OCs de uma vez (lista dinâmica de OCs). Cada OC terá seu número e PDF. O backoffice adiciona quantas linhas precisar antes de submeter.
 
-**2. Três shells separados causam remontagem do layout:**
+### Alterações em `src/pages/Backoffice.tsx`:
 
-```text
-Atual (App.tsx):
-  <Route element={<ProtectedShell />}>           ← Shell A (monta AppLayout)
-    Dashboard, MinhasSolicitacoes, etc.
-  </Route>
-  <Route element={<ProtectedShell requireBackoffice />}>  ← Shell B (OUTRO AppLayout)
-    Backoffice, DashboardSLA, etc.
-  </Route>
-  <Route element={<ProtectedShell requireAdmin />}>       ← Shell C (OUTRO AppLayout)
-    Admin
-  </Route>
-```
+- Trocar `numeroDocumento` (string) e `documentoFile` (File) por um array `documentosOC: Array<{ numero: string; file: File | null; pdfValidation: PdfValidationResult | null; validating: boolean; confirmarDivergencia: boolean }>`.
+- No modal, renderizar cada OC como um card com campos de número e upload, com botão "Adicionar outra OC".
+- `handleRegistrarOCAC` faz upload de todos os documentos em sequência, inserindo um registro em `documentos_emitidos` para cada OC.
+- O histórico registra todos os números: "OC nº 123, 456 emitida(s)".
+- Botão "Adicionar OC" permite adicionar linhas dinamicamente; botão de remover para cada linha (exceto a primeira).
 
-Ao navegar de Dashboard (Shell A) para Backoffice (Shell B), o React desmonta o Shell A inteiro (incluindo header/logo/menu) e monta o Shell B do zero. Isso causa o efeito de "carregar duas vezes" — primeiro o loading do auth no novo shell, depois o loading dos dados da página.
+### Alterações no modal de Detalhes (footer):
+- Para status `aguardando_aceite`, `liberado_fornecedor`, `enviado_fornecedor`, `aguardando_nf_boleto` — adicionar botão "Adicionar OC" que abre o modal de registro sem mudar o status (apenas insere o documento).
+- `handleRegistrarOCAC` só muda status se a solicitação ainda estiver em `aprovado` ou `em_processamento`.
 
-## Alterações
+## 2. Melhorias de UX para Solicitantes
 
-### 1. Trocar logo
-Copiar `user-uploads://logo-mega-removebg-preview-2.png` para `src/assets/logos/logo-mega.png`. Todas as referências já apontam para esse arquivo.
+### 2a. Skeleton loaders nas páginas principais
+- `MinhasSolicitacoes`: trocar o spinner central por skeleton cards (3-4 cards placeholder com shimmer).
+- `Dashboard`: trocar spinner por skeleton nos KPI cards.
 
-### 2. Unificar em um único Shell (`src/App.tsx`)
-Usar **um único** `<ProtectedShell>` para todas as rotas protegidas. Cheques de permissão (backoffice/admin) movidos para componentes wrapper inline nas rotas individuais:
+### 2b. Feedback visual ao copiar protocolo
+- Já implementado no `SolicitacaoCard` — verificar se funciona bem.
 
-```text
-Depois:
-  <Route element={<ProtectedShell />}>     ← UM ÚNICO Shell (AppLayout monta 1 vez)
-    Dashboard
-    MinhasSolicitacoes
-    Backoffice         ← permissão checada internamente
-    Admin              ← permissão checada internamente
-    DashboardSLA       ← permissão checada internamente
-    etc.
-  </Route>
-```
+### 2c. Toast de sucesso mais informativo
+- Ao submeter nova solicitação, incluir protocolo no toast e botão "Ver solicitação" que navega para MinhasSolicitacoes.
 
-Criar um componente `<RequireRole>` que checa permissão e redireciona se não autorizado, sem mostrar loading (auth já foi verificado pelo shell pai).
+## 3. Melhorias de UX para Backoffice
 
-### 3. Loading mais leve no ProtectedShell
-Ao invés da tela cheia com logo + spinner (que compete visualmente com o Suspense), usar apenas um spinner discreto centralizado. A logo já está no header do AppLayout — não precisa repetir no loading.
+### 3a. Contador de OCs emitidas na listagem
+- No card da solicitação no Backoffice, quando já tem documentos emitidos, mostrar badge "2 OCs" ao lado do protocolo.
+
+### 3b. Atalho de teclado no modal de ação
+- Enter para confirmar ação quando o botão está habilitado.
 
 ## Arquivos alterados
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `src/assets/logos/logo-mega.png` | Substituir pela nova logo |
-| `src/App.tsx` | Unificar 3 shells em 1, criar RequireRole, loading simplificado |
+| `src/pages/Backoffice.tsx` | Modal de OC múltipla, botão "Adicionar OC" em mais status, skeleton loader, badge de OCs |
+| `src/pages/MinhasSolicitacoes.tsx` | Skeleton loader no lugar do spinner |
+| `src/pages/Dashboard.tsx` | Skeleton loader nos KPIs |
+| `src/components/ui/SolicitacaoCardSkeleton.tsx` | Componente skeleton reutilizável (já existe, verificar) |
 
