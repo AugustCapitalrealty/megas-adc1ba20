@@ -1278,6 +1278,12 @@ export default function Backoffice() {
               </Badge>
               <CardTitle className="text-lg">#{sol.protocolo}</CardTitle>
               <StatusBadge status={sol.status} />
+              {sol.total_docs_emitidos > 0 && (
+                <Badge variant="outline" className="text-xs bg-success/10 text-success border-success/20">
+                  <FileCheck className="h-3 w-3 mr-1" />
+                  {sol.total_docs_emitidos} OC{sol.total_docs_emitidos > 1 ? 's' : ''}
+                </Badge>
+              )}
               {sol.responsavelNome && !isMyResponsibility && (
                 <Badge variant="outline" className="text-xs">
                   <User className="h-3 w-3 mr-1" />
@@ -1567,9 +1573,40 @@ export default function Backoffice() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="space-y-6 animate-fade-in">
+        <div>
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-4 w-72 mt-2" />
         </div>
+        <Skeleton className="h-12 w-full rounded-lg" />
+        <div className="space-y-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-6 w-10 rounded" />
+                    <Skeleton className="h-6 w-28" />
+                    <Skeleton className="h-5 w-20 rounded-full" />
+                  </div>
+                  <Skeleton className="h-8 w-32 rounded" />
+                </div>
+                <Skeleton className="h-4 w-full mt-2" />
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-40" />
+                  <Skeleton className="h-4 w-32" />
+                  <div className="flex justify-between">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-4 w-28" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
     );
   }
 
@@ -2275,6 +2312,11 @@ export default function Backoffice() {
                     {(selectedSolicitacao.status === 'aprovado' || selectedSolicitacao.status === 'em_processamento') && (
                       <Button onClick={() => { setDetailsOpen(false); openRegistro(selectedSolicitacao); }}>
                         <FileCheck className="h-4 w-4 mr-1" /> Registrar OC
+                      </Button>
+                    )}
+                    {['aguardando_aceite', 'liberado_fornecedor', 'enviado_fornecedor', 'aguardando_nf_boleto'].includes(selectedSolicitacao.status) && (
+                      <Button variant="outline" onClick={() => { setDetailsOpen(false); openRegistro(selectedSolicitacao, 'add'); }}>
+                        <Plus className="h-4 w-4 mr-1" /> Adicionar OC
                       </Button>
                     )}
                     {selectedSolicitacao.status === 'oc_ac_emitida' && (

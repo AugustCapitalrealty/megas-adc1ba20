@@ -1390,9 +1390,16 @@ export default function MinhasSolicitacoes() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="space-y-6 animate-fade-in">
+        <div className="flex items-center justify-between">
+          <div>
+            <Skeleton className="h-8 w-56" />
+            <Skeleton className="h-4 w-40 mt-2" />
+          </div>
+          <Skeleton className="h-10 w-40 rounded-md" />
         </div>
+        <SolicitacaoCardSkeletonList count={4} />
+      </div>
     );
   }
 
