@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Input } from '@/components/ui/input';
@@ -82,7 +83,8 @@ import {
   ShieldAlert,
   Shield,
   Mail,
-  Phone
+  Phone,
+  Plus
 } from 'lucide-react';
 import { format, differenceInDays, differenceInHours } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -130,17 +132,18 @@ export default function Backoffice() {
   // Use RPC for details
   const { detalhes, loading: detalhesLoading, fetchDetalhes, clearDetalhes } = useSolicitacaoDetalhes();
 
-  // Registro OC Modal
+  // Registro OC Modal - Multiple OCs
   const [registroOpen, setRegistroOpen] = useState(false);
-  const [numeroDocumento, setNumeroDocumento] = useState('');
+  const [registroMode, setRegistroMode] = useState<'new' | 'add'>('new'); // 'add' = adding to existing OCs without status change
+  const [documentosOC, setDocumentosOC] = useState<Array<{
+    numero: string;
+    file: File | null;
+    pdfValidation: PdfValidationResult | null;
+    validating: boolean;
+    confirmarDivergencia: boolean;
+  }>>([{ numero: '', file: null, pdfValidation: null, validating: false, confirmarDivergencia: false }]);
   const [observacao, setObservacao] = useState('');
-  const [documentoFile, setDocumentoFile] = useState<File | null>(null);
   const [registroLoading, setRegistroLoading] = useState(false);
-
-  // PDF Value Validation
-  const [validatingPdf, setValidatingPdf] = useState(false);
-  const [pdfValidation, setPdfValidation] = useState<PdfValidationResult | null>(null);
-  const [confirmarDivergencia, setConfirmarDivergencia] = useState(false);
 
   // Download ZIP
   const [downloadingZip, setDownloadingZip] = useState(false);
@@ -283,91 +286,108 @@ export default function Backoffice() {
   };
 
   const handleRegistrarOCAC = async () => {
-    if (!selectedSolicitacao || !user || !documentoFile || !numeroDocumento) return;
+    if (!selectedSolicitacao || !user) return;
+    
+    // Validate all OCs have number and file
+    const validDocs = documentosOC.filter(d => d.numero && d.file);
+    if (validDocs.length === 0) return;
     
     setRegistroLoading(true);
     try {
-      // Upload document
-      const fileExt = documentoFile.name.split('.').pop();
-      const filePath = `${selectedSolicitacao.id}/OC_${numeroDocumento}_${Date.now()}.${fileExt}`;
+      const numeros: string[] = [];
       
-      const { error: uploadError } = await supabase.storage
-        .from('documentos-emitidos')
-        .upload(filePath, documentoFile);
-      
-      if (uploadError) throw uploadError;
+      for (const doc of validDocs) {
+        // Upload document
+        const fileExt = doc.file!.name.split('.').pop();
+        const filePath = `${selectedSolicitacao.id}/OC_${doc.numero}_${Date.now()}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('documentos-emitidos')
+          .upload(filePath, doc.file!);
+        
+        if (uploadError) throw uploadError;
 
-      // Insert document record
-      const { error: insertError } = await supabase
-        .from('documentos_emitidos')
-        .insert({
-          solicitacao_id: selectedSolicitacao.id,
-          tipo_documento: 'OC',
-          numero_documento: numeroDocumento,
-          storage_path: filePath,
-          nome_arquivo: documentoFile.name,
-          observacao: observacao || null,
-          emitido_por: user.id,
-        });
+        // Insert document record
+        const { error: insertError } = await supabase
+          .from('documentos_emitidos')
+          .insert({
+            solicitacao_id: selectedSolicitacao.id,
+            tipo_documento: 'OC',
+            numero_documento: doc.numero,
+            storage_path: filePath,
+            nome_arquivo: doc.file!.name,
+            observacao: observacao || null,
+            emitido_por: user.id,
+          });
 
-      if (insertError) throw insertError;
+        if (insertError) throw insertError;
+        numeros.push(doc.numero);
+      }
 
-      // Update status to aguardando_aceite (waiting for requester acceptance)
-      const { error: updateError } = await supabase
-        .from('solicitacoes')
-        .update({ status: 'aguardando_aceite' as any })
-        .eq('id', selectedSolicitacao.id);
+      // Only change status if the solicitation is in aprovado/em_processamento (initial OC registration)
+      const shouldChangeStatus = registroMode === 'new' && 
+        ['aprovado', 'em_processamento'].includes(selectedSolicitacao.status);
 
-      if (updateError) throw updateError;
+      if (shouldChangeStatus) {
+        const { error: updateError } = await supabase
+          .from('solicitacoes')
+          .update({ status: 'aguardando_aceite' as any })
+          .eq('id', selectedSolicitacao.id);
+        if (updateError) throw updateError;
+      }
 
       // Create history entry
+      const numerosStr = numeros.join(', ');
       await supabase.from('historico_solicitacoes').insert({
         solicitacao_id: selectedSolicitacao.id,
         user_id: user.id,
-        acao: `OC nº ${numeroDocumento} emitida - Aguardando aceite`,
+        acao: shouldChangeStatus 
+          ? `OC nº ${numerosStr} emitida(s) - Aguardando aceite`
+          : `OC nº ${numerosStr} adicionada(s)`,
         status_anterior: selectedSolicitacao.status,
-        status_novo: 'aguardando_aceite',
-        motivo: `OC nº ${numeroDocumento} emitida`,
+        status_novo: shouldChangeStatus ? 'aguardando_aceite' : selectedSolicitacao.status,
+        motivo: `OC nº ${numerosStr} emitida(s)`,
       });
 
       // Send email notification for OC issued
       notifyOwnerOCEmitido(selectedSolicitacao.id, {
         protocolo: selectedSolicitacao.protocolo,
         documento_tipo: 'OC',
-        documento_numero: numeroDocumento,
+        documento_numero: numerosStr,
       });
 
       toast({
-        title: 'OC Registrada!',
-        description: `Número: ${numeroDocumento}`,
+        title: numeros.length > 1 ? `${numeros.length} OCs Registradas!` : 'OC Registrada!',
+        description: `Número(s): ${numerosStr}`,
       });
 
       setRegistroOpen(false);
       setDetailsOpen(false);
-      setNumeroDocumento('');
-      setObservacao('');
-      setDocumentoFile(null);
+      resetRegistroState();
       fetchSolicitacoes();
     } catch (error) {
       console.error('Error registering OC:', error);
       toast({
         variant: 'destructive',
         title: 'Erro ao registrar',
-        description: 'Não foi possível registrar o documento',
+        description: 'Não foi possível registrar o(s) documento(s)',
       });
     } finally {
       setRegistroLoading(false);
     }
   };
 
-  // Validate PDF value against expected solicitation value
-  const validatePdfValue = async (file: File, valorEsperado: number) => {
-    setValidatingPdf(true);
-    setPdfValidation(null);
-    setConfirmarDivergencia(false);
+  const resetRegistroState = () => {
+    setDocumentosOC([{ numero: '', file: null, pdfValidation: null, validating: false, confirmarDivergencia: false }]);
+    setObservacao('');
+    setRegistroMode('new');
+  };
+
+  // Validate PDF value against expected solicitation value (per OC index)
+  const validatePdfValueForOC = async (file: File, valorEsperado: number, index: number) => {
+    setDocumentosOC(prev => prev.map((d, i) => i === index ? { ...d, validating: true, pdfValidation: null, confirmarDivergencia: false } : d));
 
     try {
-      // Convert file to base64
       const buffer = await file.arrayBuffer();
       const bytes = new Uint8Array(buffer);
       let binary = '';
@@ -376,73 +396,65 @@ export default function Backoffice() {
       }
       const pdfBase64 = btoa(binary);
 
-      console.log('[Backoffice] Validating PDF, size:', bytes.length, 'expected value:', valorEsperado);
-
-      // Call edge function
       const { data, error } = await supabase.functions.invoke('validate-oc-value', {
         body: { pdfBase64, valorEsperado }
       });
 
       if (error) {
-        console.error('[Backoffice] PDF validation error:', error);
-        toast({
-          variant: 'destructive',
-          title: 'Erro na validação',
-          description: 'Não foi possível validar o documento automaticamente.',
-        });
-        setPdfValidation(null);
+        toast({ variant: 'destructive', title: 'Erro na validação', description: 'Não foi possível validar o documento automaticamente.' });
+        setDocumentosOC(prev => prev.map((d, i) => i === index ? { ...d, pdfValidation: null, validating: false } : d));
       } else if (data) {
-        console.log('[Backoffice] PDF validation result:', data);
-        setPdfValidation(data as PdfValidationResult);
+        setDocumentosOC(prev => prev.map((d, i) => i === index ? { ...d, pdfValidation: data as PdfValidationResult, validating: false } : d));
       }
     } catch (error) {
       console.error('[Backoffice] PDF validation exception:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Erro na validação',
-        description: 'Não foi possível validar o documento automaticamente.',
-      });
-      setPdfValidation(null);
-    } finally {
-      setValidatingPdf(false);
+      toast({ variant: 'destructive', title: 'Erro na validação', description: 'Não foi possível validar o documento automaticamente.' });
+      setDocumentosOC(prev => prev.map((d, i) => i === index ? { ...d, pdfValidation: null, validating: false } : d));
     }
   };
 
-  // Handle PDF file selection with validation
-  const handlePdfFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle PDF file selection for a specific OC index
+  const handlePdfFileSelectForOC = async (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
     const file = e.target.files?.[0] || null;
-    setDocumentoFile(file);
-    setPdfValidation(null);
-    setConfirmarDivergencia(false);
+    setDocumentosOC(prev => prev.map((d, i) => i === index ? { ...d, file, pdfValidation: null, confirmarDivergencia: false } : d));
 
     if (file && selectedSolicitacao) {
-      await validatePdfValue(file, selectedSolicitacao.valor);
+      await validatePdfValueForOC(file, selectedSolicitacao.valor, index);
     }
   };
 
-  // Check if OC can be submitted
+  // Check if all OCs can be submitted
   const canSubmitOC = useMemo(() => {
-    if (!numeroDocumento || !documentoFile) return false;
-    if (validatingPdf) return false;
+    const validDocs = documentosOC.filter(d => d.numero && d.file);
+    if (validDocs.length === 0) return false;
+    if (documentosOC.some(d => d.validating)) return false;
     
-    // If validation found a mismatch, require confirmation
-    if (pdfValidation && !pdfValidation.match && pdfValidation.valorPdf !== null) {
-      return confirmarDivergencia;
+    // For docs with mismatch, require confirmation
+    for (const doc of documentosOC) {
+      if (doc.file && doc.numero) {
+        if (doc.pdfValidation && !doc.pdfValidation.match && doc.pdfValidation.valorPdf !== null && !doc.confirmarDivergencia) {
+          return false;
+        }
+      }
     }
     
     return true;
-  }, [numeroDocumento, documentoFile, validatingPdf, pdfValidation, confirmarDivergencia]);
+  }, [documentosOC]);
 
   // Reset OC modal state when closing
   const handleRegistroModalClose = (open: boolean) => {
     if (!open) {
-      setPdfValidation(null);
-      setConfirmarDivergencia(false);
-      setDocumentoFile(null);
-      setNumeroDocumento('');
-      setObservacao('');
+      resetRegistroState();
     }
     setRegistroOpen(open);
+  };
+
+  const addOCRow = () => {
+    setDocumentosOC(prev => [...prev, { numero: '', file: null, pdfValidation: null, validating: false, confirmarDivergencia: false }]);
+  };
+
+  const removeOCRow = (index: number) => {
+    setDocumentosOC(prev => prev.filter((_, i) => i !== index));
   };
 
   const downloadAnexosZip = async (solicitacaoId: string, anexos: { storage_path: string; nome_arquivo: string }[], protocolo: string) => {
@@ -975,11 +987,10 @@ export default function Backoffice() {
     setActionOpen(true);
   };
 
-  const openRegistro = (sol: SolicitacaoBackoffice) => {
+  const openRegistro = (sol: SolicitacaoBackoffice, mode: 'new' | 'add' = 'new') => {
     setSelectedSolicitacao(sol);
-    setNumeroDocumento('');
-    setObservacao('');
-    setDocumentoFile(null);
+    resetRegistroState();
+    setRegistroMode(mode);
     setRegistroOpen(true);
   };
 
@@ -1268,6 +1279,12 @@ export default function Backoffice() {
               </Badge>
               <CardTitle className="text-lg">#{sol.protocolo}</CardTitle>
               <StatusBadge status={sol.status} />
+              {sol.total_docs_emitidos > 0 && (
+                <Badge variant="outline" className="text-xs bg-success/10 text-success border-success/20">
+                  <FileCheck className="h-3 w-3 mr-1" />
+                  {sol.total_docs_emitidos} OC{sol.total_docs_emitidos > 1 ? 's' : ''}
+                </Badge>
+              )}
               {sol.responsavelNome && !isMyResponsibility && (
                 <Badge variant="outline" className="text-xs">
                   <User className="h-3 w-3 mr-1" />
@@ -1557,9 +1574,40 @@ export default function Backoffice() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="space-y-6 animate-fade-in">
+        <div>
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-4 w-72 mt-2" />
         </div>
+        <Skeleton className="h-12 w-full rounded-lg" />
+        <div className="space-y-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-6 w-10 rounded" />
+                    <Skeleton className="h-6 w-28" />
+                    <Skeleton className="h-5 w-20 rounded-full" />
+                  </div>
+                  <Skeleton className="h-8 w-32 rounded" />
+                </div>
+                <Skeleton className="h-4 w-full mt-2" />
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-40" />
+                  <Skeleton className="h-4 w-32" />
+                  <div className="flex justify-between">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-4 w-28" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
     );
   }
 
@@ -2267,6 +2315,11 @@ export default function Backoffice() {
                         <FileCheck className="h-4 w-4 mr-1" /> Registrar OC
                       </Button>
                     )}
+                    {['aguardando_aceite', 'liberado_fornecedor', 'enviado_fornecedor', 'aguardando_nf_boleto'].includes(selectedSolicitacao.status) && (
+                      <Button variant="outline" onClick={() => { setDetailsOpen(false); openRegistro(selectedSolicitacao, 'add'); }}>
+                        <Plus className="h-4 w-4 mr-1" /> Adicionar OC
+                      </Button>
+                    )}
                     {selectedSolicitacao.status === 'oc_ac_emitida' && (
                       <Button onClick={() => { setDetailsOpen(false); openAction(selectedSolicitacao, 'concluir'); }}>
                         <CheckCheck className="h-4 w-4 mr-1" /> Concluir
@@ -2419,11 +2472,13 @@ export default function Backoffice() {
 
       {/* Registro OC Modal */}
       <Dialog open={registroOpen} onOpenChange={handleRegistroModalClose}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Registrar OC Emitida</DialogTitle>
+            <DialogTitle>{registroMode === 'add' ? 'Adicionar OC' : 'Registrar OC Emitida'}</DialogTitle>
             <DialogDescription>
-              Registre os dados da OC emitida para a solicitação #{selectedSolicitacao?.protocolo}
+              {registroMode === 'add' 
+                ? `Adicione mais OCs para a solicitação #${selectedSolicitacao?.protocolo}`
+                : `Registre os dados da OC emitida para a solicitação #${selectedSolicitacao?.protocolo}`}
               {selectedSolicitacao && (
                 <span className="block mt-1 text-sm font-medium text-foreground">
                   Valor da solicitação: R$ {selectedSolicitacao.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -2433,82 +2488,98 @@ export default function Backoffice() {
           </DialogHeader>
 
           <div className="space-y-4">
-            <div>
-              <Label htmlFor="numero">Número da OC *</Label>
-              <Input
-                id="numero"
-                placeholder="Ex: 2024001234"
-                value={numeroDocumento}
-                onChange={(e) => setNumeroDocumento(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="doc-file">Documento (PDF) *</Label>
-              <Input
-                id="doc-file"
-                type="file"
-                accept=".pdf"
-                onChange={handlePdfFileSelect}
-              />
-              
-              {/* PDF validation feedback */}
-              {validatingPdf && (
-                <div className="flex items-center gap-2 mt-2 text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-sm">Validando valor do documento...</span>
-                </div>
-              )}
-              
-              {pdfValidation && !validatingPdf && (
-                <>
-                  {pdfValidation.match ? (
-                    <Alert className="mt-3 border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30">
-                      <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
-                      <AlertTitle className="text-green-800 dark:text-green-200">Valor confere!</AlertTitle>
-                      <AlertDescription className="text-green-700 dark:text-green-300">
-                        R$ {pdfValidation.valorPdf?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </AlertDescription>
-                    </Alert>
-                  ) : pdfValidation.valorPdf !== null ? (
-                    <Alert variant="destructive" className="mt-3">
-                      <ShieldAlert className="h-4 w-4" />
-                      <AlertTitle>Valor divergente!</AlertTitle>
-                      <AlertDescription className="space-y-1">
-                        <div>Solicitação: R$ {pdfValidation.valorEsperado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-                        <div>PDF: R$ {pdfValidation.valorPdf.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-                        <div className="font-bold">
-                          Diferença: R$ {Math.abs(pdfValidation.diferenca!).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </div>
-                      </AlertDescription>
-                    </Alert>
-                  ) : (
-                    <Alert className="mt-3 border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950/30">
-                      <HelpCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-                      <AlertTitle className="text-yellow-800 dark:text-yellow-200">Verificação manual necessária</AlertTitle>
-                      <AlertDescription className="text-yellow-700 dark:text-yellow-300">
-                        Não foi possível identificar o valor automaticamente no PDF. Confirme manualmente se o valor está correto.
-                      </AlertDescription>
-                    </Alert>
+            {documentosOC.map((doc, index) => (
+              <Card key={index} className="p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="font-semibold text-sm">OC #{index + 1}</Label>
+                  {documentosOC.length > 1 && (
+                    <Button variant="ghost" size="sm" className="h-7 text-destructive hover:text-destructive" onClick={() => removeOCRow(index)}>
+                      <XCircle className="h-4 w-4" />
+                    </Button>
                   )}
-                </>
-              )}
-              
-              {/* Confirmation checkbox for value mismatch */}
-              {pdfValidation && !pdfValidation.match && pdfValidation.valorPdf !== null && (
-                <div className="flex items-start gap-3 p-3 mt-3 border border-red-200 rounded-lg bg-red-50 dark:border-red-800 dark:bg-red-950/30">
-                  <Checkbox 
-                    id="confirm-divergence"
-                    checked={confirmarDivergencia}
-                    onCheckedChange={(checked) => setConfirmarDivergencia(checked === true)}
-                    className="mt-0.5"
-                  />
-                  <Label htmlFor="confirm-divergence" className="text-red-800 dark:text-red-200 text-sm cursor-pointer">
-                    Confirmo que verifiquei os valores e desejo prosseguir com o registro mesmo com a divergência
-                  </Label>
                 </div>
-              )}
-            </div>
+                
+                <div>
+                  <Label htmlFor={`numero-${index}`}>Número da OC *</Label>
+                  <Input
+                    id={`numero-${index}`}
+                    placeholder="Ex: 2024001234"
+                    value={doc.numero}
+                    onChange={(e) => setDocumentosOC(prev => prev.map((d, i) => i === index ? { ...d, numero: e.target.value } : d))}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor={`doc-file-${index}`}>Documento (PDF) *</Label>
+                  <Input
+                    id={`doc-file-${index}`}
+                    type="file"
+                    accept=".pdf"
+                    onChange={(e) => handlePdfFileSelectForOC(e, index)}
+                  />
+                  
+                  {doc.validating && (
+                    <div className="flex items-center gap-2 mt-2 text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-sm">Validando valor do documento...</span>
+                    </div>
+                  )}
+                  
+                  {doc.pdfValidation && !doc.validating && (
+                    <>
+                      {doc.pdfValidation.match ? (
+                        <Alert className="mt-3 border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30">
+                          <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                          <AlertTitle className="text-green-800 dark:text-green-200">Valor confere!</AlertTitle>
+                          <AlertDescription className="text-green-700 dark:text-green-300">
+                            R$ {doc.pdfValidation.valorPdf?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </AlertDescription>
+                        </Alert>
+                      ) : doc.pdfValidation.valorPdf !== null ? (
+                        <Alert variant="destructive" className="mt-3">
+                          <ShieldAlert className="h-4 w-4" />
+                          <AlertTitle>Valor divergente!</AlertTitle>
+                          <AlertDescription className="space-y-1">
+                            <div>Solicitação: R$ {doc.pdfValidation.valorEsperado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                            <div>PDF: R$ {doc.pdfValidation.valorPdf.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                            <div className="font-bold">
+                              Diferença: R$ {Math.abs(doc.pdfValidation.diferenca!).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </div>
+                          </AlertDescription>
+                        </Alert>
+                      ) : (
+                        <Alert className="mt-3 border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950/30">
+                          <HelpCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                          <AlertTitle className="text-yellow-800 dark:text-yellow-200">Verificação manual necessária</AlertTitle>
+                          <AlertDescription className="text-yellow-700 dark:text-yellow-300">
+                            Não foi possível identificar o valor automaticamente no PDF.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                    </>
+                  )}
+                  
+                  {doc.pdfValidation && !doc.pdfValidation.match && doc.pdfValidation.valorPdf !== null && (
+                    <div className="flex items-start gap-3 p-3 mt-3 border border-red-200 rounded-lg bg-red-50 dark:border-red-800 dark:bg-red-950/30">
+                      <Checkbox 
+                        id={`confirm-divergence-${index}`}
+                        checked={doc.confirmarDivergencia}
+                        onCheckedChange={(checked) => setDocumentosOC(prev => prev.map((d, i) => i === index ? { ...d, confirmarDivergencia: checked === true } : d))}
+                        className="mt-0.5"
+                      />
+                      <Label htmlFor={`confirm-divergence-${index}`} className="text-red-800 dark:text-red-200 text-sm cursor-pointer">
+                        Confirmo que verifiquei os valores e desejo prosseguir mesmo com a divergência
+                      </Label>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            ))}
+
+            <Button variant="outline" className="w-full gap-2" onClick={addOCRow}>
+              <Plus className="h-4 w-4" />
+              Adicionar outra OC
+            </Button>
 
             <div>
               <Label htmlFor="obs">Observação (opcional)</Label>
@@ -2517,7 +2588,7 @@ export default function Backoffice() {
                 placeholder="Observações adicionais..."
                 value={observacao}
                 onChange={(e) => setObservacao(e.target.value)}
-                rows={3}
+                rows={2}
               />
             </div>
           </div>
@@ -2528,14 +2599,16 @@ export default function Backoffice() {
             </Button>
             <Button 
               onClick={handleRegistrarOCAC}
-              disabled={registroLoading || validatingPdf || !canSubmitOC}
+              disabled={registroLoading || !canSubmitOC}
             >
               {registroLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : (
                 <Upload className="h-4 w-4 mr-2" />
               )}
-              Registrar OC
+              {documentosOC.filter(d => d.numero && d.file).length > 1 
+                ? `Registrar ${documentosOC.filter(d => d.numero && d.file).length} OCs` 
+                : 'Registrar OC'}
             </Button>
           </DialogFooter>
         </DialogContent>

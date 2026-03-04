@@ -2,6 +2,8 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { SolicitacaoCardSkeletonList } from '@/components/ui/SolicitacaoCardSkeleton';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -1390,9 +1392,16 @@ export default function MinhasSolicitacoes() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="space-y-6 animate-fade-in">
+        <div className="flex items-center justify-between">
+          <div>
+            <Skeleton className="h-8 w-56" />
+            <Skeleton className="h-4 w-40 mt-2" />
+          </div>
+          <Skeleton className="h-10 w-40 rounded-md" />
         </div>
+        <SolicitacaoCardSkeletonList count={4} />
+      </div>
     );
   }
 
