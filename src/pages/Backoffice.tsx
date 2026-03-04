@@ -2428,11 +2428,13 @@ export default function Backoffice() {
 
       {/* Registro OC Modal */}
       <Dialog open={registroOpen} onOpenChange={handleRegistroModalClose}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Registrar OC Emitida</DialogTitle>
+            <DialogTitle>{registroMode === 'add' ? 'Adicionar OC' : 'Registrar OC Emitida'}</DialogTitle>
             <DialogDescription>
-              Registre os dados da OC emitida para a solicitação #{selectedSolicitacao?.protocolo}
+              {registroMode === 'add' 
+                ? `Adicione mais OCs para a solicitação #${selectedSolicitacao?.protocolo}`
+                : `Registre os dados da OC emitida para a solicitação #${selectedSolicitacao?.protocolo}`}
               {selectedSolicitacao && (
                 <span className="block mt-1 text-sm font-medium text-foreground">
                   Valor da solicitação: R$ {selectedSolicitacao.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -2442,82 +2444,98 @@ export default function Backoffice() {
           </DialogHeader>
 
           <div className="space-y-4">
-            <div>
-              <Label htmlFor="numero">Número da OC *</Label>
-              <Input
-                id="numero"
-                placeholder="Ex: 2024001234"
-                value={numeroDocumento}
-                onChange={(e) => setNumeroDocumento(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="doc-file">Documento (PDF) *</Label>
-              <Input
-                id="doc-file"
-                type="file"
-                accept=".pdf"
-                onChange={handlePdfFileSelect}
-              />
-              
-              {/* PDF validation feedback */}
-              {validatingPdf && (
-                <div className="flex items-center gap-2 mt-2 text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-sm">Validando valor do documento...</span>
-                </div>
-              )}
-              
-              {pdfValidation && !validatingPdf && (
-                <>
-                  {pdfValidation.match ? (
-                    <Alert className="mt-3 border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30">
-                      <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
-                      <AlertTitle className="text-green-800 dark:text-green-200">Valor confere!</AlertTitle>
-                      <AlertDescription className="text-green-700 dark:text-green-300">
-                        R$ {pdfValidation.valorPdf?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </AlertDescription>
-                    </Alert>
-                  ) : pdfValidation.valorPdf !== null ? (
-                    <Alert variant="destructive" className="mt-3">
-                      <ShieldAlert className="h-4 w-4" />
-                      <AlertTitle>Valor divergente!</AlertTitle>
-                      <AlertDescription className="space-y-1">
-                        <div>Solicitação: R$ {pdfValidation.valorEsperado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-                        <div>PDF: R$ {pdfValidation.valorPdf.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-                        <div className="font-bold">
-                          Diferença: R$ {Math.abs(pdfValidation.diferenca!).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </div>
-                      </AlertDescription>
-                    </Alert>
-                  ) : (
-                    <Alert className="mt-3 border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950/30">
-                      <HelpCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-                      <AlertTitle className="text-yellow-800 dark:text-yellow-200">Verificação manual necessária</AlertTitle>
-                      <AlertDescription className="text-yellow-700 dark:text-yellow-300">
-                        Não foi possível identificar o valor automaticamente no PDF. Confirme manualmente se o valor está correto.
-                      </AlertDescription>
-                    </Alert>
+            {documentosOC.map((doc, index) => (
+              <Card key={index} className="p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="font-semibold text-sm">OC #{index + 1}</Label>
+                  {documentosOC.length > 1 && (
+                    <Button variant="ghost" size="sm" className="h-7 text-destructive hover:text-destructive" onClick={() => removeOCRow(index)}>
+                      <XCircle className="h-4 w-4" />
+                    </Button>
                   )}
-                </>
-              )}
-              
-              {/* Confirmation checkbox for value mismatch */}
-              {pdfValidation && !pdfValidation.match && pdfValidation.valorPdf !== null && (
-                <div className="flex items-start gap-3 p-3 mt-3 border border-red-200 rounded-lg bg-red-50 dark:border-red-800 dark:bg-red-950/30">
-                  <Checkbox 
-                    id="confirm-divergence"
-                    checked={confirmarDivergencia}
-                    onCheckedChange={(checked) => setConfirmarDivergencia(checked === true)}
-                    className="mt-0.5"
-                  />
-                  <Label htmlFor="confirm-divergence" className="text-red-800 dark:text-red-200 text-sm cursor-pointer">
-                    Confirmo que verifiquei os valores e desejo prosseguir com o registro mesmo com a divergência
-                  </Label>
                 </div>
-              )}
-            </div>
+                
+                <div>
+                  <Label htmlFor={`numero-${index}`}>Número da OC *</Label>
+                  <Input
+                    id={`numero-${index}`}
+                    placeholder="Ex: 2024001234"
+                    value={doc.numero}
+                    onChange={(e) => setDocumentosOC(prev => prev.map((d, i) => i === index ? { ...d, numero: e.target.value } : d))}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor={`doc-file-${index}`}>Documento (PDF) *</Label>
+                  <Input
+                    id={`doc-file-${index}`}
+                    type="file"
+                    accept=".pdf"
+                    onChange={(e) => handlePdfFileSelectForOC(e, index)}
+                  />
+                  
+                  {doc.validating && (
+                    <div className="flex items-center gap-2 mt-2 text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-sm">Validando valor do documento...</span>
+                    </div>
+                  )}
+                  
+                  {doc.pdfValidation && !doc.validating && (
+                    <>
+                      {doc.pdfValidation.match ? (
+                        <Alert className="mt-3 border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30">
+                          <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                          <AlertTitle className="text-green-800 dark:text-green-200">Valor confere!</AlertTitle>
+                          <AlertDescription className="text-green-700 dark:text-green-300">
+                            R$ {doc.pdfValidation.valorPdf?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </AlertDescription>
+                        </Alert>
+                      ) : doc.pdfValidation.valorPdf !== null ? (
+                        <Alert variant="destructive" className="mt-3">
+                          <ShieldAlert className="h-4 w-4" />
+                          <AlertTitle>Valor divergente!</AlertTitle>
+                          <AlertDescription className="space-y-1">
+                            <div>Solicitação: R$ {doc.pdfValidation.valorEsperado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                            <div>PDF: R$ {doc.pdfValidation.valorPdf.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                            <div className="font-bold">
+                              Diferença: R$ {Math.abs(doc.pdfValidation.diferenca!).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </div>
+                          </AlertDescription>
+                        </Alert>
+                      ) : (
+                        <Alert className="mt-3 border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950/30">
+                          <HelpCircle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                          <AlertTitle className="text-yellow-800 dark:text-yellow-200">Verificação manual necessária</AlertTitle>
+                          <AlertDescription className="text-yellow-700 dark:text-yellow-300">
+                            Não foi possível identificar o valor automaticamente no PDF.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                    </>
+                  )}
+                  
+                  {doc.pdfValidation && !doc.pdfValidation.match && doc.pdfValidation.valorPdf !== null && (
+                    <div className="flex items-start gap-3 p-3 mt-3 border border-red-200 rounded-lg bg-red-50 dark:border-red-800 dark:bg-red-950/30">
+                      <Checkbox 
+                        id={`confirm-divergence-${index}`}
+                        checked={doc.confirmarDivergencia}
+                        onCheckedChange={(checked) => setDocumentosOC(prev => prev.map((d, i) => i === index ? { ...d, confirmarDivergencia: checked === true } : d))}
+                        className="mt-0.5"
+                      />
+                      <Label htmlFor={`confirm-divergence-${index}`} className="text-red-800 dark:text-red-200 text-sm cursor-pointer">
+                        Confirmo que verifiquei os valores e desejo prosseguir mesmo com a divergência
+                      </Label>
+                    </div>
+                  )}
+                </div>
+              </Card>
+            ))}
+
+            <Button variant="outline" className="w-full gap-2" onClick={addOCRow}>
+              <Plus className="h-4 w-4" />
+              Adicionar outra OC
+            </Button>
 
             <div>
               <Label htmlFor="obs">Observação (opcional)</Label>
@@ -2526,7 +2544,7 @@ export default function Backoffice() {
                 placeholder="Observações adicionais..."
                 value={observacao}
                 onChange={(e) => setObservacao(e.target.value)}
-                rows={3}
+                rows={2}
               />
             </div>
           </div>
@@ -2537,14 +2555,16 @@ export default function Backoffice() {
             </Button>
             <Button 
               onClick={handleRegistrarOCAC}
-              disabled={registroLoading || validatingPdf || !canSubmitOC}
+              disabled={registroLoading || !canSubmitOC}
             >
               {registroLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : (
                 <Upload className="h-4 w-4 mr-2" />
               )}
-              Registrar OC
+              {documentosOC.filter(d => d.numero && d.file).length > 1 
+                ? `Registrar ${documentosOC.filter(d => d.numero && d.file).length} OCs` 
+                : 'Registrar OC'}
             </Button>
           </DialogFooter>
         </DialogContent>
