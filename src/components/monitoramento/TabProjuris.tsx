@@ -160,7 +160,7 @@ export function TabProjuris() {
       }
       return true;
     });
-  }, [rows, filterEmpreendimento, filterEtapa, searchTerm]);
+  }, [rows, filterEmpreendimento, filterEtapa, filterStatus, searchTerm]);
 
   const kpis = useMemo(() => ({
     total: rows.length,
