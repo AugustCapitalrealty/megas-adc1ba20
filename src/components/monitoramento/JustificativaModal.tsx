@@ -97,7 +97,7 @@ export function JustificativaModal({ open, onOpenChange, solicitacaoId, protocol
                   )}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {previsaoExecucao ? format(previsaoExecucao, 'dd/MM/yyyy', { locale: ptBR }) : 'Selecionar data'}
+                  {previsaoExecucao ? formatBR(previsaoExecucao, 'dd/MM/yyyy') : 'Selecionar data'}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
