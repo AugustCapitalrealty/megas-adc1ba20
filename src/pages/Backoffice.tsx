@@ -1353,7 +1353,7 @@ export default function Backoffice() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Calendar className="h-4 w-4" />
-                <span>{format(new Date(sol.created_at), "dd/MM/yyyy", { locale: ptBR })}</span>
+                <span>{formatBR(sol.created_at, "dd/MM/yyyy")}</span>
               </div>
               <div className="flex items-center gap-2 font-semibold text-primary">
                 <DollarSign className="h-4 w-4" />
