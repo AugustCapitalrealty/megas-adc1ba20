@@ -58,6 +58,7 @@ export interface CardCallbacks {
   onTransfer: (sol: SolicitacaoBackoffice) => void;
   onViewNfBoleto: (sol: SolicitacaoBackoffice) => void;
   backofficeMarkAsRead: (id: string) => void;
+  onToggleSelect?: (id: string) => void;
 }
 
 interface BackofficeSolicitacaoCardProps {
