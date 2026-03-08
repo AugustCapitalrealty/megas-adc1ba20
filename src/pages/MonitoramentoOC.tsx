@@ -631,7 +631,7 @@ export default function MonitoramentoOC() {
                         {TIPO_ACAO_LABELS[event.tipo_acao] || event.tipo_acao}
                       </Badge>
                       <span className="text-xs text-muted-foreground">
-                        {format(new Date(event.created_at), "dd/MM/yy HH:mm", { locale: ptBR })}
+                        {formatBR(event.created_at, "dd/MM/yy HH:mm")}
                       </span>
                     </div>
                     <p className="text-sm">{event.justificativa}</p>
