@@ -25,6 +25,8 @@ import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { OCDetalhesModal } from '@/components/monitoramento/OCDetalhesModal';
 import { JustificativaModal } from '@/components/monitoramento/JustificativaModal';
+import { TabProjuris } from '@/components/monitoramento/TabProjuris';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 
 interface OCMonitorRow {
