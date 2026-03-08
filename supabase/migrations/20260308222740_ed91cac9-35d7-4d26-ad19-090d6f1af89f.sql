@@ -1,0 +1,1 @@
+ALTER TABLE public.solicitacoes ADD COLUMN numero_fluig_cadastro text;
