@@ -2671,7 +2671,7 @@ export default function Backoffice() {
                       {doc.tipo === 'nota_fiscal' && doc.data_emissao_nf && (
                         <p className="text-sm">
                           <span className="text-muted-foreground">Emissão:</span>{' '}
-                          {format(new Date(doc.data_emissao_nf), "dd/MM/yyyy", { locale: ptBR })}
+                          {formatBR(doc.data_emissao_nf, "dd/MM/yyyy")}
                         </p>
                       )}
                       
