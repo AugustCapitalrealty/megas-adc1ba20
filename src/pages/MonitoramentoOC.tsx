@@ -417,7 +417,7 @@ export default function MonitoramentoOC() {
         {/* KPIs */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card className="border-l-4 border-l-primary">
-            <CardContent className="pt-6">
+            <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-primary/10">
                   <FileCheck className="h-5 w-5 text-primary" />
@@ -430,7 +430,7 @@ export default function MonitoramentoOC() {
             </CardContent>
           </Card>
           <Card className="border-l-4 border-l-amber-500">
-            <CardContent className="pt-6">
+            <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-amber-500/10">
                   <Clock className="h-5 w-5 text-amber-600" />
@@ -443,7 +443,7 @@ export default function MonitoramentoOC() {
             </CardContent>
           </Card>
           <Card className="border-l-4 border-l-destructive">
-            <CardContent className="pt-6">
+            <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-destructive/10">
                   <AlertTriangle className="h-5 w-5 text-destructive" />
@@ -456,7 +456,7 @@ export default function MonitoramentoOC() {
             </CardContent>
           </Card>
           <Card className="border-l-4 border-l-orange-500">
-            <CardContent className="pt-6">
+            <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-orange-500/10">
                   <XCircle className="h-5 w-5 text-orange-600" />
@@ -524,8 +524,10 @@ export default function MonitoramentoOC() {
 
         {/* Table */}
         <Card>
+          <ScrollArea className="h-[550px]">
+          <div className="overflow-x-auto">
           <Table>
-            <TableHeader>
+            <TableHeader className="sticky top-0 bg-card z-10">
               <TableRow>
                 <TableHead>Protocolo</TableHead>
                 <TableHead>Nº OC</TableHead>
@@ -572,23 +574,41 @@ export default function MonitoramentoOC() {
                       <TableCell>{getAgingBadge(row.dias_aberto, !!row.ultima_justificativa, row.data_oc)}</TableCell>
                       <TableCell>{getStatusBadge(monitorStatus, row.previsao_nf)}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-1 flex-wrap" onClick={(e) => e.stopPropagation()}>
                           {monitorStatus === 'pendente_justificativa' && (
-                            <Button variant="outline" size="sm" className="text-amber-600 border-amber-300" onClick={() => setJustificativaRow(row)}>
-                              <AlertCircle className="h-4 w-4 mr-1" />
-                              Justificar
-                            </Button>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button variant="outline" size="icon" className="h-8 w-8 text-amber-600 border-amber-300" onClick={() => setJustificativaRow(row)}>
+                                    <AlertCircle className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Justificar</TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           )}
                           {row.status !== 'cancelado' && !row.cancelamento_pendente && (
-                            <Button variant="outline" size="sm" className="text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => setCancelRow(row)}>
-                              <XOctagon className="h-4 w-4 mr-1" />
-                              Cancelar
-                            </Button>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button variant="outline" size="icon" className="h-8 w-8 text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => setCancelRow(row)}>
+                                    <XOctagon className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Cancelar</TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           )}
-                          <Button variant="ghost" size="sm" onClick={() => openHistory(row)}>
-                            <History className="h-4 w-4 mr-1" />
-                            Histórico
-                          </Button>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openHistory(row)}>
+                                  <History className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Histórico</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -597,6 +617,8 @@ export default function MonitoramentoOC() {
               )}
             </TableBody>
           </Table>
+          </div>
+          </ScrollArea>
         </Card>
           </TabsContent>
 

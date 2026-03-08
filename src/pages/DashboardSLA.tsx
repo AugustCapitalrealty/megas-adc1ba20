@@ -89,8 +89,8 @@ export default function DashboardSLA() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-              <Timer className="h-8 w-8 text-primary" />
+            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-3">
+              <Timer className="h-6 w-6 text-primary" />
               Dashboard de SLA
             </h1>
             <p className="text-muted-foreground mt-1">
@@ -130,9 +130,9 @@ export default function DashboardSLA() {
             </CardContent>
           </Card>
 
-          <Card className="border-emerald-200 bg-emerald-50/30">
+          <Card className="border-emerald-200 bg-emerald-50/30 dark:border-emerald-800 dark:bg-emerald-950/30">
             <CardHeader className="pb-2">
-              <CardDescription className="flex items-center gap-2 text-emerald-700">
+              <CardDescription className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
                 <CheckCircle2 className="h-4 w-4" />
                 No Prazo (≤2 dias)
                 <Tooltip>
@@ -149,7 +149,7 @@ export default function DashboardSLA() {
               {loading ? (
                 <Skeleton className="h-8 w-20" />
               ) : (
-                <div className="text-3xl font-bold text-emerald-700">
+                <div className="text-3xl font-bold text-emerald-700 dark:text-emerald-300">
                   {stats.noPrazo}
                   <span className="text-sm font-normal ml-2">
                     ({stats.total > 0 ? Math.round((stats.noPrazo / stats.total) * 100) : 0}%)
@@ -159,9 +159,9 @@ export default function DashboardSLA() {
             </CardContent>
           </Card>
 
-          <Card className="border-amber-200 bg-amber-50/30">
+          <Card className="border-amber-200 bg-amber-50/30 dark:border-amber-800 dark:bg-amber-950/30">
             <CardHeader className="pb-2">
-              <CardDescription className="flex items-center gap-2 text-amber-700">
+              <CardDescription className="flex items-center gap-2 text-amber-700 dark:text-amber-300">
                 <AlertTriangle className="h-4 w-4" />
                 Atenção (3 dias)
                 <Tooltip>
@@ -178,7 +178,7 @@ export default function DashboardSLA() {
               {loading ? (
                 <Skeleton className="h-8 w-20" />
               ) : (
-                <div className="text-3xl font-bold text-amber-700">
+                <div className="text-3xl font-bold text-amber-700 dark:text-amber-300">
                   {stats.atencao}
                   <span className="text-sm font-normal ml-2">
                     ({stats.total > 0 ? Math.round((stats.atencao / stats.total) * 100) : 0}%)
@@ -188,9 +188,9 @@ export default function DashboardSLA() {
             </CardContent>
           </Card>
 
-          <Card className="border-red-200 bg-red-50/30">
+          <Card className="border-red-200 bg-red-50/30 dark:border-red-800 dark:bg-red-950/30">
             <CardHeader className="pb-2">
-              <CardDescription className="flex items-center gap-2 text-red-700">
+              <CardDescription className="flex items-center gap-2 text-red-700 dark:text-red-300">
                 <XCircle className="h-4 w-4" />
                 {'Estourado (>3 dias)'}
                 <Tooltip>
@@ -207,7 +207,7 @@ export default function DashboardSLA() {
               {loading ? (
                 <Skeleton className="h-8 w-20" />
               ) : (
-                <div className="text-3xl font-bold text-red-700">
+                <div className="text-3xl font-bold text-red-700 dark:text-red-300">
                   {stats.estourado}
                   <span className="text-sm font-normal ml-2">
                     ({stats.total > 0 ? Math.round((stats.estourado / stats.total) * 100) : 0}%)
@@ -248,13 +248,7 @@ export default function DashboardSLA() {
 
         {/* Filters */}
         <Card>
-          <CardHeader className="pb-4">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Filter className="h-4 w-4" />
-              Filtros
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
               <div className="space-y-2">
                 <Label className="flex items-center gap-1.5 text-xs">
