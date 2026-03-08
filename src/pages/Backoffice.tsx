@@ -1270,6 +1270,21 @@ export default function Backoffice() {
     cancelamento_pendente: filteredSolicitacoes.filter(s => cancelamentoPendenteIds.has(s.id)),
   }), [filteredSolicitacoes, cancelamentoPendenteIds]);
 
+  // SLA calculation (used in details modal)
+  const getSLAInfo = (sol: SolicitacaoBackoffice) => {
+    const diasDesdeAbertura = differenceInDays(new Date(), new Date(sol.created_at));
+    const horasDesdeAbertura = differenceInHours(new Date(), new Date(sol.created_at));
+    const tempoDesdeAbertura = diasDesdeAbertura === 0 ? `${horasDesdeAbertura}h` : `${diasDesdeAbertura}d`;
+    const diasDesdeAprovacao = sol.dataAprovacao ? differenceInDays(new Date(), new Date(sol.dataAprovacao)) : null;
+    const horasDesdeAprovacao = sol.dataAprovacao ? differenceInHours(new Date(), new Date(sol.dataAprovacao)) : null;
+    const tempoDesdeAprovacao = sol.dataAprovacao
+      ? (diasDesdeAprovacao === 0 ? `${horasDesdeAprovacao}h` : `${diasDesdeAprovacao}d`)
+      : null;
+    const atrasadoAnalise = diasDesdeAbertura > 5 && ['recebido', 'em_analise'].includes(sol.status);
+    const atrasadoEmissao = diasDesdeAprovacao !== null && diasDesdeAprovacao > 3 && ['aprovado', 'em_processamento'].includes(sol.status);
+    return { diasDesdeAbertura, tempoDesdeAbertura, diasDesdeAprovacao, horasDesdeAprovacao, tempoDesdeAprovacao, atrasadoAnalise, atrasadoEmissao };
+  };
+
   // Card callbacks (stable ref)
   const cardCallbacks = useMemo<CardCallbacks>(() => ({
     openDetails,
