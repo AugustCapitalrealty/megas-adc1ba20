@@ -29,6 +29,7 @@ import { CNAECompatibilityBadge } from '@/components/CNAECompatibilityBadge';
 import { MEIAlertBadge } from '@/components/MEIAlertBadge';
 import { EscopoMinutaCard } from '@/components/EscopoMinutaCard';
 import { InstrumentoJuridicoBadge } from '@/components/InstrumentoJuridicoBadge';
+import { JuridicoTracker } from '@/components/JuridicoTracker';
 import { type Fornecedor, type CNAESecundario, INSTRUMENTO_JURIDICO_LABELS, type InstrumentoJuridico } from '@/types';
 import { RateioCard } from '@/components/RateioCard';
 import { supabase } from '@/integrations/supabase/client';
