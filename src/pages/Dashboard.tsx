@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
 import { useUserEmpreendimentos } from '@/hooks/useUserEmpreendimentos';
+import { useTrackEvent } from '@/hooks/useTrackEvent';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,6 +12,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PendingActionsCard } from '@/components/PendingActionsCard';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Badge } from '@/components/ui/badge';
+import { KpiSparkline } from '@/components/KpiSparkline';
+import { WelcomeTour, isOnboardingComplete } from '@/components/WelcomeTour';
 import { 
   Plus, FileText, LayoutDashboard, ClipboardList, 
   CheckCircle2, Clock, ArrowRight, Loader2, Users, User, AlertTriangle, RefreshCw
