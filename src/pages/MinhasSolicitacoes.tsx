@@ -659,7 +659,7 @@ export default function MinhasSolicitacoes() {
     if (!editingSolicitacao || !user) return;
     
     // Validate mandatory correction message
-    if (editingSolicitacao.status === 'pendente_correcao' && !editMensagemCorrecao.trim()) {
+    if (['pendente_correcao', 'aguardando_informacoes'].includes(editingSolicitacao.status) && !editMensagemCorrecao.trim()) {
       toast({
         title: 'Mensagem obrigatória',
         description: 'Descreva o que foi corrigido antes de reenviar.',
@@ -1975,7 +1975,7 @@ export default function MinhasSolicitacoes() {
             </div>
           )}
           {/* Mandatory correction message */}
-          {editingSolicitacao?.status === 'pendente_correcao' && (
+          {editingSolicitacao?.status && ['pendente_correcao', 'aguardando_informacoes'].includes(editingSolicitacao.status) && (
             <div className="space-y-2 border-t pt-4">
               <Label htmlFor="mensagem-correcao" className="text-sm font-medium">
                 O que foi corrigido? <span className="text-destructive">*</span>
@@ -2001,7 +2001,7 @@ export default function MinhasSolicitacoes() {
             </Button>
             <Button 
               onClick={handleResubmit} 
-              disabled={submitting || (editingSolicitacao?.status === 'pendente_correcao' && !editMensagemCorrecao.trim())}
+              disabled={submitting || (editingSolicitacao?.status && ['pendente_correcao', 'aguardando_informacoes'].includes(editingSolicitacao.status) && !editMensagemCorrecao.trim())}
             >
               {submitting ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
