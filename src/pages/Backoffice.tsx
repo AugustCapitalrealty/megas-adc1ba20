@@ -1257,6 +1257,16 @@ export default function Backoffice() {
         isAtrasado && 'border-destructive border-2',
         isMyResponsibility && !isAtrasado && 'border-primary border-2 bg-primary/5'
       )}>
+        {/* Unread Message Banner - highest priority */}
+        {backofficeUnreadMap[sol.id] && (
+          <UnreadMessageBanner
+            info={backofficeUnreadMap[sol.id]}
+            onViewMessages={() => {
+              setExpandedId(sol.id);
+              backofficeMarkAsRead(sol.id);
+            }}
+          />
+        )}
         {/* My Responsibility Banner */}
         {isMyResponsibility && (
           <div className="bg-primary/10 border-b border-primary/20 px-4 py-1.5 flex items-center gap-2">
