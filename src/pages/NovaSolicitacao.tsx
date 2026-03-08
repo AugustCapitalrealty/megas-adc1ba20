@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useTrackEvent } from '@/hooks/useTrackEvent';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
