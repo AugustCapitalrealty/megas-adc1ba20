@@ -38,6 +38,8 @@ import { MultiFileUpload, type UploadedFile } from '@/components/FileUpload';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { TransferOwnershipModal } from '@/components/TransferOwnershipModal';
+import { UnreadMessageBanner } from '@/components/UnreadMessageBanner';
+import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 
 // Design System Components
 import { SolicitacaoCard, type SolicitacaoWithDetails } from '@/components/ui/SolicitacaoCard';
