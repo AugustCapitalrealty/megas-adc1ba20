@@ -229,7 +229,7 @@ export function FluigDashboard({ onNavigateToSolicitacao }: FluigDashboardProps)
                   className={cn('h-8 text-xs', !filters.dataInicio && 'text-muted-foreground')}
                 >
                   <CalendarIcon className="h-3 w-3 mr-1" />
-                  {filters.dataInicio ? format(filters.dataInicio, 'dd/MM') : 'De'}
+                  {filters.dataInicio ? formatBR(filters.dataInicio, 'dd/MM') : 'De'}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
