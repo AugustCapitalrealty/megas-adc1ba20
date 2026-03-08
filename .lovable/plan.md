@@ -1,59 +1,29 @@
 
 
-# Plano: Trocar Logo + Eliminar Loading Duplo
+# Lote 3: Polish — Header Nav + Empty States
 
-## Diagnóstico
+## #1 Header Nav — Tooltips para Telas Intermediarias
 
-Dois problemas distintos:
+Na faixa 768-1280px, os labels da nav ficam apertados. Solução: em telas `md` a `xl`, mostrar apenas icones com tooltip; acima de `xl`, mostrar icone + label normalmente. O botao "Nova" ganha shadow e cor mais forte como CTA principal.
 
-**1. Logo desatualizada** — Precisa trocar para a nova versão enviada.
+**Arquivo**: `src/components/layout/AppLayout.tsx`
+- Importar `Tooltip, TooltipTrigger, TooltipContent, TooltipProvider`
+- NavLinks: em desktop, envolver cada link em `Tooltip`. Usar classes responsivas: label visivel apenas em `xl:inline` e escondido em `md`
+- Botao "Nova": adicionar `shadow-md` e `bg-primary text-white` sempre (nao apenas quando ativo)
 
-**2. Três shells separados causam remontagem do layout:**
+## #9 Empty States com Ilustracoes SVG Inline
 
-```text
-Atual (App.tsx):
-  <Route element={<ProtectedShell />}>           ← Shell A (monta AppLayout)
-    Dashboard, MinhasSolicitacoes, etc.
-  </Route>
-  <Route element={<ProtectedShell requireBackoffice />}>  ← Shell B (OUTRO AppLayout)
-    Backoffice, DashboardSLA, etc.
-  </Route>
-  <Route element={<ProtectedShell requireAdmin />}>       ← Shell C (OUTRO AppLayout)
-    Admin
-  </Route>
-```
+Substituir o icone generico (`FileText 12x12`) por ilustracoes SVG inline leves e engajantes no Dashboard e MinhasSolicitacoes.
 
-Ao navegar de Dashboard (Shell A) para Backoffice (Shell B), o React desmonta o Shell A inteiro (incluindo header/logo/menu) e monta o Shell B do zero. Isso causa o efeito de "carregar duas vezes" — primeiro o loading do auth no novo shell, depois o loading dos dados da página.
+**Arquivo**: `src/pages/Dashboard.tsx` (empty state linhas 322-338)
+- Substituir `FileText` por SVG ilustrativo inline (documento com estrela/checkmark, 80x80px) usando cores do design system (`hsl(var(--primary))`)
+- Adicionar checklist visual: "✓ Conta criada", "○ Criar primeira solicitação"
 
-## Alterações
+**Arquivo**: `src/components/WelcomeTour.tsx`
+- Adicionar ilustracao SVG no primeiro step (foguete estilizado) em vez do icone basico
 
-### 1. Trocar logo
-Copiar `user-uploads://logo-mega-removebg-preview-2.png` para `src/assets/logos/logo-mega.png`. Todas as referências já apontam para esse arquivo.
-
-### 2. Unificar em um único Shell (`src/App.tsx`)
-Usar **um único** `<ProtectedShell>` para todas as rotas protegidas. Cheques de permissão (backoffice/admin) movidos para componentes wrapper inline nas rotas individuais:
-
-```text
-Depois:
-  <Route element={<ProtectedShell />}>     ← UM ÚNICO Shell (AppLayout monta 1 vez)
-    Dashboard
-    MinhasSolicitacoes
-    Backoffice         ← permissão checada internamente
-    Admin              ← permissão checada internamente
-    DashboardSLA       ← permissão checada internamente
-    etc.
-  </Route>
-```
-
-Criar um componente `<RequireRole>` que checa permissão e redireciona se não autorizado, sem mostrar loading (auth já foi verificado pelo shell pai).
-
-### 3. Loading mais leve no ProtectedShell
-Ao invés da tela cheia com logo + spinner (que compete visualmente com o Suspense), usar apenas um spinner discreto centralizado. A logo já está no header do AppLayout — não precisa repetir no loading.
-
-## Arquivos alterados
-
-| Arquivo | Alteração |
-|---------|-----------|
-| `src/assets/logos/logo-mega.png` | Substituir pela nova logo |
-| `src/App.tsx` | Unificar 3 shells em 1, criar RequireRole, loading simplificado |
+## Arquivos Impactados
+- `src/components/layout/AppLayout.tsx` — nav tooltips + CTA highlight
+- `src/pages/Dashboard.tsx` — empty state ilustrado + checklist
+- `src/components/WelcomeTour.tsx` — ilustracao no step 1
 
