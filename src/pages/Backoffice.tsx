@@ -918,6 +918,53 @@ export default function Backoffice() {
     }
   };
 
+  const handleSaveFluigCadastro = async () => {
+    if (!editFluigCadastroSolId || !user) return;
+    
+    setEditFluigCadastroLoading(true);
+    try {
+      const newValue = editFluigCadastroValue.trim() || null;
+      
+      if (newValue) {
+        const { error } = await supabase
+          .from('solicitacoes')
+          .update({ numero_fluig_cadastro: newValue } as any)
+          .eq('id', editFluigCadastroSolId);
+
+        if (error) throw error;
+
+        // Find the sol to get its status
+        const sol = solicitacoes.find(s => s.id === editFluigCadastroSolId);
+        
+        await supabase.from('historico_solicitacoes').insert({
+          solicitacao_id: editFluigCadastroSolId,
+          user_id: user.id,
+          acao: 'fluig_cadastro_adicionado',
+          motivo: `Fluig de cadastro #${newValue} adicionado`,
+          status_anterior: sol?.status || null,
+          status_novo: sol?.status || null,
+        });
+      }
+
+      toast({
+        title: 'Fluig de cadastro salvo',
+        description: newValue ? `Cadastro Fluig: ${newValue}` : 'Salvo sem número Fluig',
+      });
+
+      setEditFluigCadastroOpen(false);
+      fetchSolicitacoes();
+    } catch (error) {
+      console.error('Error saving Fluig cadastro:', error);
+      toast({
+        title: 'Erro ao salvar',
+        description: 'Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setEditFluigCadastroLoading(false);
+    }
+  };
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   };
