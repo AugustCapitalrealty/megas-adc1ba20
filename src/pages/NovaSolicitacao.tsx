@@ -1013,6 +1013,8 @@ export default function NovaSolicitacao() {
               setCurrentStep(visibleSteps[index].id);
             }
           }}
+          showTimeEstimate
+          draftSaved={hasDraft}
         />
 
         <Card>
