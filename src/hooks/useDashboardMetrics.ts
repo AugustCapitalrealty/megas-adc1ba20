@@ -99,6 +99,9 @@ export function useDashboardMetrics(viewMode: ViewMode = 'minhas'): DashboardMet
   const { data: justificativasData, isLoading: loadingJust } = useQuery({
     queryKey: ['dashboard-justificativas-pendentes', user?.id, empreendimentos],
     queryFn: async () => {
+      // Business rule: justifications only required from day 23 onwards
+      const dayOfMonth = new Date().getDate();
+      if (dayOfMonth < 23) return { total: 0, own: 0 };
 
       // Fetch OCs with their solicitacoes
       const { data: ocs, error } = await supabase
