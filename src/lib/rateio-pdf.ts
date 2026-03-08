@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { EMPREENDIMENTO_LABELS, type Empreendimento } from '@/types';
-import logoMega from '@/assets/logos/logo-mega.png';
+import logoMega from '@/assets/logos/logo-mega_1.png';
 
 interface RateioValor {
   empreendimento: string;
