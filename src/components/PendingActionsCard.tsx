@@ -30,6 +30,7 @@ export function PendingActionsCard({
   pendingInfoRequests = 0,
   pendingJustificativas = 0,
   pendingJustificativasOwn = 0,
+  isBackofficeOrAdmin = false,
   onViewPending,
   className,
 }: PendingActionsCardProps) {
