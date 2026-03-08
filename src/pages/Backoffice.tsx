@@ -26,6 +26,7 @@ import { AnexoCard } from '@/components/AnexoCard';
 import { FornecedorCard } from '@/components/FornecedorCard';
 import { GarantiaExpiracaoInfo } from '@/components/GarantiaExpiracaoInfo';
 import { CNAECompatibilityBadge } from '@/components/CNAECompatibilityBadge';
+import { DescriptionQualityBadge } from '@/components/DescriptionQualityBadge';
 import { MEIAlertBadge } from '@/components/MEIAlertBadge';
 import { EscopoMinutaCard } from '@/components/EscopoMinutaCard';
 import { InstrumentoJuridicoBadge } from '@/components/InstrumentoJuridicoBadge';
