@@ -539,7 +539,7 @@ export default function PainelFluig() {
               return (
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   <Clock className="h-3 w-3" />
-                  Última atualização: {format(lastUpdate, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                  Última atualização: {formatBR(lastUpdate, "dd/MM/yyyy 'às' HH:mm")}
                 </p>
               );
             })()}

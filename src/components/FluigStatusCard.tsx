@@ -431,7 +431,7 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
                     const { texto, tipo } = formatEventoDescricao(evento);
                     const { icon: Icon, colorClass } = getEventoIconAndColor(tipo);
                     const dataReal = getEventoDataReal(evento);
-                    const dataFormatada = format(dataReal, "dd/MM HH:mm", { locale: ptBR });
+                    const dataFormatada = formatBR(dataReal, "dd/MM HH:mm");
                     
                     return (
                       <div 
