@@ -175,6 +175,7 @@ export function AppLayout() {
           </Link>
 
           {/* Desktop Navigation */}
+          <TooltipProvider delayDuration={300}>
           <nav className="hidden md:flex items-center gap-1">
             <Tooltip>
               <TooltipTrigger asChild>
