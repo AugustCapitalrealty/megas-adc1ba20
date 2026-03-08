@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { notifyMessageRecipients } from '@/lib/message-notifications';
 import { type HistoricoSolicitacao, STATUS_LABELS } from '@/types';
 import { formatBR } from '@/lib/date-utils';
 import { 
@@ -303,6 +304,9 @@ export function SolicitacaoTimeline({ solicitacaoId, showMessages = true }: Soli
         });
 
       if (error) throw error;
+
+      // Notify the other party
+      notifyMessageRecipients(solicitacaoId, user.id, newMessage.trim());
 
       setNewMessage('');
       fetchData();

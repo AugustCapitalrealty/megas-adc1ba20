@@ -101,6 +101,8 @@ import { TransferOwnershipModal } from '@/components/TransferOwnershipModal';
 import { ConfirmModal } from '@/components/ui/ActionModal';
 import { exportToExcel } from '@/lib/export-utils';
 import { SolicitacaoMessages } from '@/components/SolicitacaoMessages';
+import { UnreadMessageBanner } from '@/components/UnreadMessageBanner';
+import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 
 // PDF validation types
 interface PdfValidationResult {
@@ -1094,6 +1096,14 @@ export default function Backoffice() {
     return filtered;
   }, [solicitacoes, showOnlyMine, user?.id]);
 
+  // Unread messages for backoffice
+  const backofficeSolIds = useMemo(() => solicitacoes.map(s => s.id), [solicitacoes]);
+  const { unreadMap: backofficeUnreadMap, markAsRead: backofficeMarkAsRead } = useUnreadMessages({
+    solicitacaoIds: backofficeSolIds,
+    userId: user?.id,
+    isBackoffice: true,
+  });
+
   // Count my responsibilities
   const myResponsibilityCount = useMemo(() => 
     solicitacoes.filter(s => 
@@ -1247,6 +1257,16 @@ export default function Backoffice() {
         isAtrasado && 'border-destructive border-2',
         isMyResponsibility && !isAtrasado && 'border-primary border-2 bg-primary/5'
       )}>
+        {/* Unread Message Banner - highest priority */}
+        {backofficeUnreadMap[sol.id] && (
+          <UnreadMessageBanner
+            info={backofficeUnreadMap[sol.id]}
+            onViewMessages={() => {
+              setExpandedId(sol.id);
+              backofficeMarkAsRead(sol.id);
+            }}
+          />
+        )}
         {/* My Responsibility Banner */}
         {isMyResponsibility && (
           <div className="bg-primary/10 border-b border-primary/20 px-4 py-1.5 flex items-center gap-2">
@@ -1539,7 +1559,13 @@ export default function Backoffice() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setExpandedId(expandedId === sol.id ? null : sol.id)}
+                onClick={() => {
+                  const newExpanded = expandedId === sol.id ? null : sol.id;
+                  setExpandedId(newExpanded);
+                  if (newExpanded && backofficeUnreadMap[sol.id]) {
+                    backofficeMarkAsRead(sol.id);
+                  }
+                }}
                 className="ml-auto"
               >
                 <History className="h-4 w-4 mr-1" />

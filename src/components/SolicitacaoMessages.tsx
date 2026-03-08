@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { formatBR } from '@/lib/date-utils';
 import { MessageSquare, Send, User, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { notifyMessageRecipients } from '@/lib/message-notifications';
 
 
 interface Message {
@@ -76,6 +77,9 @@ export function SolicitacaoMessages({ solicitacaoId }: SolicitacaoMessagesProps)
         });
 
       if (error) throw error;
+
+      // Notify the other party
+      notifyMessageRecipients(solicitacaoId, user.id, newMessage.trim());
 
       setNewMessage('');
       fetchMessages();

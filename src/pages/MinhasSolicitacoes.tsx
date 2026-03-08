@@ -38,6 +38,8 @@ import { MultiFileUpload, type UploadedFile } from '@/components/FileUpload';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { TransferOwnershipModal } from '@/components/TransferOwnershipModal';
+import { UnreadMessageBanner } from '@/components/UnreadMessageBanner';
+import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 
 // Design System Components
 import { SolicitacaoCard, type SolicitacaoWithDetails } from '@/components/ui/SolicitacaoCard';
@@ -395,6 +397,14 @@ export default function MinhasSolicitacoes() {
     };
   }, [solicitacoes]);
 
+  // Unread messages
+  const solicitacaoIds = useMemo(() => solicitacoes.map(s => s.id), [solicitacoes]);
+  const { unreadMap, markAsRead } = useUnreadMessages({
+    solicitacaoIds,
+    userId: effectiveUserId,
+    isBackoffice: false,
+  });
+
   const formatCurrencyInput = (value: string) => {
     const digits = value.replace(/\D/g, '');
     const number = parseInt(digits) / 100;
@@ -402,7 +412,12 @@ export default function MinhasSolicitacoes() {
   };
 
   const toggleExpand = (id: string) => {
-    setExpandedId(expandedId === id ? null : id);
+    const newExpanded = expandedId === id ? null : id;
+    setExpandedId(newExpanded);
+    // Mark messages as read when expanding
+    if (newExpanded && unreadMap[id]) {
+      markAsRead(id);
+    }
   };
 
   const openEditModal = async (sol: Solicitacao) => {
@@ -1068,8 +1083,19 @@ export default function MinhasSolicitacoes() {
 
   // Render action banner for a solicitacao
   const renderActionBanner = (sol: SolicitacaoComFornecedor, canTakeAction: boolean) => {
-    if (!canTakeAction) return null;
+    const unreadInfo = unreadMap[sol.id];
     
+    // Unread message banner takes priority
+    if (unreadInfo) {
+      return (
+        <UnreadMessageBanner
+          info={unreadInfo}
+          onViewMessages={() => toggleExpand(sol.id)}
+        />
+      );
+    }
+    
+    if (!canTakeAction) return null;
     if (sol.status === 'aguardando_nf_boleto') {
       return (
         <div className="bg-[hsl(260,70%,50%)] text-white px-4 py-2 flex items-center justify-between rounded-t-lg">
