@@ -2678,7 +2678,7 @@ export default function Backoffice() {
                       {doc.tipo === 'boleto' && doc.data_vencimento_boleto && (
                         <p className="text-sm">
                           <span className="text-muted-foreground">Vencimento:</span>{' '}
-                          {format(new Date(doc.data_vencimento_boleto), "dd/MM/yyyy", { locale: ptBR })}
+                          {formatBR(doc.data_vencimento_boleto, "dd/MM/yyyy")}
                         </p>
                       )}
                       
