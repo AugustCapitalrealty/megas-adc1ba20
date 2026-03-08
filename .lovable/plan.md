@@ -1,59 +1,70 @@
 
 
-# Plano: Trocar Logo + Eliminar Loading Duplo
+# Mensagens com alerta prioritário para o destinatário
 
-## Diagnóstico
+## Problema
+Quando o backoffice ou o solicitante envia uma mensagem na solicitação, a outra parte **não é notificada** e não vê nada de diferente. A mensagem fica escondida dentro do histórico/timeline, facilmente ignorada.
 
-Dois problemas distintos:
+## Solução
 
-**1. Logo desatualizada** — Precisa trocar para a nova versão enviada.
+### 1. Notificação automática ao enviar mensagem
+Quando alguém envia uma mensagem via `SolicitacaoMessages` ou `SolicitacaoTimeline`, criar automaticamente uma entrada na tabela `notifications` para a outra parte:
+- Se o remetente é o **solicitante** → notificar todos os **backoffice/admin**
+- Se o remetente é **backoffice/admin** → notificar o **owner** da solicitação
 
-**2. Três shells separados causam remontagem do layout:**
+A notificação terá `prioridade: 'high'`, `tipo: 'action_required'`, com link para a solicitação.
+
+### 2. Banner de mensagens não lidas no card da solicitação
+Adicionar uma coluna `lida` na tabela `solicitacao_mensagens` para rastrear leitura. Ao abrir/expandir uma solicitação, marcar mensagens como lidas.
+
+No `MinhasSolicitacoes` e no `Backoffice`, exibir um **banner chamativo** no topo do card quando há mensagens não lidas:
 
 ```text
-Atual (App.tsx):
-  <Route element={<ProtectedShell />}>           ← Shell A (monta AppLayout)
-    Dashboard, MinhasSolicitacoes, etc.
-  </Route>
-  <Route element={<ProtectedShell requireBackoffice />}>  ← Shell B (OUTRO AppLayout)
-    Backoffice, DashboardSLA, etc.
-  </Route>
-  <Route element={<ProtectedShell requireAdmin />}>       ← Shell C (OUTRO AppLayout)
-    Admin
-  </Route>
+┌────────────────────────────────────────────┐
+│ 💬 NOVA MENSAGEM  - João (Backoffice)      │
+│ "Preciso do comprovante de endereço..."    │
+│                           [Ver Mensagens]  │
+├────────────────────────────────────────────┤
+│ #2025-0042 — Contratação de serviço...     │
+│ ...resto do card...                        │
+└────────────────────────────────────────────┘
 ```
 
-Ao navegar de Dashboard (Shell A) para Backoffice (Shell B), o React desmonta o Shell A inteiro (incluindo header/logo/menu) e monta o Shell B do zero. Isso causa o efeito de "carregar duas vezes" — primeiro o loading do auth no novo shell, depois o loading dos dados da página.
+### 3. Marcar como lida ao visualizar
+Quando o usuário expande o card ou abre o modal de detalhes, as mensagens não lidas daquela solicitação são marcadas como `lida = true`.
 
 ## Alterações
 
-### 1. Trocar logo
-Copiar `user-uploads://logo-mega-removebg-preview-2.png` para `src/assets/logos/logo-mega.png`. Todas as referências já apontam para esse arquivo.
+### Database Migration
+```sql
+-- Adicionar coluna lida à tabela de mensagens
+ALTER TABLE public.solicitacao_mensagens 
+  ADD COLUMN lida boolean DEFAULT false;
 
-### 2. Unificar em um único Shell (`src/App.tsx`)
-Usar **um único** `<ProtectedShell>` para todas as rotas protegidas. Cheques de permissão (backoffice/admin) movidos para componentes wrapper inline nas rotas individuais:
-
-```text
-Depois:
-  <Route element={<ProtectedShell />}>     ← UM ÚNICO Shell (AppLayout monta 1 vez)
-    Dashboard
-    MinhasSolicitacoes
-    Backoffice         ← permissão checada internamente
-    Admin              ← permissão checada internamente
-    DashboardSLA       ← permissão checada internamente
-    etc.
-  </Route>
+-- Índice para busca rápida de não lidas
+CREATE INDEX idx_mensagens_nao_lidas 
+  ON public.solicitacao_mensagens(solicitacao_id, lida) 
+  WHERE lida = false;
 ```
 
-Criar um componente `<RequireRole>` que checa permissão e redireciona se não autorizado, sem mostrar loading (auth já foi verificado pelo shell pai).
+### Arquivo: `src/components/SolicitacaoMessages.tsx`
+- Após enviar mensagem, inserir notificação para a outra parte (buscar `user_id` da solicitação para saber quem notificar)
+- Receber prop `solicitacaoUserId` para saber quem é o owner
 
-### 3. Loading mais leve no ProtectedShell
-Ao invés da tela cheia com logo + spinner (que compete visualmente com o Suspense), usar apenas um spinner discreto centralizado. A logo já está no header do AppLayout — não precisa repetir no loading.
+### Arquivo: `src/components/SolicitacaoTimeline.tsx`
+- Mesmo tratamento: ao enviar mensagem, criar notificação para a outra parte
 
-## Arquivos alterados
+### Arquivo: `src/pages/MinhasSolicitacoes.tsx`
+- No fetch de solicitações, buscar também contagem de mensagens não lidas por solicitação
+- Renderizar banner de mensagem não lida como `actionBanner` prioritário (acima de outros banners)
+- Ao expandir card, chamar update para marcar mensagens como lidas
 
-| Arquivo | Alteração |
-|---------|-----------|
-| `src/assets/logos/logo-mega.png` | Substituir pela nova logo |
-| `src/App.tsx` | Unificar 3 shells em 1, criar RequireRole, loading simplificado |
+### Arquivo: `src/pages/Backoffice.tsx`
+- Mesmo tratamento: buscar mensagens não lidas e exibir banner no card
+- Marcar como lidas ao expandir
+
+### Novo componente: `src/components/UnreadMessageBanner.tsx`
+- Componente reutilizável que recebe a última mensagem não lida e renderiza o banner azul/roxo com preview da mensagem e botão "Ver Mensagens"
+
+**1 migration, 1 novo componente, 4 arquivos editados.**
 
