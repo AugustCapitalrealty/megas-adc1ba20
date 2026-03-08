@@ -2001,7 +2001,7 @@ export default function MinhasSolicitacoes() {
             </Button>
             <Button 
               onClick={handleResubmit} 
-              disabled={submitting || (editingSolicitacao?.status === 'pendente_correcao' && !editMensagemCorrecao.trim())}
+              disabled={submitting || (editingSolicitacao?.status && ['pendente_correcao', 'aguardando_informacoes'].includes(editingSolicitacao.status) && !editMensagemCorrecao.trim())}
             >
               {submitting ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
