@@ -65,8 +65,8 @@ const EMPREENDIMENTO_COLORS: Record<string, string> = {
 
 export default function DashboardEficiencia() {
   const [filters, setFilters] = useState<EficienciaFilters>({
-    dataInicio: format(subDays(new Date(), 90), 'yyyy-MM-dd'),
-    dataFim: format(new Date(), 'yyyy-MM-dd'),
+    dataInicio: formatBR(subDays(new Date(), 90), 'yyyy-MM-dd'),
+    dataFim: formatBR(new Date(), 'yyyy-MM-dd'),
     empreendimento: null,
   });
 
