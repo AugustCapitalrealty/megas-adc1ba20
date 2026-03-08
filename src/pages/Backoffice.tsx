@@ -101,6 +101,8 @@ import { TransferOwnershipModal } from '@/components/TransferOwnershipModal';
 import { ConfirmModal } from '@/components/ui/ActionModal';
 import { exportToExcel } from '@/lib/export-utils';
 import { SolicitacaoMessages } from '@/components/SolicitacaoMessages';
+import { UnreadMessageBanner } from '@/components/UnreadMessageBanner';
+import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 
 // PDF validation types
 interface PdfValidationResult {
