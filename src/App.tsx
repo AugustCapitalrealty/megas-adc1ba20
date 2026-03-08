@@ -9,6 +9,7 @@ import { Loader2 } from "lucide-react";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ThemeProvider } from "next-themes";
 import logoMega from "@/assets/logos/logo-mega.png";
 
 const Login = lazy(() => import("./pages/Login"));
