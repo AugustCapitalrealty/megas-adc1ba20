@@ -1918,12 +1918,35 @@ export default function MinhasSolicitacoes() {
               </div>
             </div>
           )}
+          {/* Mandatory correction message */}
+          {editingSolicitacao?.status === 'pendente_correcao' && (
+            <div className="space-y-2 border-t pt-4">
+              <Label htmlFor="mensagem-correcao" className="text-sm font-medium">
+                O que foi corrigido? <span className="text-destructive">*</span>
+              </Label>
+              <Textarea
+                id="mensagem-correcao"
+                placeholder="Descreva as correções realizadas..."
+                value={editMensagemCorrecao}
+                onChange={(e) => setEditMensagemCorrecao(e.target.value)}
+                className="min-h-[80px]"
+              />
+              {!editMensagemCorrecao.trim() && (
+                <p className="text-xs text-destructive">
+                  É obrigatório descrever o que foi corrigido antes de reenviar.
+                </p>
+              )}
+            </div>
+          )}
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleResubmit} disabled={submitting}>
+            <Button 
+              onClick={handleResubmit} 
+              disabled={submitting || (editingSolicitacao?.status === 'pendente_correcao' && !editMensagemCorrecao.trim())}
+            >
               {submitting ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : (
