@@ -1,59 +1,60 @@
 
 
-# Plano: Trocar Logo + Eliminar Loading Duplo
+# Plano: Integracoes In-Context — Ver e Agir sem Sair da Tela
 
-## Diagnóstico
+## Problema
 
-Dois problemas distintos:
+Ao clicar numa solicitacao no Monitoramento, o modal `OCDetalhesModal` mostra timeline e documentos, mas e read-only. Se o usuario precisa enviar mensagem, justificar, aceitar OC ou enviar NF, precisa navegar para outra tela. Isso quebra o fluxo de trabalho.
 
-**1. Logo desatualizada** — Precisa trocar para a nova versão enviada.
+## Solucao
 
-**2. Três shells separados causam remontagem do layout:**
+Transformar o `OCDetalhesModal` num hub completo com acoes contextuais, e adicionar mensagens inline. O usuario ve tudo e age ali mesmo.
 
-```text
-Atual (App.tsx):
-  <Route element={<ProtectedShell />}>           ← Shell A (monta AppLayout)
-    Dashboard, MinhasSolicitacoes, etc.
-  </Route>
-  <Route element={<ProtectedShell requireBackoffice />}>  ← Shell B (OUTRO AppLayout)
-    Backoffice, DashboardSLA, etc.
-  </Route>
-  <Route element={<ProtectedShell requireAdmin />}>       ← Shell C (OUTRO AppLayout)
-    Admin
-  </Route>
-```
+### 1. OCDetalhesModal — adicionar aba "Mensagens" e acoes contextuais
 
-Ao navegar de Dashboard (Shell A) para Backoffice (Shell B), o React desmonta o Shell A inteiro (incluindo header/logo/menu) e monta o Shell B do zero. Isso causa o efeito de "carregar duas vezes" — primeiro o loading do auth no novo shell, depois o loading dos dados da página.
+**Aba "Mensagens" (nova):**
+- Adicionar 4a tab ao modal: "Mensagens"
+- Reutilizar `SolicitacaoMessages` dentro da tab
+- Timeline passa a usar `showMessages={false}` (ja faz isso), mensagens ficam na aba propria
 
-## Alterações
+**Acoes contextuais no header do modal:**
+Baseado no status da solicitacao, exibir botoes de acao relevantes diretamente no modal:
 
-### 1. Trocar logo
-Copiar `user-uploads://logo-mega-removebg-preview-2.png` para `src/assets/logos/logo-mega.png`. Todas as referências já apontam para esse arquivo.
+| Status | Acao disponivel no modal |
+|--------|--------------------------|
+| `pendente_correcao` | Botao "Corrigir e Reenviar" → abre modal de edicao inline |
+| `aguardando_aceite` | Botao "Aceitar OC" |
+| `aguardando_nf_boleto` | Botao "Enviar NF/Boleto" |
+| `oc_ac_emitida` (sem NF + dia >23) | Botao "Justificar" → abre JustificativaModal |
+| `cancelamento_pendente` | Badge informativo |
 
-### 2. Unificar em um único Shell (`src/App.tsx`)
-Usar **um único** `<ProtectedShell>` para todas as rotas protegidas. Cheques de permissão (backoffice/admin) movidos para componentes wrapper inline nas rotas individuais:
+A logica verifica `user_id === auth.uid()` para mostrar acoes apenas ao dono da solicitacao.
 
-```text
-Depois:
-  <Route element={<ProtectedShell />}>     ← UM ÚNICO Shell (AppLayout monta 1 vez)
-    Dashboard
-    MinhasSolicitacoes
-    Backoffice         ← permissão checada internamente
-    Admin              ← permissão checada internamente
-    DashboardSLA       ← permissão checada internamente
-    etc.
-  </Route>
-```
+**Arquivos:** `src/components/monitoramento/OCDetalhesModal.tsx`
 
-Criar um componente `<RequireRole>` que checa permissão e redireciona se não autorizado, sem mostrar loading (auth já foi verificado pelo shell pai).
+### 2. Monitoramento — clicar na row abre modal completo (ja funciona)
 
-### 3. Loading mais leve no ProtectedShell
-Ao invés da tela cheia com logo + spinner (que compete visualmente com o Suspense), usar apenas um spinner discreto centralizado. A logo já está no header do AppLayout — não precisa repetir no loading.
+Ja existe: `onClick={() => setDetailRow(row)}`. O modal so precisa ser enriquecido (item 1 acima).
 
-## Arquivos alterados
+### 3. SolicitacaoTimeline — habilitar mensagens inline
 
-| Arquivo | Alteração |
-|---------|-----------|
-| `src/assets/logos/logo-mega.png` | Substituir pela nova logo |
-| `src/App.tsx` | Unificar 3 shells em 1, criar RequireRole, loading simplificado |
+Atualmente o modal passa `showMessages={false}`. Na nova aba "Mensagens" usamos `SolicitacaoMessages` diretamente, que ja tem input + envio.
+
+### 4. Backoffice modal — mesmo padrao
+
+O Backoffice ja tem detalhes expandidos. Adicionar `SolicitacaoMessages` na area de detalhes para que backoffice tambem possa trocar mensagens sem sair.
+
+**Arquivo:** `src/pages/Backoffice.tsx` — na secao de detalhes expandidos, incluir componente de mensagens.
+
+---
+
+## Resumo
+
+| Item | Arquivo | Mudanca |
+|------|---------|---------|
+| Modal enriquecido | OCDetalhesModal.tsx | +tab Mensagens, +botoes acao por status |
+| Mensagens no Backoffice | Backoffice.tsx | +SolicitacaoMessages nos detalhes |
+| Acoes inline | OCDetalhesModal.tsx | Aceitar OC, Enviar NF, Justificar — sem navegar |
+
+**0 migrations.** ~3 arquivos editados. O usuario nunca mais precisa sair da tela para agir.
 
