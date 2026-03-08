@@ -378,7 +378,7 @@ export function SolicitacaoTimeline({ solicitacaoId, showMessages = true }: Soli
                   </div>
                   
                   <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                    {format(new Date(msg.created_at), "dd/MM/yyyy HH:mm:ss", { locale: ptBR })}
+                    {formatBR(msg.created_at, "dd/MM/yyyy HH:mm:ss")}
                   </p>
                   
                   <div className="mt-2 p-3 bg-muted/30 rounded-lg border-l-4 border-primary/40">
