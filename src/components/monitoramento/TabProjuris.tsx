@@ -55,7 +55,7 @@ export function TabProjuris() {
   const [rows, setRows] = useState<ProjurisRow[]>([]);
   const [filterEmpreendimento, setFilterEmpreendimento] = useState<string>('todos');
   const [filterEtapa, setFilterEtapa] = useState<string>('todos');
-  const [filterStatus, setFilterStatus] = useState<string>('todos');
+  const [filterStatus, setFilterStatus] = useState<string>('ativos');
   const [searchTerm, setSearchTerm] = useState('');
   const [detailRow, setDetailRow] = useState<ProjurisRow | null>(null);
 
@@ -145,7 +145,8 @@ export function TabProjuris() {
   const filteredRows = useMemo(() => {
     return rows.filter(row => {
       if (filterEmpreendimento !== 'todos' && row.empreendimento !== filterEmpreendimento) return false;
-      if (filterStatus !== 'todos' && row.status !== filterStatus) return false;
+      if (filterStatus === 'ativos' && ['concluida', 'cancelado'].includes(row.status)) return false;
+      if (filterStatus !== 'todos' && filterStatus !== 'ativos' && row.status !== filterStatus) return false;
       if (filterEtapa !== 'todos') {
         if (filterEtapa === 'sem_etapa' && row.etapa_atual !== null) return false;
         if (filterEtapa !== 'sem_etapa' && row.etapa_atual !== filterEtapa) return false;
@@ -291,6 +292,7 @@ export function TabProjuris() {
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="ativos">Ativos</SelectItem>
                     <SelectItem value="todos">Todos os status</SelectItem>
                     <SelectItem value="concluida">Concluída</SelectItem>
                     <SelectItem value="cancelado">Cancelado</SelectItem>
