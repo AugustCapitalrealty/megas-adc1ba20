@@ -256,17 +256,16 @@ export function FilterBar({
             <div className="absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-background to-transparent pointer-events-none z-10 hidden sm:block" />
             <div className="overflow-x-auto scrollbar-none -mx-1 px-1 pb-1 scroll-smooth snap-x">
               <div className="flex items-center gap-1.5 flex-nowrap">
-              {allTabs.map((tab) => (
-                <TabButton
-                  key={tab.id}
-                  tab={tab}
-                  isActive={activeTab === tab.id}
-                  onClick={() => onTabChange(tab.id)}
-                />
-              ))}
+                {allTabs.map((tab) => (
+                  <TabButton
+                    key={tab.id}
+                    tab={tab}
+                    isActive={activeTab === tab.id}
+                    onClick={() => onTabChange(tab.id)}
+                  />
+                ))}
+              </div>
             </div>
-            </div>
-          </div>
           </div>
         </div>
       )}
