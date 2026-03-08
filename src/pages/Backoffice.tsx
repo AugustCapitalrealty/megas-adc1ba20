@@ -2041,7 +2041,7 @@ export default function Backoffice() {
                         </Label>
                         <p className="font-medium mt-1">
                           {detalhes.solicitacao.data_inicio 
-                            ? format(new Date(detalhes.solicitacao.data_inicio + 'T12:00:00'), 'dd/MM/yyyy')
+                            ? formatBR(detalhes.solicitacao.data_inicio + 'T12:00:00', 'dd/MM/yyyy')
                             : '—'}
                         </p>
                       </div>
