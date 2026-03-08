@@ -28,12 +28,15 @@ import {
   ChevronDown,
   FileCheck,
   WifiOff,
+  Moon,
+  Sun,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { NotificationBell } from '@/components/NotificationBell';
 import { CommandPalette } from '@/components/CommandPalette';
 import { AppBreadcrumbs } from '@/components/layout/AppBreadcrumbs';
+import { useTheme } from 'next-themes';
 import logoMega from '@/assets/logos/logo-mega.png';
 
 export function AppLayout() {
