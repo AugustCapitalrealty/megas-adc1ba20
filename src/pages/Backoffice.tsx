@@ -183,6 +183,12 @@ export default function Backoffice() {
   const [cadastroLoading, setCadastroLoading] = useState(false);
   const [cadastroStatus, setCadastroStatus] = useState<Record<string, 'solicitado' | 'concluido' | null>>({});
 
+  // Edit Fluig Cadastro Modal (separate from main Fluig)
+  const [editFluigCadastroOpen, setEditFluigCadastroOpen] = useState(false);
+  const [editFluigCadastroValue, setEditFluigCadastroValue] = useState('');
+  const [editFluigCadastroLoading, setEditFluigCadastroLoading] = useState(false);
+  const [editFluigCadastroSolId, setEditFluigCadastroSolId] = useState<string | null>(null);
+
   // Transfer modal state
   const [transferOpen, setTransferOpen] = useState(false);
   const [transferSolicitacao, setTransferSolicitacao] = useState<SolicitacaoBackoffice | null>(null);
