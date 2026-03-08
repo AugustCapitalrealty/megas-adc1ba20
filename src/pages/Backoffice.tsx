@@ -287,7 +287,9 @@ export default function Backoffice() {
       toast({ 
         title: 'Status atualizado!',
         description: `Solicitação ${STATUS_LABELS[newStatus].toLowerCase()}`,
+        duration: 5000,
       });
+      setProcessedToday(prev => prev + 1);
       fetchSolicitacoes();
       setActionOpen(false);
       setDetailsOpen(false);
