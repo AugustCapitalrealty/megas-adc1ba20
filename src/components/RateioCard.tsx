@@ -4,26 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { EMPREENDIMENTO_LABELS, type Empreendimento } from '@/types';
 import { Download, PieChart } from 'lucide-react';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import logoMega from '@/assets/logos/logo-mega.png';
-
-const loadImageAsBase64 = (src: string): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth;
-      canvas.height = img.naturalHeight;
-      const ctx = canvas.getContext('2d');
-      ctx?.drawImage(img, 0, 0);
-      resolve(canvas.toDataURL('image/png'));
-    };
-    img.onerror = reject;
-    img.src = src;
-  });
-};
+import { generateRateioPDF } from '@/lib/rateio-pdf';
 
 interface RateioValor {
   empreendimento: string;
@@ -45,104 +26,13 @@ export function RateioCard({ tipoRateio, rateioValores, protocolo, valorTotal }:
   const total = rateioValores.reduce((s, r) => s + r.valor, 0);
   const totalArea = rateioValores.reduce((s, r) => s + r.area_m2, 0);
 
-  const handleDownloadPDF = async () => {
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const orange: [number, number, number] = [232, 119, 34];
-    const grey: [number, number, number] = [100, 102, 106];
-    const white: [number, number, number] = [255, 255, 255];
-
-    // Orange header band
-    doc.setFillColor(...orange);
-    doc.rect(0, 0, pageWidth, 70, 'F');
-
-    // Logo
-    try {
-      const logoBase64 = await loadImageAsBase64(logoMega);
-      doc.addImage(logoBase64, 'PNG', 14, 8, 50, 50);
-    } catch { /* proceed without logo */ }
-
-    // Title on orange band
-    doc.setTextColor(...white);
-    doc.setFontSize(22);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Demonstrativo de Rateio', 72, 28);
-    doc.setFontSize(13);
-    doc.setFont('helvetica', 'normal');
-    doc.text('entre Condomínios', 72, 40);
-
-    // Separator line
-    doc.setDrawColor(200, 200, 200);
-    doc.setLineWidth(0.3);
-    doc.line(14, 76, pageWidth - 14, 76);
-
-    // Info section below header
-    let yPos = 84;
-    doc.setFontSize(10);
-    if (protocolo) {
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(...grey);
-      doc.text('Protocolo: ', 14, yPos);
-      doc.setFont('helvetica', 'normal');
-      doc.text(protocolo, 14 + doc.getTextWidth('Protocolo: '), yPos);
-      yPos += 8;
-    }
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...grey);
-    doc.text('Tipo de Rateio: ', 14, yPos);
-    doc.setFont('helvetica', 'normal');
-    doc.text(tipoRateio === 'por_unidade' ? 'Por Unidade (igual)' : 'Por Área (proporcional)', 14 + doc.getTextWidth('Tipo de Rateio: '), yPos);
-    yPos += 8;
-    doc.setFont('helvetica', 'bold');
-    doc.text('Valor Total: ', 14, yPos);
-    doc.setFont('helvetica', 'normal');
-    doc.text((valorTotal ?? total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 14 + doc.getTextWidth('Valor Total: '), yPos);
-    yPos += 8;
-    doc.setFont('helvetica', 'bold');
-    doc.text('Data: ', 14, yPos);
-    doc.setFont('helvetica', 'normal');
-    doc.text(new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }), 14 + doc.getTextWidth('Data: '), yPos);
-    yPos += 12;
-
-    // Table
-    autoTable(doc, {
-      startY: yPos,
-      head: [['Condomínio', 'Área (m²)', '%', 'Valor (R$)']],
-      body: [
-        ...rateioValores.map(r => [
-          EMPREENDIMENTO_LABELS[r.empreendimento as Empreendimento] || r.empreendimento,
-          r.area_m2.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
-          `${r.percentual.toFixed(2)}%`,
-          r.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
-        ]),
-        [
-          { content: 'Total', styles: { fontStyle: 'bold', fillColor: grey, textColor: white } },
-          { content: totalArea.toLocaleString('pt-BR', { minimumFractionDigits: 2 }), styles: { fontStyle: 'bold', fillColor: grey, textColor: white } },
-          { content: '100,00%', styles: { fontStyle: 'bold', fillColor: grey, textColor: white } },
-          { content: (valorTotal ?? total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), styles: { fontStyle: 'bold', fillColor: grey, textColor: white } },
-        ],
-      ],
-      styles: { fontSize: 10, cellPadding: 4 },
-      headStyles: { fillColor: orange, textColor: white, fontStyle: 'bold' },
-      alternateRowStyles: { fillColor: [248, 248, 248] },
-      margin: { left: 14, right: 14 },
-      columnStyles: { 0: { cellWidth: 60 } },
+  const handleDownloadPDF = () => {
+    generateRateioPDF({
+      tipoRateio,
+      rateioValores,
+      protocolo: protocolo || 'SEM-PROTOCOLO',
+      valorTotal: valorTotal ?? total,
     });
-
-    // Footer
-    const pageHeight = doc.internal.pageSize.getHeight();
-    doc.setDrawColor(...grey);
-    doc.setLineWidth(0.5);
-    doc.line(14, pageHeight - 24, pageWidth - 14, pageHeight - 24);
-    doc.setFontSize(7);
-    doc.setTextColor(...grey);
-    doc.setFont('helvetica', 'italic');
-    doc.text('Documento confidencial', pageWidth / 2, pageHeight - 18, { align: 'center' });
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.text(`Mega Centro Logístico — Documento gerado em ${new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`, 14, pageHeight - 12);
-
-    doc.save(`rateio_${protocolo || 'demonstrativo'}.pdf`);
   };
 
   return (
