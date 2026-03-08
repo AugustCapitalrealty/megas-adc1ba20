@@ -292,6 +292,7 @@ export function TabProjuris() {
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="ativos">Ativos</SelectItem>
                     <SelectItem value="todos">Todos os status</SelectItem>
                     <SelectItem value="concluida">Concluída</SelectItem>
                     <SelectItem value="cancelado">Cancelado</SelectItem>
