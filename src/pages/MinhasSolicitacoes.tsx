@@ -59,6 +59,7 @@ type FilterTab = 'todas' | 'com_backoffice' | 'correcoes' | 'oc_emitida' | 'libe
 interface SolicitacaoComFornecedor extends Solicitacao {
   fornecedor?: Fornecedor | null;
   documentoEmitido?: DocumentoEmitido | null;
+  documentosEmitidos?: DocumentoEmitido[];
   documentosFiscais?: DocumentoFiscal[];
   solicitante_nome?: string | null;
 }
