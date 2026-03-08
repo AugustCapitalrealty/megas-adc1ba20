@@ -55,6 +55,7 @@ export function TabProjuris() {
   const [rows, setRows] = useState<ProjurisRow[]>([]);
   const [filterEmpreendimento, setFilterEmpreendimento] = useState<string>('todos');
   const [filterEtapa, setFilterEtapa] = useState<string>('todos');
+  const [filterStatus, setFilterStatus] = useState<string>('todos');
   const [searchTerm, setSearchTerm] = useState('');
   const [detailRow, setDetailRow] = useState<ProjurisRow | null>(null);
 
@@ -69,8 +70,7 @@ export function TabProjuris() {
       const { data: sols } = await supabase
         .from('solicitacoes')
         .select('id, protocolo, numero_projuris, empreendimento, valor, instrumento_juridico, status, fornecedor_id, user_id')
-        .not('numero_projuris', 'is', null)
-        .not('status', 'in', '("cancelado","concluida")');
+        .not('numero_projuris', 'is', null);
 
       if (!sols || sols.length === 0) {
         setRows([]);
@@ -145,6 +145,7 @@ export function TabProjuris() {
   const filteredRows = useMemo(() => {
     return rows.filter(row => {
       if (filterEmpreendimento !== 'todos' && row.empreendimento !== filterEmpreendimento) return false;
+      if (filterStatus !== 'todos' && row.status !== filterStatus) return false;
       if (filterEtapa !== 'todos') {
         if (filterEtapa === 'sem_etapa' && row.etapa_atual !== null) return false;
         if (filterEtapa !== 'sem_etapa' && row.etapa_atual !== filterEtapa) return false;
@@ -159,7 +160,7 @@ export function TabProjuris() {
       }
       return true;
     });
-  }, [rows, filterEmpreendimento, filterEtapa, searchTerm]);
+  }, [rows, filterEmpreendimento, filterEtapa, filterStatus, searchTerm]);
 
   const kpis = useMemo(() => ({
     total: rows.length,
@@ -281,6 +282,23 @@ export function TabProjuris() {
                     {availableEmpreendimentos.map(([key, label]) => (
                       <SelectItem key={key} value={key}>{label}</SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="w-48">
+                <Select value={filterStatus} onValueChange={setFilterStatus}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos os status</SelectItem>
+                    <SelectItem value="concluida">Concluída</SelectItem>
+                    <SelectItem value="cancelado">Cancelado</SelectItem>
+                    <SelectItem value="em_analise">Em Análise</SelectItem>
+                    <SelectItem value="aprovado">Aprovado</SelectItem>
+                    <SelectItem value="em_processamento">Em Processamento</SelectItem>
+                    <SelectItem value="oc_ac_emitida">OC/AC Emitida</SelectItem>
+                    <SelectItem value="recebido">Recebido</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
