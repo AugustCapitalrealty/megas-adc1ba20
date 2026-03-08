@@ -1,6 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, Edit, CheckCircle, Receipt, ChevronRight, CalendarDays } from 'lucide-react';
+import { AlertTriangle, Edit, CheckCircle, Receipt, ChevronRight, CalendarDays, PartyPopper } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface PendingAction {
@@ -33,41 +33,37 @@ export function PendingActionsCard({
   className,
 }: PendingActionsCardProps) {
   const totalPending = pendingCorrections + pendingAcceptance + pendingNfBoleto + pendingInfoRequests + pendingJustificativas;
-  
-  if (totalPending === 0) return null;
+
+  // Empty state — all clear
+  if (totalPending === 0) {
+    return (
+      <Card className={cn(
+        "border border-success/30 bg-gradient-to-r from-success/5 to-background",
+        className
+      )}>
+        <CardContent className="p-3 sm:p-4">
+          <div className="flex items-center gap-3">
+            <div className="flex-shrink-0 p-2 rounded-full bg-success/10">
+              <PartyPopper className="h-5 w-5 text-success" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground">Tudo em dia!</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                Nenhuma ação pendente no momento.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const allActions: PendingAction[] = [
-    {
-      type: 'correcao',
-      count: pendingCorrections,
-      label: 'Correções',
-      description: 'Solicitações que precisam de ajustes',
-    },
-    {
-      type: 'aceite_oc',
-      count: pendingAcceptance,
-      label: 'Liberar OC',
-      description: 'Ordens de compra aguardando liberação',
-    },
-    {
-      type: 'nf_boleto',
-      count: pendingNfBoleto,
-      label: 'NF/Boleto',
-      description: 'Aguardando envio de documentos fiscais',
-    },
-    {
-      type: 'info_requests',
-      count: pendingInfoRequests,
-      label: 'Informações',
-      description: 'Backoffice solicitou informações adicionais',
-    },
-    {
-      type: 'justificativa_oc',
-      count: pendingJustificativas,
-      label: 'Justificativas OC',
-      description: 'OCs sem NF que precisam de justificativa',
-      ownCount: pendingJustificativasOwn,
-    },
+    { type: 'correcao', count: pendingCorrections, label: 'Correções', description: 'Solicitações que precisam de ajustes' },
+    { type: 'aceite_oc', count: pendingAcceptance, label: 'Liberar OC', description: 'Ordens de compra aguardando liberação' },
+    { type: 'nf_boleto', count: pendingNfBoleto, label: 'NF/Boleto', description: 'Aguardando envio de documentos fiscais' },
+    { type: 'info_requests', count: pendingInfoRequests, label: 'Informações', description: 'Backoffice solicitou informações adicionais' },
+    { type: 'justificativa_oc', count: pendingJustificativas, label: 'Justificativas OC', description: 'OCs sem NF que precisam de justificativa', ownCount: pendingJustificativasOwn },
   ];
   
   const actions = allActions.filter(a => a.count > 0);
@@ -114,18 +110,20 @@ export function PendingActionsCard({
   };
 
   return (
-    <Card className={cn(
-      "border-2 border-destructive/30 bg-gradient-to-r from-destructive/5 to-background shadow-md",
-      className
-    )}>
+    <Card
+      className={cn(
+        "border-2 border-destructive/30 bg-gradient-to-r from-destructive/5 to-background shadow-md",
+        className
+      )}
+      role="alert"
+      aria-live="polite"
+    >
       <CardContent className="p-3 sm:p-4">
         <div className="flex items-start gap-3">
-          {/* Alert Icon */}
           <div className="flex-shrink-0 p-2 rounded-full bg-destructive/10">
             <AlertTriangle className="h-5 w-5 text-destructive" />
           </div>
           
-          {/* Content */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <h3 className="font-semibold text-foreground">
@@ -140,7 +138,6 @@ export function PendingActionsCard({
               {totalPending} {totalPending === 1 ? 'item precisa' : 'itens precisam'} da sua atenção
             </p>
             
-            {/* Action Items */}
             <div className="flex flex-wrap gap-2">
               {actions.map((action) => (
                 <Button
@@ -149,9 +146,10 @@ export function PendingActionsCard({
                   size="sm"
                   onClick={() => handleClick(action)}
                   className={cn(
-                    "gap-2 h-9 border",
+                    "gap-2 h-9 border focus-visible:ring-2 focus-visible:ring-ring",
                     getColorForAction(action.type)
                   )}
+                  aria-label={`${action.label}: ${action.count} ${action.count === 1 ? 'item' : 'itens'}. ${action.description}`}
                 >
                   {getIconForAction(action.type)}
                   <span>{action.label}</span>

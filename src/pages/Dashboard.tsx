@@ -117,6 +117,8 @@ export default function Dashboard() {
   const primaryCtaHref = isSolicitante ? '/nova-solicitacao' : '/backoffice';
   const PrimaryCtaIcon = isSolicitante ? Plus : LayoutDashboard;
 
+  const hasPendingActions = (metrics.pendingCorrections + metrics.pendingAcceptance + metrics.pendingNfBoleto + (metrics.pendingInfoRequests || 0) + (metrics.pendingJustificativas || 0)) > 0;
+
   return (
     <div className="space-y-6 animate-fade-in">
         {/* Greeting + Toggle */}
@@ -210,16 +212,37 @@ export default function Dashboard() {
               />
             )}
 
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* Layer 1: Pending Actions — FIRST when there are actions */}
+            <PendingActionsCard
+              pendingCorrections={metrics.pendingCorrections}
+              pendingAcceptance={metrics.pendingAcceptance}
+              pendingNfBoleto={metrics.pendingNfBoleto}
+              pendingInfoRequests={metrics.pendingInfoRequests}
+              pendingJustificativas={metrics.pendingJustificativas}
+              pendingJustificativasOwn={metrics.pendingJustificativasOwn}
+              onViewPending={(filter) => {
+                if (filter === 'justificativa_oc') {
+                  navigate('/monitoramento-oc?status=pendente_justificativa');
+                } else {
+                  navigate(`/minhas-solicitacoes?filter=${filter}`);
+                }
+              }}
+            />
+
+            {/* Layer 2: KPI Cards */}
+            <div className={cn("grid grid-cols-2 lg:grid-cols-4 gap-3", !hasPendingActions && "")}>
               {kpis.map((kpi) => {
                 const Icon = kpi.icon;
                 return (
                   <Card 
                     key={kpi.label}
                     className={cn(
-                      'cursor-pointer hover:shadow-md transition-all',
+                      'cursor-pointer hover:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring',
                       kpi.highlight ? 'border-destructive/50 shadow-sm' : 'hover:border-primary/30'
                     )}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`${kpi.label}: ${kpi.value} solicitações. Clique para ver detalhes.`}
                     onClick={() => {
                       track('kpi_clicked', { label: kpi.label, filter: kpi.filter, viewMode });
                       if (viewMode === 'geral' && isBackofficeOrAdmin) {
@@ -227,6 +250,17 @@ export default function Dashboard() {
                         navigate(`/backoffice?tab=${tabMap[kpi.filter] || kpi.filter}`);
                       } else {
                         navigate(`/minhas-solicitacoes?filter=${kpi.filter}`);
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        if (viewMode === 'geral' && isBackofficeOrAdmin) {
+                          const tabMap: Record<string, string> = { todas: 'todas', com_backoffice: 'recebido', correcoes: 'pendente_correcao', concluidas: 'concluida' };
+                          navigate(`/backoffice?tab=${tabMap[kpi.filter] || kpi.filter}`);
+                        } else {
+                          navigate(`/minhas-solicitacoes?filter=${kpi.filter}`);
+                        }
                       }
                     }}
                   >
@@ -249,28 +283,11 @@ export default function Dashboard() {
               })}
             </div>
 
-            {/* Pending Actions */}
-            <PendingActionsCard
-              pendingCorrections={metrics.pendingCorrections}
-              pendingAcceptance={metrics.pendingAcceptance}
-              pendingNfBoleto={metrics.pendingNfBoleto}
-              pendingInfoRequests={metrics.pendingInfoRequests}
-              pendingJustificativas={metrics.pendingJustificativas}
-              pendingJustificativasOwn={metrics.pendingJustificativasOwn}
-              onViewPending={(filter) => {
-                if (filter === 'justificativa_oc') {
-                  navigate('/monitoramento-oc?status=pendente_justificativa');
-                } else {
-                  navigate(`/minhas-solicitacoes?filter=${filter}`);
-                }
-              }}
-            />
-
-            {/* Recent Requests */}
+            {/* Layer 3: Recent Requests — more discrete header */}
             {metrics.recentSolicitacoes.length > 0 && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                  <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
                     Últimas Solicitações
                   </h2>
                   <Button 
@@ -288,15 +305,22 @@ export default function Dashboard() {
                   {metrics.recentSolicitacoes.map((sol) => (
                     <Card 
                       key={sol.id}
-                      className="cursor-pointer hover:shadow-sm hover:border-primary/30 transition-all"
+                      className="cursor-pointer hover:shadow-sm hover:border-primary/30 transition-all focus-visible:ring-2 focus-visible:ring-ring"
+                      tabIndex={0}
                       onClick={() => navigate(`/minhas-solicitacoes?search=${sol.protocolo}`)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          navigate(`/minhas-solicitacoes?search=${sol.protocolo}`);
+                        }
+                      }}
                     >
                       <CardContent className="p-3">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap mb-1">
                               <span className="font-semibold text-sm">#{sol.protocolo}</span>
-                              <StatusBadge status={sol.status} />
+                              <StatusBadge status={sol.status} showActionHint />
                               <Badge variant="outline" className="text-xs">{sol.tipo}</Badge>
                             </div>
                             <p className="text-sm text-muted-foreground truncate">
@@ -366,14 +390,26 @@ export default function Dashboard() {
             )}
 
             {/* Mobile CTA - persona-aware */}
-            <Button 
-              onClick={() => navigate(primaryCtaHref)} 
-              className="w-full gap-2 sm:hidden"
-              size="lg"
-            >
-              <PrimaryCtaIcon className="h-4 w-4" />
-              {primaryCtaLabel}
-            </Button>
+            {isSolicitante && (
+              <Button 
+                onClick={() => navigate(primaryCtaHref)} 
+                className="fixed bottom-4 right-4 z-40 gap-2 sm:hidden shadow-lg rounded-full h-14 w-14 p-0"
+                size="icon"
+                aria-label={primaryCtaLabel}
+              >
+                <PrimaryCtaIcon className="h-6 w-6" />
+              </Button>
+            )}
+            {!isSolicitante && (
+              <Button 
+                onClick={() => navigate(primaryCtaHref)} 
+                className="w-full gap-2 sm:hidden"
+                size="lg"
+              >
+                <PrimaryCtaIcon className="h-4 w-4" />
+                {primaryCtaLabel}
+              </Button>
+            )}
           </>
         )}
       </div>

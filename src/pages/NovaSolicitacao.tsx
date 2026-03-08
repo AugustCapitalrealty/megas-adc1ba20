@@ -949,15 +949,15 @@ export default function NovaSolicitacao() {
     }
   };
 
-  const steps: { id: Step; label: string; show: boolean }[] = [
-    { id: 'empreendimento', label: 'Local', show: true },
-    { id: 'descricao', label: 'Descrição', show: true },
-    { id: 'tipo', label: 'Tipo', show: valorNumerico > 1000 },
-    { id: 'natureza_servico', label: 'Natureza', show: showNaturezaServicoStep },
-    { id: 'detalhes', label: 'Detalhes', show: true },
-    { id: 'fornecedor', label: 'Fornecedor', show: true },
-    { id: 'anexos', label: 'Anexos', show: true },
-    { id: 'revisao', label: 'Enviar', show: true },
+  const steps: { id: Step; label: string; show: boolean; description: string }[] = [
+    { id: 'empreendimento', label: 'Local', show: true, description: 'Escolha o empreendimento onde o serviço será realizado' },
+    { id: 'descricao', label: 'Descrição', show: true, description: 'Descreva o serviço e informe o valor estimado' },
+    { id: 'tipo', label: 'Tipo', show: valorNumerico > 1000, description: 'Defina o tipo de contratação' },
+    { id: 'natureza_servico', label: 'Natureza', show: showNaturezaServicoStep, description: 'Indique características especiais do serviço' },
+    { id: 'detalhes', label: 'Detalhes', show: true, description: 'Complete os detalhes financeiros e operacionais' },
+    { id: 'fornecedor', label: 'Fornecedor', show: true, description: 'Selecione o fornecedor principal' },
+    { id: 'anexos', label: 'Anexos', show: true, description: 'Envie os documentos necessários' },
+    { id: 'revisao', label: 'Enviar', show: true, description: 'Revise tudo e envie sua solicitação' },
   ];
 
   const visibleSteps = steps.filter((s) => s.show);
@@ -2068,7 +2068,11 @@ export default function NovaSolicitacao() {
             </Button>
           ) : (
             <Button onClick={goNext} disabled={!canProceed()} className="shadow-lg sm:shadow-none">
-              Próximo <ArrowRight className="h-4 w-4 ml-2" />
+              {currentIndex < visibleSteps.length - 2
+                ? `Ir para ${visibleSteps[currentIndex + 1]?.label}`
+                : 'Próximo'
+              }
+              <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
           )}
         </div>

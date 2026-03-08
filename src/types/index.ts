@@ -253,6 +253,26 @@ export const ROLE_LABELS: Record<AppRole, string> = {
 };
 
 // Labels padronizados para anexos
+// Action hints — what the user should do/expect for each status
+export const STATUS_ACTION_LABELS: Record<RequestStatus, string> = {
+  recebido: 'Sua solicitação está na fila de análise',
+  em_analise: 'O backoffice está analisando sua solicitação',
+  pendente_correcao: 'Você precisa corrigir e reenviar',
+  aprovado: 'Aprovada! Em processo de lançamento',
+  rejeitado: 'Esta solicitação não foi aprovada',
+  em_processamento: 'Em processo de aprovação interna',
+  oc_ac_emitida: 'Aceite a OC para liberar ao fornecedor',
+  aguardando_aceite: 'Aceite o documento para prosseguir',
+  aguardando_informacoes: 'O backoffice pediu informações adicionais',
+  concluida: 'Processo finalizado',
+  aguardando_nf_boleto: 'Envie a NF e boleto do fornecedor',
+  nf_boleto_enviados: 'Documentos fiscais enviados para análise',
+  enviado_pagamento: 'O pagamento está sendo processado',
+  liberado_fornecedor: 'Fornecedor já pode executar o serviço',
+  enviado_fornecedor: 'OC foi enviada ao fornecedor',
+  cancelado: 'Cancelada pelo solicitante',
+};
+
 export const ANEXO_LABELS: Record<string, string> = {
   chamado_preventiva: 'Chamado Infraspeak',
   escopo_detalhado: 'Memorial Descritivo/Escopo',
