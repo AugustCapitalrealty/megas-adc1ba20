@@ -54,6 +54,7 @@ export function AppLayout() {
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isOnline = useOnlineStatus();
+  const { theme, setTheme } = useTheme();
 
   const handleSignOut = async () => {
     await signOut();
