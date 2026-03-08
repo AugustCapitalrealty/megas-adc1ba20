@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useTrackEvent } from '@/hooks/useTrackEvent';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
@@ -87,6 +88,7 @@ interface DuplicateData {
 
 export default function NovaSolicitacao() {
   const { user, effectiveProfile } = useAuth();
+  const track = useTrackEvent();
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
@@ -1004,7 +1006,9 @@ export default function NovaSolicitacao() {
 
   const goNext = () => {
     if (currentIndex < visibleSteps.length - 1) {
-      setCurrentStep(visibleSteps[currentIndex + 1].id);
+      const nextStep = visibleSteps[currentIndex + 1];
+      track('step_viewed', { step: nextStep.id, index: currentIndex + 1 }, '/nova-solicitacao');
+      setCurrentStep(nextStep.id);
     }
   };
 

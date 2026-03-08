@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
 import { useUserEmpreendimentos } from '@/hooks/useUserEmpreendimentos';
+import { useTrackEvent } from '@/hooks/useTrackEvent';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,6 +12,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { PendingActionsCard } from '@/components/PendingActionsCard';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Badge } from '@/components/ui/badge';
+import { KpiSparkline } from '@/components/KpiSparkline';
+import { WelcomeTour, isOnboardingComplete } from '@/components/WelcomeTour';
 import { 
   Plus, FileText, LayoutDashboard, ClipboardList, 
   CheckCircle2, Clock, ArrowRight, Loader2, Users, User, AlertTriangle, RefreshCw
@@ -29,6 +32,7 @@ export default function Dashboard() {
   const { user, profile, isBackofficeOrAdmin } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const track = useTrackEvent();
   const { empreendimentos } = useUserEmpreendimentos(user?.id);
   
   const canToggle = isBackofficeOrAdmin || empreendimentos.length > 0;
@@ -48,76 +52,56 @@ export default function Dashboard() {
   };
 
   // Different KPIs depending on viewMode
+  const trendMap = {
+    total: metrics.trend.total,
+    pending: metrics.trend.pending,
+    inProgress: metrics.trend.inProgress,
+    concluded: metrics.trend.concluded,
+  };
+
   const kpis = viewMode === 'geral' && isBackofficeOrAdmin
     ? [
         {
-          label: 'Total',
-          value: metrics.total,
-          icon: ClipboardList,
-          color: 'text-foreground',
-          bgColor: 'bg-muted',
-          filter: 'todas',
+          label: 'Total', value: metrics.total, icon: ClipboardList,
+          color: 'text-foreground', bgColor: 'bg-muted', filter: 'todas',
+          trend: trendMap.total,
         },
         {
-          label: 'Novas (Em Fila)',
-          value: metrics.newInQueue,
-          icon: Clock,
-          color: 'text-info',
-          bgColor: 'bg-info/10',
-          highlight: metrics.newInQueue > 0,
-          filter: 'com_backoffice',
+          label: 'Novas (Em Fila)', value: metrics.newInQueue, icon: Clock,
+          color: 'text-info', bgColor: 'bg-info/10', highlight: metrics.newInQueue > 0,
+          filter: 'com_backoffice', trend: trendMap.total,
         },
         {
-          label: 'Em Análise',
-          value: metrics.inAnalysis,
-          icon: LayoutDashboard,
-          color: 'text-primary',
-          bgColor: 'bg-primary/10',
-          filter: 'com_backoffice',
+          label: 'Em Análise', value: metrics.inAnalysis, icon: LayoutDashboard,
+          color: 'text-primary', bgColor: 'bg-primary/10', filter: 'com_backoffice',
+          trend: trendMap.inProgress,
         },
         {
-          label: 'Aguardando Solicitante',
-          value: metrics.waitingSolicitor,
-          icon: AlertTriangle,
-          color: 'text-warning',
-          bgColor: 'bg-warning/10',
-          highlight: metrics.waitingSolicitor > 0,
-          filter: 'correcoes',
+          label: 'Aguardando Solicitante', value: metrics.waitingSolicitor, icon: AlertTriangle,
+          color: 'text-warning', bgColor: 'bg-warning/10', highlight: metrics.waitingSolicitor > 0,
+          filter: 'correcoes', trend: trendMap.pending,
         },
       ]
     : [
         {
-          label: 'Total',
-          value: metrics.total,
-          icon: ClipboardList,
-          color: 'text-foreground',
-          bgColor: 'bg-muted',
-          filter: 'todas',
+          label: 'Total', value: metrics.total, icon: ClipboardList,
+          color: 'text-foreground', bgColor: 'bg-muted', filter: 'todas',
+          trend: trendMap.total,
         },
         {
-          label: 'Pendentes',
-          value: metrics.pendingActions,
-          icon: Clock,
-          color: 'text-destructive',
-          bgColor: 'bg-destructive/10',
-          highlight: metrics.pendingActions > 0,
-          filter: 'correcoes',
+          label: 'Pendentes', value: metrics.pendingActions, icon: Clock,
+          color: 'text-destructive', bgColor: 'bg-destructive/10', highlight: metrics.pendingActions > 0,
+          filter: 'correcoes', trend: trendMap.pending,
         },
         {
-          label: 'Em Andamento',
-          value: metrics.inProgress,
-          icon: LayoutDashboard,
-          color: 'text-primary',
-          bgColor: 'bg-primary/10',
-          filter: 'com_backoffice',
+          label: 'Em Andamento', value: metrics.inProgress, icon: LayoutDashboard,
+          color: 'text-primary', bgColor: 'bg-primary/10', filter: 'com_backoffice',
+          trend: trendMap.inProgress,
         },
         {
-          label: 'Finalizadas',
-          value: metrics.concluded,
-          icon: CheckCircle2,
-          color: 'text-success',
-          bgColor: 'bg-success/10',
-          filter: 'concluidas',
+          label: 'Finalizadas', value: metrics.concluded, icon: CheckCircle2,
+          color: 'text-success', bgColor: 'bg-success/10', filter: 'concluidas',
+          trend: trendMap.concluded,
         },
       ];
 
@@ -210,6 +194,14 @@ export default function Dashboard() {
           </div>
         ) : (
           <>
+            {/* Onboarding Tour */}
+            {metrics.total === 0 && !isOnboardingComplete() && (
+              <WelcomeTour
+                userName={profile?.full_name?.split(' ')[0]}
+                onComplete={() => track('onboarding_completed')}
+              />
+            )}
+
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {kpis.map((kpi) => {
                 const Icon = kpi.icon;
@@ -221,6 +213,7 @@ export default function Dashboard() {
                       kpi.highlight ? 'border-destructive/50 shadow-sm' : 'hover:border-primary/30'
                     )}
                     onClick={() => {
+                      track('kpi_clicked', { label: kpi.label, filter: kpi.filter, viewMode });
                       if (viewMode === 'geral' && isBackofficeOrAdmin) {
                         const tabMap: Record<string, string> = { todas: 'todas', com_backoffice: 'recebido', correcoes: 'pendente_correcao', concluidas: 'concluida' };
                         navigate(`/backoffice?tab=${tabMap[kpi.filter] || kpi.filter}`);
@@ -234,8 +227,11 @@ export default function Dashboard() {
                         <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${kpi.bgColor}`}>
                           <Icon className={`h-5 w-5 ${kpi.color}`} />
                         </div>
-                        <div className="min-w-0">
-                          <p className="text-2xl font-bold leading-none">{kpi.value}</p>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between">
+                            <p className="text-2xl font-bold leading-none">{kpi.value}</p>
+                            <KpiSparkline data={kpi.trend} />
+                          </div>
                           <p className="text-xs text-muted-foreground mt-1">{kpi.label}</p>
                         </div>
                       </div>

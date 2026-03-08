@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserEmpreendimentos } from '@/hooks/useUserEmpreendimentos';
 import type { RequestStatus, Empreendimento } from '@/types';
+import { subDays, startOfDay, format } from 'date-fns';
 
 interface StatusCount {
   status: RequestStatus;
@@ -19,6 +20,13 @@ interface RecentSolicitacao {
   empreendimento: Empreendimento;
   created_at: string;
   fornecedor_nome: string | null;
+}
+
+interface TrendData {
+  total: number[];
+  pending: number[];
+  inProgress: number[];
+  concluded: number[];
 }
 
 interface DashboardMetrics {
@@ -39,6 +47,7 @@ interface DashboardMetrics {
   inApproval: number;
   recentSolicitacoes: RecentSolicitacao[];
   statusCounts: StatusCount[];
+  trend: TrendData;
   isLoading: boolean;
   error: Error | null;
 }
@@ -186,6 +195,24 @@ export function useDashboardMetrics(viewMode: ViewMode = 'minhas'): DashboardMet
   const pendingJustificativas = justificativasData?.total ?? 0;
   const pendingJustificativasOwn = justificativasData?.own ?? 0;
 
+  // 7-day trend calculation
+  const pendingStatuses: RequestStatus[] = ['pendente_correcao', 'aguardando_aceite', 'aguardando_nf_boleto', 'aguardando_informacoes'];
+  const trend: TrendData = (() => {
+    const totalArr: number[] = [];
+    const pendingArr: number[] = [];
+    const inProgressArr: number[] = [];
+    const concludedArr: number[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const dayStr = format(startOfDay(subDays(new Date(), i)), 'yyyy-MM-dd');
+      const created = allSol.filter(s => s.created_at.slice(0, 10) === dayStr);
+      totalArr.push(created.length);
+      pendingArr.push(created.filter(s => pendingStatuses.includes(s.status as RequestStatus)).length);
+      inProgressArr.push(created.filter(s => inProgressStatuses.includes(s.status as RequestStatus)).length);
+      concludedArr.push(created.filter(s => s.status === 'concluida').length);
+    }
+    return { total: totalArr, pending: pendingArr, inProgress: inProgressArr, concluded: concludedArr };
+  })();
+
   return {
     total: allSol.length,
     pendingActions: pendingCorrections + pendingAcceptance + pendingNfBoleto + pendingInfoRequests + pendingJustificativas,
@@ -203,6 +230,7 @@ export function useDashboardMetrics(viewMode: ViewMode = 'minhas'): DashboardMet
     inApproval,
     recentSolicitacoes,
     statusCounts,
+    trend,
     isLoading: loadingSol || loadingEmp || loadingJust,
     error: error as Error | null,
   };

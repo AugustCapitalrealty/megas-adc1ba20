@@ -91,6 +91,7 @@ import { differenceInDays, differenceInHours } from 'date-fns';
 import { formatBR } from '@/lib/date-utils';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { useTrackEvent } from '@/hooks/useTrackEvent';
 import { cn } from '@/lib/utils';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
@@ -111,6 +112,7 @@ type BackofficeTab = 'recebidas' | 'pendentes' | 'em_processamento' | 'oc_emitid
 export default function Backoffice() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const track = useTrackEvent();
   const [searchParams] = useSearchParams();
   const urlSearch = searchParams.get('search') || '';
   const [searchTerm, setSearchTerm] = useState(urlSearch);
@@ -290,6 +292,7 @@ export default function Backoffice() {
         duration: 5000,
       });
       setProcessedToday(prev => prev + 1);
+      track('action_taken', { action: actionType, status: newStatus, protocolo: selectedSolicitacao?.protocolo });
       fetchSolicitacoes();
       setActionOpen(false);
       setDetailsOpen(false);
