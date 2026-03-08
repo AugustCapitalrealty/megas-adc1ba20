@@ -91,10 +91,11 @@ export function useFluigFilterOptions() {
         const { data, error } = await supabase.rpc('get_fluig_filter_options');
         
         if (!error && data) {
-          setEmpreendimentos((data.empreendimentos || []).sort());
-          setSituacoes((data.situacoes || []).sort());
-          setLocalizacoes((data.localizacoes || []).sort());
-          setResponsaveis((data.responsaveis || []).sort());
+          const d = data as any;
+          setEmpreendimentos((d.empreendimentos || []).sort());
+          setSituacoes((d.situacoes || []).sort());
+          setLocalizacoes((d.localizacoes || []).sort());
+          setResponsaveis((d.responsaveis || []).sort());
         }
       } catch (err) {
         console.error('Error fetching filter options:', err);
