@@ -1885,6 +1885,12 @@ export default function Backoffice() {
                   </div>
                 )}
 
+                {/* Acompanhamento Jurídico - quando instrumento não é OC */}
+                {(detalhes.solicitacao as any).instrumento_juridico && 
+                 (detalhes.solicitacao as any).instrumento_juridico !== 'oc' && (
+                  <JuridicoTracker solicitacaoId={detalhes.solicitacao.id} />
+                )}
+
                 {/* Escopo Detalhado para Minuta */}
                 {(detalhes.solicitacao as any).escopo_detalhado_minuta && (
                   <EscopoMinutaCard
