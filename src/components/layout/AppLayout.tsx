@@ -67,7 +67,7 @@ export function AppLayout() {
     { href: '/backoffice', label: 'Backoffice', icon: LayoutDashboard, show: isBackofficeOrAdmin },
     { href: '/painel-fluig', label: 'Painel Fluig', icon: BarChart3, show: true },
     { href: '/garantias', label: 'Garantias', icon: Shield, show: true },
-    { href: '/monitoramento-oc', label: 'OC x NF', icon: FileCheck, show: true },
+    { href: '/monitoramento-oc', label: 'Monitoramento', icon: FileCheck, show: true },
   ];
 
   const adminItems = [
