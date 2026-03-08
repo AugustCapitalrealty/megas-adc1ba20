@@ -122,19 +122,25 @@ export function RateioCard({ tipoRateio, rateioValores, protocolo, valorTotal }:
           { content: (valorTotal ?? total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), styles: { fontStyle: 'bold', fillColor: grey, textColor: white } },
         ],
       ],
-      styles: { fontSize: 10 },
+      styles: { fontSize: 10, cellPadding: 4 },
       headStyles: { fillColor: orange, textColor: white, fontStyle: 'bold' },
       alternateRowStyles: { fillColor: [248, 248, 248] },
+      margin: { left: 14, right: 14 },
+      columnStyles: { 0: { cellWidth: 60 } },
     });
 
     // Footer
     const pageHeight = doc.internal.pageSize.getHeight();
     doc.setDrawColor(...grey);
     doc.setLineWidth(0.5);
-    doc.line(14, pageHeight - 20, pageWidth - 14, pageHeight - 20);
-    doc.setFontSize(8);
+    doc.line(14, pageHeight - 24, pageWidth - 14, pageHeight - 24);
+    doc.setFontSize(7);
     doc.setTextColor(...grey);
-    doc.text(`Mega Centro Logístico — Documento gerado em ${new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`, 14, pageHeight - 14);
+    doc.setFont('helvetica', 'italic');
+    doc.text('Documento confidencial', pageWidth / 2, pageHeight - 18, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text(`Mega Centro Logístico — Documento gerado em ${new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`, 14, pageHeight - 12);
 
     doc.save(`rateio_${protocolo || 'demonstrativo'}.pdf`);
   };
