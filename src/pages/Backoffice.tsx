@@ -1685,6 +1685,9 @@ export default function Backoffice() {
             </Card>
           ))}
         </div>
+        <p className="text-center text-sm text-muted-foreground animate-pulse">
+          Carregando solicitações...
+        </p>
       </div>
     );
   }

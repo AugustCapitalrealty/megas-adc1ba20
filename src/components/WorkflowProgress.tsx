@@ -32,39 +32,45 @@ interface WorkflowProgressProps {
 
 export function WorkflowProgress({ status, className }: WorkflowProgressProps) {
   const currentIndex = getStepIndex(status);
+  const isMobile = useIsMobile();
   
   if (currentIndex === -1) return null; // Don't show for terminal statuses
 
-  return (
+  const content = (
     <div className={cn('flex items-center gap-0.5 w-full', className)}>
       {WORKFLOW_STEPS.map((step, index) => {
         const isCompleted = index < currentIndex;
         const isCurrent = index === currentIndex;
         const isFuture = index > currentIndex;
 
+        const dot = (
+          <div className={cn(
+            'shrink-0 rounded-full flex items-center justify-center transition-all',
+            isCompleted && 'h-5 w-5 bg-primary',
+            isCurrent && 'h-6 w-6 bg-primary ring-2 ring-primary/20',
+            isFuture && 'h-4 w-4 bg-border',
+          )}>
+            {isCompleted && <CheckCircle2 className="h-3.5 w-3.5 text-primary-foreground" />}
+            {isCurrent && <div className="h-2.5 w-2.5 bg-primary-foreground rounded-full" />}
+          </div>
+        );
+
         return (
           <div key={step.label} className="flex items-center flex-1 min-w-0">
-            {/* Step indicator */}
             <div className="flex flex-col items-center gap-0.5 flex-1 min-w-0">
               <div className="flex items-center w-full">
-                {/* Left connector */}
                 {index > 0 && (
                   <div className={cn(
                     'h-[2px] flex-1',
                     isCompleted || isCurrent ? 'bg-primary' : 'bg-border'
                   )} />
                 )}
-                {/* Dot */}
-                <div className={cn(
-                  'shrink-0 rounded-full flex items-center justify-center transition-all',
-                  isCompleted && 'h-4 w-4 bg-primary',
-                  isCurrent && 'h-5 w-5 bg-primary ring-2 ring-primary/20',
-                  isFuture && 'h-3 w-3 bg-border',
-                )}>
-                  {isCompleted && <CheckCircle2 className="h-3 w-3 text-primary-foreground" />}
-                  {isCurrent && <div className="h-2 w-2 bg-primary-foreground rounded-full" />}
-                </div>
-                {/* Right connector */}
+                {isMobile ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>{dot}</TooltipTrigger>
+                    <TooltipContent side="bottom" className="text-xs">{step.label}</TooltipContent>
+                  </Tooltip>
+                ) : dot}
                 {index < WORKFLOW_STEPS.length - 1 && (
                   <div className={cn(
                     'h-[2px] flex-1',
@@ -72,17 +78,21 @@ export function WorkflowProgress({ status, className }: WorkflowProgressProps) {
                   )} />
                 )}
               </div>
-              <span className={cn(
-                'text-[10px] leading-tight text-center truncate w-full',
-                isCurrent ? 'text-primary font-semibold' : 'text-muted-foreground',
-                isCompleted && 'text-primary/70'
-              )}>
-                {step.label}
-              </span>
+              {!isMobile && (
+                <span className={cn(
+                  'text-[10px] leading-tight text-center truncate w-full',
+                  isCurrent ? 'text-primary font-semibold' : 'text-muted-foreground',
+                  isCompleted && 'text-primary/70'
+                )}>
+                  {step.label}
+                </span>
+              )}
             </div>
           </div>
         );
       })}
     </div>
   );
+
+  return isMobile ? <TooltipProvider>{content}</TooltipProvider> : content;
 }

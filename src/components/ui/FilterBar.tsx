@@ -265,6 +265,8 @@ export function FilterBar({
                 />
               ))}
             </div>
+            </div>
+          </div>
           </div>
         </div>
       )}
