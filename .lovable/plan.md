@@ -1,59 +1,26 @@
 
 
-# Plano: Trocar Logo + Eliminar Loading Duplo
+# Mostrar badge Projuris no card do solicitante
 
-## Diagnóstico
+## Problema
+O backoffice atribui `numero_projuris` à solicitação, mas o badge só aparece no Backoffice. No card do solicitante (`SolicitacaoCard.tsx`), não há indicação visual do número Projuris.
 
-Dois problemas distintos:
+## Solução
+Adicionar um badge "Projuris: {numero}" no `SolicitacaoCard.tsx`, logo após o badge do Fluig, usando o mesmo padrão visual mas com cor roxa para diferenciar.
 
-**1. Logo desatualizada** — Precisa trocar para a nova versão enviada.
+### Arquivo: `src/components/ui/SolicitacaoCard.tsx`
 
-**2. Três shells separados causam remontagem do layout:**
+Após a linha 139 (badge Fluig), adicionar:
 
-```text
-Atual (App.tsx):
-  <Route element={<ProtectedShell />}>           ← Shell A (monta AppLayout)
-    Dashboard, MinhasSolicitacoes, etc.
-  </Route>
-  <Route element={<ProtectedShell requireBackoffice />}>  ← Shell B (OUTRO AppLayout)
-    Backoffice, DashboardSLA, etc.
-  </Route>
-  <Route element={<ProtectedShell requireAdmin />}>       ← Shell C (OUTRO AppLayout)
-    Admin
-  </Route>
+```tsx
+{(sol as any).numero_projuris && (
+  <Badge variant="outline" className="text-xs bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800">
+    Projuris: {(sol as any).numero_projuris}
+  </Badge>
+)}
 ```
 
-Ao navegar de Dashboard (Shell A) para Backoffice (Shell B), o React desmonta o Shell A inteiro (incluindo header/logo/menu) e monta o Shell B do zero. Isso causa o efeito de "carregar duas vezes" — primeiro o loading do auth no novo shell, depois o loading dos dados da página.
+Usa `(sol as any)` porque `numero_projuris` existe na tabela `solicitacoes` e é retornado nas queries, mas não está no tipo `Solicitacao` do TypeScript (mesmo padrão já usado em MinhasSolicitacoes).
 
-## Alterações
-
-### 1. Trocar logo
-Copiar `user-uploads://logo-mega-removebg-preview-2.png` para `src/assets/logos/logo-mega.png`. Todas as referências já apontam para esse arquivo.
-
-### 2. Unificar em um único Shell (`src/App.tsx`)
-Usar **um único** `<ProtectedShell>` para todas as rotas protegidas. Cheques de permissão (backoffice/admin) movidos para componentes wrapper inline nas rotas individuais:
-
-```text
-Depois:
-  <Route element={<ProtectedShell />}>     ← UM ÚNICO Shell (AppLayout monta 1 vez)
-    Dashboard
-    MinhasSolicitacoes
-    Backoffice         ← permissão checada internamente
-    Admin              ← permissão checada internamente
-    DashboardSLA       ← permissão checada internamente
-    etc.
-  </Route>
-```
-
-Criar um componente `<RequireRole>` que checa permissão e redireciona se não autorizado, sem mostrar loading (auth já foi verificado pelo shell pai).
-
-### 3. Loading mais leve no ProtectedShell
-Ao invés da tela cheia com logo + spinner (que compete visualmente com o Suspense), usar apenas um spinner discreto centralizado. A logo já está no header do AppLayout — não precisa repetir no loading.
-
-## Arquivos alterados
-
-| Arquivo | Alteração |
-|---------|-----------|
-| `src/assets/logos/logo-mega.png` | Substituir pela nova logo |
-| `src/App.tsx` | Unificar 3 shells em 1, criar RequireRole, loading simplificado |
+**1 arquivo, 5 linhas adicionadas.**
 
