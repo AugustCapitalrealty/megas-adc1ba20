@@ -112,7 +112,7 @@ export function OCDetalhesModal({ open, onOpenChange, solicitacaoId, protocolo, 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[85vh]">
+      <DialogContent className="max-w-5xl w-[95vw] max-h-[90vh]">
         <DialogHeader>
           <div className="flex items-center justify-between gap-4">
             <DialogTitle className="flex items-center gap-2">

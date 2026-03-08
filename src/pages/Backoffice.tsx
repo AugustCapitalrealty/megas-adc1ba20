@@ -2917,7 +2917,7 @@ export default function Backoffice() {
 
       {/* Edit Projuris Modal */}
       <Dialog open={editProjurisOpen} onOpenChange={setEditProjurisOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg w-[80vw]">
           <DialogHeader>
             <DialogTitle>Editar Número Projuris</DialogTitle>
             <DialogDescription>
