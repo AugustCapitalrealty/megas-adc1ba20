@@ -2290,8 +2290,8 @@ export default function Backoffice() {
 
                 {/* Datas */}
                 <div className="text-sm text-muted-foreground">
-                  <p>Criado em: {format(new Date(detalhes.solicitacao.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
-                  <p>Atualizado em: {format(new Date(detalhes.solicitacao.updated_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
+                  <p>Criado em: {formatBR(detalhes.solicitacao.created_at, "dd/MM/yyyy 'às' HH:mm")}</p>
+                  <p>Atualizado em: {formatBR(detalhes.solicitacao.updated_at, "dd/MM/yyyy 'às' HH:mm")}</p>
                 </div>
               </div>
               </TooltipProvider>
