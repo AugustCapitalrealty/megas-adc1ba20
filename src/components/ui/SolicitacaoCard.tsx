@@ -5,6 +5,7 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { Badge } from '@/components/ui/badge';
 import { ExpandableDescription } from '@/components/ExpandableDescription';
 import { CorrectionDeadlineBadge } from '@/components/CorrectionDeadlineBadge';
+import { TimeInStatusBadge } from '@/components/TimeInStatusBadge';
 import { WorkflowProgress } from '@/components/WorkflowProgress';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { 
