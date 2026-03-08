@@ -269,7 +269,7 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
   }
 
   const dataLancamentoFormatted = status.data_lancamento 
-    ? format(new Date(status.data_lancamento), "dd/MM/yyyy", { locale: ptBR })
+    ? formatBR(status.data_lancamento, "dd/MM/yyyy")
     : null;
 
   // Calculate days with current responsible - use ultima_movimentacao instead of data_lancamento

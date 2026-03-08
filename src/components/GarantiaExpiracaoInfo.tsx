@@ -32,7 +32,7 @@ function GarantiaStatusLine({
     <div className="flex items-center justify-between gap-2 flex-wrap">
       <span className="text-muted-foreground text-sm">{label} expira em:</span>
       <div className="flex items-center gap-2">
-        <span className="text-sm font-medium">{format(dataExpiracao, 'dd/MM/yyyy')}</span>
+        <span className="text-sm font-medium">{formatBR(dataExpiracao, 'dd/MM/yyyy')}</span>
         {expirada ? (
           <Badge variant="destructive" className="gap-1">
             <AlertTriangle className="h-3 w-3" />

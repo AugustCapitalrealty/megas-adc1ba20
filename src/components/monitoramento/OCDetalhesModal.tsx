@@ -200,7 +200,7 @@ export function OCDetalhesModal({ open, onOpenChange, solicitacaoId, protocolo }
                       </div>
                       <div>
                         <p className="text-muted-foreground text-xs">Criado em</p>
-                        <p className="font-medium">{format(new Date(detalhes.solicitacao.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</p>
+                        <p className="font-medium">{formatBR(detalhes.solicitacao.created_at, 'dd/MM/yyyy HH:mm')}</p>
                       </div>
                     </div>
                     <div>

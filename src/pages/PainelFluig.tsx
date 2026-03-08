@@ -491,7 +491,7 @@ export default function PainelFluig() {
     refetch();
   };
 
-  const currentMonthName = format(new Date(), 'MMMM', { locale: ptBR });
+  const currentMonthName = formatBR(new Date(), 'MMMM');
 
   return (
     <>

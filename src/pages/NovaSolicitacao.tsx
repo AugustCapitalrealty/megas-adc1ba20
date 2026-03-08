@@ -1898,7 +1898,7 @@ export default function NovaSolicitacao() {
                       {dataFim && (
                         <div className="flex justify-between py-2 border-b">
                           <span className="text-muted-foreground">Data de Término</span>
-                          <span>{new Date(dataFim).toLocaleDateString('pt-BR')}</span>
+                          <span>{new Date(dataFim).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</span>
                         </div>
                       )}
                       <div className="flex justify-between py-2 border-b">

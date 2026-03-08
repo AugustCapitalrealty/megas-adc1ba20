@@ -246,7 +246,7 @@ export function useEficienciaDashboard(filters: EficienciaFilters) {
   const weeklyAverages: WeeklyAverage[] = Array.from(weeklyMap.entries())
     .map(([key, val]) => ({
       week: key,
-      weekLabel: format(new Date(key), 'dd/MM'),
+      weekLabel: formatBR(new Date(key), 'dd/MM'),
       avg: Math.round((val.sum / val.count) * 10) / 10,
       year: val.year,
     }))
