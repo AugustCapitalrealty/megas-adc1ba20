@@ -235,7 +235,7 @@ export function useEficienciaDashboard(filters: EficienciaFilters) {
   entries.forEach(e => {
     const date = new Date(e.data_oc);
     const weekStart = startOfWeek(date, { weekStartsOn: 1 });
-    const key = format(weekStart, 'yyyy-MM-dd');
+    const key = formatBR(weekStart, 'yyyy-MM-dd');
     const year = date.getFullYear();
     const existing = weeklyMap.get(key) || { sum: 0, count: 0, year };
     existing.sum += e.lead_time_dias;
