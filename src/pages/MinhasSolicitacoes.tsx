@@ -741,6 +741,7 @@ export default function MinhasSolicitacoes() {
 
       setEditOpen(false);
       setAnexosParaExcluir([]);
+      setEditMensagemCorrecao('');
       fetchSolicitacoes();
     } catch (error: any) {
       toast({
