@@ -123,7 +123,8 @@ export default function MinhasSolicitacoes() {
   
   // Supplier swap state
   const [trocarFornecedor, setTrocarFornecedor] = useState(false);
-  const [novoFornecedorEscolhido, setNovoFornecedorEscolhido] = useState<'concorrente1' | 'concorrente2' | null>(null);
+  const [novoFornecedorEscolhido, setNovoFornecedorEscolhido] = useState<'concorrente1' | 'concorrente2' | 'novo' | null>(null);
+  const [novoFornecedorBuscado, setNovoFornecedorBuscado] = useState<Fornecedor | null>(null);
   const [fornecedoresInfo, setFornecedoresInfo] = useState<{
     principal: { id: string; cnpj: string; razao_social: string | null } | null;
     concorrente1: { id: string; cnpj: string; razao_social: string | null } | null;
