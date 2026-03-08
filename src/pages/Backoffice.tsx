@@ -87,8 +87,8 @@ import {
   Phone,
   Plus
 } from 'lucide-react';
-import { format, differenceInDays, differenceInHours } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { differenceInDays, differenceInHours } from 'date-fns';
+import { formatBR } from '@/lib/date-utils';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
