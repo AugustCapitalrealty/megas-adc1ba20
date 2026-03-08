@@ -104,7 +104,7 @@ const formatEventoDescricao = (evento: FluigEventoProcessado): { texto: string; 
   // Aprovações (campos *_conclusao)
   if (campo_alterado.includes('conclusao') && valor_novo) {
     const label = CAMPO_APROVACAO_LABELS[campo_alterado] || campo_alterado;
-    const dataFormatada = format(new Date(valor_novo), "dd/MM/yyyy HH:mm", { locale: ptBR });
+    const dataFormatada = formatBR(valor_novo, "dd/MM/yyyy HH:mm");
     return {
       texto: `${label} aprovado em ${dataFormatada}`,
       tipo: 'aprovacao'
