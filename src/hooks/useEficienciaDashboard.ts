@@ -389,7 +389,7 @@ export function useEficienciaDashboard(filters: EficienciaFilters) {
       });
     },
     enabled: !!user?.id,
-    staleTime: 30_000,
+    staleTime: 120_000,
   });
 
   // Top Fornecedores
