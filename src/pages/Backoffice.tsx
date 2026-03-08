@@ -1559,7 +1559,13 @@ export default function Backoffice() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setExpandedId(expandedId === sol.id ? null : sol.id)}
+                onClick={() => {
+                  const newExpanded = expandedId === sol.id ? null : sol.id;
+                  setExpandedId(newExpanded);
+                  if (newExpanded && backofficeUnreadMap[sol.id]) {
+                    backofficeMarkAsRead(sol.id);
+                  }
+                }}
                 className="ml-auto"
               >
                 <History className="h-4 w-4 mr-1" />
