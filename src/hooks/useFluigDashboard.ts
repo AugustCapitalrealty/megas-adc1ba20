@@ -88,27 +88,13 @@ export function useFluigFilterOptions() {
       setLoading(true);
       
       try {
-        const { data } = await supabase
-          .from('fluig_painel_snapshot')
-          .select('empreendimento, situacao, localizacao, responsavel_atual');
+        const { data, error } = await supabase.rpc('get_fluig_filter_options');
         
-        if (data) {
-          const empSet = new Set<string>();
-          const sitSet = new Set<string>();
-          const locSet = new Set<string>();
-          const respSet = new Set<string>();
-          
-          data.forEach(row => {
-            if (row.empreendimento) empSet.add(row.empreendimento);
-            if (row.situacao) sitSet.add(row.situacao);
-            if (row.localizacao) locSet.add(row.localizacao);
-            if (row.responsavel_atual) respSet.add(row.responsavel_atual);
-          });
-          
-          setEmpreendimentos(Array.from(empSet).sort());
-          setSituacoes(Array.from(sitSet).sort());
-          setLocalizacoes(Array.from(locSet).sort());
-          setResponsaveis(Array.from(respSet).sort());
+        if (!error && data) {
+          setEmpreendimentos((data.empreendimentos || []).sort());
+          setSituacoes((data.situacoes || []).sort());
+          setLocalizacoes((data.localizacoes || []).sort());
+          setResponsaveis((data.responsaveis || []).sort());
         }
       } catch (err) {
         console.error('Error fetching filter options:', err);
