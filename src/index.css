@@ -204,7 +204,7 @@
   }
 
   .status-aguardando-info {
-    @apply bg-warning/10 text-warning;
+    @apply bg-warning/15 text-[hsl(38,92%,38%)] dark:text-[hsl(38,92%,65%)];
   }
 
   .status-aguardando-nf {

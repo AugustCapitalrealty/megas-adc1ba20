@@ -2068,7 +2068,11 @@ export default function NovaSolicitacao() {
             </Button>
           ) : (
             <Button onClick={goNext} disabled={!canProceed()} className="shadow-lg sm:shadow-none">
-              Próximo <ArrowRight className="h-4 w-4 ml-2" />
+              {currentIndex < visibleSteps.length - 2
+                ? `Ir para ${visibleSteps[currentIndex + 1]?.label}`
+                : 'Próximo'
+              }
+              <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
           )}
         </div>
