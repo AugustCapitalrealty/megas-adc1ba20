@@ -434,6 +434,7 @@ export default function MinhasSolicitacoes() {
     setAnexosParaExcluir([]);
     setTrocarFornecedor(false);
     setNovoFornecedorEscolhido(null);
+    setNovoFornecedorBuscado(null);
     setFornecedoresInfo({ principal: null, concorrente1: null, concorrente2: null });
     setEditOpen(true);
     
