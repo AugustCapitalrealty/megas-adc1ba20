@@ -92,8 +92,8 @@ function AppRoutes() {
 }
 
 const App = () => (
-  <ErrorBoundary>
-    <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+  <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+    <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <Toaster />
@@ -108,8 +108,8 @@ const App = () => (
           </BrowserRouter>
         </TooltipProvider>
       </QueryClientProvider>
-    </ThemeProvider>
-  </ErrorBoundary>
+    </ErrorBoundary>
+  </ThemeProvider>
 );
 
 export default App;
