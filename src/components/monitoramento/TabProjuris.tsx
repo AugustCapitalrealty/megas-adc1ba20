@@ -145,7 +145,8 @@ export function TabProjuris() {
   const filteredRows = useMemo(() => {
     return rows.filter(row => {
       if (filterEmpreendimento !== 'todos' && row.empreendimento !== filterEmpreendimento) return false;
-      if (filterStatus !== 'todos' && row.status !== filterStatus) return false;
+      if (filterStatus === 'ativos' && ['concluida', 'cancelado'].includes(row.status)) return false;
+      if (filterStatus !== 'todos' && filterStatus !== 'ativos' && row.status !== filterStatus) return false;
       if (filterEtapa !== 'todos') {
         if (filterEtapa === 'sem_etapa' && row.etapa_atual !== null) return false;
         if (filterEtapa !== 'sem_etapa' && row.etapa_atual !== filterEtapa) return false;
