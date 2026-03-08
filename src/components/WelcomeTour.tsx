@@ -105,7 +105,7 @@ export function WelcomeTour({ userName, onComplete }: WelcomeTourProps) {
     if (user?.id) {
       await supabase
         .from('profiles')
-        .update({ onboarding_completed_at: new Date().toISOString() } as any)
+        .update({ onboarding_completed_at: new Date().toISOString() })
         .eq('id', user.id);
     }
   };
