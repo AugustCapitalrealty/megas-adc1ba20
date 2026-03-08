@@ -235,6 +235,7 @@ export default function MinhasSolicitacoes() {
 
       // Fetch all documents in 2 batch queries
       let docsMap: Record<string, any> = {};
+      let docsArrayMap: Record<string, any[]> = {};
       let fiscaisMap: Record<string, DocumentoFiscal[]> = {};
 
       const [docsResult, fiscaisResult] = await Promise.all([
@@ -247,6 +248,8 @@ export default function MinhasSolicitacoes() {
       if (docsResult.data) {
         for (const doc of docsResult.data) {
           if (!docsMap[doc.solicitacao_id]) docsMap[doc.solicitacao_id] = doc;
+          if (!docsArrayMap[doc.solicitacao_id]) docsArrayMap[doc.solicitacao_id] = [];
+          docsArrayMap[doc.solicitacao_id].push(doc);
         }
       }
       if (fiscaisResult.data) {
