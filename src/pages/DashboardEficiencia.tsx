@@ -735,6 +735,7 @@ export default function DashboardEficiencia() {
                   </TableBody>
                 </Table>
               </div>
+              </ScrollArea>
             )}
           </CardContent>
         </Card>

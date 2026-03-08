@@ -456,7 +456,7 @@ export default function MonitoramentoOC() {
             </CardContent>
           </Card>
           <Card className="border-l-4 border-l-orange-500">
-            <CardContent className="pt-6">
+            <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-lg bg-orange-500/10">
                   <XCircle className="h-5 w-5 text-orange-600" />

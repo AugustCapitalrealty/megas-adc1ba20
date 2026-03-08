@@ -248,13 +248,7 @@ export default function DashboardSLA() {
 
         {/* Filters */}
         <Card>
-          <CardHeader className="pb-4">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Filter className="h-4 w-4" />
-              Filtros
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
               <div className="space-y-2">
                 <Label className="flex items-center gap-1.5 text-xs">
