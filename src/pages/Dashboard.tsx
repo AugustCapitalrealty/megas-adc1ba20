@@ -32,6 +32,7 @@ export default function Dashboard() {
   const { user, profile, isBackofficeOrAdmin } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const track = useTrackEvent();
   const { empreendimentos } = useUserEmpreendimentos(user?.id);
   
   const canToggle = isBackofficeOrAdmin || empreendimentos.length > 0;
