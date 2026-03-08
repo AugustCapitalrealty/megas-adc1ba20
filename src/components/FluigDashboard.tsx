@@ -21,6 +21,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useFluigSnapshots, useFluigFilterOptions, type FluigFilters } from '@/hooks/useFluigDashboard';
 import { calculateDuration } from '@/lib/fluig-parser';
 import { formatBR } from '@/lib/date-utils';
+import { ptBR } from 'date-fns/locale';
 import {
   Search,
   Loader2,
