@@ -54,37 +54,55 @@ export function RateioCard({ tipoRateio, rateioValores, protocolo, valorTotal }:
 
     // Orange header band
     doc.setFillColor(...orange);
-    doc.rect(0, 0, pageWidth, 54, 'F');
+    doc.rect(0, 0, pageWidth, 70, 'F');
 
     // Logo
     try {
       const logoBase64 = await loadImageAsBase64(logoMega);
-      doc.addImage(logoBase64, 'PNG', 14, 7, 40, 40);
+      doc.addImage(logoBase64, 'PNG', 14, 8, 50, 50);
     } catch { /* proceed without logo */ }
 
     // Title on orange band
     doc.setTextColor(...white);
-    doc.setFontSize(20);
+    doc.setFontSize(22);
     doc.setFont('helvetica', 'bold');
-    doc.text('Demonstrativo de Rateio', 62, 22);
-    doc.setFontSize(12);
+    doc.text('Demonstrativo de Rateio', 72, 28);
+    doc.setFontSize(13);
     doc.setFont('helvetica', 'normal');
-    doc.text('entre Condomínios', 62, 32);
+    doc.text('entre Condomínios', 72, 40);
+
+    // Separator line
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.3);
+    doc.line(14, 76, pageWidth - 14, 76);
 
     // Info section below header
-    let yPos = 68;
-    doc.setTextColor(...grey);
+    let yPos = 84;
     doc.setFontSize(10);
     if (protocolo) {
-      doc.text(`Protocolo: ${protocolo}`, 14, yPos);
-      yPos += 6;
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...grey);
+      doc.text('Protocolo: ', 14, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.text(protocolo, 14 + doc.getTextWidth('Protocolo: '), yPos);
+      yPos += 8;
     }
-    doc.text(`Tipo de Rateio: ${tipoRateio === 'por_unidade' ? 'Por Unidade (igual)' : 'Por Área (proporcional)'}`, 14, yPos);
-    yPos += 6;
-    doc.text(`Valor Total: ${(valorTotal ?? total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`, 14, yPos);
-    yPos += 6;
-    doc.text(`Data: ${new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`, 14, yPos);
-    yPos += 10;
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...grey);
+    doc.text('Tipo de Rateio: ', 14, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.text(tipoRateio === 'por_unidade' ? 'Por Unidade (igual)' : 'Por Área (proporcional)', 14 + doc.getTextWidth('Tipo de Rateio: '), yPos);
+    yPos += 8;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Valor Total: ', 14, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.text((valorTotal ?? total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 14 + doc.getTextWidth('Valor Total: '), yPos);
+    yPos += 8;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Data: ', 14, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.text(new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }), 14 + doc.getTextWidth('Data: '), yPos);
+    yPos += 12;
 
     // Table
     autoTable(doc, {
