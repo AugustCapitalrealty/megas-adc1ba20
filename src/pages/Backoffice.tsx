@@ -1992,8 +1992,7 @@ export default function Backoffice() {
                 )}
 
                 {/* Acompanhamento Jurídico - quando instrumento não é OC */}
-                {(detalhes.solicitacao as any).instrumento_juridico && 
-                 (detalhes.solicitacao as any).instrumento_juridico !== 'oc' && (
+                {(((detalhes.solicitacao as any).instrumento_juridico && (detalhes.solicitacao as any).instrumento_juridico !== 'oc') || (detalhes.solicitacao as any).numero_projuris) && (
                   <JuridicoTracker solicitacaoId={detalhes.solicitacao.id} />
                 )}
 
