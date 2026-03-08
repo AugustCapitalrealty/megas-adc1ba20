@@ -1620,8 +1620,6 @@ export default function Backoffice() {
           <h1 className="text-2xl font-bold">Backoffice</h1>
           <p className="text-muted-foreground">Gerencie as solicitações de AC e OC</p>
         </div>
-    const hasCancelamentoPendente = cancelamentoPendenteIds.has(sol.id);
-
         {/* Filters */}
         <Card>
           <CardContent className="pt-4">
