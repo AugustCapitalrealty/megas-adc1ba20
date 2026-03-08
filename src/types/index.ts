@@ -33,6 +33,7 @@ export interface Profile {
   approved: boolean;
   created_at: string;
   updated_at: string;
+  onboarding_completed_at: string | null;
 }
 
 export interface UserRole {
