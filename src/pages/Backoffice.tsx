@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-// Tabs removed - using FilterBar groups instead
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
@@ -72,7 +71,6 @@ import {
   CheckCheck,
   Upload,
   HelpCircle,
-  UserCheck,
   Filter,
   ChevronDown,
   ChevronUp,
@@ -104,6 +102,8 @@ import { exportToExcel } from '@/lib/export-utils';
 import { SolicitacaoMessages } from '@/components/SolicitacaoMessages';
 import { UnreadMessageBanner } from '@/components/UnreadMessageBanner';
 import { useUnreadMessages } from '@/hooks/useUnreadMessages';
+import { BackofficeKPIs } from '@/components/backoffice/BackofficeKPIs';
+import { BackofficeSolicitacaoCard, type CardCallbacks } from '@/components/backoffice/BackofficeSolicitacaoCard';
 
 // PDF validation types
 interface PdfValidationResult {
