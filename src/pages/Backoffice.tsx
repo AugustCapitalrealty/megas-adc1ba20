@@ -86,7 +86,6 @@ import {
   Shield,
   Mail,
   Phone,
-  Plus
   Plus,
   MessageSquare
 } from 'lucide-react';
