@@ -1,74 +1,59 @@
 
 
-# Melhorias do Backoffice — Plano Abrangente
+# Plano: Trocar Logo + Eliminar Loading Duplo
 
 ## Diagnóstico
 
-Após análise detalhada do `Backoffice.tsx` (3106 linhas), identifiquei 4 frentes de melhoria prioritárias:
+Dois problemas distintos:
 
-## 1. KPIs Resumo no Topo (Dashboard rápido)
+**1. Logo desatualizada** — Precisa trocar para a nova versão enviada.
 
-Adicionar uma barra de KPIs no topo do Backoffice, antes dos filtros, com 4-5 cards compactos:
+**2. Três shells separados causam remontagem do layout:**
 
 ```text
-┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
-│  Na Fila: 12 │ │ Em Proc: 8   │ │ OC Emitida: 5│ │ NF Pendente:3│ │ SLA Crítico:2│
-│  ▲ +3 hoje   │ │  ⏱ Avg 2.1d  │ │  ✓ 4 hoje    │ │  ⚠ baixa     │ │  🔴 > 5 dias │
-└──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
+Atual (App.tsx):
+  <Route element={<ProtectedShell />}>           ← Shell A (monta AppLayout)
+    Dashboard, MinhasSolicitacoes, etc.
+  </Route>
+  <Route element={<ProtectedShell requireBackoffice />}>  ← Shell B (OUTRO AppLayout)
+    Backoffice, DashboardSLA, etc.
+  </Route>
+  <Route element={<ProtectedShell requireAdmin />}>       ← Shell C (OUTRO AppLayout)
+    Admin
+  </Route>
 ```
 
-- Calculados a partir dos dados já carregados (`groupedSolicitacoes`)
-- Inclui tempo médio de processamento e contagem de SLA críticos
-- Clicável para navegar direto à aba correspondente
+Ao navegar de Dashboard (Shell A) para Backoffice (Shell B), o React desmonta o Shell A inteiro (incluindo header/logo/menu) e monta o Shell B do zero. Isso causa o efeito de "carregar duas vezes" — primeiro o loading do auth no novo shell, depois o loading dos dados da página.
 
-**Arquivo:** `src/pages/Backoffice.tsx` (novo componente `BackofficeKPIs` inline ou extraído)
+## Alterações
 
-## 2. UX dos Cards — Simplificação Visual
+### 1. Trocar logo
+Copiar `user-uploads://logo-mega-removebg-preview-2.png` para `src/assets/logos/logo-mega.png`. Todas as referências já apontam para esse arquivo.
 
-Os cards atuais têm até 5 banners empilhados + muitos botões. Melhorias:
+### 2. Unificar em um único Shell (`src/App.tsx`)
+Usar **um único** `<ProtectedShell>` para todas as rotas protegidas. Cheques de permissão (backoffice/admin) movidos para componentes wrapper inline nas rotas individuais:
 
-- **Condensar banners**: unificar "Minha Responsabilidade" + "Aguardando OC" em uma única linha com chips
-- **Ações primárias como dropdown**: manter apenas 1 botão primário + "Ver Detalhes" visíveis; agrupar ações secundárias (Transferir, Solicitar Ajuste, Rejeitar) em um menu dropdown `⋮`
-- **Informações do fornecedor**: mover contato do fornecedor para dentro do expand (não precisa estar sempre visível)
+```text
+Depois:
+  <Route element={<ProtectedShell />}>     ← UM ÚNICO Shell (AppLayout monta 1 vez)
+    Dashboard
+    MinhasSolicitacoes
+    Backoffice         ← permissão checada internamente
+    Admin              ← permissão checada internamente
+    DashboardSLA       ← permissão checada internamente
+    etc.
+  </Route>
+```
 
-**Arquivo:** `src/pages/Backoffice.tsx` (refatorar `SolicitacaoCard`)
+Criar um componente `<RequireRole>` que checa permissão e redireciona se não autorizado, sem mostrar loading (auth já foi verificado pelo shell pai).
 
-## 3. Ações em Lote (Batch Actions)
+### 3. Loading mais leve no ProtectedShell
+Ao invés da tela cheia com logo + spinner (que compete visualmente com o Suspense), usar apenas um spinner discreto centralizado. A logo já está no header do AppLayout — não precisa repetir no loading.
 
-Quando múltiplas solicitações estão selecionadas, permitir ações em lote:
+## Arquivos alterados
 
-- Checkbox de seleção em cada card
-- Barra flutuante no rodapé: "3 selecionadas — [Assumir Todas] [Exportar]"
-- Inicialmente suportar: Assumir em lote e Exportar selecionadas
-
-**Arquivo:** `src/pages/Backoffice.tsx` (novo state `selectedIds`, componente `BatchActionBar`)
-
-## 4. Performance — Extrair Componentes
-
-O arquivo de 3100 linhas causa re-renders desnecessários:
-
-- **Extrair** `BackofficeKPIs` → `src/components/backoffice/BackofficeKPIs.tsx`
-- **Extrair** `BackofficeSolicitacaoCard` → `src/components/backoffice/BackofficeSolicitacaoCard.tsx` (hoje está inline, recriado a cada render)
-- **Extrair** modais → `src/components/backoffice/BackofficeModals.tsx` (OC registro, NF/Boleto, Fluig, Projuris)
-- **Memoizar** o card com `React.memo` + comparação por `sol.id + sol.status + sol.updated_at`
-
-**Resultado esperado:** `Backoffice.tsx` reduzido de ~3100 para ~800 linhas
-
-## Ordem de Execução
-
-Dado o volume, sugiro implementar em 2 etapas:
-
-**Etapa 1** (esta implementação):
-1. KPIs no topo
-2. Extrair `BackofficeSolicitacaoCard` para arquivo próprio com `React.memo`
-3. Condensar banners e agrupar ações secundárias em dropdown
-
-**Etapa 2** (próxima):
-4. Extrair modais para arquivo próprio
-5. Batch actions com barra flutuante
-
-**Arquivos criados/alterados:**
-- `src/components/backoffice/BackofficeKPIs.tsx` (novo)
-- `src/components/backoffice/BackofficeSolicitacaoCard.tsx` (novo)
-- `src/pages/Backoffice.tsx` (refatorado, ~1500 linhas a menos)
+| Arquivo | Alteração |
+|---------|-----------|
+| `src/assets/logos/logo-mega.png` | Substituir pela nova logo |
+| `src/App.tsx` | Unificar 3 shells em 1, criar RequireRole, loading simplificado |
 
