@@ -1289,23 +1289,32 @@ export default function MinhasSolicitacoes() {
     return (
       <>
         {/* Download OC/AC if available */}
-        {sol.documentoEmitido && (
-          <div className="p-3 bg-success/10 border border-success/20 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FileCheck className="h-5 w-5 text-success" />
-                <span className="font-medium">
-                  {sol.documentoEmitido.tipo_documento} #{sol.documentoEmitido.numero_documento}
-                </span>
+        {sol.documentosEmitidos && sol.documentosEmitidos.length > 0 && (
+          <div className="space-y-2">
+            {sol.documentosEmitidos.map((doc: DocumentoEmitido) => (
+              <div key={doc.id} className="p-3 bg-success/10 border border-success/20 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileCheck className="h-5 w-5 text-success" />
+                    <span className="font-medium">
+                      {doc.tipo_documento} #{doc.numero_documento}
+                    </span>
+                  </div>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => downloadDocumentoEmitido(doc)}
+                  >
+                    <Download className="h-4 w-4 mr-1" /> Baixar
+                  </Button>
+                </div>
+                {doc.observacao && (
+                  <p className="text-sm text-muted-foreground mt-2 pl-7">
+                    <span className="font-medium text-foreground">Obs:</span> {doc.observacao}
+                  </p>
+                )}
               </div>
-              <Button 
-                size="sm" 
-                variant="outline"
-                onClick={() => downloadDocumentoEmitido(sol.documentoEmitido!)}
-              >
-                <Download className="h-4 w-4 mr-1" /> Baixar
-              </Button>
-            </div>
+            ))}
           </div>
         )}
 
