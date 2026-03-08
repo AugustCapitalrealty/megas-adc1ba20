@@ -5,9 +5,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { EMPREENDIMENTO_LABELS, type Empreendimento } from '@/types';
-import { Loader2, Save, Building2 } from 'lucide-react';
+import { Loader2, Save, Building2, FileDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import logoMega from '@/assets/logos/logo-mega.png';
 
 interface RateioConfig {
   id: string;
