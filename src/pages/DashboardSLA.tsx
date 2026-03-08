@@ -130,7 +130,7 @@ export default function DashboardSLA() {
             </CardContent>
           </Card>
 
-          <Card className="border-emerald-200 bg-emerald-50/30">
+          <Card className="border-emerald-200 bg-emerald-50/30 dark:border-emerald-800 dark:bg-emerald-950/30">
             <CardHeader className="pb-2">
               <CardDescription className="flex items-center gap-2 text-emerald-700">
                 <CheckCircle2 className="h-4 w-4" />
