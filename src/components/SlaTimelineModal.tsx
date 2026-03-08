@@ -10,8 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { formatBR } from '@/lib/date-utils';
 import { 
   Play, 
   RotateCcw, 
