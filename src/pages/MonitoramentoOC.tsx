@@ -617,6 +617,8 @@ export default function MonitoramentoOC() {
               )}
             </TableBody>
           </Table>
+          </div>
+          </ScrollArea>
         </Card>
           </TabsContent>
 
