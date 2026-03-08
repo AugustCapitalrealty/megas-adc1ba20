@@ -1975,7 +1975,7 @@ export default function MinhasSolicitacoes() {
             </div>
           )}
           {/* Mandatory correction message */}
-          {editingSolicitacao?.status === 'pendente_correcao' && (
+          {editingSolicitacao?.status && ['pendente_correcao', 'aguardando_informacoes'].includes(editingSolicitacao.status) && (
             <div className="space-y-2 border-t pt-4">
               <Label htmlFor="mensagem-correcao" className="text-sm font-medium">
                 O que foi corrigido? <span className="text-destructive">*</span>
