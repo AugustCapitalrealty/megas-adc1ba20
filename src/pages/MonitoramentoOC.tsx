@@ -574,23 +574,41 @@ export default function MonitoramentoOC() {
                       <TableCell>{getAgingBadge(row.dias_aberto, !!row.ultima_justificativa, row.data_oc)}</TableCell>
                       <TableCell>{getStatusBadge(monitorStatus, row.previsao_nf)}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-1 flex-wrap" onClick={(e) => e.stopPropagation()}>
                           {monitorStatus === 'pendente_justificativa' && (
-                            <Button variant="outline" size="sm" className="text-amber-600 border-amber-300" onClick={() => setJustificativaRow(row)}>
-                              <AlertCircle className="h-4 w-4 mr-1" />
-                              Justificar
-                            </Button>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button variant="outline" size="icon" className="h-8 w-8 text-amber-600 border-amber-300" onClick={() => setJustificativaRow(row)}>
+                                    <AlertCircle className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Justificar</TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           )}
                           {row.status !== 'cancelado' && !row.cancelamento_pendente && (
-                            <Button variant="outline" size="sm" className="text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => setCancelRow(row)}>
-                              <XOctagon className="h-4 w-4 mr-1" />
-                              Cancelar
-                            </Button>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button variant="outline" size="icon" className="h-8 w-8 text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => setCancelRow(row)}>
+                                    <XOctagon className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Cancelar</TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           )}
-                          <Button variant="ghost" size="sm" onClick={() => openHistory(row)}>
-                            <History className="h-4 w-4 mr-1" />
-                            Histórico
-                          </Button>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openHistory(row)}>
+                                  <History className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Histórico</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         </div>
                       </TableCell>
                     </TableRow>
