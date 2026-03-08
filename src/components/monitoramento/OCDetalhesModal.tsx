@@ -8,8 +8,7 @@ import { useSolicitacaoDetalhes } from '@/hooks/useSolicitacaoDetalhes';
 import { SolicitacaoTimeline } from '@/components/SolicitacaoTimeline';
 import { EMPREENDIMENTO_LABELS, type Empreendimento } from '@/types';
 import { Loader2, FileText, DollarSign, Building2, User, FileCheck, Receipt } from 'lucide-react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { formatBR } from '@/lib/date-utils';
 
 interface OCDetalhesModalProps {
   open: boolean;
