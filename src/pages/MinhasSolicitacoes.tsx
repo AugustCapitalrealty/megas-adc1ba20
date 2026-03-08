@@ -38,6 +38,7 @@ import { MultiFileUpload, type UploadedFile } from '@/components/FileUpload';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { TransferOwnershipModal } from '@/components/TransferOwnershipModal';
+import { SupplierSearch } from '@/components/SupplierSearch';
 import { UnreadMessageBanner } from '@/components/UnreadMessageBanner';
 import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 
@@ -122,7 +123,8 @@ export default function MinhasSolicitacoes() {
   
   // Supplier swap state
   const [trocarFornecedor, setTrocarFornecedor] = useState(false);
-  const [novoFornecedorEscolhido, setNovoFornecedorEscolhido] = useState<'concorrente1' | 'concorrente2' | null>(null);
+  const [novoFornecedorEscolhido, setNovoFornecedorEscolhido] = useState<'concorrente1' | 'concorrente2' | 'novo' | null>(null);
+  const [novoFornecedorBuscado, setNovoFornecedorBuscado] = useState<Fornecedor | null>(null);
   const [fornecedoresInfo, setFornecedoresInfo] = useState<{
     principal: { id: string; cnpj: string; razao_social: string | null } | null;
     concorrente1: { id: string; cnpj: string; razao_social: string | null } | null;
@@ -432,6 +434,7 @@ export default function MinhasSolicitacoes() {
     setAnexosParaExcluir([]);
     setTrocarFornecedor(false);
     setNovoFornecedorEscolhido(null);
+    setNovoFornecedorBuscado(null);
     setFornecedoresInfo({ principal: null, concorrente1: null, concorrente2: null });
     setEditOpen(true);
     
@@ -707,6 +710,14 @@ export default function MinhasSolicitacoes() {
         } else if (novoFornecedorEscolhido === 'concorrente2' && fornecedoresInfo.concorrente2) {
           updateData.fornecedor_id = editingSolicitacao.fornecedor_concorrente_2_id;
           updateData.fornecedor_concorrente_2_id = antigoFornecedorId;
+        } else if (novoFornecedorEscolhido === 'novo' && novoFornecedorBuscado) {
+          updateData.fornecedor_id = novoFornecedorBuscado.id;
+          // Move old supplier to an empty competitor slot if available
+          if (!editingSolicitacao.fornecedor_concorrente_1_id) {
+            updateData.fornecedor_concorrente_1_id = antigoFornecedorId;
+          } else if (!editingSolicitacao.fornecedor_concorrente_2_id) {
+            updateData.fornecedor_concorrente_2_id = antigoFornecedorId;
+          }
         }
       }
       
@@ -1794,11 +1805,56 @@ export default function MinhasSolicitacoes() {
                             </div>
                           </div>
                         )}
+                        {/* New supplier search option */}
+                        <div 
+                          className={cn(
+                            "p-3 rounded-md border cursor-pointer transition-colors",
+                            novoFornecedorEscolhido === 'novo' 
+                              ? "border-primary bg-primary/5" 
+                              : "hover:bg-muted/50"
+                          )}
+                          onClick={() => setNovoFornecedorEscolhido('novo')}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className={cn(
+                              "w-4 h-4 rounded-full border-2 flex items-center justify-center",
+                              novoFornecedorEscolhido === 'novo' ? "border-primary" : "border-muted-foreground"
+                            )}>
+                              {novoFornecedorEscolhido === 'novo' && (
+                                <div className="w-2 h-2 rounded-full bg-primary" />
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-medium text-sm">Buscar outro fornecedor</p>
+                              <p className="text-xs text-muted-foreground">
+                                Pesquisar por CNPJ ou razão social
+                              </p>
+                            </div>
+                            <Badge variant="outline" className="text-xs">Novo</Badge>
+                          </div>
+                        </div>
                       </div>
+
+                      {novoFornecedorEscolhido === 'novo' && (
+                        <div className="mt-3">
+                          <SupplierSearch
+                            label="Novo fornecedor"
+                            required
+                            value={novoFornecedorBuscado}
+                            onChange={setNovoFornecedorBuscado}
+                            compact
+                          />
+                        </div>
+                      )}
                       
-                      {novoFornecedorEscolhido && (
+                      {novoFornecedorEscolhido && novoFornecedorEscolhido !== 'novo' && (
                         <p className="text-xs text-muted-foreground mt-2">
                           ℹ️ O fornecedor atual será movido para a posição de concorrente
+                        </p>
+                      )}
+                      {novoFornecedorEscolhido === 'novo' && novoFornecedorBuscado && (
+                        <p className="text-xs text-muted-foreground mt-2">
+                          ℹ️ O fornecedor atual será movido para a posição de concorrente (se houver vaga)
                         </p>
                       )}
                     </div>
