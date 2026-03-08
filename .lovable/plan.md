@@ -1,59 +1,25 @@
 
 
-# Plano: Trocar Logo + Eliminar Loading Duplo
+# Diferenciar visualmente Fluig de Cadastro vs Fluig de Aprovação
 
-## Diagnóstico
+## Problema
+Os dois tipos de Fluig (cadastro contábil e aprovação da solicitação) usam ícones, cores e labels muito similares na timeline e nos badges, causando confusão.
 
-Dois problemas distintos:
+## Solução
 
-**1. Logo desatualizada** — Precisa trocar para a nova versão enviada.
+### 1. Timeline (`src/components/SolicitacaoTimeline.tsx`)
+- **Fluig de cadastro** (`fluig_cadastro_adicionado`): trocar ícone para `Package` e cor para `bg-emerald-600` (verde). Label para backoffice: "Fluig de cadastro contábil adicionado". Label para solicitante: "Cadastro solicitado à Contabilidade" (mantém).
+- **Fluig de aprovação** (`numero_fluig_adicionado`, `numero_fluig_alterado`): manter ícone `RefreshCw` e cor `bg-blue-500`. Alterar label para "Fluig de **aprovação** adicionado/alterado" para explicitar a diferença.
+- Badge de contexto no timeline: cadastro usa badge verde "Cadastro Contábil"; aprovação usa badge azul "Fluig Aprovação".
 
-**2. Três shells separados causam remontagem do layout:**
+### 2. Modais do Backoffice (`src/pages/Backoffice.tsx`)
+- **Modal Fluig de Cadastro**: adicionar um alerta/banner no topo: "Este é o Fluig do cadastro contábil (separado do Fluig de aprovação)." com ícone `Package` e fundo verde claro.
+- **Modal Fluig/RM (aprovação)**: adicionar banner: "Este é o Fluig/RM de aprovação da solicitação." com ícone `RefreshCw` e fundo azul claro.
+- Títulos dos modais mais explícitos: "Fluig — Cadastro Contábil" vs "Fluig/RM — Aprovação"
 
-```text
-Atual (App.tsx):
-  <Route element={<ProtectedShell />}>           ← Shell A (monta AppLayout)
-    Dashboard, MinhasSolicitacoes, etc.
-  </Route>
-  <Route element={<ProtectedShell requireBackoffice />}>  ← Shell B (OUTRO AppLayout)
-    Backoffice, DashboardSLA, etc.
-  </Route>
-  <Route element={<ProtectedShell requireAdmin />}>       ← Shell C (OUTRO AppLayout)
-    Admin
-  </Route>
-```
+### 3. Badges nos cards do Backoffice (`src/pages/Backoffice.tsx`)
+- Onde o badge de Fluig de aprovação aparece (banner "AGUARDANDO EMISSÃO DE OC"), manter azul.
+- O botão/badge de "Solicitar Cadastro" / "Cadastro OK" já usa verde — manter consistente.
 
-Ao navegar de Dashboard (Shell A) para Backoffice (Shell B), o React desmonta o Shell A inteiro (incluindo header/logo/menu) e monta o Shell B do zero. Isso causa o efeito de "carregar duas vezes" — primeiro o loading do auth no novo shell, depois o loading dos dados da página.
-
-## Alterações
-
-### 1. Trocar logo
-Copiar `user-uploads://logo-mega-removebg-preview-2.png` para `src/assets/logos/logo-mega.png`. Todas as referências já apontam para esse arquivo.
-
-### 2. Unificar em um único Shell (`src/App.tsx`)
-Usar **um único** `<ProtectedShell>` para todas as rotas protegidas. Cheques de permissão (backoffice/admin) movidos para componentes wrapper inline nas rotas individuais:
-
-```text
-Depois:
-  <Route element={<ProtectedShell />}>     ← UM ÚNICO Shell (AppLayout monta 1 vez)
-    Dashboard
-    MinhasSolicitacoes
-    Backoffice         ← permissão checada internamente
-    Admin              ← permissão checada internamente
-    DashboardSLA       ← permissão checada internamente
-    etc.
-  </Route>
-```
-
-Criar um componente `<RequireRole>` que checa permissão e redireciona se não autorizado, sem mostrar loading (auth já foi verificado pelo shell pai).
-
-### 3. Loading mais leve no ProtectedShell
-Ao invés da tela cheia com logo + spinner (que compete visualmente com o Suspense), usar apenas um spinner discreto centralizado. A logo já está no header do AppLayout — não precisa repetir no loading.
-
-## Arquivos alterados
-
-| Arquivo | Alteração |
-|---------|-----------|
-| `src/assets/logos/logo-mega.png` | Substituir pela nova logo |
-| `src/App.tsx` | Unificar 3 shells em 1, criar RequireRole, loading simplificado |
+**2 arquivos alterados:** `SolicitacaoTimeline.tsx`, `Backoffice.tsx`. Mudanças puramente visuais (cores, ícones, labels).
 
