@@ -85,10 +85,10 @@ function GarantiaProgressBar({ detalhe }: { detalhe: GarantiaDetalhe }) {
   const percentUsado = total > 0 ? Math.min(100, ((total - restantes) / total) * 100) : 100;
 
   const barColor = detalhe.expirada || detalhe.diasRestantes <= 0
-    ? 'bg-red-500'
+    ? 'bg-destructive'
     : detalhe.diasRestantes <= 30
-      ? 'bg-amber-500'
-      : 'bg-green-500';
+      ? 'bg-warning'
+      : 'bg-success';
 
   return (
     <div className="w-full">
