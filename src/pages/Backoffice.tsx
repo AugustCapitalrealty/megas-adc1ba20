@@ -2994,6 +2994,40 @@ export default function Backoffice() {
         </DialogContent>
       </Dialog>
 
+      {/* Edit Fluig Cadastro Modal */}
+      <Dialog open={editFluigCadastroOpen} onOpenChange={setEditFluigCadastroOpen}>
+        <DialogContent className="max-w-lg w-[80vw]">
+          <DialogHeader>
+            <DialogTitle>Fluig de Cadastro Contábil</DialogTitle>
+            <DialogDescription>
+              Informe o número do Fluig para a solicitação de cadastro (separado do Fluig de aprovação)
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <Label htmlFor="edit-fluig-cadastro">Número do Fluig de Cadastro</Label>
+            <Input
+              id="edit-fluig-cadastro"
+              placeholder="Ex: CHM-2024-001234"
+              value={editFluigCadastroValue}
+              onChange={(e) => setEditFluigCadastroValue(e.target.value)}
+            />
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditFluigCadastroOpen(false)} disabled={editFluigCadastroLoading}>
+              Pular
+            </Button>
+            <Button onClick={handleSaveFluigCadastro} disabled={editFluigCadastroLoading || !editFluigCadastroValue.trim()}>
+              {editFluigCadastroLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Edit Projuris Modal */}
       <Dialog open={editProjurisOpen} onOpenChange={setEditProjurisOpen}>
         <DialogContent className="max-w-lg w-[80vw]">

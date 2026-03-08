@@ -29,6 +29,7 @@ import { useAuth } from '@/hooks/useAuth';
 interface SolicitacaoTimelineProps {
   solicitacaoId: string;
   showMessages?: boolean;
+  isBackoffice?: boolean;
 }
 
 interface Message {
