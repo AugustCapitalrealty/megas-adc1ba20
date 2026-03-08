@@ -292,6 +292,7 @@ export default function Backoffice() {
         duration: 5000,
       });
       setProcessedToday(prev => prev + 1);
+      track('action_taken', { action: actionType, status: newStatus, protocolo: selectedSolicitacao?.protocolo });
       fetchSolicitacoes();
       setActionOpen(false);
       setDetailsOpen(false);
