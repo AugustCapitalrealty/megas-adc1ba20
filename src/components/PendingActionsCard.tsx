@@ -118,7 +118,7 @@ export function PendingActionsCard({
       "border-2 border-destructive/30 bg-gradient-to-r from-destructive/5 to-background shadow-md",
       className
     )}>
-      <CardContent className="p-4">
+      <CardContent className="p-3 sm:p-4">
         <div className="flex items-start gap-3">
           {/* Alert Icon */}
           <div className="flex-shrink-0 p-2 rounded-full bg-destructive/10">
