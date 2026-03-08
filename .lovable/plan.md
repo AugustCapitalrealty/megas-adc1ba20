@@ -1,59 +1,45 @@
 
 
-# Plano: Trocar Logo + Eliminar Loading Duplo
+# Melhorias Completas no PDF de Rateio
 
-## Diagnóstico
+## Alterações em `src/lib/rateio-pdf.ts`
 
-Dois problemas distintos:
+### 1. Cards de resumo — melhorar labels e valores
+- Label "DATA" → "DATA DO RATEIO"
+- Valor do tipo: "Por Área (proporcional)" → "Proporcional por área"
+- Aumentar fonte do valor de 13pt para 14pt
 
-**1. Logo desatualizada** — Precisa trocar para a nova versão enviada.
+### 2. Total destacado — separar valor e área em duas linhas
+- Linha 1: "TOTAL RATEADO" + valor (bold, 14pt)
+- Linha 2: "Área considerada" + valor da área (8pt, cinza)
+- Aumentar altura da faixa de 16 para 20mm
 
-**2. Três shells separados causam remontagem do layout:**
+### 3. Tabela — já está boa, micro ajustes
+- Coluna "Valor Rateado" com `fontStyle: 'bold'` + cor laranja escuro (já tem bold, adicionar cor de destaque)
+- Manter zebra rows e alinhamento à direita (já implementado)
 
-```text
-Atual (App.tsx):
-  <Route element={<ProtectedShell />}>           ← Shell A (monta AppLayout)
-    Dashboard, MinhasSolicitacoes, etc.
-  </Route>
-  <Route element={<ProtectedShell requireBackoffice />}>  ← Shell B (OUTRO AppLayout)
-    Backoffice, DashboardSLA, etc.
-  </Route>
-  <Route element={<ProtectedShell requireAdmin />}>       ← Shell C (OUTRO AppLayout)
-    Admin
-  </Route>
-```
+### 4. Gráfico — adicionar subtítulo
+- Após "Distribuição do Rateio", adicionar subtítulo: "Participação proporcional por condomínio"
+- Barras já estão boas
 
-Ao navegar de Dashboard (Shell A) para Backoffice (Shell B), o React desmonta o Shell A inteiro (incluindo header/logo/menu) e monta o Shell B do zero. Isso causa o efeito de "carregar duas vezes" — primeiro o loading do auth no novo shell, depois o loading dos dados da página.
+### 5. Valor por m² — novo bloco após total
+- Calcular `valorTotal / totalArea` e exibir: "Valor rateado por m²: R$ X,XXXX / m²"
+- Posicionar logo abaixo da faixa de total
 
-## Alterações
+### 6. Metodologia — melhorar redação
+- Texto: "O valor total foi distribuído proporcionalmente à área construída de cada condomínio em relação à área total considerada."
+- Adicionar: "Quantidade de condomínios considerados: X"
 
-### 1. Trocar logo
-Copiar `user-uploads://logo-mega-removebg-preview-2.png` para `src/assets/logos/logo-mega.png`. Todas as referências já apontam para esse arquivo.
+### 7. Conferência matemática — novo bloco
+- Após metodologia, adicionar:
+  - "Conferência"
+  - "Soma das participações: 100,00%"
+  - "Soma dos valores rateados: R$ XX.XXX,XX"
 
-### 2. Unificar em um único Shell (`src/App.tsx`)
-Usar **um único** `<ProtectedShell>` para todas as rotas protegidas. Cheques de permissão (backoffice/admin) movidos para componentes wrapper inline nas rotas individuais:
+### 8. Rodapé — adicionar hora
+- `formatDate()` → `formatDateTime()` com hora: "08/03/2026 às 18:40"
+- Mover "Documento confidencial" para última linha
+- "Protocolo" → "Protocolo: TESTE-0000"
 
-```text
-Depois:
-  <Route element={<ProtectedShell />}>     ← UM ÚNICO Shell (AppLayout monta 1 vez)
-    Dashboard
-    MinhasSolicitacoes
-    Backoffice         ← permissão checada internamente
-    Admin              ← permissão checada internamente
-    DashboardSLA       ← permissão checada internamente
-    etc.
-  </Route>
-```
-
-Criar um componente `<RequireRole>` que checa permissão e redireciona se não autorizado, sem mostrar loading (auth já foi verificado pelo shell pai).
-
-### 3. Loading mais leve no ProtectedShell
-Ao invés da tela cheia com logo + spinner (que compete visualmente com o Suspense), usar apenas um spinner discreto centralizado. A logo já está no header do AppLayout — não precisa repetir no loading.
-
-## Arquivos alterados
-
-| Arquivo | Alteração |
-|---------|-----------|
-| `src/assets/logos/logo-mega.png` | Substituir pela nova logo |
-| `src/App.tsx` | Unificar 3 shells em 1, criar RequireRole, loading simplificado |
+**1 arquivo editado.**
 
