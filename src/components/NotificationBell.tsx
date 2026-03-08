@@ -24,9 +24,17 @@ interface Notification {
   lida: boolean;
   solicitacao_id: string | null;
   created_at: string;
+  prioridade: string;
 }
 
 const MAX_VISIBLE = 8;
+
+const PRIORITY_ORDER: Record<string, number> = {
+  critical: 0,
+  high: 1,
+  normal: 2,
+  low: 3,
+};
 
 export function NotificationBell() {
   const { user } = useAuth();
@@ -38,7 +46,7 @@ export function NotificationBell() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('notifications')
-        .select('id, tipo, titulo, mensagem, lida, solicitacao_id, created_at')
+        .select('id, tipo, titulo, mensagem, lida, solicitacao_id, created_at, prioridade')
         .eq('user_id', user!.id)
         .order('created_at', { ascending: false })
         .limit(20);
@@ -51,17 +59,28 @@ export function NotificationBell() {
   });
 
   const unreadCount = notifications.filter(n => !n.lida).length;
+  const hasCritical = notifications.some(n => !n.lida && n.prioridade === 'critical');
 
-  // Group notifications: actions first, then info
+  // Group by priority
   const grouped = useMemo(() => {
-    const actions = notifications.filter(n => n.tipo === 'action_required');
-    const info = notifications.filter(n => n.tipo !== 'action_required');
-    return { actions, info };
+    const sorted = [...notifications].sort((a, b) => {
+      const pa = PRIORITY_ORDER[a.prioridade] ?? 2;
+      const pb = PRIORITY_ORDER[b.prioridade] ?? 2;
+      if (pa !== pb) return pa - pb;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+
+    const urgent = sorted.filter(n => n.prioridade === 'critical' || n.prioridade === 'high');
+    const actions = sorted.filter(n => n.tipo === 'action_required' && n.prioridade !== 'critical' && n.prioridade !== 'high');
+    const info = sorted.filter(n => n.tipo !== 'action_required' && n.prioridade !== 'critical' && n.prioridade !== 'high');
+    return { urgent, actions, info };
   }, [notifications]);
 
-  const visibleActions = grouped.actions.slice(0, MAX_VISIBLE);
-  const visibleInfo = grouped.info.slice(0, MAX_VISIBLE - visibleActions.length);
-  const hasMore = notifications.length > visibleActions.length + visibleInfo.length;
+  const visibleUrgent = grouped.urgent.slice(0, MAX_VISIBLE);
+  const remaining = MAX_VISIBLE - visibleUrgent.length;
+  const visibleActions = grouped.actions.slice(0, Math.max(0, remaining));
+  const visibleInfo = grouped.info.slice(0, Math.max(0, remaining - visibleActions.length));
+  const hasMore = notifications.length > visibleUrgent.length + visibleActions.length + visibleInfo.length;
 
   // Realtime subscription
   useEffect(() => {
@@ -130,18 +149,28 @@ export function NotificationBell() {
     }
   }, [markAsRead, navigate]);
 
+  const getPriorityIndicator = (prioridade: string) => {
+    if (prioridade === 'critical') return 'border-l-2 border-l-destructive';
+    if (prioridade === 'high') return 'border-l-2 border-l-warning';
+    return '';
+  };
+
   const renderItem = (notification: Notification) => (
     <DropdownMenuItem
       key={notification.id}
       className={cn(
         'flex flex-col items-start p-3 cursor-pointer',
-        !notification.lida && 'bg-accent/50'
+        !notification.lida && 'bg-accent/50',
+        getPriorityIndicator(notification.prioridade)
       )}
       onClick={() => handleNotificationClick(notification)}
     >
       <div className="flex items-start gap-2 w-full">
         {!notification.lida && (
-          <span className="w-2 h-2 rounded-full bg-primary mt-1.5 flex-shrink-0" />
+          <span className={cn(
+            'w-2 h-2 rounded-full mt-1.5 flex-shrink-0',
+            notification.prioridade === 'critical' ? 'bg-destructive animate-pulse' : 'bg-primary'
+          )} />
         )}
         <div className="flex-1 min-w-0">
           <p className="font-medium text-sm">{notification.titulo}</p>
@@ -156,13 +185,30 @@ export function NotificationBell() {
     </DropdownMenuItem>
   );
 
+  const renderGroup = (label: string, items: Notification[], className?: string) => {
+    if (items.length === 0) return null;
+    return (
+      <>
+        <div className={cn('px-3 py-1.5 text-xs font-medium uppercase tracking-wider', className)}>
+          {label}
+        </div>
+        {items.map(renderItem)}
+      </>
+    );
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center">
+            <span className={cn(
+              'absolute -top-1 -right-1 h-5 w-5 rounded-full text-xs flex items-center justify-center',
+              hasCritical
+                ? 'bg-destructive text-destructive-foreground animate-pulse'
+                : 'bg-destructive text-destructive-foreground'
+            )}>
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
@@ -185,38 +231,21 @@ export function NotificationBell() {
           </div>
         ) : (
           <div className="max-h-80 overflow-y-auto">
-            {/* Action required group */}
-            {visibleActions.length > 0 && (
-              <>
-                <div className="px-3 py-1.5 text-xs font-medium text-destructive uppercase tracking-wider">
-                  Ações pendentes
-                </div>
-                {visibleActions.map(renderItem)}
-              </>
-            )}
+            {renderGroup('🔴 Urgente', visibleUrgent, 'text-destructive')}
             
-            {/* Info group */}
-            {visibleInfo.length > 0 && (
-              <>
-                {visibleActions.length > 0 && <DropdownMenuSeparator />}
-                <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Informativo
-                </div>
-                {visibleInfo.map(renderItem)}
-              </>
-            )}
+            {visibleActions.length > 0 && visibleUrgent.length > 0 && <DropdownMenuSeparator />}
+            {renderGroup('Ações pendentes', visibleActions, 'text-warning')}
+            
+            {visibleInfo.length > 0 && (visibleUrgent.length > 0 || visibleActions.length > 0) && <DropdownMenuSeparator />}
+            {renderGroup('Informativo', visibleInfo, 'text-muted-foreground')}
 
             {/* View all */}
-            {hasMore && (
-              <>
-                <DropdownMenuSeparator />
-                <div className="px-3 py-2 text-center">
-                  <Button variant="ghost" size="sm" className="text-xs w-full" onClick={() => navigate('/minhas-solicitacoes')}>
-                    Ver todas as notificações
-                  </Button>
-                </div>
-              </>
-            )}
+            <DropdownMenuSeparator />
+            <div className="px-3 py-2 text-center">
+              <Button variant="ghost" size="sm" className="text-xs w-full" onClick={() => navigate('/notificacoes')}>
+                Ver todas as notificações
+              </Button>
+            </div>
           </div>
         )}
       </DropdownMenuContent>

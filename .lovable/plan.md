@@ -1,96 +1,59 @@
 
 
-# Plano: Experiencia por Persona + Notificacoes Inteligentes + Onboarding Persistido + Central de Notificacoes
+# Plano: Trocar Logo + Eliminar Loading Duplo
 
-Quatro melhorias interligadas que transformam a experiencia de "tamanho unico" para uma UX adaptada por perfil.
+## Diagnóstico
 
----
+Dois problemas distintos:
 
-## 1. Navegacao e CTAs por Persona
+**1. Logo desatualizada** — Precisa trocar para a nova versão enviada.
 
-**Problema:** Solicitante ve links de Backoffice/Monitoramento/Garantias que nao usa. Backoffice ve "Nova Solicitacao" em destaque quando raramente cria.
+**2. Três shells separados causam remontagem do layout:**
 
-**Solucao:** Ajustar `AppLayout.tsx` e `Dashboard.tsx` com base no role do usuario.
+```text
+Atual (App.tsx):
+  <Route element={<ProtectedShell />}>           ← Shell A (monta AppLayout)
+    Dashboard, MinhasSolicitacoes, etc.
+  </Route>
+  <Route element={<ProtectedShell requireBackoffice />}>  ← Shell B (OUTRO AppLayout)
+    Backoffice, DashboardSLA, etc.
+  </Route>
+  <Route element={<ProtectedShell requireAdmin />}>       ← Shell C (OUTRO AppLayout)
+    Admin
+  </Route>
+```
 
-| Elemento | Solicitante | Backoffice | Admin |
-|----------|-------------|------------|-------|
-| CTA principal header | "Nova Solicitacao" | "Backoffice" (destaque) | "Admin" dropdown |
-| Nav items visiveis | Solicitacoes, Painel Fluig | + Backoffice, Monitoramento, Garantias | + Admin items |
-| Dashboard home | KPIs pessoais + acoes pendentes | KPIs gerais + fila de trabalho | KPIs gerais + metricas admin |
-| FAB mobile | Nova Solicitacao | Ir ao Backoffice | — |
+Ao navegar de Dashboard (Shell A) para Backoffice (Shell B), o React desmonta o Shell A inteiro (incluindo header/logo/menu) e monta o Shell B do zero. Isso causa o efeito de "carregar duas vezes" — primeiro o loading do auth no novo shell, depois o loading dos dados da página.
 
-**Arquivos:** `src/components/layout/AppLayout.tsx`, `src/pages/Dashboard.tsx`
+## Alterações
 
-**Logica:** Usar `effectiveRoles` do `useAuth` para determinar persona. Solicitante = sem role backoffice/admin. Backoffice = tem role backoffice. Admin = tem role admin. Manter toggle "Minhas/Geral" para backoffice que tambem cria solicitacoes.
+### 1. Trocar logo
+Copiar `user-uploads://logo-mega-removebg-preview-2.png` para `src/assets/logos/logo-mega.png`. Todas as referências já apontam para esse arquivo.
 
----
+### 2. Unificar em um único Shell (`src/App.tsx`)
+Usar **um único** `<ProtectedShell>` para todas as rotas protegidas. Cheques de permissão (backoffice/admin) movidos para componentes wrapper inline nas rotas individuais:
 
-## 2. Notificacoes com Prioridade e Governanca SLA
+```text
+Depois:
+  <Route element={<ProtectedShell />}>     ← UM ÚNICO Shell (AppLayout monta 1 vez)
+    Dashboard
+    MinhasSolicitacoes
+    Backoffice         ← permissão checada internamente
+    Admin              ← permissão checada internamente
+    DashboardSLA       ← permissão checada internamente
+    etc.
+  </Route>
+```
 
-**Problema:** Todas as notificacoes tem o mesmo peso visual. `action_required` misturado com `info` sem urgencia temporal.
+Criar um componente `<RequireRole>` que checa permissão e redireciona se não autorizado, sem mostrar loading (auth já foi verificado pelo shell pai).
 
-**Solucao:** Adicionar campo `prioridade` na tabela `notifications` e logica de urgencia baseada em SLA.
+### 3. Loading mais leve no ProtectedShell
+Ao invés da tela cheia com logo + spinner (que compete visualmente com o Suspense), usar apenas um spinner discreto centralizado. A logo já está no header do AppLayout — não precisa repetir no loading.
 
-**Migration SQL:**
-- Adicionar coluna `prioridade` (`critical`, `high`, `normal`, `low`) com default `normal`
-- Atualizar triggers existentes para definir prioridade:
-  - `pendente_correcao` → `critical` (requer acao do solicitante)
-  - `aguardando_nf_boleto` → `high`
-  - `oc_ac_emitida`, `liberado_fornecedor` → `high` (backoffice)
-  - `info`, `success` → `normal`
-- Criar funcao `update_notification_priority_by_age()` que pode ser chamada para escalar prioridade de notificacoes nao lidas apos X dias
+## Arquivos alterados
 
-**NotificationBell atualizado:**
-- Ordenar por prioridade (critical primeiro) depois por data
-- Badge vermelho pulsante para critical
-- Separar em 3 grupos: "Urgente", "Acoes pendentes", "Informativo"
-- Mostrar tempo restante para acoes com prazo (ex: "2 dias para corrigir")
-
-**Arquivos:** Migration SQL, `src/components/NotificationBell.tsx`, triggers `notify_status_change`, `notify_from_historico`
-
----
-
-## 3. Onboarding Persistido por Perfil
-
-**Problema:** `localStorage('onboarding_done')` — reseta em novo browser, ignora perfil.
-
-**Solucao:** 
-- Adicionar coluna `onboarding_completed_at` na tabela `profiles`
-- Criar steps diferentes por role:
-  - **Solicitante:** Criar solicitacao → Acompanhar status → Notificacoes
-  - **Backoffice:** Fila de trabalho → Analisar solicitacao → Emitir OC/AC → Painel Fluig
-  - **Admin:** Gerenciar usuarios → Dashboard SLA → Configurar rateio
-- `WelcomeTour` le do banco se `onboarding_completed_at` e null, salva no banco ao completar
-- Fallback: manter localStorage como cache para evitar flash
-
-**Arquivos:** Migration SQL (profiles), `src/components/WelcomeTour.tsx`, `src/pages/Dashboard.tsx`
-
----
-
-## 4. Central de Notificacoes (pagina dedicada)
-
-**Problema:** "Ver todas" no sino leva para `/minhas-solicitacoes`. Notificacoes antigas somem do dropdown (limit 20).
-
-**Solucao:** Criar pagina `/notificacoes` com:
-- Lista completa paginada (infinite scroll, 50 por pagina)
-- Filtros: Tipo (acao/info/sucesso/erro), Prioridade, Lida/Nao lida
-- Busca por texto no titulo/mensagem
-- Acoes em massa: marcar como lida, excluir
-- Link direto para solicitacao associada
-- Atualizar `NotificationBell` para linkar "Ver todas" → `/notificacoes`
-
-**Arquivos:** `src/pages/Notificacoes.tsx` (novo), `src/App.tsx` (rota), `src/components/NotificationBell.tsx`, `src/components/layout/AppLayout.tsx` (nav)
-
----
-
-## Resumo de Implementacao
-
-| Item | Tipo | Arquivos |
-|------|------|----------|
-| Navegacao por persona | Code | AppLayout, Dashboard |
-| Prioridade notificacoes | SQL + Code | Migration, NotificationBell, triggers |
-| Onboarding persistido | SQL + Code | Migration (profiles), WelcomeTour |
-| Central notificacoes | Code + Route | Notificacoes.tsx, App.tsx, NotificationBell |
-
-**2 migrations SQL** + **6 arquivos editados** + **1 pagina nova**
+| Arquivo | Alteração |
+|---------|-----------|
+| `src/assets/logos/logo-mega.png` | Substituir pela nova logo |
+| `src/App.tsx` | Unificar 3 shells em 1, criar RequireRole, loading simplificado |
 

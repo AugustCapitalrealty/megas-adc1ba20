@@ -30,6 +30,7 @@ import {
   WifiOff,
   Moon,
   Sun,
+  Bell,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -57,6 +58,9 @@ export function AppLayout() {
   const isOnline = useOnlineStatus();
   const { theme, setTheme } = useTheme();
 
+  // Determine persona
+  const isSolicitante = !isBackofficeOrAdmin && !isAdmin;
+
   const handleSignOut = async () => {
     await signOut();
     navigate('/login');
@@ -70,13 +74,14 @@ export function AppLayout() {
   const displayProfile = isImpersonating ? impersonatedProfile : profile;
   const displayEmail = isImpersonating ? impersonatedProfile?.email : user?.email;
 
-  // Main nav items
+  // Nav items filtered by persona
   const mainNavItems = [
     { href: '/minhas-solicitacoes', label: 'Solicitações', icon: FileText, show: true },
     { href: '/backoffice', label: 'Backoffice', icon: LayoutDashboard, show: isBackofficeOrAdmin },
     { href: '/painel-fluig', label: 'Painel Fluig', icon: BarChart3, show: true },
-    { href: '/garantias', label: 'Garantias', icon: Shield, show: true },
-    { href: '/monitoramento-oc', label: 'Monitoramento', icon: FileCheck, show: true },
+    { href: '/garantias', label: 'Garantias', icon: Shield, show: !isSolicitante },
+    { href: '/monitoramento-oc', label: 'Monitoramento', icon: FileCheck, show: !isSolicitante },
+    { href: '/notificacoes', label: 'Notificações', icon: Bell, show: isSolicitante },
   ];
 
   const adminItems = [
@@ -93,6 +98,13 @@ export function AppLayout() {
   const isActive = (href: string) => location.pathname === href;
   const isAdminActive = adminItems.some(item => location.pathname === item.href);
 
+  // Primary CTA per persona
+  const primaryCta = isSolicitante
+    ? { href: '/nova-solicitacao', label: 'Nova Solicitação', shortLabel: 'Nova', icon: Plus }
+    : isAdmin
+    ? null // Admin uses dropdown
+    : { href: '/backoffice', label: 'Backoffice', shortLabel: 'Backoffice', icon: LayoutDashboard };
+
   const prefetchRoute = useCallback((path: string) => {
     const routeMap: Record<string, () => Promise<any>> = {
       '/': () => import('@/pages/Dashboard'),
@@ -105,6 +117,7 @@ export function AppLayout() {
       '/admin/usuarios': () => import('@/pages/Admin'),
       '/admin/sla': () => import('@/pages/DashboardSLA'),
       '/admin/eficiencia': () => import('@/pages/DashboardEficiencia'),
+      '/notificacoes': () => import('@/pages/Notificacoes'),
     };
     routeMap[path]?.();
   }, []);
@@ -177,24 +190,71 @@ export function AppLayout() {
           {/* Desktop Navigation */}
           <TooltipProvider delayDuration={300}>
           <nav className="hidden md:flex items-center gap-1">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Link
-                  to="/nova-solicitacao"
-                  onMouseEnter={() => prefetchRoute('/nova-solicitacao')}
-                  className={cn(
-                    'flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-semibold transition-colors mr-1 shadow-md',
-                    isActive('/nova-solicitacao')
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-primary text-primary-foreground hover:bg-primary/90'
-                  )}
-                >
-                  <Plus className="h-4 w-4" />
-                  <span className="hidden xl:inline">Nova</span>
-                </Link>
-              </TooltipTrigger>
-              <TooltipContent className="xl:hidden">Nova Solicitação</TooltipContent>
-            </Tooltip>
+            {/* Primary CTA - persona-based */}
+            {primaryCta && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link
+                    to={primaryCta.href}
+                    onMouseEnter={() => prefetchRoute(primaryCta.href)}
+                    className={cn(
+                      'flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-semibold transition-colors mr-1 shadow-md',
+                      isActive(primaryCta.href)
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                    )}
+                  >
+                    <primaryCta.icon className="h-4 w-4" />
+                    <span className="hidden xl:inline">{primaryCta.shortLabel}</span>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent className="xl:hidden">{primaryCta.label}</TooltipContent>
+              </Tooltip>
+            )}
+
+            {/* For backoffice, also show Nova Solicitação as secondary */}
+            {!isSolicitante && !isAdmin && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link
+                    to="/nova-solicitacao"
+                    onMouseEnter={() => prefetchRoute('/nova-solicitacao')}
+                    className={cn(
+                      'flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                      isActive('/nova-solicitacao')
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-foreground/70 hover:text-primary hover:bg-accent'
+                    )}
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span className="hidden xl:inline">Nova</span>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent className="xl:hidden">Nova Solicitação</TooltipContent>
+              </Tooltip>
+            )}
+
+            {/* For admin, show Nova as a regular nav item */}
+            {isAdmin && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link
+                    to="/nova-solicitacao"
+                    onMouseEnter={() => prefetchRoute('/nova-solicitacao')}
+                    className={cn(
+                      'flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-semibold transition-colors mr-1 shadow-md',
+                      isActive('/nova-solicitacao')
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                    )}
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span className="hidden xl:inline">Nova</span>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent className="xl:hidden">Nova Solicitação</TooltipContent>
+              </Tooltip>
+            )}
 
             <NavLinks />
 

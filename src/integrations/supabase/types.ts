@@ -562,6 +562,7 @@ export type Database = {
           id: string
           lida: boolean
           mensagem: string
+          prioridade: string
           solicitacao_id: string | null
           tipo: string
           titulo: string
@@ -572,6 +573,7 @@ export type Database = {
           id?: string
           lida?: boolean
           mensagem: string
+          prioridade?: string
           solicitacao_id?: string | null
           tipo: string
           titulo: string
@@ -582,6 +584,7 @@ export type Database = {
           id?: string
           lida?: boolean
           mensagem?: string
+          prioridade?: string
           solicitacao_id?: string | null
           tipo?: string
           titulo?: string
@@ -656,6 +659,7 @@ export type Database = {
           email: string
           full_name: string | null
           id: string
+          onboarding_completed_at: string | null
           receber_notificacoes_email: boolean | null
           updated_at: string
         }
@@ -666,6 +670,7 @@ export type Database = {
           email: string
           full_name?: string | null
           id: string
+          onboarding_completed_at?: string | null
           receber_notificacoes_email?: boolean | null
           updated_at?: string
         }
@@ -676,6 +681,7 @@ export type Database = {
           email?: string
           full_name?: string | null
           id?: string
+          onboarding_completed_at?: string | null
           receber_notificacoes_email?: boolean | null
           updated_at?: string
         }
