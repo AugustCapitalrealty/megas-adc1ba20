@@ -149,7 +149,7 @@ export default function DashboardSLA() {
               {loading ? (
                 <Skeleton className="h-8 w-20" />
               ) : (
-                <div className="text-3xl font-bold text-emerald-700">
+                <div className="text-3xl font-bold text-emerald-700 dark:text-emerald-300">
                   {stats.noPrazo}
                   <span className="text-sm font-normal ml-2">
                     ({stats.total > 0 ? Math.round((stats.noPrazo / stats.total) * 100) : 0}%)
