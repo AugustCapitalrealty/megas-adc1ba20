@@ -2605,7 +2605,7 @@ export default function Backoffice() {
 
       {/* Registro OC Modal */}
       <Dialog open={registroOpen} onOpenChange={handleRegistroModalClose}>
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl w-[90vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{registroMode === 'add' ? 'Adicionar OC' : 'Registrar OC Emitida'}</DialogTitle>
             <DialogDescription>
@@ -2749,7 +2749,7 @@ export default function Backoffice() {
 
       {/* NF/Boleto View Modal */}
       <Dialog open={nfBoletoViewOpen} onOpenChange={setNfBoletoViewOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl w-[80vw]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Receipt className="h-5 w-5 text-cyan-600" />
@@ -2860,7 +2860,7 @@ export default function Backoffice() {
 
       {/* Edit Fluig/RM Modal */}
       <Dialog open={editFluigOpen} onOpenChange={setEditFluigOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg w-[80vw]">
           <DialogHeader>
             <DialogTitle>Editar Fluig/RM</DialogTitle>
             <DialogDescription>
@@ -2917,7 +2917,7 @@ export default function Backoffice() {
 
       {/* Edit Projuris Modal */}
       <Dialog open={editProjurisOpen} onOpenChange={setEditProjurisOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg w-[80vw]">
           <DialogHeader>
             <DialogTitle>Editar Número Projuris</DialogTitle>
             <DialogDescription>
