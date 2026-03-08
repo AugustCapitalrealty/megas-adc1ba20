@@ -38,6 +38,7 @@ import { MultiFileUpload, type UploadedFile } from '@/components/FileUpload';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { TransferOwnershipModal } from '@/components/TransferOwnershipModal';
+import { SupplierSearch } from '@/components/SupplierSearch';
 import { UnreadMessageBanner } from '@/components/UnreadMessageBanner';
 import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 
