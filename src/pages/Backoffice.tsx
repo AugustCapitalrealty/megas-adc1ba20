@@ -832,6 +832,11 @@ export default function Backoffice() {
           title: 'Cadastro Solicitado!',
           description: 'Solicitação enviada à Contabilidade.',
         });
+
+        // Abrir modal Fluig automaticamente se ainda não preenchido
+        if (!sol.numero_chamado_fluig) {
+          openEditFluig(sol);
+        }
       } else if (currentStatus === 'solicitado') {
         // Segunda vez: Cadastro concluído
         await supabase.from('historico_solicitacoes').insert({
