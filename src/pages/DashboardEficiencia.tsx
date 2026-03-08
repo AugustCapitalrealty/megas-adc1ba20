@@ -674,9 +674,10 @@ export default function DashboardEficiencia() {
                 Nenhuma solicitação encontrada para os filtros selecionados
               </div>
             ) : (
+              <ScrollArea className="max-h-[500px]">
               <div className="rounded-md border overflow-x-auto">
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 bg-card z-10">
                     <TableRow>
                       <TableHead>Protocolo</TableHead>
                       <TableHead>Data Abertura</TableHead>
