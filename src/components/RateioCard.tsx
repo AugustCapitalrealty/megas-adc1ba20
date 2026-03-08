@@ -54,25 +54,25 @@ export function RateioCard({ tipoRateio, rateioValores, protocolo, valorTotal }:
 
     // Orange header band
     doc.setFillColor(...orange);
-    doc.rect(0, 0, pageWidth, 40, 'F');
+    doc.rect(0, 0, pageWidth, 54, 'F');
 
     // Logo
     try {
       const logoBase64 = await loadImageAsBase64(logoMega);
-      doc.addImage(logoBase64, 'PNG', 14, 6, 28, 28);
+      doc.addImage(logoBase64, 'PNG', 14, 7, 40, 40);
     } catch { /* proceed without logo */ }
 
     // Title on orange band
     doc.setTextColor(...white);
-    doc.setFontSize(18);
+    doc.setFontSize(20);
     doc.setFont('helvetica', 'bold');
-    doc.text('Demonstrativo de Rateio', 50, 20);
-    doc.setFontSize(11);
+    doc.text('Demonstrativo de Rateio', 62, 22);
+    doc.setFontSize(12);
     doc.setFont('helvetica', 'normal');
-    doc.text('entre Condomínios', 50, 28);
+    doc.text('entre Condomínios', 62, 32);
 
     // Info section below header
-    let yPos = 52;
+    let yPos = 68;
     doc.setTextColor(...grey);
     doc.setFontSize(10);
     if (protocolo) {
