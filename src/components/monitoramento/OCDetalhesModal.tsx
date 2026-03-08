@@ -166,9 +166,9 @@ export function OCDetalhesModal({ open, onOpenChange, solicitacaoId, protocolo, 
               </Card>
               <Card>
                 <CardContent className="p-3">
-                  <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-muted-foreground" />
-                    <div>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <User className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0">
                       <p className="text-xs text-muted-foreground">Fornecedor</p>
                       <p className="text-sm font-semibold truncate">{detalhes.solicitacao.fornecedor_nome_fantasia || detalhes.solicitacao.fornecedor_razao || '—'}</p>
                     </div>
