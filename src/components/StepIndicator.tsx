@@ -1,4 +1,4 @@
-import { Check } from 'lucide-react';
+import { Check, Save } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export interface Step {
@@ -12,9 +12,17 @@ interface StepIndicatorProps {
   currentStepIndex: number;
   onStepClick?: (index: number) => void;
   className?: string;
+  showTimeEstimate?: boolean;
+  draftSaved?: boolean;
 }
 
-export function StepIndicator({ steps, currentStepIndex, onStepClick, className }: StepIndicatorProps) {
+const MINUTES_PER_STEP = 1.5;
+
+export function StepIndicator({ steps, currentStepIndex, onStepClick, className, showTimeEstimate = false, draftSaved }: StepIndicatorProps) {
+  const progressPercent = Math.round(((currentStepIndex + 1) / steps.length) * 100);
+  const remainingSteps = steps.length - currentStepIndex - 1;
+  const estimatedMinutes = Math.ceil(remainingSteps * MINUTES_PER_STEP);
+
   return (
     <div className={cn('w-full', className)}>
       {/* Mobile: Compact view */}
@@ -23,20 +31,57 @@ export function StepIndicator({ steps, currentStepIndex, onStepClick, className 
           <span className="text-sm font-medium text-primary">
             Passo {currentStepIndex + 1} de {steps.length}
           </span>
-          <span className="text-sm text-muted-foreground">
-            {steps[currentStepIndex]?.label}
-          </span>
+          <div className="flex items-center gap-2">
+            {draftSaved && (
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <Save className="h-3 w-3" /> Salvo
+              </span>
+            )}
+            <span className="text-sm text-muted-foreground">
+              {progressPercent}%
+            </span>
+          </div>
         </div>
         <div className="h-2 bg-muted rounded-full overflow-hidden">
           <div 
             className="h-full bg-primary transition-all duration-500 ease-out rounded-full"
-            style={{ width: `${((currentStepIndex + 1) / steps.length) * 100}%` }}
+            style={{ width: `${progressPercent}%` }}
           />
         </div>
+        {showTimeEstimate && remainingSteps > 0 && (
+          <p className="text-xs text-muted-foreground mt-1.5 text-center">
+            ≈ {estimatedMinutes} min restante{estimatedMinutes > 1 ? 's' : ''}
+          </p>
+        )}
       </div>
 
       {/* Desktop: Full stepper */}
       <div className="hidden sm:block">
+        {/* Progress summary bar */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-foreground">
+              {progressPercent}% concluído
+            </span>
+            {showTimeEstimate && remainingSteps > 0 && (
+              <span className="text-xs text-muted-foreground">
+                ≈ {estimatedMinutes} min restante{estimatedMinutes > 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+          {draftSaved && (
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <Save className="h-3 w-3" /> Rascunho salvo
+            </span>
+          )}
+        </div>
+        <div className="h-1.5 bg-muted rounded-full overflow-hidden mb-4">
+          <div 
+            className="h-full bg-primary transition-all duration-500 ease-out rounded-full"
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+
         <nav aria-label="Progress">
           <ol className="flex items-center">
             {steps.map((step, index) => {

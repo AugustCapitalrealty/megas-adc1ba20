@@ -741,6 +741,28 @@ export default function NovaSolicitacao() {
       return;
     }
 
+    // Check for duplicate solicitation (same fornecedor + empreendimento, open status)
+    if (fornecedor?.id && empreendimento) {
+      const { data: duplicates } = await supabase
+        .from('solicitacoes')
+        .select('protocolo, status')
+        .eq('fornecedor_id', fornecedor.id)
+        .eq('empreendimento', empreendimento as any)
+        .eq('user_id', user.id)
+        .not('status', 'in', '("concluida","cancelado","rejeitado")')
+        .limit(1);
+
+      if (duplicates && duplicates.length > 0) {
+        const confirmar = window.confirm(
+          `Você já tem uma solicitação aberta para este fornecedor neste empreendimento (Protocolo: ${duplicates[0].protocolo}). Deseja continuar mesmo assim?`
+        );
+        if (!confirmar) {
+          isSubmittingRef.current = false;
+          return;
+        }
+      }
+    }
+
     setSubmitting(true);
     try {
       // Validate session before proceeding
@@ -1013,6 +1035,8 @@ export default function NovaSolicitacao() {
               setCurrentStep(visibleSteps[index].id);
             }
           }}
+          showTimeEstimate
+          draftSaved={hasDraft}
         />
 
         <Card>

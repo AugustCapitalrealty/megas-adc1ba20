@@ -192,6 +192,9 @@ export default function Backoffice() {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 20;
 
+  // Processed today counter (#6 PM improvement)
+  const [processedToday, setProcessedToday] = useState(0);
+
   // Fetch details when opening details modal
   useEffect(() => {
     if (detailsOpen && selectedSolicitacao) {
@@ -284,7 +287,9 @@ export default function Backoffice() {
       toast({ 
         title: 'Status atualizado!',
         description: `Solicitação ${STATUS_LABELS[newStatus].toLowerCase()}`,
+        duration: 5000,
       });
+      setProcessedToday(prev => prev + 1);
       fetchSolicitacoes();
       setActionOpen(false);
       setDetailsOpen(false);
@@ -1685,9 +1690,17 @@ export default function Backoffice() {
     <>
       <div className="space-y-6 animate-fade-in">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold">Backoffice</h1>
-          <p className="text-muted-foreground">Gerencie as solicitações de AC e OC</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Backoffice</h1>
+            <p className="text-muted-foreground">Gerencie as solicitações de AC e OC</p>
+          </div>
+          {processedToday > 0 && (
+            <Badge variant="secondary" className="text-sm gap-1.5 px-3 py-1.5">
+              <CheckCircle className="h-3.5 w-3.5 text-primary" />
+              {processedToday} processada{processedToday > 1 ? 's' : ''} hoje
+            </Badge>
+          )}
         </div>
         {/* Filters */}
         <Card>

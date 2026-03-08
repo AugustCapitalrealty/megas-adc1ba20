@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -26,6 +27,7 @@ import {
   Settings,
   ChevronDown,
   FileCheck,
+  WifiOff,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -48,6 +50,7 @@ export function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const isOnline = useOnlineStatus();
 
   const handleSignOut = async () => {
     await signOut();
@@ -141,6 +144,14 @@ export function AppLayout() {
             <X className="h-3 w-3" />
             Sair
           </Button>
+        </div>
+      )}
+
+      {/* Offline Banner */}
+      {!isOnline && (
+        <div className="bg-destructive text-destructive-foreground px-4 py-2 flex items-center justify-center gap-2">
+          <WifiOff className="h-4 w-4" />
+          <span className="text-sm font-medium">Sem conexão com a internet. Verifique sua rede.</span>
         </div>
       )}
 
