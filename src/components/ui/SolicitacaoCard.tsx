@@ -111,6 +111,7 @@ export const SolicitacaoCard = memo(function SolicitacaoCard({
               </TooltipContent>
             </Tooltip>
             <StatusBadge status={sol.status} />
+            <TimeInStatusBadge updatedAt={sol.updated_at} status={sol.status} />
             <CorrectionDeadlineBadge 
               dataPendenteCorrecao={sol.data_pendente_correcao} 
               status={sol.status} 

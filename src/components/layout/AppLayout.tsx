@@ -202,6 +202,7 @@ export function AppLayout() {
 
           {/* Notifications & User Menu */}
           <div className="flex items-center gap-2">
+            <CommandPalette />
             <NotificationBell />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
