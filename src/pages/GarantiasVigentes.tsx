@@ -42,7 +42,7 @@ function KpiCard({ title, value, icon: Icon, variant, onClick }: {
       onClick={onClick}
     >
       <CardContent className="p-4 flex items-center gap-4">
-        <div className={`p-2 rounded-lg ${iconStyles[variant]} bg-white/60 dark:bg-black/20`}>
+        <div className={`p-2 rounded-lg ${iconStyles[variant]} bg-background/60 dark:bg-background/20`}>
           <Icon className="h-6 w-6" />
         </div>
         <div>
