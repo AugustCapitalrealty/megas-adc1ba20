@@ -1223,6 +1223,62 @@ export default function Backoffice() {
     return { diasDesdeAbertura, tempoDesdeAbertura, diasDesdeAprovacao, horasDesdeAprovacao, tempoDesdeAprovacao, atrasadoAnalise, atrasadoEmissao };
   };
 
+  // Batch selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkAssignLoading, setBulkAssignLoading] = useState(false);
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
+
+  // Check if all selected can be bulk-assigned (recebido or em_analise only)
+  const canBulkAssign = useMemo(() => {
+    if (selectedIds.size === 0) return false;
+    return [...selectedIds].every(id => {
+      const sol = solicitacoes.find(s => s.id === id);
+      return sol && ['recebido', 'em_analise'].includes(sol.status);
+    });
+  }, [selectedIds, solicitacoes]);
+
+  const handleBulkAssign = async () => {
+    if (!user) return;
+    setBulkAssignLoading(true);
+    try {
+      for (const id of selectedIds) {
+        const sol = solicitacoes.find(s => s.id === id);
+        if (!sol || !['recebido', 'em_analise'].includes(sol.status)) continue;
+        await supabase.from('solicitacoes').update({ status: 'aprovado' as any }).eq('id', id);
+        await supabase.from('historico_solicitacoes').insert({
+          solicitacao_id: id,
+          user_id: user.id,
+          acao: 'Assumido pelo backoffice',
+          status_anterior: sol.status,
+          status_novo: 'aprovado',
+        });
+      }
+      toast({ title: `${selectedIds.size} solicitações assumidas!`, duration: 5000 });
+      setSelectedIds(new Set());
+      fetchSolicitacoes();
+    } catch (error) {
+      console.error('Bulk assign error:', error);
+      toast({ variant: 'destructive', title: 'Erro ao assumir em lote' });
+    } finally {
+      setBulkAssignLoading(false);
+    }
+  };
+
+  const handleBulkExport = () => {
+    const items = solicitacoes.filter(s => selectedIds.has(s.id));
+    exportToExcel(items, 'backoffice_selecionadas');
+  };
+
   // Card callbacks (stable ref)
   const cardCallbacks = useMemo<CardCallbacks>(() => ({
     openDetails,
@@ -1251,7 +1307,8 @@ export default function Backoffice() {
       setNfBoletoViewOpen(true);
     },
     backofficeMarkAsRead,
-  }), [expandedId, backofficeUnreadMap, backofficeMarkAsRead]);
+    onToggleSelect: toggleSelect,
+  }), [expandedId, backofficeUnreadMap, backofficeMarkAsRead, toggleSelect]);
 
   // Reset page on tab change
   useEffect(() => {
