@@ -339,7 +339,7 @@ export function useEficienciaDashboard(filters: EficienciaFilters) {
       }));
     },
     enabled: entries.length > 0 && feriadosList.length > 0,
-    staleTime: 30_000,
+    staleTime: 120_000,
   });
 
   // Top Solicitantes
