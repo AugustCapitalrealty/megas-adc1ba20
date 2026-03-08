@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { format, subDays } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { subDays } from 'date-fns';
+import { formatBR } from '@/lib/date-utils';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
