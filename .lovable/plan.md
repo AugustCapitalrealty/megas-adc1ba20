@@ -1,59 +1,64 @@
 
 
-# Plano: Trocar Logo + Eliminar Loading Duplo
+# Redesign Completo do PDF de Rateio
 
-## Diagnóstico
+## Visão geral
+Reescrever a lógica de geração do PDF em ambos os arquivos (`RateioCard.tsx` e `RateioConfigTab.tsx`) para criar um relatório executivo com layout profissional em 7 seções.
 
-Dois problemas distintos:
-
-**1. Logo desatualizada** — Precisa trocar para a nova versão enviada.
-
-**2. Três shells separados causam remontagem do layout:**
+## Estrutura do novo PDF
 
 ```text
-Atual (App.tsx):
-  <Route element={<ProtectedShell />}>           ← Shell A (monta AppLayout)
-    Dashboard, MinhasSolicitacoes, etc.
-  </Route>
-  <Route element={<ProtectedShell requireBackoffice />}>  ← Shell B (OUTRO AppLayout)
-    Backoffice, DashboardSLA, etc.
-  </Route>
-  <Route element={<ProtectedShell requireAdmin />}>       ← Shell C (OUTRO AppLayout)
-    Admin
-  </Route>
+┌─────────────────────────────────────┐
+│  HEADER (faixa laranja + logo)      │
+│  Demonstrativo de Rateio            │
+├─────────────────────────────────────┤
+│  RESUMO (4 cards em grid 2x2)      │
+│  ┌──────────┐  ┌──────────────┐    │
+│  │VALOR TOTAL│  │TIPO DE RATEIO│    │
+│  │R$69.580   │  │Por Área      │    │
+│  └──────────┘  └──────────────┘    │
+│  ┌──────────┐  ┌──────────────┐    │
+│  │DATA      │  │PROTOCOLO     │    │
+│  │08/03/2026│  │TESTE-0000    │    │
+│  └──────────┘  └──────────────┘    │
+├─────────────────────────────────────┤
+│  TABELA DE RATEIO                   │
+│  (sem linha Total — separada)       │
+├─────────────────────────────────────┤
+│  TOTAL RATEADO (destaque isolado)   │
+│  R$ 69.580,00                       │
+├─────────────────────────────────────┤
+│  GRÁFICO (barras horizontais)       │
+│  Mega Curitiba  ████████ 47,65%     │
+│  Mega Itajaí    ███████  42,75%     │
+│  Mega Esteio    ██       9,60%      │
+├─────────────────────────────────────┤
+│  METODOLOGIA DO CÁLCULO             │
+│  Texto explicativo + área total     │
+├─────────────────────────────────────┤
+│  RODAPÉ institucional               │
+│  Capital Realty — Protocolo — Data  │
+└─────────────────────────────────────┘
 ```
 
-Ao navegar de Dashboard (Shell A) para Backoffice (Shell B), o React desmonta o Shell A inteiro (incluindo header/logo/menu) e monta o Shell B do zero. Isso causa o efeito de "carregar duas vezes" — primeiro o loading do auth no novo shell, depois o loading dos dados da página.
+## Alterações técnicas
 
-## Alterações
+### 1. Extrair função compartilhada `generateRateioPDF`
+Criar `src/lib/rateio-pdf.ts` com toda a lógica de geração, eliminando duplicação entre `RateioCard` e `RateioConfigTab`.
 
-### 1. Trocar logo
-Copiar `user-uploads://logo-mega-removebg-preview-2.png` para `src/assets/logos/logo-mega.png`. Todas as referências já apontam para esse arquivo.
+### 2. Seções do PDF (dentro de `rateio-pdf.ts`)
 
-### 2. Unificar em um único Shell (`src/App.tsx`)
-Usar **um único** `<ProtectedShell>` para todas as rotas protegidas. Cheques de permissão (backoffice/admin) movidos para componentes wrapper inline nas rotas individuais:
+- **Header**: mantém faixa laranja 70mm + logo 50x50 + título
+- **Cards de resumo**: 4 retângulos com borda cinza, label em cinza 8pt e valor em bold 14pt. Grid 2x2 com espaçamento
+- **Tabela**: `autoTable` com colunas alinhadas à direita (área, %, valor), coluna % com fundo laranja claro, sem linha de total na tabela
+- **Total destacado**: Faixa cinza escura com texto branco "TOTAL RATEADO — R$ XX.XXX,XX" centralizado
+- **Gráfico de barras**: Retângulos desenhados com `doc.rect()` proporcionais ao %, cor laranja, com label e % ao lado
+- **Metodologia**: Texto em itálico explicando o cálculo + área total considerada
+- **Rodapé**: "Capital Realty — Demonstrativo de Rateio | Protocolo XXXX | Gerado em DD/MM/AAAA" + "Documento confidencial"
 
-```text
-Depois:
-  <Route element={<ProtectedShell />}>     ← UM ÚNICO Shell (AppLayout monta 1 vez)
-    Dashboard
-    MinhasSolicitacoes
-    Backoffice         ← permissão checada internamente
-    Admin              ← permissão checada internamente
-    DashboardSLA       ← permissão checada internamente
-    etc.
-  </Route>
-```
+### 3. Atualizar importações
+- `RateioCard.tsx`: importar e chamar `generateRateioPDF()`
+- `RateioConfigTab.tsx`: importar e chamar `generateRateioPDF()` com dados de teste
 
-Criar um componente `<RequireRole>` que checa permissão e redireciona se não autorizado, sem mostrar loading (auth já foi verificado pelo shell pai).
-
-### 3. Loading mais leve no ProtectedShell
-Ao invés da tela cheia com logo + spinner (que compete visualmente com o Suspense), usar apenas um spinner discreto centralizado. A logo já está no header do AppLayout — não precisa repetir no loading.
-
-## Arquivos alterados
-
-| Arquivo | Alteração |
-|---------|-----------|
-| `src/assets/logos/logo-mega.png` | Substituir pela nova logo |
-| `src/App.tsx` | Unificar 3 shells em 1, criar RequireRole, loading simplificado |
+**3 arquivos**: 1 novo (`src/lib/rateio-pdf.ts`), 2 editados.
 
