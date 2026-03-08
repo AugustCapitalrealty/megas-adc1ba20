@@ -1596,19 +1596,51 @@ export default function Backoffice() {
     );
   };
 
-  const TabContent = ({ items, emptyMessage }: { items: SolicitacaoBackoffice[], emptyMessage: string }) => (
-    <div className="space-y-4">
-      {items.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            {emptyMessage}
-          </CardContent>
-        </Card>
-      ) : (
-        items.map((sol) => <SolicitacaoCard key={sol.id} sol={sol} />)
-      )}
-    </div>
-  );
+  // Reset page on tab change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab]);
+
+  // Get active tab items for pagination
+  const getActiveTabItems = useCallback((): SolicitacaoBackoffice[] => {
+    return groupedSolicitacoes[activeTab] || [];
+  }, [groupedSolicitacoes, activeTab]);
+
+  const TabContent = ({ items, emptyMessage }: { items: SolicitacaoBackoffice[], emptyMessage: string }) => {
+    const totalPages = Math.ceil(items.length / ITEMS_PER_PAGE);
+    const paginatedItems = items.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+    
+    return (
+      <div className="space-y-4">
+        {items.length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center text-muted-foreground">
+              {emptyMessage}
+            </CardContent>
+          </Card>
+        ) : (
+          <>
+            {paginatedItems.map((sol) => <SolicitacaoCard key={sol.id} sol={sol} />)}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between pt-2">
+                <span className="text-sm text-muted-foreground">
+                  {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, items.length)} de {items.length}
+                </span>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
+                    Anterior
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
+                    Próximo
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    );
+  };
 
   if (loading) {
     return (
