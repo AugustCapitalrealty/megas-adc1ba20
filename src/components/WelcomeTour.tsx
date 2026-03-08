@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Plus, Bell, ClipboardList, Rocket, X } from 'lucide-react';
+import { Plus, Bell, ClipboardList, X } from 'lucide-react';
 
 const STORAGE_KEY = 'onboarding_done';
 

@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { KpiSparkline } from '@/components/KpiSparkline';
 import { WelcomeTour, isOnboardingComplete } from '@/components/WelcomeTour';
 import { 
-  Plus, FileText, LayoutDashboard, ClipboardList, 
+  Plus, LayoutDashboard, ClipboardList, 
   CheckCircle2, Clock, ArrowRight, Loader2, Users, User, AlertTriangle, RefreshCw
 } from 'lucide-react';
 import { EMPREENDIMENTO_LABELS } from '@/types';
