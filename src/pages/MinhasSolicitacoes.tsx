@@ -29,6 +29,7 @@ import {
 import { Loader2, FileText, Edit, Send, AlertTriangle, Copy, XCircle, Download, FileCheck, CheckCircle, MessageSquare, RotateCcw, Receipt, Upload, User, Building2, Trash2, UserCheck } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import { SolicitacaoTimeline } from '@/components/SolicitacaoTimeline';
+import { JuridicoTracker } from '@/components/JuridicoTracker';
 import { FluigStatusCard } from '@/components/FluigStatusCard';
 import { AnexoCard } from '@/components/AnexoCard';
 import { MultiFileUpload, type UploadedFile } from '@/components/FileUpload';
@@ -1298,6 +1299,11 @@ export default function MinhasSolicitacoes() {
               </Button>
             </div>
           </div>
+        )}
+
+        {/* Acompanhamento Jurídico - read-only para solicitante */}
+        {(sol as any).instrumento_juridico && (sol as any).instrumento_juridico !== 'oc' && (
+          <JuridicoTracker solicitacaoId={sol.id} readOnly />
         )}
 
         {/* Anexos da solicitação */}

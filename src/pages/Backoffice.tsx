@@ -29,6 +29,7 @@ import { CNAECompatibilityBadge } from '@/components/CNAECompatibilityBadge';
 import { MEIAlertBadge } from '@/components/MEIAlertBadge';
 import { EscopoMinutaCard } from '@/components/EscopoMinutaCard';
 import { InstrumentoJuridicoBadge } from '@/components/InstrumentoJuridicoBadge';
+import { JuridicoTracker } from '@/components/JuridicoTracker';
 import { type Fornecedor, type CNAESecundario, INSTRUMENTO_JURIDICO_LABELS, type InstrumentoJuridico } from '@/types';
 import { RateioCard } from '@/components/RateioCard';
 import { supabase } from '@/integrations/supabase/client';
@@ -1882,6 +1883,12 @@ export default function Backoffice() {
                     <Label className="text-xs uppercase tracking-wide text-muted-foreground mb-2 block">Instrumento Jurídico</Label>
                     <InstrumentoJuridicoBadge instrumento={(detalhes.solicitacao as any).instrumento_juridico} />
                   </div>
+                )}
+
+                {/* Acompanhamento Jurídico - quando instrumento não é OC */}
+                {(detalhes.solicitacao as any).instrumento_juridico && 
+                 (detalhes.solicitacao as any).instrumento_juridico !== 'oc' && (
+                  <JuridicoTracker solicitacaoId={detalhes.solicitacao.id} />
                 )}
 
                 {/* Escopo Detalhado para Minuta */}

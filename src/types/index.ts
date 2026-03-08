@@ -313,3 +313,48 @@ export const INSTRUMENTO_JURIDICO_LABELS_SHORT: Record<InstrumentoJuridico, stri
   contrato_fornecimento: 'Fornecimento',
   contrato_empreitada: 'Empreitada',
 };
+
+// Etapas do fluxo jurídico
+export type EtapaJuridica = 
+  | 'minuta_elaboracao'
+  | 'minuta_revisao'
+  | 'enviado_assinatura'
+  | 'assinado_fornecedor'
+  | 'assinado_contratante'
+  | 'contrato_vigente'
+  | 'aditivo_necessario'
+  | 'encerrado';
+
+export const ETAPA_JURIDICA_LABELS: Record<EtapaJuridica, string> = {
+  minuta_elaboracao: 'Minuta em Elaboração',
+  minuta_revisao: 'Minuta em Revisão',
+  enviado_assinatura: 'Enviado para Assinatura',
+  assinado_fornecedor: 'Assinado pelo Fornecedor',
+  assinado_contratante: 'Assinado pela Contratante',
+  contrato_vigente: 'Contrato Vigente',
+  aditivo_necessario: 'Aditivo Necessário',
+  encerrado: 'Encerrado',
+};
+
+export const ETAPAS_JURIDICAS_ORDEM: EtapaJuridica[] = [
+  'minuta_elaboracao',
+  'minuta_revisao',
+  'enviado_assinatura',
+  'assinado_fornecedor',
+  'assinado_contratante',
+  'contrato_vigente',
+  'aditivo_necessario',
+  'encerrado',
+];
+
+export interface AcompanhamentoJuridico {
+  id: string;
+  solicitacao_id: string;
+  etapa: EtapaJuridica;
+  observacao: string | null;
+  user_id: string;
+  created_at: string;
+  profile?: {
+    full_name: string | null;
+  };
+}
