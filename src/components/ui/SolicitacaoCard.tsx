@@ -5,6 +5,7 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { Badge } from '@/components/ui/badge';
 import { ExpandableDescription } from '@/components/ExpandableDescription';
 import { CorrectionDeadlineBadge } from '@/components/CorrectionDeadlineBadge';
+import { TimeInStatusBadge } from '@/components/TimeInStatusBadge';
 import { WorkflowProgress } from '@/components/WorkflowProgress';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { 
@@ -110,6 +111,7 @@ export const SolicitacaoCard = memo(function SolicitacaoCard({
               </TooltipContent>
             </Tooltip>
             <StatusBadge status={sol.status} />
+            <TimeInStatusBadge updatedAt={sol.updated_at} status={sol.status} />
             <CorrectionDeadlineBadge 
               dataPendenteCorrecao={sol.data_pendente_correcao} 
               status={sol.status} 

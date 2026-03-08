@@ -220,7 +220,14 @@ export default function Dashboard() {
                       'cursor-pointer hover:shadow-md transition-all',
                       kpi.highlight ? 'border-destructive/50 shadow-sm' : 'hover:border-primary/30'
                     )}
-                    onClick={() => navigate(`/minhas-solicitacoes?filter=${kpi.filter}`)}
+                    onClick={() => {
+                      if (viewMode === 'geral' && isBackofficeOrAdmin) {
+                        const tabMap: Record<string, string> = { todas: 'todas', com_backoffice: 'recebido', correcoes: 'pendente_correcao', concluidas: 'concluida' };
+                        navigate(`/backoffice?tab=${tabMap[kpi.filter] || kpi.filter}`);
+                      } else {
+                        navigate(`/minhas-solicitacoes?filter=${kpi.filter}`);
+                      }
+                    }}
                   >
                     <CardContent className="p-4">
                       <div className="flex items-center gap-3">

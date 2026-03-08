@@ -30,6 +30,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { NotificationBell } from '@/components/NotificationBell';
+import { CommandPalette } from '@/components/CommandPalette';
 import { AppBreadcrumbs } from '@/components/layout/AppBreadcrumbs';
 import logoMega from '@/assets/logos/logo-mega.png';
 
@@ -201,6 +202,7 @@ export function AppLayout() {
 
           {/* Notifications & User Menu */}
           <div className="flex items-center gap-2">
+            <CommandPalette />
             <NotificationBell />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
