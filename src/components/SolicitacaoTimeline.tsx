@@ -234,7 +234,7 @@ const getActionDetails = (acao: string, statusNovo: string | null, isBackoffice?
   }
 };
 
-export function SolicitacaoTimeline({ solicitacaoId, showMessages = true }: SolicitacaoTimelineProps) {
+export function SolicitacaoTimeline({ solicitacaoId, showMessages = true, isBackoffice = false }: SolicitacaoTimelineProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [historico, setHistorico] = useState<HistoricoSolicitacao[]>([]);
