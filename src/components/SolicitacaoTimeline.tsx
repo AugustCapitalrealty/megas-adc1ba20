@@ -305,6 +305,9 @@ export function SolicitacaoTimeline({ solicitacaoId, showMessages = true }: Soli
 
       if (error) throw error;
 
+      // Notify the other party
+      notifyMessageRecipients(solicitacaoId, user.id, newMessage.trim());
+
       setNewMessage('');
       fetchData();
       toast({

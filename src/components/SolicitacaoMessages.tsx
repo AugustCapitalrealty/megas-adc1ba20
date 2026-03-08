@@ -78,6 +78,9 @@ export function SolicitacaoMessages({ solicitacaoId }: SolicitacaoMessagesProps)
 
       if (error) throw error;
 
+      // Notify the other party
+      notifyMessageRecipients(solicitacaoId, user.id, newMessage.trim());
+
       setNewMessage('');
       fetchMessages();
       toast({
