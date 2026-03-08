@@ -87,7 +87,8 @@ import {
   Mail,
   Phone,
   Plus,
-  MessageSquare
+  MessageSquare,
+  RefreshCw
 } from 'lucide-react';
 import { differenceInDays, differenceInHours } from 'date-fns';
 import { formatBR } from '@/lib/date-utils';
