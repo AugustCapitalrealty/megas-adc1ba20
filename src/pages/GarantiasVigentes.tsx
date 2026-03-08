@@ -21,19 +21,19 @@ function KpiCard({ title, value, icon: Icon, variant, onClick }: {
   onClick?: () => void;
 }) {
   const styles = {
-    vigente: 'border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-900',
-    expirando: 'border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-900',
-    expirada: 'border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-900',
+    vigente: 'border-success/30 bg-success/5 dark:bg-success/10',
+    expirando: 'border-warning/30 bg-warning/5 dark:bg-warning/10',
+    expirada: 'border-destructive/30 bg-destructive/5 dark:bg-destructive/10',
   };
   const iconStyles = {
-    vigente: 'text-green-600',
-    expirando: 'text-amber-600',
-    expirada: 'text-red-600',
+    vigente: 'text-success',
+    expirando: 'text-warning',
+    expirada: 'text-destructive',
   };
   const valueStyles = {
-    vigente: 'text-green-700',
-    expirando: 'text-amber-700',
-    expirada: 'text-red-700',
+    vigente: 'text-success',
+    expirando: 'text-warning',
+    expirada: 'text-destructive',
   };
 
   return (
