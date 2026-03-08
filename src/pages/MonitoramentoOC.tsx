@@ -402,9 +402,17 @@ export default function MonitoramentoOC() {
       <div className="space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Monitoramento OC x NF</h1>
-          <p className="text-muted-foreground">Controle de Ordens de Compra emitidas vs Notas Fiscais recebidas</p>
+          <h1 className="text-2xl font-bold tracking-tight">Monitoramento</h1>
+          <p className="text-muted-foreground">Acompanhe OCs emitidas e solicitações com trâmite jurídico</p>
         </div>
+
+        <Tabs defaultValue="oc-nf" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="oc-nf">OC x NF</TabsTrigger>
+            <TabsTrigger value="projuris">Projuris</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="oc-nf" className="space-y-6">
 
         {/* KPIs */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
