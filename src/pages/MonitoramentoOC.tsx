@@ -524,8 +524,10 @@ export default function MonitoramentoOC() {
 
         {/* Table */}
         <Card>
+          <ScrollArea className="h-[550px]">
+          <div className="overflow-x-auto">
           <Table>
-            <TableHeader>
+            <TableHeader className="sticky top-0 bg-card z-10">
               <TableRow>
                 <TableHead>Protocolo</TableHead>
                 <TableHead>Nº OC</TableHead>
