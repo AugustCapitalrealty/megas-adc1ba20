@@ -397,6 +397,14 @@ export default function MinhasSolicitacoes() {
     };
   }, [solicitacoes]);
 
+  // Unread messages
+  const solicitacaoIds = useMemo(() => solicitacoes.map(s => s.id), [solicitacoes]);
+  const { unreadMap, markAsRead } = useUnreadMessages({
+    solicitacaoIds,
+    userId: effectiveUserId,
+    isBackoffice: false,
+  });
+
   const formatCurrencyInput = (value: string) => {
     const digits = value.replace(/\D/g, '');
     const number = parseInt(digits) / 100;
@@ -404,7 +412,12 @@ export default function MinhasSolicitacoes() {
   };
 
   const toggleExpand = (id: string) => {
-    setExpandedId(expandedId === id ? null : id);
+    const newExpanded = expandedId === id ? null : id;
+    setExpandedId(newExpanded);
+    // Mark messages as read when expanding
+    if (newExpanded && unreadMap[id]) {
+      markAsRead(id);
+    }
   };
 
   const openEditModal = async (sol: Solicitacao) => {
