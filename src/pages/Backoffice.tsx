@@ -1680,14 +1680,6 @@ export default function Backoffice() {
                 </h4>
                 <SolicitacaoTimeline solicitacaoId={sol.id} isBackoffice />
               </div>
-              {/* Mensagens */}
-              <div>
-                <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                  Mensagens
-                </h4>
-                <SolicitacaoMessages solicitacaoId={sol.id} />
-              </div>
             </div>
           )}
         </CardContent>
