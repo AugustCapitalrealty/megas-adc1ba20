@@ -343,33 +343,34 @@ export function useFluigImport() {
             if (consolidatedChanges.length > 0) {
               result.comAlteracaoStatus++;
               
-              // Insert events into fluig_painel_eventos (with raw values)
-              for (const change of rawChanges) {
-                await supabase.from('fluig_painel_eventos').insert({
-                  solicitacao_fluig: row.solicitacao_fluig,
-                  campo_alterado: change.campo,
-                  valor_anterior: change.anterior,
-                  valor_novo: change.novo,
-                  importado_por: userId,
-                });
+              // Batch insert events into fluig_painel_eventos
+              const eventoBatch = rawChanges.map(change => ({
+                solicitacao_fluig: row.solicitacao_fluig,
+                campo_alterado: change.campo,
+                valor_anterior: change.anterior,
+                valor_novo: change.novo,
+                importado_por: userId,
+              }));
+              
+              if (eventoBatch.length > 0) {
+                await supabase.from('fluig_painel_eventos').insert(eventoBatch);
               }
               
-              // If linked to internal solicitation, insert events into historico_solicitacoes
+              // If linked to internal solicitation, batch insert historico events
               if (validInternalId) {
-                // Verificar se é um retorno para correção (responsável mudou para pessoa do Início)
                 const novoResponsavel = row.responsavel_atual || '';
                 const ehRetorno = isRetornoParaCorrecao(novoResponsavel);
                 
+                const historicoBatch: any[] = [];
+                
                 if (ehRetorno) {
-                  // Apenas uma mensagem de retorno - ignora outras mudanças
-                  await supabase.from('historico_solicitacoes').insert({
+                  historicoBatch.push({
                     solicitacao_id: validInternalId,
                     user_id: userId,
                     acao: 'atualizacao_fluig',
                     motivo: `Fluig: Retornado para ${novoResponsavel}`,
                   });
                 } else {
-                  // Lógica normal para outros casos - apenas eventos consolidados
                   for (const change of consolidatedChanges) {
                     let mensagem = '';
                     
@@ -380,35 +381,23 @@ export function useFluigImport() {
                     } else if (change.campo === 'situacao') {
                       mensagem = `Fluig: Situação alterada para "${change.novo}"`;
                     } else if (change.campo === 'gerencia_conclusao') {
-                      // Gerencia conclusao não precisa validar - é diferente de facilities
                       mensagem = `Fluig: Aprovado pela Gerência`;
                     } else if (change.campo === 'gerencia_facilities_conclusao') {
-                      // Validar se realmente foi aprovação baseado na localização atual
                       if (isAprovacaoReal('gerencia_facilities_conclusao', row.localizacao)) {
                         mensagem = `Fluig: Aprovado pela Gerência de Facilities`;
-                      } else {
-                        // Foi reprovação/devolução - não registra como aprovação
-                        // O retorno já é capturado pela mudança de responsável
-                        mensagem = '';
                       }
                     } else if (change.campo === 'gerencia_financeiro_conclusao') {
-                      // Validar se realmente foi aprovação baseado na localização atual
                       if (isAprovacaoReal('gerencia_financeiro_conclusao', row.localizacao)) {
                         mensagem = `Fluig: Aprovado pela Gerência Financeira`;
-                      } else {
-                        mensagem = '';
                       }
                     } else if (change.campo === 'diretoria_conclusao') {
-                      // Validar se realmente foi aprovação baseado na localização atual
                       if (isAprovacaoReal('diretoria_conclusao', row.localizacao)) {
                         mensagem = `Fluig: Aprovado pela Diretoria`;
-                      } else {
-                        mensagem = '';
                       }
                     }
                     
                     if (mensagem) {
-                      await supabase.from('historico_solicitacoes').insert({
+                      historicoBatch.push({
                         solicitacao_id: validInternalId,
                         user_id: userId,
                         acao: 'atualizacao_fluig',
@@ -416,6 +405,10 @@ export function useFluigImport() {
                       });
                     }
                   }
+                }
+                
+                if (historicoBatch.length > 0) {
+                  await supabase.from('historico_solicitacoes').insert(historicoBatch);
                 }
               }
             }
