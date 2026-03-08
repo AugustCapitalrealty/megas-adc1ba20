@@ -65,14 +65,14 @@ function GarantiaBadge({ detalhe }: { detalhe: GarantiaDetalhe }) {
   }
   if (detalhe.diasRestantes <= 30) {
     return (
-      <Badge className="gap-1 bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-300">
+      <Badge className="gap-1 bg-warning/10 text-warning hover:bg-warning/10 border-warning/30">
         <ShieldAlert className="h-3 w-3" />
         {detalhe.label}: {detalhe.diasRestantes}d restantes
       </Badge>
     );
   }
   return (
-    <Badge variant="outline" className="gap-1 text-green-700 border-green-300">
+    <Badge variant="outline" className="gap-1 text-success border-success/30">
       <ShieldCheck className="h-3 w-3" />
       {detalhe.label}: {detalhe.diasRestantes}d restantes
     </Badge>
