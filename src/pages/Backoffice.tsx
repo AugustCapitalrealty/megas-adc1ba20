@@ -101,6 +101,7 @@ import { saveAs } from 'file-saver';
 import { TransferOwnershipModal } from '@/components/TransferOwnershipModal';
 import { ConfirmModal } from '@/components/ui/ActionModal';
 import { exportToExcel } from '@/lib/export-utils';
+import { SolicitacaoMessages } from '@/components/SolicitacaoMessages';
 
 // PDF validation types
 interface PdfValidationResult {
