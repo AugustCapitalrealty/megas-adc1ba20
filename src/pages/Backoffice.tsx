@@ -2385,6 +2385,21 @@ export default function Backoffice() {
                   </CollapsibleContent>
                 </Collapsible>
 
+                {/* Mensagens */}
+                <Collapsible>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" className="w-full justify-between px-0 hover:bg-transparent">
+                      <span className="font-semibold flex items-center gap-2">
+                        <MessageSquare className="h-4 w-4" /> Mensagens
+                      </span>
+                      <ChevronDown className="h-4 w-4 transition-transform duration-200 [[data-state=open]>svg&]:rotate-180" />
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pt-3">
+                    <SolicitacaoMessages solicitacaoId={detalhes.solicitacao.id} />
+                  </CollapsibleContent>
+                </Collapsible>
+
                 <Separator />
 
                 {/* Datas */}

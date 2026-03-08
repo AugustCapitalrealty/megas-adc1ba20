@@ -124,7 +124,7 @@ export function OCDetalhesModal({ open, onOpenChange, solicitacaoId, protocolo, 
                 status={detalhes.solicitacao.status}
                 userId={detalhes.solicitacao.user_id}
                 currentUserId={user?.id}
-                cancelamentoPendente={detalhes.solicitacao.cancelamento_pendente}
+                cancelamentoPendente={(detalhes.solicitacao as any).cancelamento_pendente}
                 onAction={onAction}
                 solicitacaoId={solicitacaoId}
               />
