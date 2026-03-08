@@ -2258,6 +2258,12 @@ export default function Backoffice() {
                           } : null}
                         />
                       )}
+                      
+                      {/* Description Quality Badge no Backoffice */}
+                      <DescriptionQualityBadge
+                        isVague={detalhes.solicitacao.ia_descricao_vaga}
+                        suggestion={detalhes.solicitacao.ia_descricao_sugestao}
+                      />
                     </div>
                     
                     {/* Fornecedores Concorrentes */}
