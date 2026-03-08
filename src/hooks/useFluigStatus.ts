@@ -7,10 +7,15 @@ interface FluigStatus {
   localizacao: string | null;
   situacao: string | null;
   data_lancamento: string | null;
+  valor: number | null;
   gerencia_conclusao: string | null;
   gerencia_facilities_conclusao: string | null;
+  gerencia_facilities_responsavel: string | null;
+  gerencia_responsavel: string | null;
   gerencia_financeiro_conclusao: string | null;
+  gerencia_financeiro_responsavel: string | null;
   diretoria_conclusao: string | null;
+  diretoria_responsavel: string | null;
   ultima_movimentacao: string | null;
 }
 
@@ -26,7 +31,7 @@ async function fetchFluigData(numeroChamadoFluig: string) {
   // Fetch snapshot data
   const { data: snapshotData, error: snapshotError } = await supabase
     .from('fluig_painel_snapshot')
-    .select('solicitacao_fluig, responsavel_atual, localizacao, situacao, data_lancamento, gerencia_conclusao, gerencia_facilities_conclusao, gerencia_financeiro_conclusao, diretoria_conclusao')
+    .select('solicitacao_fluig, responsavel_atual, localizacao, situacao, data_lancamento, valor, gerencia_conclusao, gerencia_facilities_conclusao, gerencia_facilities_responsavel, gerencia_responsavel, gerencia_financeiro_conclusao, gerencia_financeiro_responsavel, diretoria_conclusao, diretoria_responsavel')
     .eq('solicitacao_fluig', numeroChamadoFluig.trim())
     .maybeSingle();
 

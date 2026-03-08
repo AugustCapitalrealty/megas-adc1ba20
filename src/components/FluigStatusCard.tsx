@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { getAprovacoesPorLocalizacao, CAMPO_APROVACAO_LABELS, getDevolucaoLabel, LOCALIZACAO_TO_ETAPA, mapEtapaToDepartamento, formatResponsavelFluig, getEtapaIndexPorResponsavel, getProximaEtapaFluig } from '@/lib/fluig-utils';
+import { getFluigApprovalStatus, isFluigFechado, CAMPO_APROVACAO_LABELS, getDevolucaoLabel, LOCALIZACAO_TO_ETAPA, mapEtapaToDepartamento, formatResponsavelFluig, getEtapaIndexPorResponsavel, getProximaEtapaFluig } from '@/lib/fluig-utils';
 import { useFluigStatus } from '@/hooks/useFluigStatus';
 interface FluigEvento {
   id: string;
@@ -154,12 +154,16 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
   const [showHistorico, setShowHistorico] = useState(false);
 
   // Memoized calculations - must be before early returns
-  const aprovacoes = useMemo(() => {
-    if (!status?.localizacao) {
-      return { facilitiesAprovado: false, financeiroAprovado: false, diretoriaAprovado: false };
-    }
-    return getAprovacoesPorLocalizacao(status.localizacao);
-  }, [status?.localizacao]);
+  const approvalResult = useMemo(() => {
+    if (!status) return null;
+    return getFluigApprovalStatus(status);
+  }, [status]);
+
+  const aprovacoes = useMemo(() => ({
+    facilitiesAprovado: approvalResult?.facilities === 'approved',
+    financeiroAprovado: approvalResult?.financeiro === 'approved',
+    diretoriaAprovado: approvalResult?.diretoria === 'approved',
+  }), [approvalResult]);
 
   // Detectar se houve devolução recente - must be before early returns
   // NOVA LÓGICA: verifica sequência de eventos para detectar retorno de nível
@@ -279,15 +283,19 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
   // Determine approval stages based on localizacao (source of truth)
   // Também considera devoluções para marcar badges corretamente
   const approvalStages = [
-    { key: 'facilities', label: 'Facilities', aprovado: aprovacoes.facilitiesAprovado },
-    { key: 'financeiro', label: 'Financeiro', aprovado: aprovacoes.financeiroAprovado },
-    { key: 'diretoria', label: 'Diretoria', aprovado: aprovacoes.diretoriaAprovado },
+    { key: 'facilities', label: 'Facilities', aprovado: aprovacoes.facilitiesAprovado, approvalStatus: approvalResult?.facilities },
+    { key: 'financeiro', label: 'Financeiro', aprovado: aprovacoes.financeiroAprovado, approvalStatus: approvalResult?.financeiro },
+    { key: 'diretoria', label: 'Diretoria', aprovado: aprovacoes.diretoriaAprovado, approvalStatus: approvalResult?.diretoria },
   ].map((stage, index) => {
+    // Se não é necessário (ex: Diretoria para valor <= 2500)
+    if (stage.approvalStatus === 'not_required') {
+      return { ...stage, status: 'not_required' as const };
+    }
     // Se há devolução detectada por este departamento, marcar como rejected
     if (devolucaoDetectada?.departamento.includes(stage.label)) {
       return { ...stage, status: 'rejected' as const };
     }
-    // Se aprovado segundo a localização, está done
+    // Se aprovado, está done
     if (stage.aprovado) {
       return { ...stage, status: 'done' as const };
     }
@@ -376,7 +384,7 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
           <div className="flex items-center gap-2 mt-1 pt-2 border-t border-blue-200 dark:border-blue-800">
             <span className="text-muted-foreground text-xs">Aprovações:</span>
             <div className="flex gap-1">
-              {approvalStages.map((stage) => (
+              {approvalStages.filter(s => s.status !== 'not_required').map((stage) => (
                 <Badge 
                   key={stage.key} 
                   variant={stage.status === 'done' ? 'default' : 'outline'}

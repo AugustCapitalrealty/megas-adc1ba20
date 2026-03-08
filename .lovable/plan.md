@@ -1,43 +1,59 @@
 
 
-# Plano: Corrigir lógica de aprovação no Painel Fluig
+# Plano: Trocar Logo + Eliminar Loading Duplo
 
-## Problema
+## Diagnóstico
 
-Solicitações "fechadas" (aprovadas por todos) estão mostrando a Diretoria em vermelho. Isso acontece porque a função `getFluigApprovalStatus` usa a `localizacao` para determinar o estágio atual, mas nem sempre o campo `localizacao` reflete o estado final. Quando existe `diretoria_conclusao` mas o `currentStage < 3`, a lógica interpreta como "rejeitado/devolvido".
+Dois problemas distintos:
 
-O mesmo problema afeta o `FluigStatusCard` nas solicitações individuais, que usa `getAprovacoesPorLocalizacao` com a mesma lógica baseada apenas em `localizacao`.
+**1. Logo desatualizada** — Precisa trocar para a nova versão enviada.
 
-## Mudanças
+**2. Três shells separados causam remontagem do layout:**
 
-### 1. `src/lib/fluig-utils.ts` — `getFluigApprovalStatus`
-
-Adicionar verificação: se a solicitação está **fechada** (via `isFluigFechado`), todas as etapas necessárias devem ser marcadas como `approved`, independente do valor de `localizacao`.
-
-Lógica:
+```text
+Atual (App.tsx):
+  <Route element={<ProtectedShell />}>           ← Shell A (monta AppLayout)
+    Dashboard, MinhasSolicitacoes, etc.
+  </Route>
+  <Route element={<ProtectedShell requireBackoffice />}>  ← Shell B (OUTRO AppLayout)
+    Backoffice, DashboardSLA, etc.
+  </Route>
+  <Route element={<ProtectedShell requireAdmin />}>       ← Shell C (OUTRO AppLayout)
+    Admin
+  </Route>
 ```
-Se isFluigFechado(snapshot):
-  - facilities = 'approved'
-  - financeiro = 'approved'
-  - diretoria = valor <= 2500 ? 'not_required' : 'approved'
-  Retorna imediatamente (sem lógica de currentStage)
+
+Ao navegar de Dashboard (Shell A) para Backoffice (Shell B), o React desmonta o Shell A inteiro (incluindo header/logo/menu) e monta o Shell B do zero. Isso causa o efeito de "carregar duas vezes" — primeiro o loading do auth no novo shell, depois o loading dos dados da página.
+
+## Alterações
+
+### 1. Trocar logo
+Copiar `user-uploads://logo-mega-removebg-preview-2.png` para `src/assets/logos/logo-mega.png`. Todas as referências já apontam para esse arquivo.
+
+### 2. Unificar em um único Shell (`src/App.tsx`)
+Usar **um único** `<ProtectedShell>` para todas as rotas protegidas. Cheques de permissão (backoffice/admin) movidos para componentes wrapper inline nas rotas individuais:
+
+```text
+Depois:
+  <Route element={<ProtectedShell />}>     ← UM ÚNICO Shell (AppLayout monta 1 vez)
+    Dashboard
+    MinhasSolicitacoes
+    Backoffice         ← permissão checada internamente
+    Admin              ← permissão checada internamente
+    DashboardSLA       ← permissão checada internamente
+    etc.
+  </Route>
 ```
 
-### 2. `src/lib/fluig-utils.ts` — `getAprovacoesPorLocalizacao`
+Criar um componente `<RequireRole>` que checa permissão e redireciona se não autorizado, sem mostrar loading (auth já foi verificado pelo shell pai).
 
-Esta função legada é usada no `FluigStatusCard`. Precisa ser atualizada para também receber o snapshot ou, alternativamente, o `FluigStatusCard` deve migrar para usar `getFluigApprovalStatus`.
+### 3. Loading mais leve no ProtectedShell
+Ao invés da tela cheia com logo + spinner (que compete visualmente com o Suspense), usar apenas um spinner discreto centralizado. A logo já está no header do AppLayout — não precisa repetir no loading.
 
-**Abordagem**: Atualizar o `FluigStatusCard` para usar `getFluigApprovalStatus` em vez de `getAprovacoesPorLocalizacao`, passando os dados do snapshot. Para isso, o `useFluigStatus` precisa também buscar o campo `valor` do snapshot.
+## Arquivos alterados
 
-### 3. `src/hooks/useFluigStatus.ts`
-
-Adicionar `valor` ao select da query e à interface `FluigStatus`.
-
-### 4. `src/components/FluigStatusCard.tsx`
-
-Substituir uso de `getAprovacoesPorLocalizacao(status.localizacao)` por `getFluigApprovalStatus(status)`, que já trata corretamente fechados e valor <= 2500.
-
-## Resultado
-
-Solicitações fechadas mostrarão todos os aprovantes em verde (aprovado). Solicitações com valor <= R$ 2.500 mostrarão Diretoria como "N/A" em vez de vermelho.
+| Arquivo | Alteração |
+|---------|-----------|
+| `src/assets/logos/logo-mega.png` | Substituir pela nova logo |
+| `src/App.tsx` | Unificar 3 shells em 1, criar RequireRole, loading simplificado |
 
