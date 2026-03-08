@@ -9,8 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { CalendarIcon, Loader2, AlertTriangle } from 'lucide-react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { formatBR } from '@/lib/date-utils';
 import { cn } from '@/lib/utils';
 
 interface JustificativaModalProps {
