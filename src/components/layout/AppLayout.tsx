@@ -147,6 +147,14 @@ export function AppLayout() {
         </div>
       )}
 
+      {/* Offline Banner */}
+      {!isOnline && (
+        <div className="bg-destructive text-destructive-foreground px-4 py-2 flex items-center justify-center gap-2">
+          <WifiOff className="h-4 w-4" />
+          <span className="text-sm font-medium">Sem conexão com a internet. Verifique sua rede.</span>
+        </div>
+      )}
+
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
         <div className="container flex h-16 items-center justify-between">
