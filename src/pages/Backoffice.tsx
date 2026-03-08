@@ -1270,423 +1270,35 @@ export default function Backoffice() {
     cancelamento_pendente: filteredSolicitacoes.filter(s => cancelamentoPendenteIds.has(s.id)),
   }), [filteredSolicitacoes, cancelamentoPendenteIds]);
 
-  // SLA calculation
-  const getSLAInfo = (sol: SolicitacaoBackoffice) => {
-    const diasDesdeAbertura = differenceInDays(new Date(), new Date(sol.created_at));
-    const horasDesdeAbertura = differenceInHours(new Date(), new Date(sol.created_at));
-    const tempoDesdeAbertura = diasDesdeAbertura === 0 ? `${horasDesdeAbertura}h` : `${diasDesdeAbertura}d`;
-    
-    const diasDesdeAprovacao = sol.dataAprovacao 
-      ? differenceInDays(new Date(), new Date(sol.dataAprovacao))
-      : null;
-    const horasDesdeAprovacao = sol.dataAprovacao
-      ? differenceInHours(new Date(), new Date(sol.dataAprovacao))
-      : null;
-    
-    // Format approval time - show hours if less than 1 day, otherwise days
-    const tempoDesdeAprovacao = sol.dataAprovacao
-      ? (diasDesdeAprovacao === 0 ? `${horasDesdeAprovacao}h` : `${diasDesdeAprovacao}d`)
-      : null;
-    
-    const atrasadoAnalise = diasDesdeAbertura > 5 && ['recebido', 'em_analise'].includes(sol.status);
-    const atrasadoEmissao = diasDesdeAprovacao !== null && diasDesdeAprovacao > 3 && 
-      ['aprovado', 'em_processamento'].includes(sol.status);
-    
-    return { diasDesdeAbertura, tempoDesdeAbertura, diasDesdeAprovacao, horasDesdeAprovacao, tempoDesdeAprovacao, atrasadoAnalise, atrasadoEmissao };
-  };
-
-  const SolicitacaoCard = ({ sol }: { sol: SolicitacaoBackoffice }) => {
-    const sla = getSLAInfo(sol);
-    const isAtrasado = sla.atrasadoAnalise || sla.atrasadoEmissao;
-    const isMyResponsibility = sol.responsavelId === user?.id;
-    const hasFlugNumber = !!sol.numero_chamado_fluig;
-    const awaitingOC = (sol.status === 'aprovado' || sol.status === 'em_processamento') && hasFlugNumber;
-    
-    // Get cadastro status for this solicitation
-    const solCadastroStatus = cadastroStatus[sol.id];
-    const hasCancelamentoPendente = cancelamentoPendenteIds.has(sol.id);
-
-    return (
-      <Card className={cn(
-        'hover:shadow-md transition-shadow',
-        isAtrasado && 'border-destructive border-2',
-        isMyResponsibility && !isAtrasado && 'border-primary border-2 bg-primary/5'
-      )}>
-        {/* Unread Message Banner - highest priority */}
-        {backofficeUnreadMap[sol.id] && (
-          <UnreadMessageBanner
-            info={backofficeUnreadMap[sol.id]}
-            onViewMessages={() => {
-              setExpandedId(sol.id);
-              backofficeMarkAsRead(sol.id);
-            }}
-          />
-        )}
-        {/* My Responsibility Banner */}
-        {isMyResponsibility && (
-          <div className="bg-primary/10 border-b border-primary/20 px-4 py-1.5 flex items-center gap-2">
-            <UserCheck className="h-4 w-4 text-primary" />
-            <span className="text-xs font-medium text-primary">MINHA RESPONSABILIDADE</span>
-            {sol.responsavelNome && (
-              <span className="text-xs text-muted-foreground">• Assumido por você</span>
-            )}
-          </div>
-        )}
-        
-        {/* Awaiting OC Banner */}
-        {awaitingOC && (
-          <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-1.5 flex items-center gap-2 flex-wrap">
-            <Cog className="h-4 w-4 text-amber-600 animate-spin" />
-            <span className="text-xs font-medium text-amber-700 dark:text-amber-400">AGUARDANDO EMISSÃO DE OC</span>
-            <Badge 
-              variant="outline" 
-              className="text-xs cursor-pointer hover:bg-accent"
-              onClick={() => openEditFluig(sol)}
-            >
-              {sol.numero_chamado_fluig === 'RM' ? 'RM' : `Fluig: ${sol.numero_chamado_fluig}`}
-              <Edit className="h-3 w-3 ml-1" />
-            </Badge>
-            {sol.numero_projuris && (
-              <Badge 
-                variant="outline" 
-                className="text-xs cursor-pointer hover:bg-accent bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-700"
-                onClick={() => openEditProjuris(sol)}
-              >
-                Projuris: {sol.numero_projuris}
-                <Edit className="h-3 w-3 ml-1" />
-              </Badge>
-            )}
-            {!sol.numero_projuris && (
-              <Badge 
-                variant="outline" 
-                className="text-xs cursor-pointer hover:bg-accent bg-purple-50/50 text-purple-600 border-dashed border-purple-200 dark:bg-purple-900/10 dark:text-purple-400 dark:border-purple-700"
-                onClick={() => openEditProjuris(sol)}
-              >
-                + Projuris
-              </Badge>
-            )}
-          </div>
-        )}
-
-        {/* NF/Boleto Enviados Banner */}
-        {sol.status === 'nf_boleto_enviados' && (
-          <div className="bg-cyan-500/10 border-b border-cyan-500/20 px-4 py-1.5 flex items-center gap-2">
-            <Receipt className="h-4 w-4 text-cyan-600" />
-            <span className="text-xs font-medium text-cyan-700 dark:text-cyan-400">NF/BOLETO RECEBIDOS - AGUARDANDO BAIXA</span>
-            {sol.total_docs_fiscais > 0 && (
-              <Badge variant="outline" className="text-xs">{sol.total_docs_fiscais} documento(s)</Badge>
-            )}
-          </div>
-        )}
-
-        {/* Cancelamento Pendente Banner */}
-        {hasCancelamentoPendente && (
-          <div className="bg-destructive/10 border-b border-destructive/30 px-4 py-1.5 flex items-center gap-2 flex-wrap">
-            <XCircle className="h-4 w-4 text-destructive" />
-            <span className="text-xs font-medium text-destructive">CANCELAMENTO SOLICITADO - AGUARDANDO APROVAÇÃO</span>
-            <div className="ml-auto flex gap-1">
-              <Button size="sm" variant="destructive" className="h-6 px-2 text-xs" onClick={() => handleAprovarCancelamento(sol)} disabled={cancelamentoActionLoading}>
-                <CheckCircle className="h-3 w-3 mr-1" /> Aprovar
-              </Button>
-              <Button size="sm" variant="outline" className="h-6 px-2 text-xs" onClick={() => handleRejeitarCancelamento(sol)} disabled={cancelamentoActionLoading}>
-                <XCircle className="h-3 w-3 mr-1" /> Rejeitar
-              </Button>
-            </div>
-          </div>
-        )}
-        
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 flex-wrap">
-              <Badge variant={sol.tipo === 'AC' ? 'default' : 'secondary'}>
-                {sol.tipo}
-              </Badge>
-              <CardTitle className="text-lg">#{sol.protocolo}</CardTitle>
-              <StatusBadge status={sol.status} />
-              {sol.total_docs_emitidos > 0 && (
-                <Badge variant="outline" className="text-xs bg-success/10 text-success border-success/20">
-                  <FileCheck className="h-3 w-3 mr-1" />
-                  {sol.total_docs_emitidos} OC{sol.total_docs_emitidos > 1 ? 's' : ''}
-                </Badge>
-              )}
-              {sol.responsavelNome && !isMyResponsibility && (
-                <Badge variant="outline" className="text-xs">
-                  <User className="h-3 w-3 mr-1" />
-                  {sol.responsavelNome}
-                </Badge>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              {/* Primary action in header */}
-              {(sol.status === 'aprovado' || (sol.status === 'em_processamento' && !sol.numero_chamado_fluig)) && (
-                <Button size="sm" onClick={() => openAction(sol, 'processar')}>
-                  <Cog className="h-4 w-4 mr-1" /> Informar Lançamento
-                </Button>
-              )}
-              {(sol.status === 'aprovado' || sol.status === 'em_processamento') && (
-                <Button size="sm" variant="default" onClick={() => openRegistro(sol)}>
-                  <FileCheck className="h-4 w-4 mr-1" /> Registrar OC
-                </Button>
-              )}
-              {sol.status === 'oc_ac_emitida' && (
-                <Button size="sm" onClick={() => openAction(sol, 'concluir')}>
-                  <CheckCheck className="h-4 w-4 mr-1" /> Concluir
-                </Button>
-              )}
-              {(sol.status === 'recebido' || sol.status === 'em_analise') && (
-                <Button size="sm" onClick={() => openAction(sol, 'assumir')}>
-                  <CheckCircle className="h-4 w-4 mr-1" /> Assumir
-                </Button>
-              )}
-              {sol.status === 'liberado_fornecedor' && (
-                <Button size="sm" onClick={() => handleRegistrarEnvioFornecedor(sol)} disabled={actionLoading}>
-                  <Send className="h-4 w-4 mr-1" /> Registrar Envio
-                </Button>
-              )}
-              {sol.status === 'enviado_fornecedor' && (
-                <Button size="sm" onClick={() => handleConcluirLiberada(sol)} disabled={actionLoading}>
-                  <CheckCheck className="h-4 w-4 mr-1" /> Concluir
-                </Button>
-              )}
-              {isAtrasado && (
-                <Badge variant="destructive" className="animate-pulse">
-                  <AlertTriangle className="h-3 w-3 mr-1" />
-                  SLA
-                </Badge>
-              )}
-            </div>
-          </div>
-          <CardDescription className="line-clamp-1">{sol.descricao}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-2 text-sm mb-4">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <User className="h-4 w-4" />
-              <span>{sol.solicitante_nome || sol.solicitante_email || 'Usuário'}</span>
-            </div>
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Building2 className="h-4 w-4" />
-              <span>{EMPREENDIMENTO_LABELS[sol.empreendimento]}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Calendar className="h-4 w-4" />
-                <span>{formatBR(sol.created_at, "dd/MM/yyyy")}</span>
-              </div>
-              <div className="flex items-center gap-2 font-semibold text-primary">
-                <DollarSign className="h-4 w-4" />
-                <span>{formatCurrency(sol.valor)}</span>
-              </div>
-            </div>
-            
-            {/* SLA Info with colored badges */}
-            <div className="flex items-center gap-2 pt-2 border-t flex-wrap">
-              <Badge variant="outline" className={cn(
-                "text-xs gap-1",
-                sla.atrasadoAnalise 
-                  ? "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-700" 
-                  : sla.diasDesdeAbertura >= 3 
-                    ? "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-700"
-                    : "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-700"
-              )}>
-                <Clock className="h-3 w-3" />
-                {sla.tempoDesdeAbertura} desde abertura
-              </Badge>
-              {sla.tempoDesdeAprovacao !== null && (
-                <Badge variant="outline" className={cn(
-                  "text-xs gap-1",
-                  sla.atrasadoEmissao 
-                    ? "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-700" 
-                    : (sla.diasDesdeAprovacao ?? 0) >= 2
-                      ? "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-700"
-                      : "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-700"
-                )}>
-                  <Clock className="h-3 w-3" />
-                  {sla.tempoDesdeAprovacao} desde assumido
-                </Badge>
-              )}
-            </div>
-
-            {sol.emergencial && (
-              <div className="flex items-center gap-2 text-destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <span className="font-medium">Emergencial</span>
-              </div>
-            )}
-          </div>
-
-          {/* Contato do Fornecedor - visível nos status liberado_fornecedor e enviado_fornecedor */}
-          {['liberado_fornecedor', 'enviado_fornecedor'].includes(sol.status) &&
-           (sol.fornecedor_email_contato || sol.fornecedor_telefone_contato) && (
-            <div className="mb-4 p-3 rounded-lg border-2 border-green-300 bg-green-50/50 dark:bg-green-950/20 dark:border-green-700">
-              <p className="text-xs font-semibold text-green-800 dark:text-green-300 mb-2 flex items-center gap-1.5">
-                <Send className="h-3.5 w-3.5" />
-                Contato para envio da OC
-              </p>
-              <div className="space-y-1">
-                {sol.fornecedor_email_contato && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Mail className="h-4 w-4 text-green-600 dark:text-green-400" />
-                    <a href={`mailto:${sol.fornecedor_email_contato}`} className="text-green-700 dark:text-green-300 hover:underline">
-                      {sol.fornecedor_email_contato}
-                    </a>
-                  </div>
-                )}
-                {sol.fornecedor_telefone_contato && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Phone className="h-4 w-4 text-green-600 dark:text-green-400" />
-                    <a href={`tel:${sol.fornecedor_telefone_contato}`} className="text-green-700 dark:text-green-300 hover:underline">
-                      {sol.fornecedor_telefone_contato}
-                    </a>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Action buttons - organized in rows */}
-          <div className="space-y-2">
-            {/* Primary row: View details + secondary actions */}
-            <div className="flex gap-2 flex-wrap items-center">
-              <Button size="sm" variant="outline" onClick={() => openDetails(sol)}>
-                <Eye className="h-4 w-4 mr-1" /> Ver Detalhes
-              </Button>
-              
-              {/* Secondary actions based on status */}
-              {(sol.status === 'recebido' || sol.status === 'em_analise') && (
-                <Button size="sm" variant="outline" onClick={() => openAction(sol, 'solicitar_ajuste')}>
-                  <HelpCircle className="h-4 w-4 mr-1" /> Solicitar Ajuste
-                </Button>
-              )}
-              
-              {(sol.status === 'aprovado' || sol.status === 'em_processamento') && (
-                <>
-                  {/* Cadastro Contábil Button */}
-                  {solCadastroStatus === 'concluido' ? (
-                    <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-700 flex items-center gap-1">
-                      <CheckCircle className="h-3 w-3" />
-                      Cadastro OK
-                    </Badge>
-                  ) : (
-                    <Button 
-                      size="sm" 
-                      variant={solCadastroStatus === 'solicitado' ? 'secondary' : 'outline'}
-                      onClick={() => handleSolicitarCadastro(sol)}
-                      disabled={cadastroLoading}
-                    >
-                      {solCadastroStatus === 'solicitado' ? (
-                        <>
-                          <CheckCircle className="h-4 w-4 mr-1" /> Cadastro Concluído
-                        </>
-                      ) : (
-                        <>
-                          <Package className="h-4 w-4 mr-1" /> Solicitar Cadastro
-                        </>
-                      )}
-                    </Button>
-                  )}
-                  
-                  <Button size="sm" variant="outline" onClick={() => openAction(sol, 'solicitar_ajuste')}>
-                    <HelpCircle className="h-4 w-4 mr-1" /> Solicitar Ajuste
-                  </Button>
-                </>
-              )}
-
-              {/* NF/Boleto Actions */}
-              {sol.status === 'nf_boleto_enviados' && (
-                <>
-                  <Button size="sm" variant="outline" onClick={() => {
-                    setSelectedSolicitacao(sol);
-                    setNfBoletoViewOpen(true);
-                  }}>
-                    <Receipt className="h-4 w-4 mr-1" /> Ver NF/Boleto
-                  </Button>
-                  <Button size="sm" onClick={() => {
-                    setSelectedSolicitacao(sol);
-                    setNfBoletoViewOpen(true);
-                  }}>
-                    <Send className="h-4 w-4 mr-1" /> Dar Baixa
-                  </Button>
-                </>
-              )}
-              
-              {/* Expand/Collapse button for history */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  const newExpanded = expandedId === sol.id ? null : sol.id;
-                  setExpandedId(newExpanded);
-                  if (newExpanded && backofficeUnreadMap[sol.id]) {
-                    backofficeMarkAsRead(sol.id);
-                  }
-                }}
-                className="ml-auto"
-              >
-                <History className="h-4 w-4 mr-1" />
-                Histórico
-                {expandedId === sol.id ? (
-                  <ChevronUp className="h-4 w-4 ml-1" />
-                ) : (
-                  <ChevronDown className="h-4 w-4 ml-1" />
-                )}
-              </Button>
-
-              {/* Transfer button */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setTransferSolicitacao(sol);
-                  setTransferOpen(true);
-                }}
-                className="text-muted-foreground"
-              >
-                <UserCheck className="h-4 w-4 mr-1" /> Transferir
-              </Button>
-            </div>
-
-            {/* Destructive actions row - separated visually */}
-            {(sol.status === 'recebido' || sol.status === 'em_analise' || sol.status === 'aprovado' || sol.status === 'em_processamento') && (
-              <div className="flex gap-2 pt-1 border-t border-dashed">
-                <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => openAction(sol, 'rejeitar')}>
-                  <XCircle className="h-4 w-4 mr-1" /> {sol.status === 'aprovado' || sol.status === 'em_processamento' ? 'Reprovar' : 'Rejeitar'}
-                </Button>
-              </div>
-            )}
-          </div>
-          
-          {/* Descrição com Ver mais/menos */}
-          <div className="mt-3 pt-3 border-t">
-            <ExpandableDescription 
-              description={sol.descricao} 
-              maxLength={100}
-              className="text-muted-foreground"
-            />
-          </div>
-
-          {/* Expanded History Timeline */}
-          {expandedId === sol.id && (
-            <div className="mt-4 pt-4 border-t space-y-6">
-              {/* Fluig Status Card */}
-              {sol.numero_chamado_fluig && sol.numero_chamado_fluig !== 'RM' && (
-                <FluigStatusCard numeroChamadoFluig={sol.numero_chamado_fluig} />
-              )}
-              
-              {/* Histórico */}
-              <div>
-                <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
-                  <History className="h-4 w-4 text-muted-foreground" />
-                  Histórico da Solicitação
-                </h4>
-                <SolicitacaoTimeline solicitacaoId={sol.id} isBackoffice />
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    );
-  };
+  // Card callbacks (stable ref)
+  const cardCallbacks = useMemo<CardCallbacks>(() => ({
+    openDetails,
+    openAction,
+    openRegistro,
+    openEditFluig,
+    openEditProjuris,
+    handleRegistrarEnvioFornecedor,
+    handleConcluirLiberada,
+    handleSolicitarCadastro,
+    handleAprovarCancelamento,
+    handleRejeitarCancelamento,
+    onToggleExpand: (id: string) => {
+      const newExpanded = expandedId === id ? null : id;
+      setExpandedId(newExpanded);
+      if (newExpanded && backofficeUnreadMap[id]) {
+        backofficeMarkAsRead(id);
+      }
+    },
+    onTransfer: (sol: SolicitacaoBackoffice) => {
+      setTransferSolicitacao(sol);
+      setTransferOpen(true);
+    },
+    onViewNfBoleto: (sol: SolicitacaoBackoffice) => {
+      setSelectedSolicitacao(sol);
+      setNfBoletoViewOpen(true);
+    },
+    backofficeMarkAsRead,
+  }), [expandedId, backofficeUnreadMap, backofficeMarkAsRead]);
 
   // Reset page on tab change
   useEffect(() => {
@@ -1712,7 +1324,21 @@ export default function Backoffice() {
           </Card>
         ) : (
           <>
-            {paginatedItems.map((sol) => <SolicitacaoCard key={sol.id} sol={sol} />)}
+            {paginatedItems.map((sol) => (
+              <BackofficeSolicitacaoCard
+                key={sol.id}
+                sol={sol}
+                userId={user?.id}
+                expandedId={expandedId}
+                cadastroStatus={cadastroStatus[sol.id]}
+                hasCancelamentoPendente={cancelamentoPendenteIds.has(sol.id)}
+                unreadInfo={backofficeUnreadMap[sol.id]}
+                actionLoading={actionLoading}
+                cadastroLoading={cadastroLoading}
+                cancelamentoActionLoading={cancelamentoActionLoading}
+                callbacks={cardCallbacks}
+              />
+            ))}
             {totalPages > 1 && (
               <div className="flex items-center justify-between pt-2">
                 <span className="text-sm text-muted-foreground">
