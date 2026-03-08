@@ -248,6 +248,7 @@ export const ROLE_LABELS: Record<AppRole, string> = {
   solicitante: 'Solicitante (Facilities)',
   backoffice: 'Analista Financeiro',
   admin: 'Administrador do Sistema',
+  super_admin: 'Super Administrador',
 };
 
 // Labels padronizados para anexos
