@@ -18,6 +18,7 @@ interface PendingActionsCardProps {
   pendingInfoRequests?: number;
   pendingJustificativas?: number;
   pendingJustificativasOwn?: number;
+  isBackofficeOrAdmin?: boolean;
   onViewPending: (filter: string) => void;
   className?: string;
 }
