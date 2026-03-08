@@ -1,4 +1,4 @@
-export type AppRole = 'solicitante' | 'backoffice' | 'admin';
+export type AppRole = 'solicitante' | 'backoffice' | 'admin' | 'super_admin';
 export type RequestType = 'AC' | 'OC';
 export type RequestStatus = 'recebido' | 'em_analise' | 'pendente_correcao' | 'aprovado' | 'rejeitado' | 'em_processamento' | 'oc_ac_emitida' | 'aguardando_aceite' | 'aguardando_informacoes' | 'concluida' | 'aguardando_nf_boleto' | 'nf_boleto_enviados' | 'enviado_pagamento' | 'liberado_fornecedor' | 'enviado_fornecedor' | 'cancelado';
 export type Empreendimento = 'mega_curitiba' | 'mega_itajai' | 'mega_esteio' | 'todos';

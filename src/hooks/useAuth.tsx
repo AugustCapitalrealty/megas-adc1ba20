@@ -4,8 +4,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { lovable } from '@/integrations/lovable/index';
 import type { AppRole, Profile } from '@/types';
 
-const MASTER_EMAIL = 'guilherme_xd@live.com';
-
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -42,10 +40,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [impersonatedProfile, setImpersonatedProfile] = useState<Profile | null>(null);
   const [impersonatedRoles, setImpersonatedRoles] = useState<AppRole[]>([]);
 
-  const isMasterUser = user?.email === MASTER_EMAIL;
+  // super_admin role from DB replaces hardcoded email check
+  const isMasterUser = roles.includes('super_admin');
   const isImpersonating = isMasterUser && impersonatedProfile !== null;
 
-  // Master user is always approved, others check profile
+  // super_admin is always approved, others check profile
   const isApproved = isMasterUser || (profile?.approved ?? false);
 
   // Effective profile/roles (impersonated or real)
