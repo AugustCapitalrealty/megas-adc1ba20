@@ -194,6 +194,14 @@ export default function Dashboard() {
           </div>
         ) : (
           <>
+            {/* Onboarding Tour */}
+            {metrics.total === 0 && !isOnboardingComplete() && (
+              <WelcomeTour
+                userName={profile?.full_name?.split(' ')[0]}
+                onComplete={() => track('onboarding_completed')}
+              />
+            )}
+
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {kpis.map((kpi) => {
                 const Icon = kpi.icon;
@@ -205,6 +213,7 @@ export default function Dashboard() {
                       kpi.highlight ? 'border-destructive/50 shadow-sm' : 'hover:border-primary/30'
                     )}
                     onClick={() => {
+                      track('kpi_clicked', { label: kpi.label, filter: kpi.filter, viewMode });
                       if (viewMode === 'geral' && isBackofficeOrAdmin) {
                         const tabMap: Record<string, string> = { todas: 'todas', com_backoffice: 'recebido', correcoes: 'pendente_correcao', concluidas: 'concluida' };
                         navigate(`/backoffice?tab=${tabMap[kpi.filter] || kpi.filter}`);
@@ -218,8 +227,11 @@ export default function Dashboard() {
                         <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${kpi.bgColor}`}>
                           <Icon className={`h-5 w-5 ${kpi.color}`} />
                         </div>
-                        <div className="min-w-0">
-                          <p className="text-2xl font-bold leading-none">{kpi.value}</p>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between">
+                            <p className="text-2xl font-bold leading-none">{kpi.value}</p>
+                            <KpiSparkline data={kpi.trend} />
+                          </div>
                           <p className="text-xs text-muted-foreground mt-1">{kpi.label}</p>
                         </div>
                       </div>
