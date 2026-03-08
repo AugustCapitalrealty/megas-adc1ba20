@@ -23,8 +23,7 @@ import {
   Calendar
 } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/status-badge';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { formatBR } from '@/lib/date-utils';
 import { RequestStatus } from '@/types';
 
 interface Solicitacao {
