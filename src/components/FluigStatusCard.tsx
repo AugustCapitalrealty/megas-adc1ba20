@@ -154,12 +154,16 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
   const [showHistorico, setShowHistorico] = useState(false);
 
   // Memoized calculations - must be before early returns
-  const aprovacoes = useMemo(() => {
-    if (!status?.localizacao) {
-      return { facilitiesAprovado: false, financeiroAprovado: false, diretoriaAprovado: false };
-    }
-    return getAprovacoesPorLocalizacao(status.localizacao);
-  }, [status?.localizacao]);
+  const approvalResult = useMemo(() => {
+    if (!status) return null;
+    return getFluigApprovalStatus(status);
+  }, [status]);
+
+  const aprovacoes = useMemo(() => ({
+    facilitiesAprovado: approvalResult?.facilities === 'approved',
+    financeiroAprovado: approvalResult?.financeiro === 'approved',
+    diretoriaAprovado: approvalResult?.diretoria === 'approved',
+  }), [approvalResult]);
 
   // Detectar se houve devolução recente - must be before early returns
   // NOVA LÓGICA: verifica sequência de eventos para detectar retorno de nível
