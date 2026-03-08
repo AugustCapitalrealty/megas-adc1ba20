@@ -115,7 +115,7 @@ export function AppLayout() {
         .filter((item) => item.show)
         .map((item) => {
           const Icon = item.icon;
-          return (
+          const link = (
             <Link
               key={item.href}
               to={item.href}
@@ -128,9 +128,16 @@ export function AppLayout() {
                   : 'text-foreground/70 hover:text-primary hover:bg-accent'
               )}
             >
-              <Icon className="h-4 w-4" />
-              {item.label}
+              <Icon className="h-4 w-4 shrink-0" />
+              {mobile ? item.label : <span className="hidden xl:inline">{item.label}</span>}
             </Link>
+          );
+          if (mobile) return link;
+          return (
+            <Tooltip key={item.href}>
+              <TooltipTrigger asChild>{link}</TooltipTrigger>
+              <TooltipContent className="xl:hidden">{item.label}</TooltipContent>
+            </Tooltip>
           );
         })}
     </>
