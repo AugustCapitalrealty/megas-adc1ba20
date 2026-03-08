@@ -270,10 +270,21 @@ export const BackofficeSolicitacaoCard = memo(function BackofficeSolicitacaoCard
 
   return (
     <Card className={cn(
-      'hover:shadow-md transition-shadow',
+      'hover:shadow-md transition-shadow relative',
       isAtrasado && 'border-destructive border-2',
-      isMyResponsibility && !isAtrasado && 'border-primary border-2 bg-primary/5'
+      isMyResponsibility && !isAtrasado && 'border-primary border-2 bg-primary/5',
+      isSelected && 'ring-2 ring-primary/50'
     )}>
+      {/* Selection Checkbox */}
+      {callbacks.onToggleSelect && (
+        <div className="absolute top-3 right-3 z-10">
+          <Checkbox
+            checked={!!isSelected}
+            onCheckedChange={() => callbacks.onToggleSelect?.(sol.id)}
+            aria-label={`Selecionar #${sol.protocolo}`}
+          />
+        </div>
+      )}
       {/* Unread Message Banner */}
       {unreadInfo && (
         <UnreadMessageBanner
