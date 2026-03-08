@@ -216,7 +216,7 @@ export function useEficienciaDashboard(filters: EficienciaFilters) {
       }).length;
     },
     enabled: !!user?.id && feriadosList.length > 0,
-    staleTime: 30_000,
+    staleTime: 120_000,
   });
 
   // KPI 4: Vazão
