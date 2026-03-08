@@ -20,8 +20,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useFluigSnapshots, useFluigFilterOptions, type FluigFilters } from '@/hooks/useFluigDashboard';
 import { calculateDuration } from '@/lib/fluig-parser';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { formatBR } from '@/lib/date-utils';
 import {
   Search,
   Loader2,
