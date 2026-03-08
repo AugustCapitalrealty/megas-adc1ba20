@@ -55,7 +55,7 @@ export function TabProjuris() {
   const [rows, setRows] = useState<ProjurisRow[]>([]);
   const [filterEmpreendimento, setFilterEmpreendimento] = useState<string>('todos');
   const [filterEtapa, setFilterEtapa] = useState<string>('todos');
-  const [filterStatus, setFilterStatus] = useState<string>('todos');
+  const [filterStatus, setFilterStatus] = useState<string>('ativos');
   const [searchTerm, setSearchTerm] = useState('');
   const [detailRow, setDetailRow] = useState<ProjurisRow | null>(null);
 
