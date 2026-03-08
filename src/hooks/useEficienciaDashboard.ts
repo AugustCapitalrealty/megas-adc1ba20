@@ -162,7 +162,7 @@ export function useEficienciaDashboard(filters: EficienciaFilters) {
       return { entries, totalNew: totalNewCount || 0 };
     },
     enabled: !!user?.id && feriadosList.length > 0,
-    staleTime: 30_000,
+    staleTime: 120_000,
   });
 
   const entries = data?.entries || [];
