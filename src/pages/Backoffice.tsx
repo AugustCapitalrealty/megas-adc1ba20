@@ -1723,6 +1723,15 @@ export default function Backoffice() {
                 <Filter className="h-4 w-4 mr-2" />
                 Minhas ({myResponsibilityCount})
               </Button>
+              <Button
+                variant="outline"
+                onClick={() => exportToExcel(getActiveTabItems(), `backoffice_${activeTab}`)}
+                disabled={getActiveTabItems().length === 0}
+                className="w-full md:w-auto"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Exportar
+              </Button>
             </div>
           </CardContent>
         </Card>
