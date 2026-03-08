@@ -432,7 +432,12 @@ export function SolicitacaoTimeline({ solicitacaoId, showMessages = true, isBack
                       Fluig
                     </Badge>
                   )}
-                  {hist.status_novo && !isFluigUpdate && !isFluigNumberAction && (
+                  {isFluigCadastroAction && isBackoffice && (
+                    <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                      Cadastro
+                    </Badge>
+                  )}
+                  {hist.status_novo && !isFluigUpdate && !isFluigNumberAction && !isFluigCadastroAction && (
                     <Badge variant="outline" className="text-xs">
                       {STATUS_LABELS[hist.status_novo]}
                     </Badge>
