@@ -568,7 +568,7 @@ export default function MonitoramentoOC() {
                       </TableCell>
                       <TableCell className="text-sm max-w-[200px] truncate">{row.fornecedor_razao || '—'}</TableCell>
                       <TableCell className="text-right text-sm font-medium">{formatCurrency(row.valor)}</TableCell>
-                      <TableCell className="text-sm">{format(new Date(row.data_oc), 'dd/MM/yy', { locale: ptBR })}</TableCell>
+                      <TableCell className="text-sm">{formatBR(row.data_oc, 'dd/MM/yy')}</TableCell>
                       <TableCell>{getAgingBadge(row.dias_aberto, !!row.ultima_justificativa, row.data_oc)}</TableCell>
                       <TableCell>{getStatusBadge(monitorStatus, row.previsao_nf)}</TableCell>
                       <TableCell>
