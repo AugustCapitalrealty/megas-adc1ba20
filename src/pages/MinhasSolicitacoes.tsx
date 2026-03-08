@@ -1309,6 +1309,31 @@ export default function MinhasSolicitacoes() {
           <JuridicoTracker solicitacaoId={sol.id} readOnly />
         )}
 
+        {/* AI Validation Badges (cached from submission) */}
+        {((sol as any).ia_cnae_status || (sol as any).ia_descricao_vaga !== null) && (
+          <div className="space-y-2">
+            <p className="font-medium text-sm text-muted-foreground">Validações IA</p>
+            {(sol as any).ia_cnae_status && (sol as any).fornecedor_id && (
+              <CNAECompatibilityBadge
+                descricao={sol.descricao}
+                fornecedor={sol.fornecedor ? {
+                  cnae_principal_codigo: (sol.fornecedor as any).cnae_principal_codigo,
+                  cnae_principal_descricao: (sol.fornecedor as any).cnae_principal_descricao,
+                } as any : null}
+                enabled={false}
+                cachedResult={{
+                  status: (sol as any).ia_cnae_status,
+                  justificativa: (sol as any).ia_cnae_justificativa || ''
+                }}
+              />
+            )}
+            <DescriptionQualityBadge
+              isVague={(sol as any).ia_descricao_vaga}
+              suggestion={(sol as any).ia_descricao_sugestao}
+            />
+          </div>
+        )}
+
         {/* Anexos da solicitação */}
         {solAnexos && solAnexos.length > 0 && (
           <div className="space-y-2">
