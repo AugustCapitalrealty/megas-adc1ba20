@@ -705,7 +705,7 @@ export default function DashboardEficiencia() {
                           </button>
                         </TableCell>
                         <TableCell>
-                          {format(new Date(entry.created_at), 'dd/MM HH:mm', { locale: ptBR })}
+                          {formatBR(entry.created_at, 'dd/MM HH:mm')}
                         </TableCell>
                         <TableCell>
                           {format(new Date(entry.data_oc), 'dd/MM HH:mm', { locale: ptBR })}
