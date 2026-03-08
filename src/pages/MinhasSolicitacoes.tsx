@@ -710,6 +710,14 @@ export default function MinhasSolicitacoes() {
         } else if (novoFornecedorEscolhido === 'concorrente2' && fornecedoresInfo.concorrente2) {
           updateData.fornecedor_id = editingSolicitacao.fornecedor_concorrente_2_id;
           updateData.fornecedor_concorrente_2_id = antigoFornecedorId;
+        } else if (novoFornecedorEscolhido === 'novo' && novoFornecedorBuscado) {
+          updateData.fornecedor_id = novoFornecedorBuscado.id;
+          // Move old supplier to an empty competitor slot if available
+          if (!editingSolicitacao.fornecedor_concorrente_1_id) {
+            updateData.fornecedor_concorrente_1_id = antigoFornecedorId;
+          } else if (!editingSolicitacao.fornecedor_concorrente_2_id) {
+            updateData.fornecedor_concorrente_2_id = antigoFornecedorId;
+          }
         }
       }
       
