@@ -188,7 +188,7 @@ export default function DashboardSLA() {
             </CardContent>
           </Card>
 
-          <Card className="border-red-200 bg-red-50/30">
+          <Card className="border-red-200 bg-red-50/30 dark:border-red-800 dark:bg-red-950/30">
             <CardHeader className="pb-2">
               <CardDescription className="flex items-center gap-2 text-red-700">
                 <XCircle className="h-4 w-4" />
