@@ -23,8 +23,7 @@ import {
   Calendar
 } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/status-badge';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { formatBR } from '@/lib/date-utils';
 import { RequestStatus } from '@/types';
 
 interface Solicitacao {
@@ -291,7 +290,7 @@ export function SolicitacoesManagement() {
                       <TableCell>
                         <div className="flex items-center gap-1 text-sm text-muted-foreground">
                           <Calendar className="h-3 w-3" />
-                          {format(new Date(solicitacao.created_at), 'dd/MM/yyyy', { locale: ptBR })}
+                          {formatBR(solicitacao.created_at, 'dd/MM/yyyy')}
                         </div>
                       </TableCell>
                       <TableCell className="text-center">

@@ -9,8 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { CalendarIcon, Loader2, AlertTriangle } from 'lucide-react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { formatBR } from '@/lib/date-utils';
 import { cn } from '@/lib/utils';
 
 interface JustificativaModalProps {
@@ -40,8 +39,8 @@ export function JustificativaModal({ open, onOpenChange, solicitacaoId, protocol
           solicitacao_id: solicitacaoId,
           tipo_acao: 'justificativa_adiamento' as const,
           justificativa: justificativa.trim(),
-          previsao_execucao: previsaoExecucao ? format(previsaoExecucao, 'yyyy-MM-dd') : null,
-          previsao_nf: previsaoNf ? format(previsaoNf, 'yyyy-MM-dd') : null,
+          previsao_execucao: previsaoExecucao ? formatBR(previsaoExecucao, 'yyyy-MM-dd') : null,
+          previsao_nf: previsaoNf ? formatBR(previsaoNf, 'yyyy-MM-dd') : null,
           user_id: user.id,
         });
 
@@ -98,7 +97,7 @@ export function JustificativaModal({ open, onOpenChange, solicitacaoId, protocol
                   )}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {previsaoExecucao ? format(previsaoExecucao, 'dd/MM/yyyy', { locale: ptBR }) : 'Selecionar data'}
+                  {previsaoExecucao ? formatBR(previsaoExecucao, 'dd/MM/yyyy') : 'Selecionar data'}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
@@ -126,7 +125,7 @@ export function JustificativaModal({ open, onOpenChange, solicitacaoId, protocol
                   )}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {previsaoNf ? format(previsaoNf, 'dd/MM/yyyy', { locale: ptBR }) : 'Selecionar data'}
+                  {previsaoNf ? formatBR(previsaoNf, 'dd/MM/yyyy') : 'Selecionar data'}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">

@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { format, subDays } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { subDays } from 'date-fns';
+import { formatBR } from '@/lib/date-utils';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -54,8 +54,8 @@ export default function DashboardSLA() {
 
   // Default to last 30 days
   const [filters, setFilters] = useState<SlaFilters>({
-    dataInicio: format(subDays(new Date(), 30), 'yyyy-MM-dd'),
-    dataFim: format(new Date(), 'yyyy-MM-dd'),
+    dataInicio: formatBR(subDays(new Date(), 30), 'yyyy-MM-dd'),
+    dataFim: formatBR(new Date(), 'yyyy-MM-dd'),
     empreendimento: null,
     statusSla: null,
   });
@@ -393,7 +393,7 @@ export default function DashboardSLA() {
                           </button>
                         </TableCell>
                         <TableCell>
-                          {format(new Date(item.created_at), 'dd/MM/yyyy', { locale: ptBR })}
+                          {formatBR(item.created_at, 'dd/MM/yyyy')}
                         </TableCell>
                         <TableCell>
                           <div>

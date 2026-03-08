@@ -7,8 +7,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { useFluigSnapshots } from '@/hooks/useFluigDashboard';
-import { format, differenceInHours, differenceInDays, startOfMonth, endOfMonth, subMonths, isWithinInterval } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { differenceInHours, differenceInDays, startOfMonth, endOfMonth, subMonths, isWithinInterval } from 'date-fns';
+import { formatBR } from '@/lib/date-utils';
 import {
   Loader2,
   RefreshCw,
@@ -396,7 +396,7 @@ export default function PainelFluig() {
   const formatDateShort = (date: string | null) => {
     if (!date) return '-';
     try {
-      return format(new Date(date), "dd/MM/yy", { locale: ptBR });
+      return formatBR(date, "dd/MM/yy");
     } catch {
       return date;
     }
@@ -491,7 +491,7 @@ export default function PainelFluig() {
     refetch();
   };
 
-  const currentMonthName = format(new Date(), 'MMMM', { locale: ptBR });
+  const currentMonthName = formatBR(new Date(), 'MMMM');
 
   return (
     <>
@@ -539,7 +539,7 @@ export default function PainelFluig() {
               return (
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   <Clock className="h-3 w-3" />
-                  Última atualização: {format(lastUpdate, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                  Última atualização: {formatBR(lastUpdate, "dd/MM/yyyy 'às' HH:mm")}
                 </p>
               );
             })()}

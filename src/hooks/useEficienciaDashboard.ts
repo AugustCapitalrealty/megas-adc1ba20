@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { startOfWeek, format, subDays } from 'date-fns';
+import { startOfWeek, subDays } from 'date-fns';
+import { formatBR } from '@/lib/date-utils';
 import { calcularDiasUteis, isMesmoDia } from '@/lib/business-days';
 import type { Empreendimento } from '@/types';
 
@@ -234,7 +235,7 @@ export function useEficienciaDashboard(filters: EficienciaFilters) {
   entries.forEach(e => {
     const date = new Date(e.data_oc);
     const weekStart = startOfWeek(date, { weekStartsOn: 1 });
-    const key = format(weekStart, 'yyyy-MM-dd');
+    const key = formatBR(weekStart, 'yyyy-MM-dd');
     const year = date.getFullYear();
     const existing = weeklyMap.get(key) || { sum: 0, count: 0, year };
     existing.sum += e.lead_time_dias;
@@ -245,7 +246,7 @@ export function useEficienciaDashboard(filters: EficienciaFilters) {
   const weeklyAverages: WeeklyAverage[] = Array.from(weeklyMap.entries())
     .map(([key, val]) => ({
       week: key,
-      weekLabel: format(new Date(key), 'dd/MM'),
+      weekLabel: formatBR(new Date(key), 'dd/MM'),
       avg: Math.round((val.sum / val.count) * 10) / 10,
       year: val.year,
     }))

@@ -20,8 +20,8 @@ import {
   CalendarDays, Loader2, BarChart3,
   FileText, Ban, History, AlertCircle, Search, XOctagon
 } from 'lucide-react';
-import { format, differenceInDays } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { differenceInDays } from 'date-fns';
+import { formatBR } from '@/lib/date-utils';
 import { cn } from '@/lib/utils';
 import { OCDetalhesModal } from '@/components/monitoramento/OCDetalhesModal';
 import { JustificativaModal } from '@/components/monitoramento/JustificativaModal';
@@ -243,7 +243,7 @@ export default function MonitoramentoOC() {
         <Tooltip>
           <TooltipTrigger asChild>{badge}</TooltipTrigger>
           <TooltipContent>
-            <p>OC emitida em {format(new Date(dataOc), 'dd/MM/yyyy', { locale: ptBR })}</p>
+            <p>OC emitida em {formatBR(dataOc, 'dd/MM/yyyy')}</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -269,7 +269,7 @@ export default function MonitoramentoOC() {
         </Badge>
         {status === 'adiado_proximo_mes' && previsaoNf && (
           <span className="text-xs text-muted-foreground">
-            Prev. NF: {format(new Date(previsaoNf + 'T00:00:00'), 'dd/MM/yy')}
+            Prev. NF: {formatBR(previsaoNf + 'T00:00:00', 'dd/MM/yy')}
           </span>
         )}
       </div>
@@ -568,7 +568,7 @@ export default function MonitoramentoOC() {
                       </TableCell>
                       <TableCell className="text-sm max-w-[200px] truncate">{row.fornecedor_razao || '—'}</TableCell>
                       <TableCell className="text-right text-sm font-medium">{formatCurrency(row.valor)}</TableCell>
-                      <TableCell className="text-sm">{format(new Date(row.data_oc), 'dd/MM/yy', { locale: ptBR })}</TableCell>
+                      <TableCell className="text-sm">{formatBR(row.data_oc, 'dd/MM/yy')}</TableCell>
                       <TableCell>{getAgingBadge(row.dias_aberto, !!row.ultima_justificativa, row.data_oc)}</TableCell>
                       <TableCell>{getStatusBadge(monitorStatus, row.previsao_nf)}</TableCell>
                       <TableCell>
@@ -631,7 +631,7 @@ export default function MonitoramentoOC() {
                         {TIPO_ACAO_LABELS[event.tipo_acao] || event.tipo_acao}
                       </Badge>
                       <span className="text-xs text-muted-foreground">
-                        {format(new Date(event.created_at), "dd/MM/yy HH:mm", { locale: ptBR })}
+                        {formatBR(event.created_at, "dd/MM/yy HH:mm")}
                       </span>
                     </div>
                     <p className="text-sm">{event.justificativa}</p>
@@ -641,10 +641,10 @@ export default function MonitoramentoOC() {
                     {(event.previsao_execucao || event.previsao_nf) && (
                       <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
                         {event.previsao_execucao && (
-                          <span>Prev. execução: {format(new Date(event.previsao_execucao), 'dd/MM/yy')}</span>
+                          <span>Prev. execução: {formatBR(event.previsao_execucao, 'dd/MM/yy')}</span>
                         )}
                         {event.previsao_nf && (
-                          <span>Prev. NF: {format(new Date(event.previsao_nf), 'dd/MM/yy')}</span>
+                          <span>Prev. NF: {formatBR(event.previsao_nf, 'dd/MM/yy')}</span>
                         )}
                       </div>
                     )}

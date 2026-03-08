@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { RefreshCw, MapPin, User, Calendar, Clock, ChevronDown, ChevronUp, CheckCircle, XCircle, UserCircle, ArrowRight, AlertCircle, RotateCcw, ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { format, differenceInDays } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { differenceInDays } from 'date-fns';
+import { formatBR } from '@/lib/date-utils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { getFluigApprovalStatus, isFluigFechado, CAMPO_APROVACAO_LABELS, getDevolucaoLabel, LOCALIZACAO_TO_ETAPA, mapEtapaToDepartamento, formatResponsavelFluig, getEtapaIndexPorResponsavel, getProximaEtapaFluig } from '@/lib/fluig-utils';
 import { useFluigStatus } from '@/hooks/useFluigStatus';
@@ -104,7 +104,7 @@ const formatEventoDescricao = (evento: FluigEventoProcessado): { texto: string; 
   // Aprovações (campos *_conclusao)
   if (campo_alterado.includes('conclusao') && valor_novo) {
     const label = CAMPO_APROVACAO_LABELS[campo_alterado] || campo_alterado;
-    const dataFormatada = format(new Date(valor_novo), "dd/MM/yyyy HH:mm", { locale: ptBR });
+    const dataFormatada = formatBR(valor_novo, "dd/MM/yyyy HH:mm");
     return {
       texto: `${label} aprovado em ${dataFormatada}`,
       tipo: 'aprovacao'
@@ -269,7 +269,7 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
   }
 
   const dataLancamentoFormatted = status.data_lancamento 
-    ? format(new Date(status.data_lancamento), "dd/MM/yyyy", { locale: ptBR })
+    ? formatBR(status.data_lancamento, "dd/MM/yyyy")
     : null;
 
   // Calculate days with current responsible - use ultima_movimentacao instead of data_lancamento
@@ -431,7 +431,7 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
                     const { texto, tipo } = formatEventoDescricao(evento);
                     const { icon: Icon, colorClass } = getEventoIconAndColor(tipo);
                     const dataReal = getEventoDataReal(evento);
-                    const dataFormatada = format(dataReal, "dd/MM HH:mm", { locale: ptBR });
+                    const dataFormatada = formatBR(dataReal, "dd/MM HH:mm");
                     
                     return (
                       <div 

@@ -15,8 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { formatBR } from '@/lib/date-utils';
 
 interface JuridicoTrackerProps {
   solicitacaoId: string;
@@ -197,7 +196,7 @@ export function JuridicoTracker({ solicitacaoId, readOnly = false, className }: 
                   {registro && (
                     <div className="mt-0.5 space-y-0.5">
                       <p className="text-xs text-muted-foreground">
-                        {registro.profile?.full_name || 'Usuário'} • {format(new Date(registro.created_at), "dd/MM/yy 'às' HH:mm", { locale: ptBR })}
+                        {registro.profile?.full_name || 'Usuário'} • {formatBR(registro.created_at, "dd/MM/yy 'às' HH:mm")}
                       </p>
                       {registro.observacao && (
                         <p className="text-xs text-muted-foreground/80 flex items-start gap-1">

@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
-import { format, subDays } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { subDays } from 'date-fns';
+import { formatBR } from '@/lib/date-utils';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -65,8 +65,8 @@ const EMPREENDIMENTO_COLORS: Record<string, string> = {
 
 export default function DashboardEficiencia() {
   const [filters, setFilters] = useState<EficienciaFilters>({
-    dataInicio: format(subDays(new Date(), 90), 'yyyy-MM-dd'),
-    dataFim: format(new Date(), 'yyyy-MM-dd'),
+    dataInicio: formatBR(subDays(new Date(), 90), 'yyyy-MM-dd'),
+    dataFim: formatBR(new Date(), 'yyyy-MM-dd'),
     empreendimento: null,
   });
 
@@ -705,10 +705,10 @@ export default function DashboardEficiencia() {
                           </button>
                         </TableCell>
                         <TableCell>
-                          {format(new Date(entry.created_at), 'dd/MM HH:mm', { locale: ptBR })}
+                          {formatBR(entry.created_at, 'dd/MM HH:mm')}
                         </TableCell>
                         <TableCell>
-                          {format(new Date(entry.data_oc), 'dd/MM HH:mm', { locale: ptBR })}
+                          {formatBR(entry.data_oc, 'dd/MM HH:mm')}
                         </TableCell>
                         <TableCell className="text-center">
                           <Badge

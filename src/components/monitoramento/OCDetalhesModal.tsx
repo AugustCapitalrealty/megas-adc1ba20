@@ -8,8 +8,7 @@ import { useSolicitacaoDetalhes } from '@/hooks/useSolicitacaoDetalhes';
 import { SolicitacaoTimeline } from '@/components/SolicitacaoTimeline';
 import { EMPREENDIMENTO_LABELS, type Empreendimento } from '@/types';
 import { Loader2, FileText, DollarSign, Building2, User, FileCheck, Receipt } from 'lucide-react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { formatBR } from '@/lib/date-utils';
 
 interface OCDetalhesModalProps {
   open: boolean;
@@ -144,7 +143,7 @@ export function OCDetalhesModal({ open, onOpenChange, solicitacaoId, protocolo }
                           <div>
                             <span className="font-medium">{doc.tipo_documento} — {doc.numero_documento}</span>
                             <span className="text-muted-foreground ml-2">
-                              {format(new Date(doc.created_at), 'dd/MM/yy', { locale: ptBR })}
+                              {formatBR(doc.created_at, 'dd/MM/yy')}
                             </span>
                           </div>
                           {doc.emitido_por_nome && <span className="text-xs text-muted-foreground">{doc.emitido_por_nome}</span>}
@@ -169,7 +168,7 @@ export function OCDetalhesModal({ open, onOpenChange, solicitacaoId, protocolo }
                           <div>
                             <span className="font-medium">{doc.tipo === 'nota_fiscal' ? 'NF' : 'Boleto'} — {doc.nome_arquivo}</span>
                             <span className="text-muted-foreground ml-2">
-                              {format(new Date(doc.created_at), 'dd/MM/yy', { locale: ptBR })}
+                              {formatBR(doc.created_at, 'dd/MM/yy')}
                             </span>
                           </div>
                         </div>
@@ -201,7 +200,7 @@ export function OCDetalhesModal({ open, onOpenChange, solicitacaoId, protocolo }
                       </div>
                       <div>
                         <p className="text-muted-foreground text-xs">Criado em</p>
-                        <p className="font-medium">{format(new Date(detalhes.solicitacao.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</p>
+                        <p className="font-medium">{formatBR(detalhes.solicitacao.created_at, 'dd/MM/yyyy HH:mm')}</p>
                       </div>
                     </div>
                     <div>

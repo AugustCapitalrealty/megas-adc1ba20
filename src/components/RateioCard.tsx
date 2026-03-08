@@ -83,7 +83,7 @@ export function RateioCard({ tipoRateio, rateioValores, protocolo, valorTotal }:
     yPos += 6;
     doc.text(`Valor Total: ${(valorTotal ?? total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`, 14, yPos);
     yPos += 6;
-    doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 14, yPos);
+    doc.text(`Data: ${new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`, 14, yPos);
     yPos += 10;
 
     // Table
@@ -116,7 +116,7 @@ export function RateioCard({ tipoRateio, rateioValores, protocolo, valorTotal }:
     doc.line(14, pageHeight - 20, pageWidth - 14, pageHeight - 20);
     doc.setFontSize(8);
     doc.setTextColor(...grey);
-    doc.text(`Mega Centro Logístico — Documento gerado em ${new Date().toLocaleDateString('pt-BR')}`, 14, pageHeight - 14);
+    doc.text(`Mega Centro Logístico — Documento gerado em ${new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`, 14, pageHeight - 14);
 
     doc.save(`rateio_${protocolo || 'demonstrativo'}.pdf`);
   };

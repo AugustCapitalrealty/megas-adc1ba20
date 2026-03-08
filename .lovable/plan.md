@@ -1,70 +1,59 @@
 
 
-# Plano: Ajustar fuso horário para Brasília (America/Sao_Paulo)
+# Plano: Trocar Logo + Eliminar Loading Duplo
 
-## Problema
+## Diagnóstico
 
-O app usa `new Date()` e `format()` do date-fns sem especificar timezone. Em servidores/navegadores fora do Brasil, as datas/horas podem aparecer erradas. Apenas 1 lugar no código usa `timeZone: 'America/Sao_Paulo'` explicitamente.
+Dois problemas distintos:
 
-## Abordagem
+**1. Logo desatualizada** — Precisa trocar para a nova versão enviada.
 
-Criar um utilitário centralizado de formatação de datas com timezone de Brasília e substituir os usos espalhados pelo código.
+**2. Três shells separados causam remontagem do layout:**
 
-### 1. `src/lib/date-utils.ts` — Novo arquivo
-
-Criar funções utilitárias que forçam o timezone de Brasília:
-
-```typescript
-const TZ = 'America/Sao_Paulo';
-
-// Formata data com timezone de Brasília usando Intl.DateTimeFormat
-export function formatDateBR(date: Date | string, options?: { showTime?: boolean }): string;
-
-// Retorna "agora" no fuso de Brasília (para comparações)
-export function nowBrasilia(): Date;
+```text
+Atual (App.tsx):
+  <Route element={<ProtectedShell />}>           ← Shell A (monta AppLayout)
+    Dashboard, MinhasSolicitacoes, etc.
+  </Route>
+  <Route element={<ProtectedShell requireBackoffice />}>  ← Shell B (OUTRO AppLayout)
+    Backoffice, DashboardSLA, etc.
+  </Route>
+  <Route element={<ProtectedShell requireAdmin />}>       ← Shell C (OUTRO AppLayout)
+    Admin
+  </Route>
 ```
 
-### 2. Substituir `toLocaleDateString` sem timezone
+Ao navegar de Dashboard (Shell A) para Backoffice (Shell B), o React desmonta o Shell A inteiro (incluindo header/logo/menu) e monta o Shell B do zero. Isso causa o efeito de "carregar duas vezes" — primeiro o loading do auth no novo shell, depois o loading dos dados da página.
 
-Arquivos afetados:
-- `src/components/FornecedorCard.tsx` — adicionar `{ timeZone: TZ }`
-- `src/components/RateioCard.tsx` — adicionar `{ timeZone: TZ }`
-- `src/pages/NovaSolicitacao.tsx` — adicionar `{ timeZone: TZ }`
+## Alterações
 
-### 3. Substituir `format(new Date(...))` do date-fns
+### 1. Trocar logo
+Copiar `user-uploads://logo-mega-removebg-preview-2.png` para `src/assets/logos/logo-mega.png`. Todas as referências já apontam para esse arquivo.
 
-O `date-fns` `format` não suporta timezone nativamente. Para exibição de datas com hora (ex: `"dd/MM/yyyy 'às' HH:mm"`), usar `date-fns-tz` ou `Intl.DateTimeFormat` com timezone.
+### 2. Unificar em um único Shell (`src/App.tsx`)
+Usar **um único** `<ProtectedShell>` para todas as rotas protegidas. Cheques de permissão (backoffice/admin) movidos para componentes wrapper inline nas rotas individuais:
 
-Instalar `date-fns-tz` e usar `formatInTimeZone`:
-
-```typescript
-import { formatInTimeZone } from 'date-fns-tz';
-const TZ = 'America/Sao_Paulo';
-
-// Em vez de: format(new Date(created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
-// Usar: formatInTimeZone(created_at, TZ, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
+```text
+Depois:
+  <Route element={<ProtectedShell />}>     ← UM ÚNICO Shell (AppLayout monta 1 vez)
+    Dashboard
+    MinhasSolicitacoes
+    Backoffice         ← permissão checada internamente
+    Admin              ← permissão checada internamente
+    DashboardSLA       ← permissão checada internamente
+    etc.
+  </Route>
 ```
 
-Arquivos com `format()` que exibem hora (prioritários):
-- `src/pages/Backoffice.tsx` — created_at, updated_at com HH:mm
-- `src/components/JuridicoTracker.tsx` — created_at com HH:mm
-- `src/components/SolicitacaoMessages.tsx` — created_at com HH:mm
-- `src/components/SolicitacaoTimeline.tsx` — timestamps com hora
-- `src/components/NotificationBell.tsx` — timestamps
+Criar um componente `<RequireRole>` que checa permissão e redireciona se não autorizado, sem mostrar loading (auth já foi verificado pelo shell pai).
 
-Arquivos com `format()` que exibem só data (menos críticos, mas devem ser consistentes):
-- `src/pages/PainelFluig.tsx`
-- `src/pages/DashboardSLA.tsx`
-- `src/components/FluigDashboard.tsx`
-- `src/components/admin/SolicitacoesManagement.tsx`
-- `src/components/monitoramento/TabProjuris.tsx`
-- `src/pages/GarantiasVigentes.tsx`
+### 3. Loading mais leve no ProtectedShell
+Ao invés da tela cheia com logo + spinner (que compete visualmente com o Suspense), usar apenas um spinner discreto centralizado. A logo já está no header do AppLayout — não precisa repetir no loading.
 
-### 4. `new Date().toISOString()` para gravar no banco
+## Arquivos alterados
 
-Estes estão corretos — `.toISOString()` sempre gera UTC, e o Supabase armazena em UTC. Não precisa mudar.
-
-## Resultado
-
-Todas as datas e horários exibidos no app estarão no fuso de Brasília (UTC-3), independente de onde o navegador do usuário estiver.
+| Arquivo | Alteração |
+|---------|-----------|
+| `src/assets/logos/logo-mega.png` | Substituir pela nova logo |
+| `src/App.tsx` | Unificar 3 shells em 1, criar RequireRole, loading simplificado |
 

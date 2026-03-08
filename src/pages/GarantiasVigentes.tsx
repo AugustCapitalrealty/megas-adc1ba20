@@ -7,8 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Shield, ShieldCheck, ShieldAlert, ShieldX, Search, Building2, Calendar, Wrench, ExternalLink } from 'lucide-react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { formatBR } from '@/lib/date-utils';
 import { useGarantiasVigentes, type GarantiaDetalhe, type StatusFiltro, type TipoFiltro } from '@/hooks/useGarantiasVigentes';
 import { EMPREENDIMENTO_LABELS, TIPO_GARANTIA_LABELS } from '@/types';
 import type { Empreendimento } from '@/types';
@@ -94,7 +93,7 @@ function GarantiaProgressBar({ detalhe }: { detalhe: GarantiaDetalhe }) {
   return (
     <div className="w-full">
       <div className="flex justify-between text-xs text-muted-foreground mb-1">
-        <span>{format(new Date(detalhe.dataExpiracao), 'dd/MM/yyyy')}</span>
+        <span>{formatBR(detalhe.dataExpiracao, 'dd/MM/yyyy')}</span>
         <span>{detalhe.diasContratados} dias total</span>
       </div>
       <div className="h-2 bg-muted rounded-full overflow-hidden">
@@ -280,7 +279,7 @@ export default function GarantiasVigentes() {
                       )}
                       <span className="flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
-                        Conclusão: {format(new Date(g.data_conclusao), "dd/MM/yyyy", { locale: ptBR })}
+                        Conclusão: {formatBR(g.data_conclusao, "dd/MM/yyyy")}
                       </span>
                       <span>
                         Valor: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(g.valor)}

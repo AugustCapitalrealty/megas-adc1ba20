@@ -10,8 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { formatBR } from '@/lib/date-utils';
 import { 
   Play, 
   RotateCcw, 
@@ -244,7 +243,7 @@ export function SlaTimelineModal({
                       <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
-                          {format(new Date(event.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                          {formatBR(event.created_at, "dd/MM/yyyy 'às' HH:mm")}
                         </span>
                         {event.usuario_nome && (
                           <span className="flex items-center gap-1">

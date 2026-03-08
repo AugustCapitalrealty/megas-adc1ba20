@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { type HistoricoSolicitacao, STATUS_LABELS } from '@/types';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { formatBR } from '@/lib/date-utils';
 import { 
   CheckCircle, 
   Clock, 
@@ -379,7 +378,7 @@ export function SolicitacaoTimeline({ solicitacaoId, showMessages = true }: Soli
                   </div>
                   
                   <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                    {format(new Date(msg.created_at), "dd/MM/yyyy HH:mm:ss", { locale: ptBR })}
+                    {formatBR(msg.created_at, "dd/MM/yyyy HH:mm:ss")}
                   </p>
                   
                   <div className="mt-2 p-3 bg-muted/30 rounded-lg border-l-4 border-primary/40">
@@ -430,7 +429,7 @@ export function SolicitacaoTimeline({ solicitacaoId, showMessages = true }: Soli
                   <User className="h-3 w-3" />
                   {hist.profile?.full_name || hist.profile?.email || 'Usuário'}
                   {' • '}
-                  {format(new Date(hist.created_at), "dd/MM/yyyy HH:mm:ss", { locale: ptBR })}
+                  {formatBR(hist.created_at, "dd/MM/yyyy HH:mm:ss")}
                 </p>
                 
                 {hist.motivo && !isFluigUpdate && !isFluigNumberAction && (

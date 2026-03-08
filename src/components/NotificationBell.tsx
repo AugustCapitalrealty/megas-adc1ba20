@@ -10,8 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { formatBR } from '@/lib/date-utils';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -165,7 +164,7 @@ export function NotificationBell() {
                       {notification.mensagem}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {format(new Date(notification.created_at), "dd/MM 'às' HH:mm", { locale: ptBR })}
+                      {formatBR(notification.created_at, "dd/MM 'às' HH:mm")}
                     </p>
                   </div>
                 </div>

@@ -87,8 +87,8 @@ import {
   Phone,
   Plus
 } from 'lucide-react';
-import { format, differenceInDays, differenceInHours } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { differenceInDays, differenceInHours } from 'date-fns';
+import { formatBR } from '@/lib/date-utils';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -1353,7 +1353,7 @@ export default function Backoffice() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Calendar className="h-4 w-4" />
-                <span>{format(new Date(sol.created_at), "dd/MM/yyyy", { locale: ptBR })}</span>
+                <span>{formatBR(sol.created_at, "dd/MM/yyyy")}</span>
               </div>
               <div className="flex items-center gap-2 font-semibold text-primary">
                 <DollarSign className="h-4 w-4" />
@@ -2041,7 +2041,7 @@ export default function Backoffice() {
                         </Label>
                         <p className="font-medium mt-1">
                           {detalhes.solicitacao.data_inicio 
-                            ? format(new Date(detalhes.solicitacao.data_inicio + 'T12:00:00'), 'dd/MM/yyyy')
+                            ? formatBR(detalhes.solicitacao.data_inicio + 'T12:00:00', 'dd/MM/yyyy')
                             : '—'}
                         </p>
                       </div>
@@ -2052,7 +2052,7 @@ export default function Backoffice() {
                         </Label>
                         <p className="font-medium mt-1">
                           {detalhes.solicitacao.data_fim 
-                            ? format(new Date(detalhes.solicitacao.data_fim + 'T12:00:00'), 'dd/MM/yyyy')
+                            ? formatBR(detalhes.solicitacao.data_fim + 'T12:00:00', 'dd/MM/yyyy')
                             : '—'}
                         </p>
                       </div>
@@ -2290,8 +2290,8 @@ export default function Backoffice() {
 
                 {/* Datas */}
                 <div className="text-sm text-muted-foreground">
-                  <p>Criado em: {format(new Date(detalhes.solicitacao.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
-                  <p>Atualizado em: {format(new Date(detalhes.solicitacao.updated_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
+                  <p>Criado em: {formatBR(detalhes.solicitacao.created_at, "dd/MM/yyyy 'às' HH:mm")}</p>
+                  <p>Atualizado em: {formatBR(detalhes.solicitacao.updated_at, "dd/MM/yyyy 'às' HH:mm")}</p>
                 </div>
               </div>
               </TooltipProvider>
@@ -2671,14 +2671,14 @@ export default function Backoffice() {
                       {doc.tipo === 'nota_fiscal' && doc.data_emissao_nf && (
                         <p className="text-sm">
                           <span className="text-muted-foreground">Emissão:</span>{' '}
-                          {format(new Date(doc.data_emissao_nf), "dd/MM/yyyy", { locale: ptBR })}
+                          {formatBR(doc.data_emissao_nf, "dd/MM/yyyy")}
                         </p>
                       )}
                       
                       {doc.tipo === 'boleto' && doc.data_vencimento_boleto && (
                         <p className="text-sm">
                           <span className="text-muted-foreground">Vencimento:</span>{' '}
-                          {format(new Date(doc.data_vencimento_boleto), "dd/MM/yyyy", { locale: ptBR })}
+                          {formatBR(doc.data_vencimento_boleto, "dd/MM/yyyy")}
                         </p>
                       )}
                       
@@ -2698,7 +2698,7 @@ export default function Backoffice() {
                       {doc.baixa_financeiro_em && (
                         <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
                           <CheckCircle className="h-3 w-3 mr-1" />
-                          Baixa em {format(new Date(doc.baixa_financeiro_em), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                          Baixa em {formatBR(doc.baixa_financeiro_em, "dd/MM/yyyy HH:mm")}
                         </Badge>
                       )}
                     </div>

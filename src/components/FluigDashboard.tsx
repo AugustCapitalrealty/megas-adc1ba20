@@ -20,7 +20,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useFluigSnapshots, useFluigFilterOptions, type FluigFilters } from '@/hooks/useFluigDashboard';
 import { calculateDuration } from '@/lib/fluig-parser';
-import { format } from 'date-fns';
+import { formatBR } from '@/lib/date-utils';
 import { ptBR } from 'date-fns/locale';
 import {
   Search,
@@ -74,7 +74,7 @@ export function FluigDashboard({ onNavigateToSolicitacao }: FluigDashboardProps)
   const formatDateShort = (date: string | null) => {
     if (!date) return '-';
     try {
-      return format(new Date(date), "dd/MM/yy", { locale: ptBR });
+      return formatBR(date, "dd/MM/yy");
     } catch {
       return date;
     }
@@ -230,7 +230,7 @@ export function FluigDashboard({ onNavigateToSolicitacao }: FluigDashboardProps)
                   className={cn('h-8 text-xs', !filters.dataInicio && 'text-muted-foreground')}
                 >
                   <CalendarIcon className="h-3 w-3 mr-1" />
-                  {filters.dataInicio ? format(filters.dataInicio, 'dd/MM') : 'De'}
+                  {filters.dataInicio ? formatBR(filters.dataInicio, 'dd/MM') : 'De'}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
@@ -238,7 +238,7 @@ export function FluigDashboard({ onNavigateToSolicitacao }: FluigDashboardProps)
                   mode="single"
                   selected={filters.dataInicio}
                   onSelect={(date) => setFilters(prev => ({ ...prev, dataInicio: date || undefined }))}
-                  locale={ptBR}
+                    locale={ptBR}
                 />
               </PopoverContent>
             </Popover>
@@ -251,7 +251,7 @@ export function FluigDashboard({ onNavigateToSolicitacao }: FluigDashboardProps)
                   className={cn('h-8 text-xs', !filters.dataFim && 'text-muted-foreground')}
                 >
                   <CalendarIcon className="h-3 w-3 mr-1" />
-                  {filters.dataFim ? format(filters.dataFim, 'dd/MM') : 'Até'}
+                  {filters.dataFim ? formatBR(filters.dataFim, 'dd/MM') : 'Até'}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
@@ -259,7 +259,7 @@ export function FluigDashboard({ onNavigateToSolicitacao }: FluigDashboardProps)
                   mode="single"
                   selected={filters.dataFim}
                   onSelect={(date) => setFilters(prev => ({ ...prev, dataFim: date || undefined }))}
-                  locale={ptBR}
+                    locale={ptBR}
                 />
               </PopoverContent>
             </Popover>
