@@ -1,59 +1,120 @@
 
 
-# Plano: Trocar Logo + Eliminar Loading Duplo
+# Plano: UX Refinement — Hierarquia, Navegacao, Formulario, Status, Notificacoes e Acessibilidade
 
-## Diagnóstico
+Seis melhorias focadas em clareza de decisao, reducao de ruido cognitivo e acessibilidade.
 
-Dois problemas distintos:
+---
 
-**1. Logo desatualizada** — Precisa trocar para a nova versão enviada.
+## 1. Dashboard — Hierarquia de decisao clara
 
-**2. Três shells separados causam remontagem do layout:**
+**Problema:** KPIs, acoes pendentes e lista recente competem igualmente por atencao.
+
+**Solucao:** Reorganizar em 3 camadas visuais com pesos distintos:
+
+- **Camada 1 (topo):** `PendingActionsCard` vem PRIMEIRO quando ha acoes pendentes — e a unica coisa que requer acao imediata. Aumentar tamanho do card, usar fundo mais vibrante.
+- **Camada 2:** KPI cards (como estao, mas com `opacity-80` quando nao ha dados relevantes).
+- **Camada 3:** Lista recente com header mais discreto.
+- **Empty state inteligente:** Se nao ha acoes pendentes, mostrar mensagem positiva ("Tudo em dia!") em vez de simplesmente omitir o card.
+
+**Arquivo:** `src/pages/Dashboard.tsx`, `src/components/PendingActionsCard.tsx`
+
+---
+
+## 2. Navegacao adaptativa — ja implementada, refinamentos
+
+A navegacao por persona ja foi implementada na ultima iteracao. Refinamentos:
+
+- **Solicitante:** Remover "Painel Fluig" do nav principal (raramente usado). Mover para menu secundario do perfil.
+- **Backoffice:** Adicionar badge de contagem no link "Backoffice" quando ha itens na fila (usar `useDashboardMetrics` com staleTime alto).
+- **Mobile:** O FAB de "Nova Solicitacao" (ja existe como botao full-width) ganha posicao `fixed bottom-4 right-4` como FAB real para solicitante.
+
+**Arquivo:** `src/components/layout/AppLayout.tsx`
+
+---
+
+## 3. Formulario progressivo — experiencia previsivel
+
+**Problema:** 8 steps com muita incerteza sobre quanto falta.
+
+**Solucao:** Melhorias no `StepIndicator` e `NovaSolicitacao`:
+
+- **Resumo lateral (desktop):** Em telas `lg+`, mostrar sidebar fixa com resumo do que ja foi preenchido (empreendimento, valor, fornecedor) — da confianca ao usuario.
+- **Microcopy por step:** Adicionar `description` nos steps com frases curtas de orientacao ("Escolha o empreendimento onde o servico sera realizado").
+- **Auto-save feedback:** O indicador de "Rascunho salvo" ja existe mas e sutil. Adicionar toast discreto na primeira vez que salva.
+- **Botao "Próximo" com label contextual:** Em vez de sempre "Próximo", mostrar o nome do proximo step ("Ir para Fornecedor").
+
+**Arquivos:** `src/pages/NovaSolicitacao.tsx`, `src/components/StepIndicator.tsx`
+
+---
+
+## 4. Status com linguagem de acao
+
+**Problema:** Labels como "Em Processamento" ou "Aguardando Aceite" nao dizem ao usuario O QUE FAZER.
+
+**Solucao:** Criar mapeamento `STATUS_ACTION_LABELS` que traduz status tecnico em instrucao pratica, exibido como subtexto:
 
 ```text
-Atual (App.tsx):
-  <Route element={<ProtectedShell />}>           ← Shell A (monta AppLayout)
-    Dashboard, MinhasSolicitacoes, etc.
-  </Route>
-  <Route element={<ProtectedShell requireBackoffice />}>  ← Shell B (OUTRO AppLayout)
-    Backoffice, DashboardSLA, etc.
-  </Route>
-  <Route element={<ProtectedShell requireAdmin />}>       ← Shell C (OUTRO AppLayout)
-    Admin
-  </Route>
+recebido         → "Sua solicitação está na fila de análise"
+em_analise       → "O backoffice está analisando sua solicitação"
+pendente_correcao → "Você precisa corrigir e reenviar"
+aprovado         → "Aprovada! Em processo de lançamento"
+oc_ac_emitida    → "Aceite a OC para liberar ao fornecedor"
+aguardando_nf_boleto → "Envie a NF e boleto do fornecedor"
+liberado_fornecedor → "Fornecedor já pode executar o serviço"
+concluida        → "Processo finalizado"
+cancelado        → "Cancelada por você"
 ```
 
-Ao navegar de Dashboard (Shell A) para Backoffice (Shell B), o React desmonta o Shell A inteiro (incluindo header/logo/menu) e monta o Shell B do zero. Isso causa o efeito de "carregar duas vezes" — primeiro o loading do auth no novo shell, depois o loading dos dados da página.
+- Adicionar prop `showActionHint` ao `StatusBadge` que renderiza tooltip ou subtexto.
+- Usar nas paginas `MinhasSolicitacoes` (cards) e `Dashboard` (lista recente).
 
-## Alterações
+**Arquivos:** `src/types/index.ts` (novo mapeamento), `src/components/ui/status-badge.tsx`
 
-### 1. Trocar logo
-Copiar `user-uploads://logo-mega-removebg-preview-2.png` para `src/assets/logos/logo-mega.png`. Todas as referências já apontam para esse arquivo.
+---
 
-### 2. Unificar em um único Shell (`src/App.tsx`)
-Usar **um único** `<ProtectedShell>` para todas as rotas protegidas. Cheques de permissão (backoffice/admin) movidos para componentes wrapper inline nas rotas individuais:
+## 5. Notificacoes — triagem eficiente
 
-```text
-Depois:
-  <Route element={<ProtectedShell />}>     ← UM ÚNICO Shell (AppLayout monta 1 vez)
-    Dashboard
-    MinhasSolicitacoes
-    Backoffice         ← permissão checada internamente
-    Admin              ← permissão checada internamente
-    DashboardSLA       ← permissão checada internamente
-    etc.
-  </Route>
-```
+**Problema:** A Central existe mas falta controle do usuario e visual de urgencia.
 
-Criar um componente `<RequireRole>` que checa permissão e redireciona se não autorizado, sem mostrar loading (auth já foi verificado pelo shell pai).
+**Solucao:**
 
-### 3. Loading mais leve no ProtectedShell
-Ao invés da tela cheia com logo + spinner (que compete visualmente com o Suspense), usar apenas um spinner discreto centralizado. A logo já está no header do AppLayout — não precisa repetir no loading.
+- **Tabs de triagem rapida:** Adicionar tabs no topo: "Todas" | "Nao lidas" | "Urgentes" (critical + high) — substitui os selects de filtro por algo mais direto.
+- **Acao por swipe/inline:** Adicionar botao "Marcar como lida" inline em cada card (icone discreto no hover).
+- **Agrupamento por dia:** Separar notificacoes por "Hoje", "Ontem", "Esta semana", "Anteriores".
+- **Contagem nos tabs:** "Nao lidas (5)" | "Urgentes (2)"
 
-## Arquivos alterados
+**Arquivo:** `src/pages/Notificacoes.tsx`
 
-| Arquivo | Alteração |
-|---------|-----------|
-| `src/assets/logos/logo-mega.png` | Substituir pela nova logo |
-| `src/App.tsx` | Unificar 3 shells em 1, criar RequireRole, loading simplificado |
+---
+
+## 6. Acessibilidade e legibilidade
+
+**Problema:** Badges pequenos, contraste baixo em status, falta de `aria-labels`.
+
+**Solucao aplicada nos componentes criticos:**
+
+- **StatusBadge:** Aumentar `min-height` para 28px, `font-size` para 13px (de 12px). Adicionar `aria-label` com status completo.
+- **KPI Cards (Dashboard):** Adicionar `role="button"` e `aria-label` descritivo ("5 solicitações pendentes, clique para ver detalhes").
+- **PendingActionsCard:** Adicionar `role="alert"` e `aria-live="polite"` para leitores de tela.
+- **Formulario:** Adicionar `aria-describedby` nos campos com validacao, linkar erros ao campo.
+- **Contraste status badges:** Revisar cores dos status com HSL para garantir ratio 4.5:1 minimo. Ajustar `.status-em-analise`, `.status-pendente`, `.status-aguardando-info` que usam tons claros.
+- **Focus visible:** Adicionar `focus-visible:ring-2 focus-visible:ring-primary` nos cards clicaveis.
+
+**Arquivos:** `src/index.css`, `src/components/ui/status-badge.tsx`, `src/pages/Dashboard.tsx`, `src/components/PendingActionsCard.tsx`
+
+---
+
+## Resumo
+
+| Item | Arquivos | Tipo |
+|------|----------|------|
+| Dashboard hierarquia | Dashboard.tsx, PendingActionsCard.tsx | Code |
+| Nav refinamentos | AppLayout.tsx | Code |
+| Formulario progressivo | NovaSolicitacao.tsx, StepIndicator.tsx | Code |
+| Status com acao | types/index.ts, status-badge.tsx | Code |
+| Notificacoes triagem | Notificacoes.tsx | Code |
+| Acessibilidade | index.css, status-badge.tsx, Dashboard.tsx, PendingActionsCard.tsx | Code |
+
+**0 migrations SQL** — tudo frontend. **~10 arquivos editados.**
 
