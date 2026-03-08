@@ -1347,6 +1347,7 @@ export default function Backoffice() {
                 cadastroLoading={cadastroLoading}
                 cancelamentoActionLoading={cancelamentoActionLoading}
                 callbacks={cardCallbacks}
+                isSelected={selectedIds.has(sol.id)}
               />
             ))}
             {totalPages > 1 && (
