@@ -7,10 +7,15 @@ interface FluigStatus {
   localizacao: string | null;
   situacao: string | null;
   data_lancamento: string | null;
+  valor: number | null;
   gerencia_conclusao: string | null;
   gerencia_facilities_conclusao: string | null;
+  gerencia_facilities_responsavel: string | null;
+  gerencia_responsavel: string | null;
   gerencia_financeiro_conclusao: string | null;
+  gerencia_financeiro_responsavel: string | null;
   diretoria_conclusao: string | null;
+  diretoria_responsavel: string | null;
   ultima_movimentacao: string | null;
 }
 
