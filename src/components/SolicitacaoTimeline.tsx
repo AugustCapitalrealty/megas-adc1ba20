@@ -430,12 +430,12 @@ export function SolicitacaoTimeline({ solicitacaoId, showMessages = true, isBack
                   <span className="font-medium text-sm">{displayLabel}</span>
                   {(isFluigUpdate || isFluigNumberAction) && (
                     <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
-                      Fluig
+                      Fluig Aprovação
                     </Badge>
                   )}
-                  {isFluigCadastroAction && isBackoffice && (
-                    <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
-                      Cadastro
+                  {isFluigCadastroAction && (
+                    <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200">
+                      Cadastro Contábil
                     </Badge>
                   )}
                   {hist.status_novo && !isFluigUpdate && !isFluigNumberAction && !isFluigCadastroAction && (

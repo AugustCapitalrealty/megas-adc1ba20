@@ -3003,11 +3003,16 @@ export default function Backoffice() {
       <Dialog open={editFluigCadastroOpen} onOpenChange={setEditFluigCadastroOpen}>
         <DialogContent className="max-w-lg w-[80vw]">
           <DialogHeader>
-            <DialogTitle>Fluig de Cadastro Contábil</DialogTitle>
+            <DialogTitle>Fluig — Cadastro Contábil</DialogTitle>
             <DialogDescription>
-              Informe o número do Fluig para a solicitação de cadastro (separado do Fluig de aprovação)
+              Informe o número do Fluig para a solicitação de cadastro contábil
             </DialogDescription>
           </DialogHeader>
+
+          <div className="rounded-md bg-emerald-50 border border-emerald-200 p-3 flex items-start gap-2 text-sm text-emerald-800">
+            <Package className="h-4 w-4 mt-0.5 shrink-0" />
+            <span>Este é o Fluig do <strong>cadastro contábil</strong> (separado do Fluig de aprovação).</span>
+          </div>
 
           <div className="space-y-2">
             <Label htmlFor="edit-fluig-cadastro">Número do Fluig de Cadastro</Label>
