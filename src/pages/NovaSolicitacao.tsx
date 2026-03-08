@@ -1892,7 +1892,7 @@ export default function NovaSolicitacao() {
                       {dataInicio && (
                         <div className="flex justify-between py-2 border-b">
                           <span className="text-muted-foreground">Data de Início</span>
-                          <span>{new Date(dataInicio).toLocaleDateString('pt-BR')}</span>
+                          <span>{new Date(dataInicio).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</span>
                         </div>
                       )}
                       {dataFim && (
