@@ -451,7 +451,7 @@ export function SolicitacaoTimeline({ solicitacaoId, showMessages = true, isBack
                   {formatBR(hist.created_at, "dd/MM/yyyy HH:mm:ss")}
                 </p>
                 
-                {hist.motivo && !isFluigUpdate && !isFluigNumberAction && (
+                {hist.motivo && !isFluigUpdate && !isFluigNumberAction && !isFluigCadastroAction && (
                   <div className="mt-2 p-2 bg-muted/50 rounded text-sm border-l-2 border-primary/30">
                     <span className="text-muted-foreground">Observação: </span>
                     {hist.motivo}
