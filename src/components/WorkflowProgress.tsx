@@ -1,6 +1,8 @@
 import { cn } from '@/lib/utils';
 import type { RequestStatus } from '@/types';
 import { CheckCircle2 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface WorkflowStep {
   label: string;
