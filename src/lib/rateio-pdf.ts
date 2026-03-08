@@ -134,7 +134,7 @@ export async function generateRateioPDF(data: RateioPDFData) {
       formatCurrency(r.valor),
     ]),
     styles: { fontSize: 10, cellPadding: 5 },
-    headStyles: { fillColor: orange, textColor: white, fontStyle: 'bold', halign: 'left' },
+    headStyles: { fillColor: orange, textColor: white, fontStyle: 'bold', halign: 'center' },
     columnStyles: {
       0: { cellWidth: 55 },
       1: { halign: 'right' as const },

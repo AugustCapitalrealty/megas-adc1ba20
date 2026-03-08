@@ -1,14 +1,59 @@
 
 
-# Alinhar cabeçalhos da tabela ao centro
+# Plano: Trocar Logo + Eliminar Loading Duplo
 
-A imagem mostra que os cabeçalhos "Área (m²)", "Participação" e "Valor Rateado" devem estar centralizados, enquanto os valores numéricos ficam alinhados à direita. Atualmente o `headStyles` usa `halign: 'left'` para todos.
+## Diagnóstico
 
-## Alteração em `src/lib/rateio-pdf.ts`
+Dois problemas distintos:
 
-- Linha 137: Mudar `headStyles` de `halign: 'left'` para `halign: 'center'`
-- Nas `columnStyles` 1, 2 e 3: adicionar `halign: 'center'` no cabeçalho — mas como `headStyles` é global, basta o ajuste acima
-- Coluna 0 (Condomínio) permanece `halign: 'left'` via columnStyles
+**1. Logo desatualizada** — Precisa trocar para a nova versão enviada.
 
-**1 arquivo, 1 micro-ajuste.**
+**2. Três shells separados causam remontagem do layout:**
+
+```text
+Atual (App.tsx):
+  <Route element={<ProtectedShell />}>           ← Shell A (monta AppLayout)
+    Dashboard, MinhasSolicitacoes, etc.
+  </Route>
+  <Route element={<ProtectedShell requireBackoffice />}>  ← Shell B (OUTRO AppLayout)
+    Backoffice, DashboardSLA, etc.
+  </Route>
+  <Route element={<ProtectedShell requireAdmin />}>       ← Shell C (OUTRO AppLayout)
+    Admin
+  </Route>
+```
+
+Ao navegar de Dashboard (Shell A) para Backoffice (Shell B), o React desmonta o Shell A inteiro (incluindo header/logo/menu) e monta o Shell B do zero. Isso causa o efeito de "carregar duas vezes" — primeiro o loading do auth no novo shell, depois o loading dos dados da página.
+
+## Alterações
+
+### 1. Trocar logo
+Copiar `user-uploads://logo-mega-removebg-preview-2.png` para `src/assets/logos/logo-mega.png`. Todas as referências já apontam para esse arquivo.
+
+### 2. Unificar em um único Shell (`src/App.tsx`)
+Usar **um único** `<ProtectedShell>` para todas as rotas protegidas. Cheques de permissão (backoffice/admin) movidos para componentes wrapper inline nas rotas individuais:
+
+```text
+Depois:
+  <Route element={<ProtectedShell />}>     ← UM ÚNICO Shell (AppLayout monta 1 vez)
+    Dashboard
+    MinhasSolicitacoes
+    Backoffice         ← permissão checada internamente
+    Admin              ← permissão checada internamente
+    DashboardSLA       ← permissão checada internamente
+    etc.
+  </Route>
+```
+
+Criar um componente `<RequireRole>` que checa permissão e redireciona se não autorizado, sem mostrar loading (auth já foi verificado pelo shell pai).
+
+### 3. Loading mais leve no ProtectedShell
+Ao invés da tela cheia com logo + spinner (que compete visualmente com o Suspense), usar apenas um spinner discreto centralizado. A logo já está no header do AppLayout — não precisa repetir no loading.
+
+## Arquivos alterados
+
+| Arquivo | Alteração |
+|---------|-----------|
+| `src/assets/logos/logo-mega.png` | Substituir pela nova logo |
+| `src/App.tsx` | Unificar 3 shells em 1, criar RequireRole, loading simplificado |
 
