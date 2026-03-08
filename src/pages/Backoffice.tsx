@@ -634,7 +634,16 @@ export default function Backoffice() {
     }
   };
 
-  const handleConcluirLiberada = async (sol: SolicitacaoBackoffice) => {
+  const handleConcluirLiberada = (sol: SolicitacaoBackoffice) => {
+    setConfirmAction({
+      type: 'concluir_liberada',
+      sol,
+      title: 'Concluir Solicitação',
+      description: `Confirma a conclusão da solicitação #${sol.protocolo}?`,
+    });
+  };
+
+  const handleConcluirLiberadaConfirmed = async (sol: SolicitacaoBackoffice) => {
     if (!user) return;
     
     setActionLoading(true);
