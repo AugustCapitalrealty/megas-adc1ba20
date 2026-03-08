@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { notifyMessageRecipients } from '@/lib/message-notifications';
 import { type HistoricoSolicitacao, STATUS_LABELS } from '@/types';
 import { formatBR } from '@/lib/date-utils';
 import { 
