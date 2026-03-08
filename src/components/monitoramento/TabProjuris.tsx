@@ -70,8 +70,7 @@ export function TabProjuris() {
       const { data: sols } = await supabase
         .from('solicitacoes')
         .select('id, protocolo, numero_projuris, empreendimento, valor, instrumento_juridico, status, fornecedor_id, user_id')
-        .not('numero_projuris', 'is', null)
-        .not('status', 'in', '("cancelado","concluida")');
+        .not('numero_projuris', 'is', null);
 
       if (!sols || sols.length === 0) {
         setRows([]);
