@@ -7,7 +7,7 @@ import { FluigStatusCard } from '@/components/FluigStatusCard';
 import { AnexoCard } from '@/components/AnexoCard';
 import { CNAECompatibilityBadge } from '@/components/CNAECompatibilityBadge';
 import { DescriptionQualityBadge } from '@/components/DescriptionQualityBadge';
-import { UnreadMessageBanner } from '@/components/UnreadMessageBanner';
+import { UnreadMessageBanner, type UnreadMessageInfo } from '@/components/UnreadMessageBanner';
 import type { DocumentoEmitido, DocumentoFiscal } from '@/types';
 import {
   FileText, Edit, AlertTriangle, Copy, XCircle, Download,
