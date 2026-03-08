@@ -59,6 +59,7 @@ type FilterTab = 'todas' | 'com_backoffice' | 'correcoes' | 'oc_emitida' | 'libe
 interface SolicitacaoComFornecedor extends Solicitacao {
   fornecedor?: Fornecedor | null;
   documentoEmitido?: DocumentoEmitido | null;
+  documentosEmitidos?: DocumentoEmitido[];
   documentosFiscais?: DocumentoFiscal[];
   solicitante_nome?: string | null;
 }
@@ -234,6 +235,7 @@ export default function MinhasSolicitacoes() {
 
       // Fetch all documents in 2 batch queries
       let docsMap: Record<string, any> = {};
+      let docsArrayMap: Record<string, any[]> = {};
       let fiscaisMap: Record<string, DocumentoFiscal[]> = {};
 
       const [docsResult, fiscaisResult] = await Promise.all([
@@ -246,6 +248,8 @@ export default function MinhasSolicitacoes() {
       if (docsResult.data) {
         for (const doc of docsResult.data) {
           if (!docsMap[doc.solicitacao_id]) docsMap[doc.solicitacao_id] = doc;
+          if (!docsArrayMap[doc.solicitacao_id]) docsArrayMap[doc.solicitacao_id] = [];
+          docsArrayMap[doc.solicitacao_id].push(doc);
         }
       }
       if (fiscaisResult.data) {
@@ -258,6 +262,7 @@ export default function MinhasSolicitacoes() {
       const enrichedData = data.map((sol: any) => ({
         ...sol,
         documentoEmitido: docsMap[sol.id] || null,
+        documentosEmitidos: docsArrayMap[sol.id] || [],
         documentosFiscais: fiscaisMap[sol.id] || [],
         solicitante_nome: profilesMap[sol.user_id] || null,
       } as SolicitacaoComFornecedor));
@@ -1284,23 +1289,32 @@ export default function MinhasSolicitacoes() {
     return (
       <>
         {/* Download OC/AC if available */}
-        {sol.documentoEmitido && (
-          <div className="p-3 bg-success/10 border border-success/20 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FileCheck className="h-5 w-5 text-success" />
-                <span className="font-medium">
-                  {sol.documentoEmitido.tipo_documento} #{sol.documentoEmitido.numero_documento}
-                </span>
+        {sol.documentosEmitidos && sol.documentosEmitidos.length > 0 && (
+          <div className="space-y-2">
+            {sol.documentosEmitidos.map((doc: DocumentoEmitido) => (
+              <div key={doc.id} className="p-3 bg-success/10 border border-success/20 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileCheck className="h-5 w-5 text-success" />
+                    <span className="font-medium">
+                      {doc.tipo_documento} #{doc.numero_documento}
+                    </span>
+                  </div>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => downloadDocumentoEmitido(doc)}
+                  >
+                    <Download className="h-4 w-4 mr-1" /> Baixar
+                  </Button>
+                </div>
+                {doc.observacao && (
+                  <p className="text-sm text-muted-foreground mt-2 pl-7">
+                    <span className="font-medium text-foreground">Obs:</span> {doc.observacao}
+                  </p>
+                )}
               </div>
-              <Button 
-                size="sm" 
-                variant="outline"
-                onClick={() => downloadDocumentoEmitido(sol.documentoEmitido!)}
-              >
-                <Download className="h-4 w-4 mr-1" /> Baixar
-              </Button>
-            </div>
+            ))}
           </div>
         )}
 
@@ -1890,49 +1904,57 @@ export default function MinhasSolicitacoes() {
             </DialogTitle>
           </DialogHeader>
 
-          {aceiteSolicitacao?.documentoEmitido && (
+          {aceiteSolicitacao?.documentosEmitidos && aceiteSolicitacao.documentosEmitidos.length > 0 && (
             <div className="space-y-4 py-2">
               {/* Step 1: Review OC */}
               {aceiteStep === 'revisar' && (
                 <>
-                  <div className="p-4 bg-success/10 border border-success/20 rounded-lg">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <FileCheck className="h-5 w-5 text-success" />
-                        <span className="font-medium text-success">
-                          {aceiteSolicitacao.documentoEmitido.tipo_documento} #{aceiteSolicitacao.documentoEmitido.numero_documento}
-                        </span>
+                  <div className="text-sm text-muted-foreground mb-2">
+                    <p>Valor: <span className="font-medium text-foreground">
+                      {aceiteSolicitacao.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </span></p>
+                    {aceiteSolicitacao.fornecedor && (
+                      <p>Fornecedor: <span className="font-medium text-foreground">
+                        {aceiteSolicitacao.fornecedor.nome_fantasia || aceiteSolicitacao.fornecedor.razao_social}
+                      </span></p>
+                    )}
+                  </div>
+
+                  {aceiteSolicitacao.documentosEmitidos.map((doc: DocumentoEmitido) => (
+                    <div key={doc.id} className="p-4 bg-success/10 border border-success/20 rounded-lg">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <FileCheck className="h-5 w-5 text-success" />
+                          <span className="font-medium text-success">
+                            {doc.tipo_documento} #{doc.numero_documento}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {doc.observacao && (
+                        <p className="text-sm text-muted-foreground mb-3">
+                          <span className="font-medium text-foreground">Observação do Backoffice:</span> {doc.observacao}
+                        </p>
+                      )}
+
+                      <div className="flex flex-wrap gap-2">
+                        <Button 
+                          size="sm" 
+                          variant="default"
+                          onClick={() => openOCInNewTab(doc)}
+                        >
+                          <FileText className="h-4 w-4 mr-1" /> Visualizar OC
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => downloadDocumentoEmitido(doc)}
+                        >
+                          <Download className="h-4 w-4 mr-1" /> Baixar OC
+                        </Button>
                       </div>
                     </div>
-                    
-                    <div className="text-sm text-muted-foreground mb-4">
-                      <p>Valor: <span className="font-medium text-foreground">
-                        {aceiteSolicitacao.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                      </span></p>
-                      {aceiteSolicitacao.fornecedor && (
-                        <p>Fornecedor: <span className="font-medium text-foreground">
-                          {aceiteSolicitacao.fornecedor.nome_fantasia || aceiteSolicitacao.fornecedor.razao_social}
-                        </span></p>
-                      )}
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      <Button 
-                        size="sm" 
-                        variant="default"
-                        onClick={() => openOCInNewTab(aceiteSolicitacao.documentoEmitido!)}
-                      >
-                        <FileText className="h-4 w-4 mr-1" /> Visualizar OC
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => downloadDocumentoEmitido(aceiteSolicitacao.documentoEmitido!)}
-                      >
-                        <Download className="h-4 w-4 mr-1" /> Baixar OC
-                      </Button>
-                    </div>
-                  </div>
+                  ))}
 
                   <div className="bg-muted/50 p-3 rounded-lg border">
                     <p className="text-sm text-muted-foreground">
@@ -2023,7 +2045,7 @@ export default function MinhasSolicitacoes() {
                     </p>
                     
                     <div className="bg-background p-3 rounded-lg text-left text-sm space-y-1">
-                      <p><span className="text-muted-foreground">Documento:</span> <span className="font-medium">{aceiteSolicitacao?.documentoEmitido?.tipo_documento} #{aceiteSolicitacao?.documentoEmitido?.numero_documento}</span></p>
+                      <p><span className="text-muted-foreground">Documentos:</span> <span className="font-medium">{aceiteSolicitacao?.documentosEmitidos?.map(d => `${d.tipo_documento} #${d.numero_documento}`).join(', ') || '—'}</span></p>
                       <p><span className="text-muted-foreground">Valor:</span> <span className="font-medium">{aceiteSolicitacao?.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span></p>
                       {aceiteSolicitacao?.fornecedor && (
                         <p><span className="text-muted-foreground">Fornecedor:</span> <span className="font-medium">{aceiteSolicitacao.fornecedor.nome_fantasia || aceiteSolicitacao.fornecedor.razao_social}</span></p>

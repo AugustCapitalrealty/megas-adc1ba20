@@ -1,43 +1,59 @@
 
 
-# Informações do Backoffice não visíveis para o Solicitante
+# Plano: Trocar Logo + Eliminar Loading Duplo
 
-## Problemas Identificados
+## Diagnóstico
 
-### 1. Observação da OC não aparece para o solicitante
-Quando o backoffice registra uma OC, pode adicionar uma **observação** (campo `observacao` em `documentos_emitidos`). Essa observação:
-- **É salva** no banco corretamente
-- **Não é exibida** em nenhum lugar para o solicitante:
-  - No card expandido em MinhasSolicitacoes (linha 1287-1304): mostra apenas tipo + número + botão baixar
-  - No modal de aceite (linha 1893-1943): mostra tipo + número + valor + fornecedor, mas sem observação
-  - No OCDetalhesModal (linha 216-226): mostra tipo + número + data + quem emitiu, sem observação
+Dois problemas distintos:
 
-### 2. Múltiplas OCs não visíveis para o solicitante
-O `docsMap` em MinhasSolicitacoes (linha 247-249) só guarda **a primeira OC** por solicitação (`if (!docsMap[...]) docsMap[...] = doc`). Se o backoffice registrou 2+ OCs, o solicitante só vê a primeira.
+**1. Logo desatualizada** — Precisa trocar para a nova versão enviada.
 
-### 3. Modal de aceite não permite baixar todas as OCs
-O modal de aceite (linha 1893) usa `aceiteSolicitacao.documentoEmitido` (singular). Se há múltiplas OCs, o solicitante revisa e aceita baseando-se em apenas uma.
+**2. Três shells separados causam remontagem do layout:**
 
-## Alterações Propostas
+```text
+Atual (App.tsx):
+  <Route element={<ProtectedShell />}>           ← Shell A (monta AppLayout)
+    Dashboard, MinhasSolicitacoes, etc.
+  </Route>
+  <Route element={<ProtectedShell requireBackoffice />}>  ← Shell B (OUTRO AppLayout)
+    Backoffice, DashboardSLA, etc.
+  </Route>
+  <Route element={<ProtectedShell requireAdmin />}>       ← Shell C (OUTRO AppLayout)
+    Admin
+  </Route>
+```
 
-### Arquivo: `src/pages/MinhasSolicitacoes.tsx`
+Ao navegar de Dashboard (Shell A) para Backoffice (Shell B), o React desmonta o Shell A inteiro (incluindo header/logo/menu) e monta o Shell B do zero. Isso causa o efeito de "carregar duas vezes" — primeiro o loading do auth no novo shell, depois o loading dos dados da página.
 
-**A) Fetch todas as OCs (não só a primeira)**
-- Mudar `docsMap` de `Record<string, any>` para `Record<string, any[]>` (array)
-- Ajustar `SolicitacaoComFornecedor` para `documentosEmitidos?: DocumentoEmitido[]` (plural)
+## Alterações
 
-**B) Card expandido: mostrar todas as OCs + observação**
-- Iterar sobre `sol.documentosEmitidos` em vez de exibir só um
-- Exibir `doc.observacao` quando presente
+### 1. Trocar logo
+Copiar `user-uploads://logo-mega-removebg-preview-2.png` para `src/assets/logos/logo-mega.png`. Todas as referências já apontam para esse arquivo.
 
-**C) Modal de aceite: listar todas as OCs**
-- Mostrar lista de OCs com download individual
-- Exibir observação do backoffice se houver
+### 2. Unificar em um único Shell (`src/App.tsx`)
+Usar **um único** `<ProtectedShell>` para todas as rotas protegidas. Cheques de permissão (backoffice/admin) movidos para componentes wrapper inline nas rotas individuais:
 
-### Arquivo: `src/components/monitoramento/OCDetalhesModal.tsx`
+```text
+Depois:
+  <Route element={<ProtectedShell />}>     ← UM ÚNICO Shell (AppLayout monta 1 vez)
+    Dashboard
+    MinhasSolicitacoes
+    Backoffice         ← permissão checada internamente
+    Admin              ← permissão checada internamente
+    DashboardSLA       ← permissão checada internamente
+    etc.
+  </Route>
+```
 
-**D) Exibir observação nos documentos emitidos**
-- Adicionar linha com `doc.observacao` quando presente no card de documentos
+Criar um componente `<RequireRole>` que checa permissão e redireciona se não autorizado, sem mostrar loading (auth já foi verificado pelo shell pai).
 
-**4 locais de alteração em 2 arquivos.**
+### 3. Loading mais leve no ProtectedShell
+Ao invés da tela cheia com logo + spinner (que compete visualmente com o Suspense), usar apenas um spinner discreto centralizado. A logo já está no header do AppLayout — não precisa repetir no loading.
+
+## Arquivos alterados
+
+| Arquivo | Alteração |
+|---------|-----------|
+| `src/assets/logos/logo-mega.png` | Substituir pela nova logo |
+| `src/App.tsx` | Unificar 3 shells em 1, criar RequireRole, loading simplificado |
 
