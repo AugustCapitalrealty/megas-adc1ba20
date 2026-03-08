@@ -2054,17 +2054,20 @@ export default function NovaSolicitacao() {
           </CardContent>
         </Card>
 
-        <div className="flex justify-between">
-          <Button variant="outline" onClick={goBack} disabled={currentIndex === 0}>
-            <ArrowLeft className="h-4 w-4 mr-2" /> Voltar
+        {/* Spacer for sticky footer on mobile */}
+        <div className="h-20 sm:hidden" />
+
+        <div className="flex justify-between sticky bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t sm:border-t-0 p-4 sm:p-0 sm:static sm:bg-transparent sm:backdrop-blur-none -mx-4 sm:mx-0 z-10">
+          <Button variant="ghost" onClick={goBack} disabled={currentIndex === 0} className="gap-2">
+            <ArrowLeft className="h-4 w-4" /> Voltar
           </Button>
           {currentStep === 'revisao' ? (
-            <Button onClick={handleSubmit} disabled={submitting}>
+            <Button onClick={handleSubmit} disabled={submitting} className="shadow-lg sm:shadow-none">
               {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
               Enviar Solicitação
             </Button>
           ) : (
-            <Button onClick={goNext} disabled={!canProceed()}>
+            <Button onClick={goNext} disabled={!canProceed()} className="shadow-lg sm:shadow-none">
               Próximo <ArrowRight className="h-4 w-4 ml-2" />
             </Button>
           )}

@@ -28,12 +28,15 @@ import {
   ChevronDown,
   FileCheck,
   WifiOff,
+  Moon,
+  Sun,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { NotificationBell } from '@/components/NotificationBell';
 import { CommandPalette } from '@/components/CommandPalette';
 import { AppBreadcrumbs } from '@/components/layout/AppBreadcrumbs';
+import { useTheme } from 'next-themes';
 import logoMega from '@/assets/logos/logo-mega.png';
 
 export function AppLayout() {
@@ -51,6 +54,7 @@ export function AppLayout() {
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isOnline = useOnlineStatus();
+  const { theme, setTheme } = useTheme();
 
   const handleSignOut = async () => {
     await signOut();
@@ -157,7 +161,7 @@ export function AppLayout() {
 
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
-        <div className="container flex h-16 items-center justify-between">
+        <div className="container flex h-14 sm:h-16 items-center justify-between gap-2">
           <Link to="/" className="flex items-center gap-3 shrink-0">
             <img src={logoMega} alt="Mega Centro Logístico" width={86} height={40} className="h-10 w-auto object-contain" />
           </Link>
@@ -212,7 +216,7 @@ export function AppLayout() {
           </nav>
 
           {/* Notifications & User Menu */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             <CommandPalette />
             <NotificationBell />
             <DropdownMenu>
@@ -241,6 +245,11 @@ export function AppLayout() {
                     Voltar ao meu perfil
                   </DropdownMenuItem>
                 )}
+                <DropdownMenuItem onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
+                  {theme === 'dark' ? <Sun className="mr-2 h-4 w-4" /> : <Moon className="mr-2 h-4 w-4" />}
+                  {theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut}>
                   <LogOut className="mr-2 h-4 w-4" />
                   Sair

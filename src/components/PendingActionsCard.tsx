@@ -118,7 +118,7 @@ export function PendingActionsCard({
       "border-2 border-destructive/30 bg-gradient-to-r from-destructive/5 to-background shadow-md",
       className
     )}>
-      <CardContent className="p-4">
+      <CardContent className="p-3 sm:p-4">
         <div className="flex items-start gap-3">
           {/* Alert Icon */}
           <div className="flex-shrink-0 p-2 rounded-full bg-destructive/10">
@@ -136,8 +136,8 @@ export function PendingActionsCard({
               </span>
             </div>
             
-            <p className="text-sm text-muted-foreground mb-3">
-              Você tem {totalPending} {totalPending === 1 ? 'solicitação que precisa' : 'solicitações que precisam'} da sua atenção
+            <p className="text-xs sm:text-sm text-muted-foreground mb-2 sm:mb-3">
+              {totalPending} {totalPending === 1 ? 'item precisa' : 'itens precisam'} da sua atenção
             </p>
             
             {/* Action Items */}
