@@ -228,6 +228,7 @@ export function AppLayout() {
               </DropdownMenu>
             )}
           </nav>
+          </TooltipProvider>
 
           {/* Notifications & User Menu */}
           <div className="flex items-center gap-1 sm:gap-2">
