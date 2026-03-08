@@ -1677,7 +1677,7 @@ export default function Backoffice() {
                   <History className="h-4 w-4 text-muted-foreground" />
                   Histórico da Solicitação
                 </h4>
-                <SolicitacaoTimeline solicitacaoId={sol.id} />
+                <SolicitacaoTimeline solicitacaoId={sol.id} isBackoffice />
               </div>
               {/* Mensagens */}
               <div>
