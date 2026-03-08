@@ -192,6 +192,9 @@ export default function Backoffice() {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 20;
 
+  // Processed today counter (#6 PM improvement)
+  const [processedToday, setProcessedToday] = useState(0);
+
   // Fetch details when opening details modal
   useEffect(() => {
     if (detailsOpen && selectedSolicitacao) {
