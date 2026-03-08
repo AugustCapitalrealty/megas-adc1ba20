@@ -144,11 +144,11 @@ export function OCDetalhesModal({ open, onOpenChange, solicitacaoId, protocolo, 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
               <Card>
                 <CardContent className="p-3">
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-muted-foreground" />
-                    <div>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <DollarSign className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0">
                       <p className="text-xs text-muted-foreground">Valor</p>
-                      <p className="text-sm font-semibold">{formatCurrency(detalhes.solicitacao.valor)}</p>
+                      <p className="text-sm font-semibold truncate">{formatCurrency(detalhes.solicitacao.valor)}</p>
                     </div>
                   </div>
                 </CardContent>
