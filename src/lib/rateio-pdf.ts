@@ -54,29 +54,27 @@ export async function generateRateioPDF(data: RateioPDFData) {
   const mx = 14; // margin x
 
   // ─── 1. HEADER ───────────────────────────────────────────
-  // White background
   doc.setFillColor(...white);
-  doc.rect(0, 0, pw, 58, 'F');
-  // Orange accent line
+  doc.rect(0, 0, pw, 40, 'F');
   doc.setFillColor(...orange);
-  doc.rect(0, 58, pw, 2, 'F');
+  doc.rect(0, 40, pw, 2, 'F');
 
   try {
     const logoBase64 = await loadImageAsBase64(logoMega);
-    doc.addImage(logoBase64, 'PNG', mx, 8, 55, 28);
+    doc.addImage(logoBase64, 'PNG', mx, 10, 40, 20);
   } catch { /* proceed without logo */ }
 
   doc.setTextColor(...greyDark);
-  doc.setFontSize(22);
+  doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text('Demonstrativo de Rateio', pw - mx, 24, { align: 'right' });
-  doc.setFontSize(11);
+  doc.text('Demonstrativo de Rateio', pw - mx, 20, { align: 'right' });
+  doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...grey);
-  doc.text('entre Condomínios', pw - mx, 36, { align: 'right' });
+  doc.text('entre Condomínios', pw - mx, 28, { align: 'right' });
 
   // ─── 2. SUMMARY CARDS (2x2 grid) ────────────────────────
-  let y = 68;
+  let y = 50;
   const cardW = (pw - mx * 2 - 8) / 2; // 2 columns with 8px gap
   const cardH = 22;
   const gap = 8;
