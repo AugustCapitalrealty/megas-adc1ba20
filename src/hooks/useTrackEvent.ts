@@ -34,12 +34,12 @@ export function useTrackEvent() {
       // Fire-and-forget insert
       supabase
         .from('analytics_events')
-        .insert({
+        .insert([{
           user_id: user.id,
           event_name: eventName,
-          event_data: eventData,
+          event_data: eventData as any,
           page: page ?? window.location.pathname,
-        })
+        }])
         .then(({ error }) => {
           if (error) console.debug('[Analytics] Insert failed:', error.message);
         });
