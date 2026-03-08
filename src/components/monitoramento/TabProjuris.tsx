@@ -21,8 +21,8 @@ import {
 import {
   FileText, Loader2, BarChart3, Search, Scale, Clock, CheckCircle, PenTool, Eye,
 } from 'lucide-react';
-import { format, differenceInDays } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { differenceInDays } from 'date-fns';
+import { formatBR } from '@/lib/date-utils';
 import { cn } from '@/lib/utils';
 import { OCDetalhesModal } from '@/components/monitoramento/OCDetalhesModal';
 import { InstrumentoJuridicoBadge } from '@/components/InstrumentoJuridicoBadge';
