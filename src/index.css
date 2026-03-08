@@ -172,11 +172,11 @@
   }
 
   .status-em-analise {
-    @apply bg-warning/10 text-warning;
+    @apply bg-warning/15 text-[hsl(38,92%,38%)] dark:text-[hsl(38,92%,65%)];
   }
 
   .status-pendente {
-    @apply bg-[hsl(25,95%,53%)]/10 text-[hsl(25,95%,53%)];
+    @apply bg-[hsl(25,95%,53%)]/15 text-[hsl(25,80%,38%)] dark:text-[hsl(25,95%,65%)];
   }
 
   .status-aprovado {
