@@ -243,7 +243,7 @@ export default function MonitoramentoOC() {
         <Tooltip>
           <TooltipTrigger asChild>{badge}</TooltipTrigger>
           <TooltipContent>
-            <p>OC emitida em {format(new Date(dataOc), 'dd/MM/yyyy', { locale: ptBR })}</p>
+            <p>OC emitida em {formatBR(dataOc, 'dd/MM/yyyy')}</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
