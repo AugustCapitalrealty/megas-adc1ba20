@@ -2469,7 +2469,7 @@ export default function Backoffice() {
                     </Button>
                   </CollapsibleTrigger>
                   <CollapsibleContent className="pt-3">
-                    <SolicitacaoTimeline solicitacaoId={detalhes.solicitacao.id} />
+                    <SolicitacaoTimeline solicitacaoId={detalhes.solicitacao.id} isBackoffice />
                   </CollapsibleContent>
                 </Collapsible>
 
