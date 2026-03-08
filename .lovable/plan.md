@@ -1,59 +1,16 @@
 
 
-# Plano: Trocar Logo + Eliminar Loading Duplo
+# Botão "Gerar PDF Teste" na aba Rateio
 
-## Diagnóstico
+## O que será feito
+Adicionar um botão "Gerar PDF Teste" na `RateioConfigTab` que gera um PDF de demonstrativo de rateio com dados fictícios (valor aleatório entre R$10.000 e R$100.000, protocolo "TESTE-0000") usando as áreas reais cadastradas. Isso permite visualizar o layout do PDF sem precisar ter uma solicitação real.
 
-Dois problemas distintos:
+## Alteração
 
-**1. Logo desatualizada** — Precisa trocar para a nova versão enviada.
+### `src/components/RateioConfigTab.tsx`
+- Importar a lógica de geração de PDF do `RateioCard` (extrair a função `handleDownloadPDF` ou reimportar os mesmos deps: `jsPDF`, `autoTable`, `logoMega`)
+- Adicionar um botão "Gerar PDF Teste" ao lado do botão "Salvar Configurações"
+- Ao clicar, gerar valores de rateio com base nas áreas editadas e um valor total aleatório, e chamar a mesma lógica de PDF
 
-**2. Três shells separados causam remontagem do layout:**
-
-```text
-Atual (App.tsx):
-  <Route element={<ProtectedShell />}>           ← Shell A (monta AppLayout)
-    Dashboard, MinhasSolicitacoes, etc.
-  </Route>
-  <Route element={<ProtectedShell requireBackoffice />}>  ← Shell B (OUTRO AppLayout)
-    Backoffice, DashboardSLA, etc.
-  </Route>
-  <Route element={<ProtectedShell requireAdmin />}>       ← Shell C (OUTRO AppLayout)
-    Admin
-  </Route>
-```
-
-Ao navegar de Dashboard (Shell A) para Backoffice (Shell B), o React desmonta o Shell A inteiro (incluindo header/logo/menu) e monta o Shell B do zero. Isso causa o efeito de "carregar duas vezes" — primeiro o loading do auth no novo shell, depois o loading dos dados da página.
-
-## Alterações
-
-### 1. Trocar logo
-Copiar `user-uploads://logo-mega-removebg-preview-2.png` para `src/assets/logos/logo-mega.png`. Todas as referências já apontam para esse arquivo.
-
-### 2. Unificar em um único Shell (`src/App.tsx`)
-Usar **um único** `<ProtectedShell>` para todas as rotas protegidas. Cheques de permissão (backoffice/admin) movidos para componentes wrapper inline nas rotas individuais:
-
-```text
-Depois:
-  <Route element={<ProtectedShell />}>     ← UM ÚNICO Shell (AppLayout monta 1 vez)
-    Dashboard
-    MinhasSolicitacoes
-    Backoffice         ← permissão checada internamente
-    Admin              ← permissão checada internamente
-    DashboardSLA       ← permissão checada internamente
-    etc.
-  </Route>
-```
-
-Criar um componente `<RequireRole>` que checa permissão e redireciona se não autorizado, sem mostrar loading (auth já foi verificado pelo shell pai).
-
-### 3. Loading mais leve no ProtectedShell
-Ao invés da tela cheia com logo + spinner (que compete visualmente com o Suspense), usar apenas um spinner discreto centralizado. A logo já está no header do AppLayout — não precisa repetir no loading.
-
-## Arquivos alterados
-
-| Arquivo | Alteração |
-|---------|-----------|
-| `src/assets/logos/logo-mega.png` | Substituir pela nova logo |
-| `src/App.tsx` | Unificar 3 shells em 1, criar RequireRole, loading simplificado |
+**1 arquivo editado.**
 
