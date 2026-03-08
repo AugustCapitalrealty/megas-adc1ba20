@@ -258,7 +258,7 @@ export function FluigDashboard({ onNavigateToSolicitacao }: FluigDashboardProps)
                   mode="single"
                   selected={filters.dataFim}
                   onSelect={(date) => setFilters(prev => ({ ...prev, dataFim: date || undefined }))}
-                  locale={ptBR}
+                    locale={ptBR}
                 />
               </PopoverContent>
             </Popover>
