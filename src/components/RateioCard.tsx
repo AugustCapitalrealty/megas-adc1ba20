@@ -83,7 +83,7 @@ export function RateioCard({ tipoRateio, rateioValores, protocolo, valorTotal }:
     yPos += 6;
     doc.text(`Valor Total: ${(valorTotal ?? total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`, 14, yPos);
     yPos += 6;
-    doc.text(`Data: ${new Date().toLocaleDateString('pt-BR')}`, 14, yPos);
+    doc.text(`Data: ${new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`, 14, yPos);
     yPos += 10;
 
     // Table
