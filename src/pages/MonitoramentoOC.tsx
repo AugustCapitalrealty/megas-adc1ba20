@@ -269,7 +269,7 @@ export default function MonitoramentoOC() {
         </Badge>
         {status === 'adiado_proximo_mes' && previsaoNf && (
           <span className="text-xs text-muted-foreground">
-            Prev. NF: {format(new Date(previsaoNf + 'T00:00:00'), 'dd/MM/yy')}
+            Prev. NF: {formatBR(previsaoNf + 'T00:00:00', 'dd/MM/yy')}
           </span>
         )}
       </div>
