@@ -7,8 +7,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { useFluigSnapshots } from '@/hooks/useFluigDashboard';
-import { format, differenceInHours, differenceInDays, startOfMonth, endOfMonth, subMonths, isWithinInterval } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { differenceInHours, differenceInDays, startOfMonth, endOfMonth, subMonths, isWithinInterval } from 'date-fns';
+import { formatBR } from '@/lib/date-utils';
 import {
   Loader2,
   RefreshCw,
