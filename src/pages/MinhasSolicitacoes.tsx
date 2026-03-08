@@ -32,6 +32,8 @@ import { SolicitacaoTimeline } from '@/components/SolicitacaoTimeline';
 import { JuridicoTracker } from '@/components/JuridicoTracker';
 import { FluigStatusCard } from '@/components/FluigStatusCard';
 import { AnexoCard } from '@/components/AnexoCard';
+import { CNAECompatibilityBadge } from '@/components/CNAECompatibilityBadge';
+import { DescriptionQualityBadge } from '@/components/DescriptionQualityBadge';
 import { MultiFileUpload, type UploadedFile } from '@/components/FileUpload';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
