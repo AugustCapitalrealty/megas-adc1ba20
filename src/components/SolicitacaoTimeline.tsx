@@ -403,10 +403,12 @@ export function SolicitacaoTimeline({ solicitacaoId, showMessages = true, isBack
 
           // Historico item
           const hist = item.data as HistoricoSolicitacao;
-          const { icon, label, color } = getActionDetails(hist.acao, hist.status_novo);
+          const { icon, label, color } = getActionDetails(hist.acao, hist.status_novo, isBackoffice);
           const isFluigUpdate = hist.acao === 'atualizacao_fluig';
           const isFluigNumberAction = hist.acao.startsWith('numero_fluig_');
-          const displayLabel = (isFluigUpdate || isFluigNumberAction) && hist.motivo ? hist.motivo : label;
+          const isFluigCadastroAction = hist.acao === 'fluig_cadastro_adicionado';
+          const displayLabel = (isFluigUpdate || isFluigNumberAction) && hist.motivo ? hist.motivo : 
+                               (isFluigCadastroAction && isBackoffice && hist.motivo) ? hist.motivo : label;
           
           return (
             <div key={item.id} className="flex gap-3">
