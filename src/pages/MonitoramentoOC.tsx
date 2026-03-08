@@ -20,8 +20,8 @@ import {
   CalendarDays, Loader2, BarChart3,
   FileText, Ban, History, AlertCircle, Search, XOctagon
 } from 'lucide-react';
-import { format, differenceInDays } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { differenceInDays } from 'date-fns';
+import { formatBR } from '@/lib/date-utils';
 import { cn } from '@/lib/utils';
 import { OCDetalhesModal } from '@/components/monitoramento/OCDetalhesModal';
 import { JustificativaModal } from '@/components/monitoramento/JustificativaModal';
