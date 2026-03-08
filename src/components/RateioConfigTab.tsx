@@ -61,6 +61,34 @@ export function RateioConfigTab() {
     return isNaN(val) ? 0 : (val / totalArea) * 100;
   };
 
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      for (const config of configs) {
+        const newArea = parseFloat(editValues[config.id]);
+        if (isNaN(newArea) || newArea <= 0) {
+          toast.error(`Área inválida para ${EMPREENDIMENTO_LABELS[config.empreendimento]}`);
+          setSaving(false);
+          return;
+        }
+
+        const { error } = await supabase
+          .from('rateio_configuracao')
+          .update({ area_m2: newArea, updated_by: user?.id } as any)
+          .eq('id', config.id);
+
+        if (error) throw error;
+      }
+      toast.success('Configurações de rateio salvas!');
+      fetchConfigs();
+    } catch (error) {
+      console.error(error);
+      toast.error('Erro ao salvar configurações');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const loadImageAsBase64 = (src: string): Promise<string> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
