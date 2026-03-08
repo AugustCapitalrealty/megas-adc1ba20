@@ -1,59 +1,71 @@
 
-
-# Plano: Trocar Logo + Eliminar Loading Duplo
+# Melhorias do Painel de Garantias
 
 ## Diagnóstico
 
-Dois problemas distintos:
+Analisando `GarantiasVigentes.tsx` (334 linhas) e `useGarantiasVigentes.ts`, identifiquei:
 
-**1. Logo desatualizada** — Precisa trocar para a nova versão enviada.
+1. **Bug de layout** — o `</div>` do grid fecha antes do footer do card, quebrando a estrutura visual
+2. **KPIs incompletos** — sem valor total em garantia, sem indicador ativo ao clicar
+3. **Sem ordenação** — só filtra, mas não ordena (urgente primeiro, maior valor, etc.)
+4. **Sem exportação** — não há como exportar a lista para Excel
+5. **Componentes inline** — KpiCard, GarantiaBadge, GarantiaProgressBar não têm `React.memo`, recriados a cada render
+6. **Threshold de expiração fixo** — apenas 30 dias, falta nível de alerta "60 dias"
 
-**2. Três shells separados causam remontagem do layout:**
+---
 
-```text
-Atual (App.tsx):
-  <Route element={<ProtectedShell />}>           ← Shell A (monta AppLayout)
-    Dashboard, MinhasSolicitacoes, etc.
-  </Route>
-  <Route element={<ProtectedShell requireBackoffice />}>  ← Shell B (OUTRO AppLayout)
-    Backoffice, DashboardSLA, etc.
-  </Route>
-  <Route element={<ProtectedShell requireAdmin />}>       ← Shell C (OUTRO AppLayout)
-    Admin
-  </Route>
-```
+## O que será feito
 
-Ao navegar de Dashboard (Shell A) para Backoffice (Shell B), o React desmonta o Shell A inteiro (incluindo header/logo/menu) e monta o Shell B do zero. Isso causa o efeito de "carregar duas vezes" — primeiro o loading do auth no novo shell, depois o loading dos dados da página.
-
-## Alterações
-
-### 1. Trocar logo
-Copiar `user-uploads://logo-mega-removebg-preview-2.png` para `src/assets/logos/logo-mega.png`. Todas as referências já apontam para esse arquivo.
-
-### 2. Unificar em um único Shell (`src/App.tsx`)
-Usar **um único** `<ProtectedShell>` para todas as rotas protegidas. Cheques de permissão (backoffice/admin) movidos para componentes wrapper inline nas rotas individuais:
+### 1. Extrair componentes → `src/components/garantias/`
 
 ```text
-Depois:
-  <Route element={<ProtectedShell />}>     ← UM ÚNICO Shell (AppLayout monta 1 vez)
-    Dashboard
-    MinhasSolicitacoes
-    Backoffice         ← permissão checada internamente
-    Admin              ← permissão checada internamente
-    DashboardSLA       ← permissão checada internamente
-    etc.
-  </Route>
+src/components/garantias/
+├── GarantiaKPIs.tsx       ← KPIs ricos com valor total + indicador ativo
+├── GarantiaCard.tsx       ← Card memoizado com layout corrigido
+└── GarantiaFiltros.tsx    ← Filtros + ordenação numa barra compacta
 ```
 
-Criar um componente `<RequireRole>` que checa permissão e redireciona se não autorizado, sem mostrar loading (auth já foi verificado pelo shell pai).
+### 2. KPIs enriquecidos (`GarantiaKPIs.tsx`)
 
-### 3. Loading mais leve no ProtectedShell
-Ao invés da tela cheia com logo + spinner (que compete visualmente com o Suspense), usar apenas um spinner discreto centralizado. A logo já está no header do AppLayout — não precisa repetir no loading.
+Adicionar 4º card + subtextos com valor:
 
-## Arquivos alterados
+```text
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│  Vigentes:12 │ │ Expirando: 3 │ │ Expiradas: 5 │ │ Valor Total  │
+│  R$ 2,4M     │ │ próx: 8 dias │ │ R$ 890K      │ │ R$ 3,3M      │
+└──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
+```
 
-| Arquivo | Alteração |
-|---------|-----------|
-| `src/assets/logos/logo-mega.png` | Substituir pela nova logo |
-| `src/App.tsx` | Unificar 3 shells em 1, criar RequireRole, loading simplificado |
+- Ring highlight no KPI ativo (igual ao `BackofficeKPIs`)
+- Subtexto com "próxima expiração em X dias" no card de Expirando
 
+### 3. Ordenação + Exportação
+
+Adicionar ao hook:
+```typescript
+export type OrdemFiltro = 'expiracao_asc' | 'expiracao_desc' | 'valor_desc' | 'recente';
+```
+
+Na barra de filtros: Select de ordenação + botão **Exportar XLSX**
+
+Exportação com colunas: Protocolo, Empreendimento, Fornecedor, Tipo, Dias Contratados, Data Conclusão, Expira em, Dias Restantes, Valor, Infraspeak
+
+### 4. Correção do bug de layout
+
+O `</div>` de fechamento do grid de barras de progresso está fora do lugar, deixando o footer fora do `CardContent`. Será corrigido no `GarantiaCard.tsx`.
+
+### 5. Nível de alerta 60 dias
+
+No hook e nos badges: `status = 'expirando_breve'` (30–60 dias) com cor âmbar mais clara, além de `'expirando'` (< 30 dias) em âmbar escuro.
+
+---
+
+## Arquivos
+
+| Arquivo | Ação |
+|---|---|
+| `src/components/garantias/GarantiaKPIs.tsx` | Criar |
+| `src/components/garantias/GarantiaCard.tsx` | Criar |
+| `src/components/garantias/GarantiaFiltros.tsx` | Criar |
+| `src/hooks/useGarantiasVigentes.ts` | Editar — ordenação, valor total, 2 níveis de alerta |
+| `src/pages/GarantiasVigentes.tsx` | Refatorar — usar novos componentes, botão export |
