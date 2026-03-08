@@ -1083,8 +1083,19 @@ export default function MinhasSolicitacoes() {
 
   // Render action banner for a solicitacao
   const renderActionBanner = (sol: SolicitacaoComFornecedor, canTakeAction: boolean) => {
-    if (!canTakeAction) return null;
+    const unreadInfo = unreadMap[sol.id];
     
+    // Unread message banner takes priority
+    if (unreadInfo) {
+      return (
+        <UnreadMessageBanner
+          info={unreadInfo}
+          onViewMessages={() => toggleExpand(sol.id)}
+        />
+      );
+    }
+    
+    if (!canTakeAction) return null;
     if (sol.status === 'aguardando_nf_boleto') {
       return (
         <div className="bg-[hsl(260,70%,50%)] text-white px-4 py-2 flex items-center justify-between rounded-t-lg">
