@@ -54,8 +54,8 @@ export default function DashboardSLA() {
 
   // Default to last 30 days
   const [filters, setFilters] = useState<SlaFilters>({
-    dataInicio: format(subDays(new Date(), 30), 'yyyy-MM-dd'),
-    dataFim: format(new Date(), 'yyyy-MM-dd'),
+    dataInicio: formatBR(subDays(new Date(), 30), 'yyyy-MM-dd'),
+    dataFim: formatBR(new Date(), 'yyyy-MM-dd'),
     empreendimento: null,
     statusSla: null,
   });
