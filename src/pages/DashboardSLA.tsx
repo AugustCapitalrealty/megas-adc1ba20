@@ -161,7 +161,7 @@ export default function DashboardSLA() {
 
           <Card className="border-amber-200 bg-amber-50/30 dark:border-amber-800 dark:bg-amber-950/30">
             <CardHeader className="pb-2">
-              <CardDescription className="flex items-center gap-2 text-amber-700">
+              <CardDescription className="flex items-center gap-2 text-amber-700 dark:text-amber-300">
                 <AlertTriangle className="h-4 w-4" />
                 Atenção (3 dias)
                 <Tooltip>
