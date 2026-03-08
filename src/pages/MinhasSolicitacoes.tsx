@@ -118,6 +118,7 @@ export default function MinhasSolicitacoes() {
   const [existingAnexos, setExistingAnexos] = useState<Array<{ id: string; tipo: string; nome_arquivo: string; storage_path: string }>>([]);
   const [anexosParaExcluir, setAnexosParaExcluir] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [editMensagemCorrecao, setEditMensagemCorrecao] = useState('');
   
   // Supplier swap state
   const [trocarFornecedor, setTrocarFornecedor] = useState(false);
