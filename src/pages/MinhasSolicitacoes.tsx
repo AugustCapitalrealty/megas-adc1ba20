@@ -29,6 +29,7 @@ import {
 import { Loader2, FileText, Edit, Send, AlertTriangle, Copy, XCircle, Download, FileCheck, CheckCircle, MessageSquare, RotateCcw, Receipt, Upload, User, Building2, Trash2, UserCheck } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import { SolicitacaoTimeline } from '@/components/SolicitacaoTimeline';
+import { JuridicoTracker } from '@/components/JuridicoTracker';
 import { FluigStatusCard } from '@/components/FluigStatusCard';
 import { AnexoCard } from '@/components/AnexoCard';
 import { MultiFileUpload, type UploadedFile } from '@/components/FileUpload';
