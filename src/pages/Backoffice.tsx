@@ -86,7 +86,7 @@ import {
   Phone,
   Plus,
   MessageSquare,
-  RefreshCw
+  RefreshCw,
   UserCheck
 } from 'lucide-react';
 import { differenceInDays, differenceInHours } from 'date-fns';
