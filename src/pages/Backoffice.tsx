@@ -2750,7 +2750,7 @@ export default function Backoffice() {
                   </p>
                   <Button 
                     className="w-full" 
-                    onClick={handleDarBaixa}
+                    onClick={() => selectedSolicitacao && setConfirmAction({ type: 'baixa', sol: selectedSolicitacao, title: 'Dar Baixa para Pagamento', description: `Confirma a baixa da solicitação #${selectedSolicitacao.protocolo}? Os documentos serão marcados como enviados para pagamento.` })}
                     disabled={baixaLoading}
                   >
                     {baixaLoading ? (
