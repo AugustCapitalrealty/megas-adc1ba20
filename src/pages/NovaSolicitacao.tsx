@@ -88,6 +88,7 @@ interface DuplicateData {
 
 export default function NovaSolicitacao() {
   const { user, effectiveProfile } = useAuth();
+  const track = useTrackEvent();
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
