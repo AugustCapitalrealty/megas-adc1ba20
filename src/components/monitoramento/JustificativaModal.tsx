@@ -39,8 +39,8 @@ export function JustificativaModal({ open, onOpenChange, solicitacaoId, protocol
           solicitacao_id: solicitacaoId,
           tipo_acao: 'justificativa_adiamento' as const,
           justificativa: justificativa.trim(),
-          previsao_execucao: previsaoExecucao ? format(previsaoExecucao, 'yyyy-MM-dd') : null,
-          previsao_nf: previsaoNf ? format(previsaoNf, 'yyyy-MM-dd') : null,
+          previsao_execucao: previsaoExecucao ? formatBR(previsaoExecucao, 'yyyy-MM-dd') : null,
+          previsao_nf: previsaoNf ? formatBR(previsaoNf, 'yyyy-MM-dd') : null,
           user_id: user.id,
         });
 
