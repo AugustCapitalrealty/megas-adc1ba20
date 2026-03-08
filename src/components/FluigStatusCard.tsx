@@ -283,15 +283,19 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
   // Determine approval stages based on localizacao (source of truth)
   // Também considera devoluções para marcar badges corretamente
   const approvalStages = [
-    { key: 'facilities', label: 'Facilities', aprovado: aprovacoes.facilitiesAprovado },
-    { key: 'financeiro', label: 'Financeiro', aprovado: aprovacoes.financeiroAprovado },
-    { key: 'diretoria', label: 'Diretoria', aprovado: aprovacoes.diretoriaAprovado },
+    { key: 'facilities', label: 'Facilities', aprovado: aprovacoes.facilitiesAprovado, approvalStatus: approvalResult?.facilities },
+    { key: 'financeiro', label: 'Financeiro', aprovado: aprovacoes.financeiroAprovado, approvalStatus: approvalResult?.financeiro },
+    { key: 'diretoria', label: 'Diretoria', aprovado: aprovacoes.diretoriaAprovado, approvalStatus: approvalResult?.diretoria },
   ].map((stage, index) => {
+    // Se não é necessário (ex: Diretoria para valor <= 2500)
+    if (stage.approvalStatus === 'not_required') {
+      return { ...stage, status: 'not_required' as const };
+    }
     // Se há devolução detectada por este departamento, marcar como rejected
     if (devolucaoDetectada?.departamento.includes(stage.label)) {
       return { ...stage, status: 'rejected' as const };
     }
-    // Se aprovado segundo a localização, está done
+    // Se aprovado, está done
     if (stage.aprovado) {
       return { ...stage, status: 'done' as const };
     }
