@@ -143,7 +143,7 @@ export function OCDetalhesModal({ open, onOpenChange, solicitacaoId, protocolo }
                           <div>
                             <span className="font-medium">{doc.tipo_documento} — {doc.numero_documento}</span>
                             <span className="text-muted-foreground ml-2">
-                              {format(new Date(doc.created_at), 'dd/MM/yy', { locale: ptBR })}
+                              {formatBR(doc.created_at, 'dd/MM/yy')}
                             </span>
                           </div>
                           {doc.emitido_por_nome && <span className="text-xs text-muted-foreground">{doc.emitido_por_nome}</span>}
