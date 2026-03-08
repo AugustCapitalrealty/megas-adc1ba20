@@ -2045,7 +2045,7 @@ export default function MinhasSolicitacoes() {
                     </p>
                     
                     <div className="bg-background p-3 rounded-lg text-left text-sm space-y-1">
-                      <p><span className="text-muted-foreground">Documento:</span> <span className="font-medium">{aceiteSolicitacao?.documentoEmitido?.tipo_documento} #{aceiteSolicitacao?.documentoEmitido?.numero_documento}</span></p>
+                      <p><span className="text-muted-foreground">Documentos:</span> <span className="font-medium">{aceiteSolicitacao?.documentosEmitidos?.map(d => `${d.tipo_documento} #${d.numero_documento}`).join(', ') || '—'}</span></p>
                       <p><span className="text-muted-foreground">Valor:</span> <span className="font-medium">{aceiteSolicitacao?.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span></p>
                       {aceiteSolicitacao?.fornecedor && (
                         <p><span className="text-muted-foreground">Fornecedor:</span> <span className="font-medium">{aceiteSolicitacao.fornecedor.nome_fantasia || aceiteSolicitacao.fornecedor.razao_social}</span></p>
