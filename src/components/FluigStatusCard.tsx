@@ -384,7 +384,7 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
           <div className="flex items-center gap-2 mt-1 pt-2 border-t border-blue-200 dark:border-blue-800">
             <span className="text-muted-foreground text-xs">Aprovações:</span>
             <div className="flex gap-1">
-              {approvalStages.map((stage) => (
+              {approvalStages.filter(s => s.status !== 'not_required').map((stage) => (
                 <Badge 
                   key={stage.key} 
                   variant={stage.status === 'done' ? 'default' : 'outline'}

@@ -180,6 +180,24 @@ export interface FluigApprovalResult {
  * Fonte de verdade: LOCALIZACAO_TO_ETAPA para determinar o estágio atual.
  */
 export function getFluigApprovalStatus(snapshot: FluigSnapshotLike): FluigApprovalResult {
+  // Se está fechado, todas as etapas necessárias são approved
+  if (isFluigFechado(snapshot)) {
+    const facilitiesResponsavel = (snapshot.gerencia_facilities_responsavel && snapshot.gerencia_facilities_responsavel !== 'System:Auto')
+      ? snapshot.gerencia_facilities_responsavel
+      : snapshot.gerencia_responsavel || null;
+    return {
+      facilities: 'approved',
+      facilitiesResponsavel,
+      facilitiesConclusao: snapshot.gerencia_facilities_conclusao || snapshot.gerencia_conclusao || null,
+      financeiro: 'approved',
+      financeiroResponsavel: snapshot.gerencia_financeiro_responsavel || null,
+      financeiroConclusao: snapshot.gerencia_financeiro_conclusao || null,
+      diretoria: (snapshot.valor != null && snapshot.valor <= 2500) ? 'not_required' : 'approved',
+      diretoriaResponsavel: snapshot.diretoria_responsavel || null,
+      diretoriaConclusao: snapshot.diretoria_conclusao || null,
+    };
+  }
+
   const currentStage = LOCALIZACAO_TO_ETAPA[snapshot.localizacao || ''] ?? 0;
   
   // Facilities: usa gerencia_facilities se disponível, senão gerencia
