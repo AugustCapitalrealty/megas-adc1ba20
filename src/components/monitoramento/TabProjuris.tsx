@@ -285,6 +285,23 @@ export function TabProjuris() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="w-48">
+                <Select value={filterStatus} onValueChange={setFilterStatus}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos os status</SelectItem>
+                    <SelectItem value="concluida">Concluída</SelectItem>
+                    <SelectItem value="cancelado">Cancelado</SelectItem>
+                    <SelectItem value="em_analise">Em Análise</SelectItem>
+                    <SelectItem value="aprovado">Aprovado</SelectItem>
+                    <SelectItem value="em_processamento">Em Processamento</SelectItem>
+                    <SelectItem value="oc_ac_emitida">OC/AC Emitida</SelectItem>
+                    <SelectItem value="recebido">Recebido</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="w-56">
                 <Select value={filterEtapa} onValueChange={setFilterEtapa}>
                   <SelectTrigger>
