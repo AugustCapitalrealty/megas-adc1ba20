@@ -1301,6 +1301,11 @@ export default function MinhasSolicitacoes() {
           </div>
         )}
 
+        {/* Acompanhamento Jurídico - read-only para solicitante */}
+        {(sol as any).instrumento_juridico && (sol as any).instrumento_juridico !== 'oc' && (
+          <JuridicoTracker solicitacaoId={sol.id} readOnly />
+        )}
+
         {/* Anexos da solicitação */}
         {solAnexos && solAnexos.length > 0 && (
           <div className="space-y-2">
