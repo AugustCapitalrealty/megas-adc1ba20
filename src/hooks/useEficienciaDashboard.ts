@@ -162,7 +162,7 @@ export function useEficienciaDashboard(filters: EficienciaFilters) {
       return { entries, totalNew: totalNewCount || 0 };
     },
     enabled: !!user?.id && feriadosList.length > 0,
-    staleTime: 30_000,
+    staleTime: 120_000,
   });
 
   const entries = data?.entries || [];
@@ -216,7 +216,7 @@ export function useEficienciaDashboard(filters: EficienciaFilters) {
       }).length;
     },
     enabled: !!user?.id && feriadosList.length > 0,
-    staleTime: 30_000,
+    staleTime: 120_000,
   });
 
   // KPI 4: Vazão
@@ -287,7 +287,7 @@ export function useEficienciaDashboard(filters: EficienciaFilters) {
       };
     },
     enabled: !!user?.id,
-    staleTime: 30_000,
+    staleTime: 120_000,
   });
 
   // Tempo por Etapa
@@ -339,7 +339,7 @@ export function useEficienciaDashboard(filters: EficienciaFilters) {
       }));
     },
     enabled: entries.length > 0 && feriadosList.length > 0,
-    staleTime: 30_000,
+    staleTime: 120_000,
   });
 
   // Top Solicitantes
@@ -389,7 +389,7 @@ export function useEficienciaDashboard(filters: EficienciaFilters) {
       });
     },
     enabled: !!user?.id,
-    staleTime: 30_000,
+    staleTime: 120_000,
   });
 
   // Top Fornecedores
@@ -439,7 +439,7 @@ export function useEficienciaDashboard(filters: EficienciaFilters) {
       });
     },
     enabled: !!user?.id,
-    staleTime: 30_000,
+    staleTime: 120_000,
   });
 
   return {

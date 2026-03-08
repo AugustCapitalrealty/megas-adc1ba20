@@ -192,7 +192,8 @@ export default function MinhasSolicitacoes() {
         ia_descricao_vaga, ia_descricao_sugestao, ia_descricao_avaliado_em,
         fornecedor:fornecedores!solicitacoes_fornecedor_id_fkey(id, razao_social, nome_fantasia)
       `)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(500);
 
     if (viewMode === 'minhas') {
       query = query.eq('user_id', effectiveUserId);
