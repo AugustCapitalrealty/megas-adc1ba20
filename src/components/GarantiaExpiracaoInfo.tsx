@@ -1,4 +1,5 @@
-import { format, addDays, differenceInDays, isPast } from 'date-fns';
+import { addDays, differenceInDays, isPast } from 'date-fns';
+import { formatBR } from '@/lib/date-utils';
 import { Badge } from '@/components/ui/badge';
 import { AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
 
