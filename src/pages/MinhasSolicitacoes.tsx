@@ -659,7 +659,7 @@ export default function MinhasSolicitacoes() {
     if (!editingSolicitacao || !user) return;
     
     // Validate mandatory correction message
-    if (editingSolicitacao.status === 'pendente_correcao' && !editMensagemCorrecao.trim()) {
+    if (['pendente_correcao', 'aguardando_informacoes'].includes(editingSolicitacao.status) && !editMensagemCorrecao.trim()) {
       toast({
         title: 'Mensagem obrigatória',
         description: 'Descreva o que foi corrigido antes de reenviar.',
