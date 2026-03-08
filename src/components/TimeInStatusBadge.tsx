@@ -20,9 +20,9 @@ export function TimeInStatusBadge({ updatedAt, status, className }: TimeInStatus
   const variant = days <= 3 ? 'on_time' : days <= 5 ? 'warning' : 'overdue';
 
   const config = {
-    on_time: 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800',
-    warning: 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-800',
-    overdue: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800',
+    on_time: 'bg-success/10 text-success border-success/20',
+    warning: 'bg-warning/10 text-warning border-warning/20',
+    overdue: 'bg-destructive/10 text-destructive border-destructive/20',
   };
 
   return (
