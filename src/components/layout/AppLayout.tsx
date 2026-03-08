@@ -36,6 +36,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { NotificationBell } from '@/components/NotificationBell';
 import { CommandPalette } from '@/components/CommandPalette';
 import { AppBreadcrumbs } from '@/components/layout/AppBreadcrumbs';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { useTheme } from 'next-themes';
 import logoMega from '@/assets/logos/logo-mega.png';
 
@@ -114,7 +115,7 @@ export function AppLayout() {
         .filter((item) => item.show)
         .map((item) => {
           const Icon = item.icon;
-          return (
+          const link = (
             <Link
               key={item.href}
               to={item.href}
@@ -127,9 +128,16 @@ export function AppLayout() {
                   : 'text-foreground/70 hover:text-primary hover:bg-accent'
               )}
             >
-              <Icon className="h-4 w-4" />
-              {item.label}
+              <Icon className="h-4 w-4 shrink-0" />
+              {mobile ? item.label : <span className="hidden xl:inline">{item.label}</span>}
             </Link>
+          );
+          if (mobile) return link;
+          return (
+            <Tooltip key={item.href}>
+              <TooltipTrigger asChild>{link}</TooltipTrigger>
+              <TooltipContent className="xl:hidden">{item.label}</TooltipContent>
+            </Tooltip>
           );
         })}
     </>
@@ -167,20 +175,26 @@ export function AppLayout() {
           </Link>
 
           {/* Desktop Navigation */}
+          <TooltipProvider delayDuration={300}>
           <nav className="hidden md:flex items-center gap-1">
-            <Link
-              to="/nova-solicitacao"
-              onMouseEnter={() => prefetchRoute('/nova-solicitacao')}
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-semibold transition-colors mr-1',
-                isActive('/nova-solicitacao')
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-primary/10 text-primary hover:bg-primary/20'
-              )}
-            >
-              <Plus className="h-4 w-4" />
-              Nova
-            </Link>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link
+                  to="/nova-solicitacao"
+                  onMouseEnter={() => prefetchRoute('/nova-solicitacao')}
+                  className={cn(
+                    'flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-semibold transition-colors mr-1 shadow-md',
+                    isActive('/nova-solicitacao')
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                  )}
+                >
+                  <Plus className="h-4 w-4" />
+                  <span className="hidden xl:inline">Nova</span>
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent className="xl:hidden">Nova Solicitação</TooltipContent>
+            </Tooltip>
 
             <NavLinks />
 
@@ -214,6 +228,7 @@ export function AppLayout() {
               </DropdownMenu>
             )}
           </nav>
+          </TooltipProvider>
 
           {/* Notifications & User Menu */}
           <div className="flex items-center gap-1 sm:gap-2">

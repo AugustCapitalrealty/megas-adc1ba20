@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { KpiSparkline } from '@/components/KpiSparkline';
 import { WelcomeTour, isOnboardingComplete } from '@/components/WelcomeTour';
 import { 
-  Plus, FileText, LayoutDashboard, ClipboardList, 
+  Plus, LayoutDashboard, ClipboardList, 
   CheckCircle2, Clock, ArrowRight, Loader2, Users, User, AlertTriangle, RefreshCw
 } from 'lucide-react';
 import { EMPREENDIMENTO_LABELS } from '@/types';
@@ -322,13 +322,35 @@ export default function Dashboard() {
             {metrics.total === 0 && !metrics.error && (
               <Card className="border-dashed">
                 <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                  <FileText className="h-12 w-12 text-muted-foreground/50 mb-4" />
+                  {/* Illustrated empty state */}
+                  <svg width="80" height="80" viewBox="0 0 80 80" fill="none" className="mb-4">
+                    <rect x="16" y="8" width="48" height="60" rx="6" className="stroke-primary/30" strokeWidth="2" fill="none" />
+                    <rect x="16" y="8" width="48" height="60" rx="6" className="fill-primary/5" />
+                    <line x1="26" y1="28" x2="54" y2="28" className="stroke-muted-foreground/30" strokeWidth="2" strokeLinecap="round" />
+                    <line x1="26" y1="36" x2="48" y2="36" className="stroke-muted-foreground/30" strokeWidth="2" strokeLinecap="round" />
+                    <line x1="26" y1="44" x2="42" y2="44" className="stroke-muted-foreground/30" strokeWidth="2" strokeLinecap="round" />
+                    <circle cx="56" cy="56" r="14" className="fill-primary/10 stroke-primary" strokeWidth="2" />
+                    <path d="M52 56l3 3 5-6" className="stroke-primary" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                  </svg>
                   <h3 className="font-semibold text-lg mb-1">Nenhuma solicitação ainda</h3>
                   <p className="text-muted-foreground text-sm mb-4">
                     {viewMode === 'geral' 
                       ? 'Nenhuma solicitação encontrada no sistema'
-                      : 'Crie sua primeira solicitação de AC ou OC'}
+                      : 'Comece criando sua primeira solicitação de AC ou OC'}
                   </p>
+                  {/* Onboarding checklist */}
+                  {viewMode === 'minhas' && (
+                    <div className="flex flex-col items-start gap-2 mb-5 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-success" />
+                        <span>Conta criada</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/30" />
+                        <span>Criar primeira solicitação</span>
+                      </div>
+                    </div>
+                  )}
                   <Button onClick={() => navigate('/nova-solicitacao')} className="gap-2">
                     <Plus className="h-4 w-4" />
                     Nova Solicitação
