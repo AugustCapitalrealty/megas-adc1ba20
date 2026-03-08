@@ -214,14 +214,21 @@ export function OCDetalhesModal({ open, onOpenChange, solicitacaoId, protocolo, 
                     </CardHeader>
                     <CardContent className="space-y-2">
                       {detalhes.documentos_emitidos.map((doc: any) => (
-                        <div key={doc.id} className="flex items-center justify-between p-2 rounded-md bg-muted/50 text-sm">
-                          <div>
-                            <span className="font-medium">{doc.tipo_documento} — {doc.numero_documento}</span>
-                            <span className="text-muted-foreground ml-2">
-                              {formatBR(doc.created_at, 'dd/MM/yy')}
-                            </span>
+                        <div key={doc.id} className="p-2 rounded-md bg-muted/50 text-sm space-y-1">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="font-medium">{doc.tipo_documento} — {doc.numero_documento}</span>
+                              <span className="text-muted-foreground ml-2">
+                                {formatBR(doc.created_at, 'dd/MM/yy')}
+                              </span>
+                            </div>
+                            {doc.emitido_por_nome && <span className="text-xs text-muted-foreground">{doc.emitido_por_nome}</span>}
                           </div>
-                          {doc.emitido_por_nome && <span className="text-xs text-muted-foreground">{doc.emitido_por_nome}</span>}
+                          {doc.observacao && (
+                            <p className="text-xs text-muted-foreground pl-0.5">
+                              <span className="font-medium text-foreground">Obs:</span> {doc.observacao}
+                            </p>
+                          )}
                         </div>
                       ))}
                     </CardContent>

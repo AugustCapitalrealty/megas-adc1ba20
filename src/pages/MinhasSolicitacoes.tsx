@@ -1904,49 +1904,57 @@ export default function MinhasSolicitacoes() {
             </DialogTitle>
           </DialogHeader>
 
-          {aceiteSolicitacao?.documentoEmitido && (
+          {aceiteSolicitacao?.documentosEmitidos && aceiteSolicitacao.documentosEmitidos.length > 0 && (
             <div className="space-y-4 py-2">
               {/* Step 1: Review OC */}
               {aceiteStep === 'revisar' && (
                 <>
-                  <div className="p-4 bg-success/10 border border-success/20 rounded-lg">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <FileCheck className="h-5 w-5 text-success" />
-                        <span className="font-medium text-success">
-                          {aceiteSolicitacao.documentoEmitido.tipo_documento} #{aceiteSolicitacao.documentoEmitido.numero_documento}
-                        </span>
+                  <div className="text-sm text-muted-foreground mb-2">
+                    <p>Valor: <span className="font-medium text-foreground">
+                      {aceiteSolicitacao.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </span></p>
+                    {aceiteSolicitacao.fornecedor && (
+                      <p>Fornecedor: <span className="font-medium text-foreground">
+                        {aceiteSolicitacao.fornecedor.nome_fantasia || aceiteSolicitacao.fornecedor.razao_social}
+                      </span></p>
+                    )}
+                  </div>
+
+                  {aceiteSolicitacao.documentosEmitidos.map((doc: DocumentoEmitido) => (
+                    <div key={doc.id} className="p-4 bg-success/10 border border-success/20 rounded-lg">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <FileCheck className="h-5 w-5 text-success" />
+                          <span className="font-medium text-success">
+                            {doc.tipo_documento} #{doc.numero_documento}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {doc.observacao && (
+                        <p className="text-sm text-muted-foreground mb-3">
+                          <span className="font-medium text-foreground">Observação do Backoffice:</span> {doc.observacao}
+                        </p>
+                      )}
+
+                      <div className="flex flex-wrap gap-2">
+                        <Button 
+                          size="sm" 
+                          variant="default"
+                          onClick={() => openOCInNewTab(doc)}
+                        >
+                          <FileText className="h-4 w-4 mr-1" /> Visualizar OC
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => downloadDocumentoEmitido(doc)}
+                        >
+                          <Download className="h-4 w-4 mr-1" /> Baixar OC
+                        </Button>
                       </div>
                     </div>
-                    
-                    <div className="text-sm text-muted-foreground mb-4">
-                      <p>Valor: <span className="font-medium text-foreground">
-                        {aceiteSolicitacao.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                      </span></p>
-                      {aceiteSolicitacao.fornecedor && (
-                        <p>Fornecedor: <span className="font-medium text-foreground">
-                          {aceiteSolicitacao.fornecedor.nome_fantasia || aceiteSolicitacao.fornecedor.razao_social}
-                        </span></p>
-                      )}
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      <Button 
-                        size="sm" 
-                        variant="default"
-                        onClick={() => openOCInNewTab(aceiteSolicitacao.documentoEmitido!)}
-                      >
-                        <FileText className="h-4 w-4 mr-1" /> Visualizar OC
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => downloadDocumentoEmitido(aceiteSolicitacao.documentoEmitido!)}
-                      >
-                        <Download className="h-4 w-4 mr-1" /> Baixar OC
-                      </Button>
-                    </div>
-                  </div>
+                  ))}
 
                   <div className="bg-muted/50 p-3 rounded-lg border">
                     <p className="text-sm text-muted-foreground">
