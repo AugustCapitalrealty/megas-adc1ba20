@@ -7,31 +7,10 @@ import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Checkbox } from '@/components/ui/checkbox';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { TooltipProvider } from '@/components/ui/tooltip';
-import { FilterBar, type TabGroup } from '@/components/ui/FilterBar';
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { SolicitacaoTimeline } from '@/components/SolicitacaoTimeline';
-import { FluigStatusCard } from '@/components/FluigStatusCard';
-import { ExpandableDescription } from '@/components/ExpandableDescription';
-import { AnexoCard } from '@/components/AnexoCard';
-import { FornecedorCard } from '@/components/FornecedorCard';
-import { GarantiaExpiracaoInfo } from '@/components/GarantiaExpiracaoInfo';
-import { CNAECompatibilityBadge } from '@/components/CNAECompatibilityBadge';
-import { DescriptionQualityBadge } from '@/components/DescriptionQualityBadge';
-import { MEIAlertBadge } from '@/components/MEIAlertBadge';
-import { EscopoMinutaCard } from '@/components/EscopoMinutaCard';
-import { InstrumentoJuridicoBadge } from '@/components/InstrumentoJuridicoBadge';
-import { JuridicoTracker } from '@/components/JuridicoTracker';
-import { type Fornecedor, type CNAESecundario, INSTRUMENTO_JURIDICO_LABELS, type InstrumentoJuridico } from '@/types';
-import { RateioCard } from '@/components/RateioCard';
+import { FilterBar } from '@/components/ui/FilterBar';
+import { type Fornecedor, type CNAESecundario } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useBackofficeSolicitacoes, type SolicitacaoBackoffice } from '@/hooks/useBackofficeSolicitacoes';
 import { useSolicitacaoDetalhes } from '@/hooks/useSolicitacaoDetalhes';
@@ -40,8 +19,6 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { 
   EMPREENDIMENTO_LABELS, 
   NATUREZA_ORCAMENTARIA_LABELS,
-  TIPO_CONTRATACAO_LABELS,
-  TIPO_GARANTIA_LABELS,
   STATUS_LABELS,
   ANEXO_LABELS,
   type RequestStatus,
@@ -49,45 +26,7 @@ import {
   type DocumentoFiscal
 } from '@/types';
 import { 
-  Loader2, 
-  CheckCircle, 
-  RotateCcw, 
-  XCircle, 
-  Search,
-  Eye,
-  Clock,
-  AlertTriangle,
-  Building2,
-  User,
-  Calendar,
-  DollarSign,
-  FileText,
-  Package,
-  Truck,
-  Download,
-  Archive,
-  FileCheck,
-  Cog,
-  CheckCheck,
-  Upload,
-  HelpCircle,
-  Filter,
-  ChevronDown,
-  ChevronUp,
-  History,
-  Receipt,
-  CreditCard,
-  Send,
-  Banknote,
-  Edit,
-  ShieldAlert,
-  Shield,
-  Mail,
-  Phone,
-  Plus,
-  MessageSquare,
-  RefreshCw,
-  UserCheck
+  Loader2, CheckCircle, XCircle, Search, AlertTriangle, Download, Filter,
 } from 'lucide-react';
 import { differenceInDays, differenceInHours } from 'date-fns';
 import { formatBR } from '@/lib/date-utils';
@@ -98,13 +37,12 @@ import { cn } from '@/lib/utils';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { TransferOwnershipModal } from '@/components/TransferOwnershipModal';
-import { ConfirmModal } from '@/components/ui/ActionModal';
 import { exportToExcel } from '@/lib/export-utils';
-import { SolicitacaoMessages } from '@/components/SolicitacaoMessages';
-import { UnreadMessageBanner } from '@/components/UnreadMessageBanner';
 import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 import { BackofficeKPIs } from '@/components/backoffice/BackofficeKPIs';
 import { BackofficeSolicitacaoCard, type CardCallbacks } from '@/components/backoffice/BackofficeSolicitacaoCard';
+import { BackofficeModals } from '@/components/backoffice/BackofficeModals';
+import { BatchActionBar } from '@/components/backoffice/BatchActionBar';
 
 // PDF validation types
 interface PdfValidationResult {
