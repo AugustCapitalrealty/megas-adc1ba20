@@ -262,6 +262,7 @@ export default function MinhasSolicitacoes() {
       const enrichedData = data.map((sol: any) => ({
         ...sol,
         documentoEmitido: docsMap[sol.id] || null,
+        documentosEmitidos: docsArrayMap[sol.id] || [],
         documentosFiscais: fiscaisMap[sol.id] || [],
         solicitante_nome: profilesMap[sol.user_id] || null,
       } as SolicitacaoComFornecedor));
