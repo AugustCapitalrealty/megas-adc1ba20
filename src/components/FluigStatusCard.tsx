@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { getAprovacoesPorLocalizacao, CAMPO_APROVACAO_LABELS, getDevolucaoLabel, LOCALIZACAO_TO_ETAPA, mapEtapaToDepartamento, formatResponsavelFluig, getEtapaIndexPorResponsavel, getProximaEtapaFluig } from '@/lib/fluig-utils';
+import { getFluigApprovalStatus, isFluigFechado, CAMPO_APROVACAO_LABELS, getDevolucaoLabel, LOCALIZACAO_TO_ETAPA, mapEtapaToDepartamento, formatResponsavelFluig, getEtapaIndexPorResponsavel, getProximaEtapaFluig } from '@/lib/fluig-utils';
 import { useFluigStatus } from '@/hooks/useFluigStatus';
 interface FluigEvento {
   id: string;
