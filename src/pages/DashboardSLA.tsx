@@ -393,7 +393,7 @@ export default function DashboardSLA() {
                           </button>
                         </TableCell>
                         <TableCell>
-                          {format(new Date(item.created_at), 'dd/MM/yyyy', { locale: ptBR })}
+                          {formatBR(item.created_at, 'dd/MM/yyyy')}
                         </TableCell>
                         <TableCell>
                           <div>

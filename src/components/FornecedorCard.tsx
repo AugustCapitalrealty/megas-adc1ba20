@@ -79,7 +79,7 @@ export function FornecedorCard({
     if (!dateStr) return null;
     try {
       const date = new Date(dateStr);
-      return date.toLocaleDateString('pt-BR');
+      return date.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
     } catch {
       return dateStr;
     }

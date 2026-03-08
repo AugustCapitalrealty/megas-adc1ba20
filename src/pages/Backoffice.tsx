@@ -2698,7 +2698,7 @@ export default function Backoffice() {
                       {doc.baixa_financeiro_em && (
                         <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
                           <CheckCircle className="h-3 w-3 mr-1" />
-                          Baixa em {format(new Date(doc.baixa_financeiro_em), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                          Baixa em {formatBR(doc.baixa_financeiro_em, "dd/MM/yyyy HH:mm")}
                         </Badge>
                       )}
                     </div>

@@ -279,7 +279,7 @@ export default function GarantiasVigentes() {
                       )}
                       <span className="flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
-                        Conclusão: {format(new Date(g.data_conclusao), "dd/MM/yyyy", { locale: ptBR })}
+                        Conclusão: {formatBR(g.data_conclusao, "dd/MM/yyyy")}
                       </span>
                       <span>
                         Valor: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(g.valor)}
