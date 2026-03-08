@@ -168,7 +168,7 @@ export function OCDetalhesModal({ open, onOpenChange, solicitacaoId, protocolo }
                           <div>
                             <span className="font-medium">{doc.tipo === 'nota_fiscal' ? 'NF' : 'Boleto'} — {doc.nome_arquivo}</span>
                             <span className="text-muted-foreground ml-2">
-                              {format(new Date(doc.created_at), 'dd/MM/yy', { locale: ptBR })}
+                              {formatBR(doc.created_at, 'dd/MM/yy')}
                             </span>
                           </div>
                         </div>
