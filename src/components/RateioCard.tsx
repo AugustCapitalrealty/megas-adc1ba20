@@ -54,37 +54,55 @@ export function RateioCard({ tipoRateio, rateioValores, protocolo, valorTotal }:
 
     // Orange header band
     doc.setFillColor(...orange);
-    doc.rect(0, 0, pageWidth, 54, 'F');
+    doc.rect(0, 0, pageWidth, 70, 'F');
 
     // Logo
     try {
       const logoBase64 = await loadImageAsBase64(logoMega);
-      doc.addImage(logoBase64, 'PNG', 14, 7, 40, 40);
+      doc.addImage(logoBase64, 'PNG', 14, 8, 50, 50);
     } catch { /* proceed without logo */ }
 
     // Title on orange band
     doc.setTextColor(...white);
-    doc.setFontSize(20);
+    doc.setFontSize(22);
     doc.setFont('helvetica', 'bold');
-    doc.text('Demonstrativo de Rateio', 62, 22);
-    doc.setFontSize(12);
+    doc.text('Demonstrativo de Rateio', 72, 28);
+    doc.setFontSize(13);
     doc.setFont('helvetica', 'normal');
-    doc.text('entre Condomínios', 62, 32);
+    doc.text('entre Condomínios', 72, 40);
+
+    // Separator line
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.3);
+    doc.line(14, 76, pageWidth - 14, 76);
 
     // Info section below header
-    let yPos = 68;
-    doc.setTextColor(...grey);
+    let yPos = 84;
     doc.setFontSize(10);
     if (protocolo) {
-      doc.text(`Protocolo: ${protocolo}`, 14, yPos);
-      yPos += 6;
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...grey);
+      doc.text('Protocolo: ', 14, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.text(protocolo, 14 + doc.getTextWidth('Protocolo: '), yPos);
+      yPos += 8;
     }
-    doc.text(`Tipo de Rateio: ${tipoRateio === 'por_unidade' ? 'Por Unidade (igual)' : 'Por Área (proporcional)'}`, 14, yPos);
-    yPos += 6;
-    doc.text(`Valor Total: ${(valorTotal ?? total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`, 14, yPos);
-    yPos += 6;
-    doc.text(`Data: ${new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`, 14, yPos);
-    yPos += 10;
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...grey);
+    doc.text('Tipo de Rateio: ', 14, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.text(tipoRateio === 'por_unidade' ? 'Por Unidade (igual)' : 'Por Área (proporcional)', 14 + doc.getTextWidth('Tipo de Rateio: '), yPos);
+    yPos += 8;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Valor Total: ', 14, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.text((valorTotal ?? total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), 14 + doc.getTextWidth('Valor Total: '), yPos);
+    yPos += 8;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Data: ', 14, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.text(new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }), 14 + doc.getTextWidth('Data: '), yPos);
+    yPos += 12;
 
     // Table
     autoTable(doc, {
@@ -104,19 +122,25 @@ export function RateioCard({ tipoRateio, rateioValores, protocolo, valorTotal }:
           { content: (valorTotal ?? total).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), styles: { fontStyle: 'bold', fillColor: grey, textColor: white } },
         ],
       ],
-      styles: { fontSize: 10 },
+      styles: { fontSize: 10, cellPadding: 4 },
       headStyles: { fillColor: orange, textColor: white, fontStyle: 'bold' },
       alternateRowStyles: { fillColor: [248, 248, 248] },
+      margin: { left: 14, right: 14 },
+      columnStyles: { 0: { cellWidth: 60 } },
     });
 
     // Footer
     const pageHeight = doc.internal.pageSize.getHeight();
     doc.setDrawColor(...grey);
     doc.setLineWidth(0.5);
-    doc.line(14, pageHeight - 20, pageWidth - 14, pageHeight - 20);
-    doc.setFontSize(8);
+    doc.line(14, pageHeight - 24, pageWidth - 14, pageHeight - 24);
+    doc.setFontSize(7);
     doc.setTextColor(...grey);
-    doc.text(`Mega Centro Logístico — Documento gerado em ${new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`, 14, pageHeight - 14);
+    doc.setFont('helvetica', 'italic');
+    doc.text('Documento confidencial', pageWidth / 2, pageHeight - 18, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text(`Mega Centro Logístico — Documento gerado em ${new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`, 14, pageHeight - 12);
 
     doc.save(`rateio_${protocolo || 'demonstrativo'}.pdf`);
   };
