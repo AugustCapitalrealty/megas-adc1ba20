@@ -1096,6 +1096,14 @@ export default function Backoffice() {
     return filtered;
   }, [solicitacoes, showOnlyMine, user?.id]);
 
+  // Unread messages for backoffice
+  const backofficeSolIds = useMemo(() => solicitacoes.map(s => s.id), [solicitacoes]);
+  const { unreadMap: backofficeUnreadMap, markAsRead: backofficeMarkAsRead } = useUnreadMessages({
+    solicitacaoIds: backofficeSolIds,
+    userId: user?.id,
+    isBackoffice: true,
+  });
+
   // Count my responsibilities
   const myResponsibilityCount = useMemo(() => 
     solicitacoes.filter(s => 
