@@ -61,12 +61,12 @@ const getActionDetails = (acao: string, statusNovo: string | null, isBackoffice?
   // Handle Fluig number actions
   if (acao === 'numero_fluig_adicionado') return { 
     icon: <RefreshCw className="h-4 w-4" />, 
-    label: 'Número Fluig/RM adicionado', 
+    label: 'Fluig de aprovação adicionado', 
     color: 'bg-blue-500 text-white' 
   };
   if (acao === 'numero_fluig_alterado') return { 
     icon: <RefreshCw className="h-4 w-4" />, 
-    label: 'Número Fluig/RM alterado', 
+    label: 'Fluig de aprovação alterado', 
     color: 'bg-blue-500 text-white' 
   };
   if (acao === 'numero_fluig_removido') return { 
