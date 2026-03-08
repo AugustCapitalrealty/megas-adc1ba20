@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserEmpreendimentos } from '@/hooks/useUserEmpreendimentos';
 import type { RequestStatus, Empreendimento } from '@/types';
+import { subDays, startOfDay, format } from 'date-fns';
 
 interface StatusCount {
   status: RequestStatus;
