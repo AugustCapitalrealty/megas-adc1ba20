@@ -108,6 +108,7 @@ export const BackofficeSolicitacaoCard = memo(function BackofficeSolicitacaoCard
   cadastroLoading,
   cancelamentoActionLoading,
   callbacks,
+  isSelected,
 }: BackofficeSolicitacaoCardProps) {
   const sla = getSLAInfo(sol);
   const isAtrasado = sla.atrasadoAnalise || sla.atrasadoEmissao;
