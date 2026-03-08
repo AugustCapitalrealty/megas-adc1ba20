@@ -725,6 +725,15 @@ export default function MinhasSolicitacoes() {
         status_novo: 'recebido',
       });
 
+      // Save correction message if provided
+      if (editMensagemCorrecao.trim()) {
+        await supabase.from('solicitacao_mensagens').insert({
+          solicitacao_id: editingSolicitacao.id,
+          user_id: user.id,
+          mensagem: editMensagemCorrecao.trim(),
+        });
+      }
+
       toast({
         title: 'Solicitação reenviada!',
         description: 'Sua correção foi enviada para análise.',
