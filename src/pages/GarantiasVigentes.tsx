@@ -93,7 +93,7 @@ function GarantiaProgressBar({ detalhe }: { detalhe: GarantiaDetalhe }) {
   return (
     <div className="w-full">
       <div className="flex justify-between text-xs text-muted-foreground mb-1">
-        <span>{format(new Date(detalhe.dataExpiracao), 'dd/MM/yyyy')}</span>
+        <span>{formatBR(detalhe.dataExpiracao, 'dd/MM/yyyy')}</span>
         <span>{detalhe.diasContratados} dias total</span>
       </div>
       <div className="h-2 bg-muted rounded-full overflow-hidden">
