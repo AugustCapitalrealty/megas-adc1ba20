@@ -161,7 +161,7 @@ export function AppLayout() {
 
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
-        <div className="container flex h-16 items-center justify-between">
+        <div className="container flex h-14 sm:h-16 items-center justify-between gap-2">
           <Link to="/" className="flex items-center gap-3 shrink-0">
             <img src={logoMega} alt="Mega Centro Logístico" width={86} height={40} className="h-10 w-auto object-contain" />
           </Link>
