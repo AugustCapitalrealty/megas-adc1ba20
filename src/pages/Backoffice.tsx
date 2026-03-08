@@ -26,6 +26,7 @@ import { AnexoCard } from '@/components/AnexoCard';
 import { FornecedorCard } from '@/components/FornecedorCard';
 import { GarantiaExpiracaoInfo } from '@/components/GarantiaExpiracaoInfo';
 import { CNAECompatibilityBadge } from '@/components/CNAECompatibilityBadge';
+import { DescriptionQualityBadge } from '@/components/DescriptionQualityBadge';
 import { MEIAlertBadge } from '@/components/MEIAlertBadge';
 import { EscopoMinutaCard } from '@/components/EscopoMinutaCard';
 import { InstrumentoJuridicoBadge } from '@/components/InstrumentoJuridicoBadge';
@@ -2257,6 +2258,12 @@ export default function Backoffice() {
                           } : null}
                         />
                       )}
+                      
+                      {/* Description Quality Badge no Backoffice */}
+                      <DescriptionQualityBadge
+                        isVague={detalhes.solicitacao.ia_descricao_vaga}
+                        suggestion={detalhes.solicitacao.ia_descricao_sugestao}
+                      />
                     </div>
                     
                     {/* Fornecedores Concorrentes */}
