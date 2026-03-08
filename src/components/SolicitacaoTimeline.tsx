@@ -50,7 +50,14 @@ interface TimelineItem {
   data: HistoricoSolicitacao | Message;
 }
 
-const getActionDetails = (acao: string, statusNovo: string | null): { icon: JSX.Element; label: string; color: string } => {
+const getActionDetails = (acao: string, statusNovo: string | null, isBackoffice?: boolean): { icon: JSX.Element; label: string; color: string } => {
+  // Handle Fluig cadastro actions
+  if (acao === 'fluig_cadastro_adicionado') return { 
+    icon: <RefreshCw className="h-4 w-4" />, 
+    label: isBackoffice ? 'Fluig de cadastro adicionado' : 'Cadastro solicitado à Contabilidade', 
+    color: 'bg-blue-500 text-white' 
+  };
+  
   // Handle Fluig number actions
   if (acao === 'numero_fluig_adicionado') return { 
     icon: <RefreshCw className="h-4 w-4" />, 
