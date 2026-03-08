@@ -52,76 +52,56 @@ export default function Dashboard() {
   };
 
   // Different KPIs depending on viewMode
+  const trendMap = {
+    total: metrics.trend.total,
+    pending: metrics.trend.pending,
+    inProgress: metrics.trend.inProgress,
+    concluded: metrics.trend.concluded,
+  };
+
   const kpis = viewMode === 'geral' && isBackofficeOrAdmin
     ? [
         {
-          label: 'Total',
-          value: metrics.total,
-          icon: ClipboardList,
-          color: 'text-foreground',
-          bgColor: 'bg-muted',
-          filter: 'todas',
+          label: 'Total', value: metrics.total, icon: ClipboardList,
+          color: 'text-foreground', bgColor: 'bg-muted', filter: 'todas',
+          trend: trendMap.total,
         },
         {
-          label: 'Novas (Em Fila)',
-          value: metrics.newInQueue,
-          icon: Clock,
-          color: 'text-info',
-          bgColor: 'bg-info/10',
-          highlight: metrics.newInQueue > 0,
-          filter: 'com_backoffice',
+          label: 'Novas (Em Fila)', value: metrics.newInQueue, icon: Clock,
+          color: 'text-info', bgColor: 'bg-info/10', highlight: metrics.newInQueue > 0,
+          filter: 'com_backoffice', trend: trendMap.total,
         },
         {
-          label: 'Em Análise',
-          value: metrics.inAnalysis,
-          icon: LayoutDashboard,
-          color: 'text-primary',
-          bgColor: 'bg-primary/10',
-          filter: 'com_backoffice',
+          label: 'Em Análise', value: metrics.inAnalysis, icon: LayoutDashboard,
+          color: 'text-primary', bgColor: 'bg-primary/10', filter: 'com_backoffice',
+          trend: trendMap.inProgress,
         },
         {
-          label: 'Aguardando Solicitante',
-          value: metrics.waitingSolicitor,
-          icon: AlertTriangle,
-          color: 'text-warning',
-          bgColor: 'bg-warning/10',
-          highlight: metrics.waitingSolicitor > 0,
-          filter: 'correcoes',
+          label: 'Aguardando Solicitante', value: metrics.waitingSolicitor, icon: AlertTriangle,
+          color: 'text-warning', bgColor: 'bg-warning/10', highlight: metrics.waitingSolicitor > 0,
+          filter: 'correcoes', trend: trendMap.pending,
         },
       ]
     : [
         {
-          label: 'Total',
-          value: metrics.total,
-          icon: ClipboardList,
-          color: 'text-foreground',
-          bgColor: 'bg-muted',
-          filter: 'todas',
+          label: 'Total', value: metrics.total, icon: ClipboardList,
+          color: 'text-foreground', bgColor: 'bg-muted', filter: 'todas',
+          trend: trendMap.total,
         },
         {
-          label: 'Pendentes',
-          value: metrics.pendingActions,
-          icon: Clock,
-          color: 'text-destructive',
-          bgColor: 'bg-destructive/10',
-          highlight: metrics.pendingActions > 0,
-          filter: 'correcoes',
+          label: 'Pendentes', value: metrics.pendingActions, icon: Clock,
+          color: 'text-destructive', bgColor: 'bg-destructive/10', highlight: metrics.pendingActions > 0,
+          filter: 'correcoes', trend: trendMap.pending,
         },
         {
-          label: 'Em Andamento',
-          value: metrics.inProgress,
-          icon: LayoutDashboard,
-          color: 'text-primary',
-          bgColor: 'bg-primary/10',
-          filter: 'com_backoffice',
+          label: 'Em Andamento', value: metrics.inProgress, icon: LayoutDashboard,
+          color: 'text-primary', bgColor: 'bg-primary/10', filter: 'com_backoffice',
+          trend: trendMap.inProgress,
         },
         {
-          label: 'Finalizadas',
-          value: metrics.concluded,
-          icon: CheckCircle2,
-          color: 'text-success',
-          bgColor: 'bg-success/10',
-          filter: 'concluidas',
+          label: 'Finalizadas', value: metrics.concluded, icon: CheckCircle2,
+          color: 'text-success', bgColor: 'bg-success/10', filter: 'concluidas',
+          trend: trendMap.concluded,
         },
       ];
 
