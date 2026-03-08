@@ -155,11 +155,11 @@ export function OCDetalhesModal({ open, onOpenChange, solicitacaoId, protocolo, 
               </Card>
               <Card>
                 <CardContent className="p-3">
-                  <div className="flex items-center gap-2">
-                    <Building2 className="h-4 w-4 text-muted-foreground" />
-                    <div>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0">
                       <p className="text-xs text-muted-foreground">Empreendimento</p>
-                      <p className="text-sm font-semibold">{EMPREENDIMENTO_LABELS[detalhes.solicitacao.empreendimento as Empreendimento] || detalhes.solicitacao.empreendimento}</p>
+                      <p className="text-sm font-semibold truncate">{EMPREENDIMENTO_LABELS[detalhes.solicitacao.empreendimento as Empreendimento] || detalhes.solicitacao.empreendimento}</p>
                     </div>
                   </div>
                 </CardContent>
