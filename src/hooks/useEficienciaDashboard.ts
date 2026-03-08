@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { startOfWeek, format, subDays } from 'date-fns';
+import { startOfWeek, subDays } from 'date-fns';
+import { formatBR } from '@/lib/date-utils';
 import { calcularDiasUteis, isMesmoDia } from '@/lib/business-days';
 import type { Empreendimento } from '@/types';
 
