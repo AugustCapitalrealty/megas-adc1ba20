@@ -183,6 +183,12 @@ export default function Backoffice() {
   const [cadastroLoading, setCadastroLoading] = useState(false);
   const [cadastroStatus, setCadastroStatus] = useState<Record<string, 'solicitado' | 'concluido' | null>>({});
 
+  // Edit Fluig Cadastro Modal (separate from main Fluig)
+  const [editFluigCadastroOpen, setEditFluigCadastroOpen] = useState(false);
+  const [editFluigCadastroValue, setEditFluigCadastroValue] = useState('');
+  const [editFluigCadastroLoading, setEditFluigCadastroLoading] = useState(false);
+  const [editFluigCadastroSolId, setEditFluigCadastroSolId] = useState<string | null>(null);
+
   // Transfer modal state
   const [transferOpen, setTransferOpen] = useState(false);
   const [transferSolicitacao, setTransferSolicitacao] = useState<SolicitacaoBackoffice | null>(null);
@@ -878,10 +884,10 @@ export default function Backoffice() {
           description: 'Solicitação enviada à Contabilidade.',
         });
 
-        // Abrir modal Fluig automaticamente se ainda não preenchido
-        if (!sol.numero_chamado_fluig) {
-          openEditFluig(sol);
-        }
+        // Abrir modal Fluig de Cadastro automaticamente
+        setEditFluigCadastroSolId(sol.id);
+        setEditFluigCadastroValue('');
+        setEditFluigCadastroOpen(true);
       } else if (currentStatus === 'solicitado') {
         // Segunda vez: Cadastro concluído
         await supabase.from('historico_solicitacoes').insert({
@@ -909,6 +915,53 @@ export default function Backoffice() {
       });
     } finally {
       setCadastroLoading(false);
+    }
+  };
+
+  const handleSaveFluigCadastro = async () => {
+    if (!editFluigCadastroSolId || !user) return;
+    
+    setEditFluigCadastroLoading(true);
+    try {
+      const newValue = editFluigCadastroValue.trim() || null;
+      
+      if (newValue) {
+        const { error } = await supabase
+          .from('solicitacoes')
+          .update({ numero_fluig_cadastro: newValue } as any)
+          .eq('id', editFluigCadastroSolId);
+
+        if (error) throw error;
+
+        // Find the sol to get its status
+        const sol = solicitacoes.find(s => s.id === editFluigCadastroSolId);
+        
+        await supabase.from('historico_solicitacoes').insert({
+          solicitacao_id: editFluigCadastroSolId,
+          user_id: user.id,
+          acao: 'fluig_cadastro_adicionado',
+          motivo: `Fluig de cadastro #${newValue} adicionado`,
+          status_anterior: sol?.status || null,
+          status_novo: sol?.status || null,
+        });
+      }
+
+      toast({
+        title: 'Fluig de cadastro salvo',
+        description: newValue ? `Cadastro Fluig: ${newValue}` : 'Salvo sem número Fluig',
+      });
+
+      setEditFluigCadastroOpen(false);
+      fetchSolicitacoes();
+    } catch (error) {
+      console.error('Error saving Fluig cadastro:', error);
+      toast({
+        title: 'Erro ao salvar',
+        description: 'Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setEditFluigCadastroLoading(false);
     }
   };
 
@@ -1624,7 +1677,7 @@ export default function Backoffice() {
                   <History className="h-4 w-4 text-muted-foreground" />
                   Histórico da Solicitação
                 </h4>
-                <SolicitacaoTimeline solicitacaoId={sol.id} />
+                <SolicitacaoTimeline solicitacaoId={sol.id} isBackoffice />
               </div>
               {/* Mensagens */}
               <div>
@@ -2416,7 +2469,7 @@ export default function Backoffice() {
                     </Button>
                   </CollapsibleTrigger>
                   <CollapsibleContent className="pt-3">
-                    <SolicitacaoTimeline solicitacaoId={detalhes.solicitacao.id} />
+                    <SolicitacaoTimeline solicitacaoId={detalhes.solicitacao.id} isBackoffice />
                   </CollapsibleContent>
                 </Collapsible>
 
@@ -2933,6 +2986,40 @@ export default function Backoffice() {
             </Button>
             <Button onClick={handleSaveFluig} disabled={editFluigLoading}>
               {editFluigLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Fluig Cadastro Modal */}
+      <Dialog open={editFluigCadastroOpen} onOpenChange={setEditFluigCadastroOpen}>
+        <DialogContent className="max-w-lg w-[80vw]">
+          <DialogHeader>
+            <DialogTitle>Fluig de Cadastro Contábil</DialogTitle>
+            <DialogDescription>
+              Informe o número do Fluig para a solicitação de cadastro (separado do Fluig de aprovação)
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <Label htmlFor="edit-fluig-cadastro">Número do Fluig de Cadastro</Label>
+            <Input
+              id="edit-fluig-cadastro"
+              placeholder="Ex: CHM-2024-001234"
+              value={editFluigCadastroValue}
+              onChange={(e) => setEditFluigCadastroValue(e.target.value)}
+            />
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditFluigCadastroOpen(false)} disabled={editFluigCadastroLoading}>
+              Pular
+            </Button>
+            <Button onClick={handleSaveFluigCadastro} disabled={editFluigCadastroLoading || !editFluigCadastroValue.trim()}>
+              {editFluigCadastroLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : null}
               Salvar

@@ -1,41 +1,59 @@
 
 
-# Duas melhorias: Mensagem obrigatória no reenvio + Fluig de Cadastro separado
+# Plano: Trocar Logo + Eliminar Loading Duplo
 
-## 1. Mensagem obrigatória ao reenviar solicitação corrigida
+## Diagnóstico
 
-**Problema:** O solicitante pode reenviar sem explicar o que corrigiu.
+Dois problemas distintos:
 
-**Solução:** Adicionar campo de mensagem obrigatório no modal de edição/reenvio em `MinhasSolicitacoes.tsx`. Salvar como `solicitacao_mensagens` para que o backoffice veja na timeline.
+**1. Logo desatualizada** — Precisa trocar para a nova versão enviada.
 
-**Alterações em `src/pages/MinhasSolicitacoes.tsx`:**
-- Novo state `editMensagemCorrecao`
-- No modal de edição, quando `editingSolicitacao.status === 'pendente_correcao'`, exibir um `Textarea` obrigatório com label "O que foi corrigido?" antes do botão Reenviar
-- No `handleResubmit`, validar que a mensagem não está vazia e inserir em `solicitacao_mensagens` após o reenvio
-- Desabilitar botão "Reenviar" se mensagem vazia
+**2. Três shells separados causam remontagem do layout:**
 
-## 2. Fluig de Cadastro separado do Fluig principal
+```text
+Atual (App.tsx):
+  <Route element={<ProtectedShell />}>           ← Shell A (monta AppLayout)
+    Dashboard, MinhasSolicitacoes, etc.
+  </Route>
+  <Route element={<ProtectedShell requireBackoffice />}>  ← Shell B (OUTRO AppLayout)
+    Backoffice, DashboardSLA, etc.
+  </Route>
+  <Route element={<ProtectedShell requireAdmin />}>       ← Shell C (OUTRO AppLayout)
+    Admin
+  </Route>
+```
 
-**Problema:** Ao clicar "Solicitar Cadastro", o sistema abre o modal de Fluig e salva no campo `numero_chamado_fluig` — o mesmo usado para o Fluig do processo de aprovação. Isso confunde o solicitante.
+Ao navegar de Dashboard (Shell A) para Backoffice (Shell B), o React desmonta o Shell A inteiro (incluindo header/logo/menu) e monta o Shell B do zero. Isso causa o efeito de "carregar duas vezes" — primeiro o loading do auth no novo shell, depois o loading dos dados da página.
 
-**Solução:** Criar campo `numero_fluig_cadastro` na tabela `solicitacoes` para armazenar o Fluig de cadastro separadamente.
+## Alterações
 
-### Alterações no banco:
-- Migration: `ALTER TABLE solicitacoes ADD COLUMN numero_fluig_cadastro text;`
+### 1. Trocar logo
+Copiar `user-uploads://logo-mega-removebg-preview-2.png` para `src/assets/logos/logo-mega.png`. Todas as referências já apontam para esse arquivo.
 
-### Alterações em `src/pages/Backoffice.tsx`:
-- No `handleSolicitarCadastro`, ao abrir o modal Fluig automaticamente, usar um modo separado que salva em `numero_fluig_cadastro` ao invés de `numero_chamado_fluig`
-- Criar estado `editFluigCadastroOpen` e `editFluigCadastroValue` para o modal de Fluig de cadastro
-- No histórico, usar ação `fluig_cadastro_adicionado` ao invés de `numero_fluig_adicionado`
-- Exibir o badge do Fluig de cadastro separado do badge do Fluig principal (apenas para backoffice)
+### 2. Unificar em um único Shell (`src/App.tsx`)
+Usar **um único** `<ProtectedShell>` para todas as rotas protegidas. Cheques de permissão (backoffice/admin) movidos para componentes wrapper inline nas rotas individuais:
 
-### Alterações em `src/components/SolicitacaoTimeline.tsx`:
-- Para solicitantes: exibir "Cadastro solicitado à Contabilidade" sem mostrar o número Fluig
-- Para backoffice: exibir "Cadastro solicitado (Fluig #XXX)" com o número
-- Adicionar mapeamento para `fluig_cadastro_adicionado` no `getActionDetails`
+```text
+Depois:
+  <Route element={<ProtectedShell />}>     ← UM ÚNICO Shell (AppLayout monta 1 vez)
+    Dashboard
+    MinhasSolicitacoes
+    Backoffice         ← permissão checada internamente
+    Admin              ← permissão checada internamente
+    DashboardSLA       ← permissão checada internamente
+    etc.
+  </Route>
+```
 
-### Alterações em `src/components/FluigStatusCard.tsx` e timeline:
-- Eventos de `fluig_cadastro_adicionado` ficam ocultos para solicitantes (filtrar por role no componente)
+Criar um componente `<RequireRole>` que checa permissão e redireciona se não autorizado, sem mostrar loading (auth já foi verificado pelo shell pai).
 
-**Estimativa:** 3 arquivos + 1 migration.
+### 3. Loading mais leve no ProtectedShell
+Ao invés da tela cheia com logo + spinner (que compete visualmente com o Suspense), usar apenas um spinner discreto centralizado. A logo já está no header do AppLayout — não precisa repetir no loading.
+
+## Arquivos alterados
+
+| Arquivo | Alteração |
+|---------|-----------|
+| `src/assets/logos/logo-mega.png` | Substituir pela nova logo |
+| `src/App.tsx` | Unificar 3 shells em 1, criar RequireRole, loading simplificado |
 

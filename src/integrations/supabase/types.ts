@@ -855,6 +855,7 @@ export type Database = {
           natureza_servico_obra_civil: boolean | null
           natureza_servico_preco_variavel: boolean | null
           numero_chamado_fluig: string | null
+          numero_fluig_cadastro: string | null
           numero_projuris: string | null
           origem_custo: Database["public"]["Enums"]["origem_custo"]
           parcelas: number | null
@@ -929,6 +930,7 @@ export type Database = {
           natureza_servico_obra_civil?: boolean | null
           natureza_servico_preco_variavel?: boolean | null
           numero_chamado_fluig?: string | null
+          numero_fluig_cadastro?: string | null
           numero_projuris?: string | null
           origem_custo?: Database["public"]["Enums"]["origem_custo"]
           parcelas?: number | null
@@ -1003,6 +1005,7 @@ export type Database = {
           natureza_servico_obra_civil?: boolean | null
           natureza_servico_preco_variavel?: boolean | null
           numero_chamado_fluig?: string | null
+          numero_fluig_cadastro?: string | null
           numero_projuris?: string | null
           origem_custo?: Database["public"]["Enums"]["origem_custo"]
           parcelas?: number | null

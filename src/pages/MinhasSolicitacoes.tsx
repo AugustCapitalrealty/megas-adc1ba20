@@ -118,6 +118,7 @@ export default function MinhasSolicitacoes() {
   const [existingAnexos, setExistingAnexos] = useState<Array<{ id: string; tipo: string; nome_arquivo: string; storage_path: string }>>([]);
   const [anexosParaExcluir, setAnexosParaExcluir] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [editMensagemCorrecao, setEditMensagemCorrecao] = useState('');
   
   // Supplier swap state
   const [trocarFornecedor, setTrocarFornecedor] = useState(false);
@@ -654,6 +655,16 @@ export default function MinhasSolicitacoes() {
   const handleResubmit = async () => {
     if (!editingSolicitacao || !user) return;
     
+    // Validate mandatory correction message
+    if (editingSolicitacao.status === 'pendente_correcao' && !editMensagemCorrecao.trim()) {
+      toast({
+        title: 'Mensagem obrigatória',
+        description: 'Descreva o que foi corrigido antes de reenviar.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
     setSubmitting(true);
     
     try {
@@ -714,6 +725,15 @@ export default function MinhasSolicitacoes() {
         status_novo: 'recebido',
       });
 
+      // Save correction message if provided
+      if (editMensagemCorrecao.trim()) {
+        await supabase.from('solicitacao_mensagens').insert({
+          solicitacao_id: editingSolicitacao.id,
+          user_id: user.id,
+          mensagem: editMensagemCorrecao.trim(),
+        });
+      }
+
       toast({
         title: 'Solicitação reenviada!',
         description: 'Sua correção foi enviada para análise.',
@@ -721,6 +741,7 @@ export default function MinhasSolicitacoes() {
 
       setEditOpen(false);
       setAnexosParaExcluir([]);
+      setEditMensagemCorrecao('');
       fetchSolicitacoes();
     } catch (error: any) {
       toast({
@@ -1897,12 +1918,35 @@ export default function MinhasSolicitacoes() {
               </div>
             </div>
           )}
+          {/* Mandatory correction message */}
+          {editingSolicitacao?.status === 'pendente_correcao' && (
+            <div className="space-y-2 border-t pt-4">
+              <Label htmlFor="mensagem-correcao" className="text-sm font-medium">
+                O que foi corrigido? <span className="text-destructive">*</span>
+              </Label>
+              <Textarea
+                id="mensagem-correcao"
+                placeholder="Descreva as correções realizadas..."
+                value={editMensagemCorrecao}
+                onChange={(e) => setEditMensagemCorrecao(e.target.value)}
+                className="min-h-[80px]"
+              />
+              {!editMensagemCorrecao.trim() && (
+                <p className="text-xs text-destructive">
+                  É obrigatório descrever o que foi corrigido antes de reenviar.
+                </p>
+              )}
+            </div>
+          )}
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={handleResubmit} disabled={submitting}>
+            <Button 
+              onClick={handleResubmit} 
+              disabled={submitting || (editingSolicitacao?.status === 'pendente_correcao' && !editMensagemCorrecao.trim())}
+            >
               {submitting ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : (

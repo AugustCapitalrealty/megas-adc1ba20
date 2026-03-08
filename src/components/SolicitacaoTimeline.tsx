@@ -29,6 +29,7 @@ import { useAuth } from '@/hooks/useAuth';
 interface SolicitacaoTimelineProps {
   solicitacaoId: string;
   showMessages?: boolean;
+  isBackoffice?: boolean;
 }
 
 interface Message {
@@ -49,7 +50,14 @@ interface TimelineItem {
   data: HistoricoSolicitacao | Message;
 }
 
-const getActionDetails = (acao: string, statusNovo: string | null): { icon: JSX.Element; label: string; color: string } => {
+const getActionDetails = (acao: string, statusNovo: string | null, isBackoffice?: boolean): { icon: JSX.Element; label: string; color: string } => {
+  // Handle Fluig cadastro actions
+  if (acao === 'fluig_cadastro_adicionado') return { 
+    icon: <RefreshCw className="h-4 w-4" />, 
+    label: isBackoffice ? 'Fluig de cadastro adicionado' : 'Cadastro solicitado à Contabilidade', 
+    color: 'bg-blue-500 text-white' 
+  };
+  
   // Handle Fluig number actions
   if (acao === 'numero_fluig_adicionado') return { 
     icon: <RefreshCw className="h-4 w-4" />, 
@@ -226,7 +234,7 @@ const getActionDetails = (acao: string, statusNovo: string | null): { icon: JSX.
   }
 };
 
-export function SolicitacaoTimeline({ solicitacaoId, showMessages = true }: SolicitacaoTimelineProps) {
+export function SolicitacaoTimeline({ solicitacaoId, showMessages = true, isBackoffice = false }: SolicitacaoTimelineProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [historico, setHistorico] = useState<HistoricoSolicitacao[]>([]);
@@ -395,10 +403,12 @@ export function SolicitacaoTimeline({ solicitacaoId, showMessages = true }: Soli
 
           // Historico item
           const hist = item.data as HistoricoSolicitacao;
-          const { icon, label, color } = getActionDetails(hist.acao, hist.status_novo);
+          const { icon, label, color } = getActionDetails(hist.acao, hist.status_novo, isBackoffice);
           const isFluigUpdate = hist.acao === 'atualizacao_fluig';
           const isFluigNumberAction = hist.acao.startsWith('numero_fluig_');
-          const displayLabel = (isFluigUpdate || isFluigNumberAction) && hist.motivo ? hist.motivo : label;
+          const isFluigCadastroAction = hist.acao === 'fluig_cadastro_adicionado';
+          const displayLabel = (isFluigUpdate || isFluigNumberAction) && hist.motivo ? hist.motivo : 
+                               (isFluigCadastroAction && isBackoffice && hist.motivo) ? hist.motivo : label;
           
           return (
             <div key={item.id} className="flex gap-3">
@@ -422,7 +432,12 @@ export function SolicitacaoTimeline({ solicitacaoId, showMessages = true }: Soli
                       Fluig
                     </Badge>
                   )}
-                  {hist.status_novo && !isFluigUpdate && !isFluigNumberAction && (
+                  {isFluigCadastroAction && isBackoffice && (
+                    <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                      Cadastro
+                    </Badge>
+                  )}
+                  {hist.status_novo && !isFluigUpdate && !isFluigNumberAction && !isFluigCadastroAction && (
                     <Badge variant="outline" className="text-xs">
                       {STATUS_LABELS[hist.status_novo]}
                     </Badge>
@@ -436,7 +451,7 @@ export function SolicitacaoTimeline({ solicitacaoId, showMessages = true }: Soli
                   {formatBR(hist.created_at, "dd/MM/yyyy HH:mm:ss")}
                 </p>
                 
-                {hist.motivo && !isFluigUpdate && !isFluigNumberAction && (
+                {hist.motivo && !isFluigUpdate && !isFluigNumberAction && !isFluigCadastroAction && (
                   <div className="mt-2 p-2 bg-muted/50 rounded text-sm border-l-2 border-primary/30">
                     <span className="text-muted-foreground">Observação: </span>
                     {hist.motivo}
