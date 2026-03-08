@@ -45,7 +45,7 @@ export function CorrectionDeadlineBadge({
       className={cn(
         "gap-1",
         isUrgent && "bg-destructive/10 text-destructive border-destructive/30 animate-pulse",
-        isWarning && "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30",
+        isWarning && "bg-warning/10 text-warning border-warning/30",
         !isUrgent && !isWarning && "bg-muted text-muted-foreground"
       )}
     >
