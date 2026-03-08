@@ -22,6 +22,13 @@ interface RecentSolicitacao {
   fornecedor_nome: string | null;
 }
 
+interface TrendData {
+  total: number[];
+  pending: number[];
+  inProgress: number[];
+  concluded: number[];
+}
+
 interface DashboardMetrics {
   total: number;
   pendingActions: number;
@@ -40,6 +47,7 @@ interface DashboardMetrics {
   inApproval: number;
   recentSolicitacoes: RecentSolicitacao[];
   statusCounts: StatusCount[];
+  trend: TrendData;
   isLoading: boolean;
   error: Error | null;
 }
