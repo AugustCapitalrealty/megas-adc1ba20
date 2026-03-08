@@ -1,47 +1,59 @@
 
 
-# Etapa 2 — Extrair Modais + Batch Actions
+# Plano: Trocar Logo + Eliminar Loading Duplo
 
-## O que será feito
+## Diagnóstico
 
-### 1. Extrair Modais para `BackofficeModals.tsx`
+Dois problemas distintos:
 
-Mover todos os 8 modais (linhas 1556-2753 do `Backoffice.tsx`) para um novo componente:
+**1. Logo desatualizada** — Precisa trocar para a nova versão enviada.
 
-- **Details Modal** (detalhes da solicitação)
-- **Action Modal** (assumir/rejeitar/processar/ajuste)
-- **Registro OC Modal** (registrar OC com validação PDF)
-- **NF/Boleto View Modal** (visualizar documentos fiscais)
-- **Edit Fluig Modal** (editar número Fluig/RM)
-- **Edit Fluig Cadastro Modal** (Fluig de cadastro contábil)
-- **Edit Projuris Modal** (número Projuris)
-- **Confirmation Modal** (confirmações genéricas)
-
-O componente `BackofficeModals` receberá via props todo o state e handlers necessários. O `TransferOwnershipModal` continua inline pois já é um componente externo.
-
-**Resultado:** `Backoffice.tsx` reduzido de ~2756 para ~1600 linhas.
-
-### 2. Batch Actions com Barra Flutuante
-
-Adicionar seleção múltipla e ações em lote:
-
-- **Checkbox** em cada card (no `BackofficeSolicitacaoCard`)
-- **State** `selectedIds: Set<string>` no `Backoffice.tsx`
-- **Barra flutuante** no rodapé: "N selecionadas — [Assumir Todas] [Exportar]"
-- Ações suportadas: **Assumir em lote** (só para status `recebido`/`em_analise`) e **Exportar selecionadas**
+**2. Três shells separados causam remontagem do layout:**
 
 ```text
-┌─────────────────────────────────────────────────────────┐
-│ ☑ 3 selecionadas    [Limpar]  [Exportar]  [Assumir]    │
-└─────────────────────────────────────────────────────────┘
+Atual (App.tsx):
+  <Route element={<ProtectedShell />}>           ← Shell A (monta AppLayout)
+    Dashboard, MinhasSolicitacoes, etc.
+  </Route>
+  <Route element={<ProtectedShell requireBackoffice />}>  ← Shell B (OUTRO AppLayout)
+    Backoffice, DashboardSLA, etc.
+  </Route>
+  <Route element={<ProtectedShell requireAdmin />}>       ← Shell C (OUTRO AppLayout)
+    Admin
+  </Route>
 ```
 
-## Arquivos
+Ao navegar de Dashboard (Shell A) para Backoffice (Shell B), o React desmonta o Shell A inteiro (incluindo header/logo/menu) e monta o Shell B do zero. Isso causa o efeito de "carregar duas vezes" — primeiro o loading do auth no novo shell, depois o loading dos dados da página.
 
-| Arquivo | Ação |
-|---------|------|
-| `src/components/backoffice/BackofficeModals.tsx` | **Criar** — todos os modais extraídos |
-| `src/components/backoffice/BatchActionBar.tsx` | **Criar** — barra flutuante de ações em lote |
-| `src/components/backoffice/BackofficeSolicitacaoCard.tsx` | **Editar** — adicionar checkbox de seleção |
-| `src/pages/Backoffice.tsx` | **Editar** — remover modais inline, adicionar state de seleção, integrar novos componentes |
+## Alterações
+
+### 1. Trocar logo
+Copiar `user-uploads://logo-mega-removebg-preview-2.png` para `src/assets/logos/logo-mega.png`. Todas as referências já apontam para esse arquivo.
+
+### 2. Unificar em um único Shell (`src/App.tsx`)
+Usar **um único** `<ProtectedShell>` para todas as rotas protegidas. Cheques de permissão (backoffice/admin) movidos para componentes wrapper inline nas rotas individuais:
+
+```text
+Depois:
+  <Route element={<ProtectedShell />}>     ← UM ÚNICO Shell (AppLayout monta 1 vez)
+    Dashboard
+    MinhasSolicitacoes
+    Backoffice         ← permissão checada internamente
+    Admin              ← permissão checada internamente
+    DashboardSLA       ← permissão checada internamente
+    etc.
+  </Route>
+```
+
+Criar um componente `<RequireRole>` que checa permissão e redireciona se não autorizado, sem mostrar loading (auth já foi verificado pelo shell pai).
+
+### 3. Loading mais leve no ProtectedShell
+Ao invés da tela cheia com logo + spinner (que compete visualmente com o Suspense), usar apenas um spinner discreto centralizado. A logo já está no header do AppLayout — não precisa repetir no loading.
+
+## Arquivos alterados
+
+| Arquivo | Alteração |
+|---------|-----------|
+| `src/assets/logos/logo-mega.png` | Substituir pela nova logo |
+| `src/App.tsx` | Unificar 3 shells em 1, criar RequireRole, loading simplificado |
 

@@ -1,5 +1,6 @@
 import React, { memo } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { StatusBadge } from '@/components/ui/status-badge';
@@ -58,6 +59,7 @@ export interface CardCallbacks {
   onTransfer: (sol: SolicitacaoBackoffice) => void;
   onViewNfBoleto: (sol: SolicitacaoBackoffice) => void;
   backofficeMarkAsRead: (id: string) => void;
+  onToggleSelect?: (id: string) => void;
 }
 
 interface BackofficeSolicitacaoCardProps {
@@ -71,6 +73,7 @@ interface BackofficeSolicitacaoCardProps {
   cadastroLoading: boolean;
   cancelamentoActionLoading: boolean;
   callbacks: CardCallbacks;
+  isSelected?: boolean;
 }
 
 // ── Helpers ────────────────────────────────────────────
@@ -105,6 +108,7 @@ export const BackofficeSolicitacaoCard = memo(function BackofficeSolicitacaoCard
   cadastroLoading,
   cancelamentoActionLoading,
   callbacks,
+  isSelected,
 }: BackofficeSolicitacaoCardProps) {
   const sla = getSLAInfo(sol);
   const isAtrasado = sla.atrasadoAnalise || sla.atrasadoEmissao;
@@ -266,10 +270,21 @@ export const BackofficeSolicitacaoCard = memo(function BackofficeSolicitacaoCard
 
   return (
     <Card className={cn(
-      'hover:shadow-md transition-shadow',
+      'hover:shadow-md transition-shadow relative',
       isAtrasado && 'border-destructive border-2',
-      isMyResponsibility && !isAtrasado && 'border-primary border-2 bg-primary/5'
+      isMyResponsibility && !isAtrasado && 'border-primary border-2 bg-primary/5',
+      isSelected && 'ring-2 ring-primary/50'
     )}>
+      {/* Selection Checkbox */}
+      {callbacks.onToggleSelect && (
+        <div className="absolute top-3 right-3 z-10">
+          <Checkbox
+            checked={!!isSelected}
+            onCheckedChange={() => callbacks.onToggleSelect?.(sol.id)}
+            aria-label={`Selecionar #${sol.protocolo}`}
+          />
+        </div>
+      )}
       {/* Unread Message Banner */}
       {unreadInfo && (
         <UnreadMessageBanner
@@ -477,6 +492,7 @@ export const BackofficeSolicitacaoCard = memo(function BackofficeSolicitacaoCard
     prev.cadastroStatus === next.cadastroStatus &&
     prev.hasCancelamentoPendente === next.hasCancelamentoPendente &&
     prev.unreadInfo === next.unreadInfo &&
-    prev.userId === next.userId
+    prev.userId === next.userId &&
+    prev.isSelected === next.isSelected
   );
 });
