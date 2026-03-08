@@ -2860,7 +2860,7 @@ export default function Backoffice() {
 
       {/* Edit Fluig/RM Modal */}
       <Dialog open={editFluigOpen} onOpenChange={setEditFluigOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg w-[80vw]">
           <DialogHeader>
             <DialogTitle>Editar Fluig/RM</DialogTitle>
             <DialogDescription>
