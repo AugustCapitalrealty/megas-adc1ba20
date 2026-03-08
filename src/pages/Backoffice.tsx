@@ -87,7 +87,8 @@ import {
   Mail,
   Phone,
   Plus,
-  MessageSquare
+  MessageSquare,
+  RefreshCw
 } from 'lucide-react';
 import { differenceInDays, differenceInHours } from 'date-fns';
 import { formatBR } from '@/lib/date-utils';
@@ -2941,11 +2942,16 @@ export default function Backoffice() {
       <Dialog open={editFluigOpen} onOpenChange={setEditFluigOpen}>
         <DialogContent className="max-w-lg w-[80vw]">
           <DialogHeader>
-            <DialogTitle>Editar Fluig/RM</DialogTitle>
+            <DialogTitle>Fluig/RM — Aprovação</DialogTitle>
             <DialogDescription>
               Atualize o número do chamado Fluig ou marque como RM
             </DialogDescription>
           </DialogHeader>
+
+          <div className="rounded-md bg-blue-50 border border-blue-200 p-3 flex items-start gap-2 text-sm text-blue-800">
+            <RefreshCw className="h-4 w-4 mt-0.5 shrink-0" />
+            <span>Este é o Fluig/RM de <strong>aprovação da solicitação</strong> (separado do Fluig de cadastro contábil).</span>
+          </div>
 
           <div className="space-y-4">
             <div className="flex items-center gap-4">
@@ -2998,11 +3004,16 @@ export default function Backoffice() {
       <Dialog open={editFluigCadastroOpen} onOpenChange={setEditFluigCadastroOpen}>
         <DialogContent className="max-w-lg w-[80vw]">
           <DialogHeader>
-            <DialogTitle>Fluig de Cadastro Contábil</DialogTitle>
+            <DialogTitle>Fluig — Cadastro Contábil</DialogTitle>
             <DialogDescription>
-              Informe o número do Fluig para a solicitação de cadastro (separado do Fluig de aprovação)
+              Informe o número do Fluig para a solicitação de cadastro contábil
             </DialogDescription>
           </DialogHeader>
+
+          <div className="rounded-md bg-emerald-50 border border-emerald-200 p-3 flex items-start gap-2 text-sm text-emerald-800">
+            <Package className="h-4 w-4 mt-0.5 shrink-0" />
+            <span>Este é o Fluig do <strong>cadastro contábil</strong> (separado do Fluig de aprovação).</span>
+          </div>
 
           <div className="space-y-2">
             <Label htmlFor="edit-fluig-cadastro">Número do Fluig de Cadastro</Label>
