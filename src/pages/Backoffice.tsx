@@ -2914,6 +2914,27 @@ export default function Backoffice() {
           onTransferred={fetchSolicitacoes}
         />
       )}
+
+      {/* Confirmation Modal (#4 improvement) */}
+      <ConfirmModal
+        open={!!confirmAction}
+        onOpenChange={(open) => !open && setConfirmAction(null)}
+        title={confirmAction?.title || ''}
+        description={confirmAction?.description || ''}
+        confirmText="Confirmar"
+        onConfirm={async () => {
+          if (!confirmAction) return;
+          const { type, sol } = confirmAction;
+          setConfirmAction(null);
+          if (type === 'baixa') {
+            await handleDarBaixaConfirmed();
+          } else if (type === 'envio_fornecedor') {
+            await handleRegistrarEnvioFornecedorConfirmed(sol);
+          } else if (type === 'concluir_liberada') {
+            await handleConcluirLiberadaConfirmed(sol);
+          }
+        }}
+      />
     </>
   );
 }

@@ -255,7 +255,7 @@ export default function GarantiasVigentes() {
                       </div>
                       <div className="flex gap-1.5 flex-wrap items-center">
                         {g.infraspeak_registrada && (
-                          <Badge className="gap-1 bg-cyan-100 text-cyan-800 hover:bg-cyan-100 border-cyan-300">
+                          <Badge className="gap-1 bg-info/10 text-info hover:bg-info/10 border-info/30">
                             <Wrench className="h-3 w-3" />
                             Infraspeak
                           </Badge>
