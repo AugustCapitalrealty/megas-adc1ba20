@@ -95,6 +95,8 @@ import { cn } from '@/lib/utils';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { TransferOwnershipModal } from '@/components/TransferOwnershipModal';
+import { ConfirmModal } from '@/components/ui/ActionModal';
+import { exportToExcel } from '@/lib/export-utils';
 
 // PDF validation types
 interface PdfValidationResult {
@@ -177,6 +179,18 @@ export default function Backoffice() {
   // Transfer modal state
   const [transferOpen, setTransferOpen] = useState(false);
   const [transferSolicitacao, setTransferSolicitacao] = useState<SolicitacaoBackoffice | null>(null);
+
+  // Confirmation modal state (#4 improvement)
+  const [confirmAction, setConfirmAction] = useState<{
+    type: 'baixa' | 'envio_fornecedor' | 'concluir_liberada';
+    sol: SolicitacaoBackoffice;
+    title: string;
+    description: string;
+  } | null>(null);
+
+  // Pagination state (#2 improvement)
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 20;
 
   // Fetch details when opening details modal
   useEffect(() => {
@@ -520,7 +534,7 @@ export default function Backoffice() {
     }
   };
 
-  const handleDarBaixa = async () => {
+  const handleDarBaixaConfirmed = async () => {
     if (!selectedSolicitacao || !user) return;
     
     setBaixaLoading(true);
@@ -570,7 +584,16 @@ export default function Backoffice() {
     }
   };
 
-  const handleRegistrarEnvioFornecedor = async (sol: SolicitacaoBackoffice) => {
+  const handleRegistrarEnvioFornecedor = (sol: SolicitacaoBackoffice) => {
+    setConfirmAction({
+      type: 'envio_fornecedor',
+      sol,
+      title: 'Registrar Envio ao Fornecedor',
+      description: `Confirma que a OC da solicitação #${sol.protocolo} foi enviada ao fornecedor?`,
+    });
+  };
+
+  const handleRegistrarEnvioFornecedorConfirmed = async (sol: SolicitacaoBackoffice) => {
     if (!user) return;
     
     setActionLoading(true);
@@ -611,7 +634,16 @@ export default function Backoffice() {
     }
   };
 
-  const handleConcluirLiberada = async (sol: SolicitacaoBackoffice) => {
+  const handleConcluirLiberada = (sol: SolicitacaoBackoffice) => {
+    setConfirmAction({
+      type: 'concluir_liberada',
+      sol,
+      title: 'Concluir Solicitação',
+      description: `Confirma a conclusão da solicitação #${sol.protocolo}?`,
+    });
+  };
+
+  const handleConcluirLiberadaConfirmed = async (sol: SolicitacaoBackoffice) => {
     if (!user) return;
     
     setActionLoading(true);
@@ -1564,19 +1596,51 @@ export default function Backoffice() {
     );
   };
 
-  const TabContent = ({ items, emptyMessage }: { items: SolicitacaoBackoffice[], emptyMessage: string }) => (
-    <div className="space-y-4">
-      {items.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center text-muted-foreground">
-            {emptyMessage}
-          </CardContent>
-        </Card>
-      ) : (
-        items.map((sol) => <SolicitacaoCard key={sol.id} sol={sol} />)
-      )}
-    </div>
-  );
+  // Reset page on tab change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab]);
+
+  // Get active tab items for pagination
+  const getActiveTabItems = useCallback((): SolicitacaoBackoffice[] => {
+    return groupedSolicitacoes[activeTab] || [];
+  }, [groupedSolicitacoes, activeTab]);
+
+  const TabContent = ({ items, emptyMessage }: { items: SolicitacaoBackoffice[], emptyMessage: string }) => {
+    const totalPages = Math.ceil(items.length / ITEMS_PER_PAGE);
+    const paginatedItems = items.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+    
+    return (
+      <div className="space-y-4">
+        {items.length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center text-muted-foreground">
+              {emptyMessage}
+            </CardContent>
+          </Card>
+        ) : (
+          <>
+            {paginatedItems.map((sol) => <SolicitacaoCard key={sol.id} sol={sol} />)}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between pt-2">
+                <span className="text-sm text-muted-foreground">
+                  {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, items.length)} de {items.length}
+                </span>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
+                    Anterior
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
+                    Próximo
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    );
+  };
 
   if (loading) {
     return (
@@ -1658,6 +1722,15 @@ export default function Backoffice() {
               >
                 <Filter className="h-4 w-4 mr-2" />
                 Minhas ({myResponsibilityCount})
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => exportToExcel(getActiveTabItems(), `backoffice_${activeTab}`)}
+                disabled={getActiveTabItems().length === 0}
+                className="w-full md:w-auto"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Exportar
               </Button>
             </div>
           </CardContent>
@@ -2718,7 +2791,7 @@ export default function Backoffice() {
                   </p>
                   <Button 
                     className="w-full" 
-                    onClick={handleDarBaixa}
+                    onClick={() => selectedSolicitacao && setConfirmAction({ type: 'baixa', sol: selectedSolicitacao, title: 'Dar Baixa para Pagamento', description: `Confirma a baixa da solicitação #${selectedSolicitacao.protocolo}? Os documentos serão marcados como enviados para pagamento.` })}
                     disabled={baixaLoading}
                   >
                     {baixaLoading ? (
@@ -2841,6 +2914,27 @@ export default function Backoffice() {
           onTransferred={fetchSolicitacoes}
         />
       )}
+
+      {/* Confirmation Modal (#4 improvement) */}
+      <ConfirmModal
+        open={!!confirmAction}
+        onOpenChange={(open) => !open && setConfirmAction(null)}
+        title={confirmAction?.title || ''}
+        description={confirmAction?.description || ''}
+        confirmText="Confirmar"
+        onConfirm={async () => {
+          if (!confirmAction) return;
+          const { type, sol } = confirmAction;
+          setConfirmAction(null);
+          if (type === 'baixa') {
+            await handleDarBaixaConfirmed();
+          } else if (type === 'envio_fornecedor') {
+            await handleRegistrarEnvioFornecedorConfirmed(sol);
+          } else if (type === 'concluir_liberada') {
+            await handleConcluirLiberadaConfirmed(sol);
+          }
+        }}
+      />
     </>
   );
 }

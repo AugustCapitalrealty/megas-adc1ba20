@@ -21,19 +21,19 @@ function KpiCard({ title, value, icon: Icon, variant, onClick }: {
   onClick?: () => void;
 }) {
   const styles = {
-    vigente: 'border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-900',
-    expirando: 'border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-900',
-    expirada: 'border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-900',
+    vigente: 'border-success/30 bg-success/5 dark:bg-success/10',
+    expirando: 'border-warning/30 bg-warning/5 dark:bg-warning/10',
+    expirada: 'border-destructive/30 bg-destructive/5 dark:bg-destructive/10',
   };
   const iconStyles = {
-    vigente: 'text-green-600',
-    expirando: 'text-amber-600',
-    expirada: 'text-red-600',
+    vigente: 'text-success',
+    expirando: 'text-warning',
+    expirada: 'text-destructive',
   };
   const valueStyles = {
-    vigente: 'text-green-700',
-    expirando: 'text-amber-700',
-    expirada: 'text-red-700',
+    vigente: 'text-success',
+    expirando: 'text-warning',
+    expirada: 'text-destructive',
   };
 
   return (
@@ -42,7 +42,7 @@ function KpiCard({ title, value, icon: Icon, variant, onClick }: {
       onClick={onClick}
     >
       <CardContent className="p-4 flex items-center gap-4">
-        <div className={`p-2 rounded-lg ${iconStyles[variant]} bg-white/60 dark:bg-black/20`}>
+        <div className={`p-2 rounded-lg ${iconStyles[variant]} bg-background/60 dark:bg-background/20`}>
           <Icon className="h-6 w-6" />
         </div>
         <div>
@@ -65,14 +65,14 @@ function GarantiaBadge({ detalhe }: { detalhe: GarantiaDetalhe }) {
   }
   if (detalhe.diasRestantes <= 30) {
     return (
-      <Badge className="gap-1 bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-300">
+      <Badge className="gap-1 bg-warning/10 text-warning hover:bg-warning/10 border-warning/30">
         <ShieldAlert className="h-3 w-3" />
         {detalhe.label}: {detalhe.diasRestantes}d restantes
       </Badge>
     );
   }
   return (
-    <Badge variant="outline" className="gap-1 text-green-700 border-green-300">
+    <Badge variant="outline" className="gap-1 text-success border-success/30">
       <ShieldCheck className="h-3 w-3" />
       {detalhe.label}: {detalhe.diasRestantes}d restantes
     </Badge>
@@ -85,10 +85,10 @@ function GarantiaProgressBar({ detalhe }: { detalhe: GarantiaDetalhe }) {
   const percentUsado = total > 0 ? Math.min(100, ((total - restantes) / total) * 100) : 100;
 
   const barColor = detalhe.expirada || detalhe.diasRestantes <= 0
-    ? 'bg-red-500'
+    ? 'bg-destructive'
     : detalhe.diasRestantes <= 30
-      ? 'bg-amber-500'
-      : 'bg-green-500';
+      ? 'bg-warning'
+      : 'bg-success';
 
   return (
     <div className="w-full">
@@ -255,7 +255,7 @@ export default function GarantiasVigentes() {
                       </div>
                       <div className="flex gap-1.5 flex-wrap items-center">
                         {g.infraspeak_registrada && (
-                          <Badge className="gap-1 bg-cyan-100 text-cyan-800 hover:bg-cyan-100 border-cyan-300">
+                          <Badge className="gap-1 bg-info/10 text-info hover:bg-info/10 border-info/30">
                             <Wrench className="h-3 w-3" />
                             Infraspeak
                           </Badge>
