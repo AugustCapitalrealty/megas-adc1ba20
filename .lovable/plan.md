@@ -1,44 +1,59 @@
 
 
-# Melhorias para Solicitantes — MinhasSolicitacoes.tsx
+# Plano: Trocar Logo + Eliminar Loading Duplo
 
 ## Diagnóstico
 
-O arquivo `MinhasSolicitacoes.tsx` tem **2454 linhas** com os mesmos problemas que o Backoffice tinha: modais inline, lógica de renderização de cards inline, sem extração de componentes.
+Dois problemas distintos:
 
-## O que será feito
+**1. Logo desatualizada** — Precisa trocar para a nova versão enviada.
 
-### 1. KPIs Resumo no Topo
-
-Criar `SolicitanteKPIs` com métricas relevantes para o solicitante:
+**2. Três shells separados causam remontagem do layout:**
 
 ```text
-┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
-│  Total: 24   │ │ Com Backoff:8│ │ Correções: 2 │ │ Aceitar OC: 1│ │ Liberadas: 3 │
-│  ativas      │ │  aguardando  │ │  ⚠ pendentes │ │  ✓ disponível│ │  em execução │
-└──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
+Atual (App.tsx):
+  <Route element={<ProtectedShell />}>           ← Shell A (monta AppLayout)
+    Dashboard, MinhasSolicitacoes, etc.
+  </Route>
+  <Route element={<ProtectedShell requireBackoffice />}>  ← Shell B (OUTRO AppLayout)
+    Backoffice, DashboardSLA, etc.
+  </Route>
+  <Route element={<ProtectedShell requireAdmin />}>       ← Shell C (OUTRO AppLayout)
+    Admin
+  </Route>
 ```
 
-Clicável para navegar à aba correspondente.
+Ao navegar de Dashboard (Shell A) para Backoffice (Shell B), o React desmonta o Shell A inteiro (incluindo header/logo/menu) e monta o Shell B do zero. Isso causa o efeito de "carregar duas vezes" — primeiro o loading do auth no novo shell, depois o loading dos dados da página.
 
-### 2. Extrair Modais → `SolicitanteModals.tsx`
+## Alterações
 
-Mover os 5 modais (Edit/Correção, Aceite OC, NF/Boleto, Cancel, Anexos View) para componente externo — ~800 linhas de UI.
+### 1. Trocar logo
+Copiar `user-uploads://logo-mega-removebg-preview-2.png` para `src/assets/logos/logo-mega.png`. Todas as referências já apontam para esse arquivo.
 
-### 3. Extrair Card Rendering → `SolicitanteSolicitacaoCard.tsx`
+### 2. Unificar em um único Shell (`src/App.tsx`)
+Usar **um único** `<ProtectedShell>` para todas as rotas protegidas. Cheques de permissão (backoffice/admin) movidos para componentes wrapper inline nas rotas individuais:
 
-Extrair as funções `renderActionBanner`, `renderInfoAlert`, `renderHeaderActions`, `renderExpandedContent` e `getCardClassName` para um componente dedicado com `React.memo`, eliminando ~400 linhas do arquivo principal.
+```text
+Depois:
+  <Route element={<ProtectedShell />}>     ← UM ÚNICO Shell (AppLayout monta 1 vez)
+    Dashboard
+    MinhasSolicitacoes
+    Backoffice         ← permissão checada internamente
+    Admin              ← permissão checada internamente
+    DashboardSLA       ← permissão checada internamente
+    etc.
+  </Route>
+```
 
-### 4. Resultado Esperado
+Criar um componente `<RequireRole>` que checa permissão e redireciona se não autorizado, sem mostrar loading (auth já foi verificado pelo shell pai).
 
-`MinhasSolicitacoes.tsx` reduzido de **~2454 para ~1200 linhas**.
+### 3. Loading mais leve no ProtectedShell
+Ao invés da tela cheia com logo + spinner (que compete visualmente com o Suspense), usar apenas um spinner discreto centralizado. A logo já está no header do AppLayout — não precisa repetir no loading.
 
-## Arquivos
+## Arquivos alterados
 
-| Arquivo | Ação |
-|---------|------|
-| `src/components/solicitante/SolicitanteKPIs.tsx` | Criar |
-| `src/components/solicitante/SolicitanteModals.tsx` | Criar |
-| `src/components/solicitante/SolicitanteSolicitacaoCard.tsx` | Criar |
-| `src/pages/MinhasSolicitacoes.tsx` | Refatorar — integrar novos componentes |
+| Arquivo | Alteração |
+|---------|-----------|
+| `src/assets/logos/logo-mega.png` | Substituir pela nova logo |
+| `src/App.tsx` | Unificar 3 shells em 1, criar RequireRole, loading simplificado |
 
