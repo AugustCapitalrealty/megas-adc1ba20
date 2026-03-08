@@ -1805,11 +1805,56 @@ export default function MinhasSolicitacoes() {
                             </div>
                           </div>
                         )}
+                        {/* New supplier search option */}
+                        <div 
+                          className={cn(
+                            "p-3 rounded-md border cursor-pointer transition-colors",
+                            novoFornecedorEscolhido === 'novo' 
+                              ? "border-primary bg-primary/5" 
+                              : "hover:bg-muted/50"
+                          )}
+                          onClick={() => setNovoFornecedorEscolhido('novo')}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className={cn(
+                              "w-4 h-4 rounded-full border-2 flex items-center justify-center",
+                              novoFornecedorEscolhido === 'novo' ? "border-primary" : "border-muted-foreground"
+                            )}>
+                              {novoFornecedorEscolhido === 'novo' && (
+                                <div className="w-2 h-2 rounded-full bg-primary" />
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-medium text-sm">Buscar outro fornecedor</p>
+                              <p className="text-xs text-muted-foreground">
+                                Pesquisar por CNPJ ou razão social
+                              </p>
+                            </div>
+                            <Badge variant="outline" className="text-xs">Novo</Badge>
+                          </div>
+                        </div>
                       </div>
+
+                      {novoFornecedorEscolhido === 'novo' && (
+                        <div className="mt-3">
+                          <SupplierSearch
+                            label="Novo fornecedor"
+                            required
+                            value={novoFornecedorBuscado}
+                            onChange={setNovoFornecedorBuscado}
+                            compact
+                          />
+                        </div>
+                      )}
                       
-                      {novoFornecedorEscolhido && (
+                      {novoFornecedorEscolhido && novoFornecedorEscolhido !== 'novo' && (
                         <p className="text-xs text-muted-foreground mt-2">
                           ℹ️ O fornecedor atual será movido para a posição de concorrente
+                        </p>
+                      )}
+                      {novoFornecedorEscolhido === 'novo' && novoFornecedorBuscado && (
+                        <p className="text-xs text-muted-foreground mt-2">
+                          ℹ️ O fornecedor atual será movido para a posição de concorrente (se houver vaga)
                         </p>
                       )}
                     </div>
