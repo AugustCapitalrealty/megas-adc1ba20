@@ -534,7 +534,7 @@ export default function Backoffice() {
     }
   };
 
-  const handleDarBaixa = async () => {
+  const handleDarBaixaConfirmed = async () => {
     if (!selectedSolicitacao || !user) return;
     
     setBaixaLoading(true);
