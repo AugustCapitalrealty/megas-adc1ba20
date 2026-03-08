@@ -1433,6 +1433,14 @@ export default function Backoffice() {
             </Badge>
           )}
         </div>
+
+        {/* KPIs Summary */}
+        <BackofficeKPIs
+          grouped={groupedSolicitacoes}
+          activeTab={activeTab}
+          onTabChange={(tab) => setActiveTab(tab as BackofficeTab)}
+        />
+
         {/* Filters */}
         <Card>
           <CardContent className="pt-4">
