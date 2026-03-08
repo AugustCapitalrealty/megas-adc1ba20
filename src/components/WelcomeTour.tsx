@@ -63,6 +63,17 @@ export function WelcomeTour({ userName, onComplete }: WelcomeTourProps) {
   const step = steps[currentStep];
   const Icon = step.icon;
 
+  const RocketIllustration = () => (
+    <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+      <circle cx="24" cy="24" r="20" className="fill-primary/10" />
+      <path d="M24 10c-2 6-2 12 0 18 2-6 2-12 0-18z" className="fill-primary/30" />
+      <path d="M24 10l-4 14h8L24 10z" className="fill-primary" />
+      <circle cx="24" cy="20" r="2" className="fill-primary-foreground" />
+      <path d="M20 28c-2 2-4 6-4 8h16c0-2-2-6-4-8" className="fill-primary/20" />
+      <path d="M22 28l-1 6h6l-1-6" className="fill-primary/40" />
+    </svg>
+  );
+
   return (
     <Card className="border-primary/30 bg-primary/5 relative overflow-hidden">
       <button
@@ -75,8 +86,8 @@ export function WelcomeTour({ userName, onComplete }: WelcomeTourProps) {
       <CardContent className="p-6">
         <div className="flex items-start gap-4">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-            {currentStep === 0 && !userName ? (
-              <Rocket className="h-6 w-6 text-primary" />
+            {currentStep === 0 ? (
+              <RocketIllustration />
             ) : (
               <Icon className="h-6 w-6 text-primary" />
             )}
