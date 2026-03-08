@@ -1305,7 +1305,7 @@ export default function MinhasSolicitacoes() {
         )}
 
         {/* Acompanhamento Jurídico - read-only para solicitante */}
-        {(sol as any).instrumento_juridico && (sol as any).instrumento_juridico !== 'oc' && (
+        {(((sol as any).instrumento_juridico && (sol as any).instrumento_juridico !== 'oc') || (sol as any).numero_projuris) && (
           <JuridicoTracker solicitacaoId={sol.id} readOnly />
         )}
 
