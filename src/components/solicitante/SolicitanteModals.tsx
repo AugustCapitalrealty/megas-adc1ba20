@@ -820,7 +820,24 @@ function AnexosViewModal({ open, onOpenChange, solicitacao, anexosExpanded }: An
 
 // ==================== Exported Composite ====================
 
-export interface SolicitanteModalsProps extends EditModalProps, AceiteModalProps, NfBoletoModalProps, CancelModalProps {
+export interface SolicitanteModalsProps {
+  // Edit modal
+  editOpen: boolean;
+  setEditOpen: (open: boolean) => void;
+  editModalProps: Omit<EditModalProps, 'open' | 'onOpenChange'>;
+  // Aceite modal
+  aceiteOpen: boolean;
+  setAceiteOpen: (open: boolean) => void;
+  aceiteModalProps: Omit<AceiteModalProps, 'open' | 'onOpenChange'>;
+  // NF/Boleto modal
+  nfBoletoOpen: boolean;
+  setNfBoletoOpen: (open: boolean) => void;
+  nfBoletoModalProps: Omit<NfBoletoModalProps, 'open' | 'onOpenChange'>;
+  // Cancel modal
+  cancelOpen: boolean;
+  setCancelOpen: (open: boolean) => void;
+  cancelModalProps: Omit<CancelModalProps, 'open' | 'onOpenChange'>;
+  // Anexos view
   anexosViewOpen: boolean;
   setAnexosViewOpen: (open: boolean) => void;
   anexosViewSolicitacao: SolicitacaoComFornecedor | null;
@@ -830,88 +847,10 @@ export interface SolicitanteModalsProps extends EditModalProps, AceiteModalProps
 export function SolicitanteModals(props: SolicitanteModalsProps) {
   return (
     <>
-      <EditModal
-        open={props.open}
-        onOpenChange={props.onOpenChange}
-        editingSolicitacao={props.editingSolicitacao}
-        editDescricao={props.editDescricao}
-        setEditDescricao={props.setEditDescricao}
-        editValor={props.editValor}
-        setEditValor={props.setEditValor}
-        editNaturezaOrcamentaria={props.editNaturezaOrcamentaria}
-        setEditNaturezaOrcamentaria={props.setEditNaturezaOrcamentaria}
-        editEscopoDetalhado={props.editEscopoDetalhado}
-        setEditEscopoDetalhado={props.setEditEscopoDetalhado}
-        editAnexos={props.editAnexos}
-        setEditAnexos={props.setEditAnexos}
-        existingAnexos={props.existingAnexos}
-        anexosParaExcluir={props.anexosParaExcluir}
-        setAnexosParaExcluir={props.setAnexosParaExcluir}
-        editMensagemCorrecao={props.editMensagemCorrecao}
-        setEditMensagemCorrecao={props.setEditMensagemCorrecao}
-        submitting={props.submitting}
-        handleResubmit={props.handleResubmit}
-        formatCurrencyInput={props.formatCurrencyInput}
-        getRequiredAttachments={props.getRequiredAttachments}
-        rejectionReasons={props.rejectionReasons}
-        infoRequests={props.infoRequests}
-        trocarFornecedor={props.trocarFornecedor}
-        setTrocarFornecedor={props.setTrocarFornecedor}
-        novoFornecedorEscolhido={props.novoFornecedorEscolhido}
-        setNovoFornecedorEscolhido={props.setNovoFornecedorEscolhido}
-        novoFornecedorBuscado={props.novoFornecedorBuscado}
-        setNovoFornecedorBuscado={props.setNovoFornecedorBuscado}
-        fornecedoresInfo={props.fornecedoresInfo}
-      />
-      <AceiteModal
-        open={props.aceiteOpen || false}
-        onOpenChange={props.aceiteOnOpenChange || (() => {})}
-        aceiteSolicitacao={props.aceiteSolicitacao}
-        aceiteStep={props.aceiteStep}
-        setAceiteStep={props.setAceiteStep}
-        showAjusteField={props.showAjusteField}
-        setShowAjusteField={props.setShowAjusteField}
-        aceiteAjuste={props.aceiteAjuste}
-        setAceiteAjuste={props.setAceiteAjuste}
-        aceiteLoading={props.aceiteLoading}
-        fornecedorEmailContato={props.fornecedorEmailContato}
-        setFornecedorEmailContato={props.setFornecedorEmailContato}
-        fornecedorTelefoneContato={props.fornecedorTelefoneContato}
-        setFornecedorTelefoneContato={props.setFornecedorTelefoneContato}
-        handleAceitarOC={props.handleAceitarOC}
-        handleSolicitarAjuste={props.handleSolicitarAjuste}
-        openOCInNewTab={props.openOCInNewTab}
-        downloadDocumentoEmitido={props.downloadDocumentoEmitido}
-      />
-      <NfBoletoModal
-        open={props.nfBoletoOpen || false}
-        onOpenChange={props.nfBoletoOnOpenChange || (() => {})}
-        nfBoletoSolicitacao={props.nfBoletoSolicitacao}
-        nfBoletoLoading={props.nfBoletoLoading}
-        handleEnviarNfBoleto={props.handleEnviarNfBoleto}
-        nfFile={props.nfFile}
-        setNfFile={props.setNfFile}
-        boletoFile={props.boletoFile}
-        setBoletoFile={props.setBoletoFile}
-        dataEmissaoNF={props.dataEmissaoNF}
-        setDataEmissaoNF={props.setDataEmissaoNF}
-        dataVencimentoBoleto={props.dataVencimentoBoleto}
-        setDataVencimentoBoleto={props.setDataVencimentoBoleto}
-        pagamentoAntecipado={props.pagamentoAntecipado}
-        setPagamentoAntecipado={props.setPagamentoAntecipado}
-        justificativaAntecipado={props.justificativaAntecipado}
-        setJustificativaAntecipado={props.setJustificativaAntecipado}
-      />
-      <CancelModal
-        open={props.cancelOpen || false}
-        onOpenChange={props.cancelOnOpenChange || (() => {})}
-        cancelSolicitacao={props.cancelSolicitacao}
-        cancelLoading={props.cancelLoading}
-        handleCancelar={props.handleCancelar}
-        motivoCancelamento={props.motivoCancelamento}
-        setMotivoCancelamento={props.setMotivoCancelamento}
-        isPostOCStatus={props.isPostOCStatus}
-      />
+      <EditModal open={props.editOpen} onOpenChange={props.setEditOpen} {...props.editModalProps} />
+      <AceiteModal open={props.aceiteOpen} onOpenChange={props.setAceiteOpen} {...props.aceiteModalProps} />
+      <NfBoletoModal open={props.nfBoletoOpen} onOpenChange={props.setNfBoletoOpen} {...props.nfBoletoModalProps} />
+      <CancelModal open={props.cancelOpen} onOpenChange={props.setCancelOpen} {...props.cancelModalProps} />
       <AnexosViewModal
         open={props.anexosViewOpen}
         onOpenChange={props.setAnexosViewOpen}
