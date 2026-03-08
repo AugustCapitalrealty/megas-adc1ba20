@@ -492,6 +492,7 @@ export const BackofficeSolicitacaoCard = memo(function BackofficeSolicitacaoCard
     prev.cadastroStatus === next.cadastroStatus &&
     prev.hasCancelamentoPendente === next.hasCancelamentoPendente &&
     prev.unreadInfo === next.unreadInfo &&
-    prev.userId === next.userId
+    prev.userId === next.userId &&
+    prev.isSelected === next.isSelected
   );
 });
