@@ -23,7 +23,7 @@ interface SolicitanteSolicitacaoCardProps {
   viewMode: 'minhas' | 'empreendimento';
   effectiveUserId?: string;
   // Unread
-  unreadInfo?: { count: number; lastSenderName?: string | null } | null;
+  unreadInfo?: UnreadMessageInfo | null;
   // Rejection/Info data
   rejectionReasons: Record<string, RejectionInfo>;
   infoRequests: Record<string, InfoRequest>;
