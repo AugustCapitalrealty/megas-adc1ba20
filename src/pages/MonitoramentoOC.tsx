@@ -641,7 +641,7 @@ export default function MonitoramentoOC() {
                     {(event.previsao_execucao || event.previsao_nf) && (
                       <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
                         {event.previsao_execucao && (
-                          <span>Prev. execução: {format(new Date(event.previsao_execucao), 'dd/MM/yy')}</span>
+                          <span>Prev. execução: {formatBR(event.previsao_execucao, 'dd/MM/yy')}</span>
                         )}
                         {event.previsao_nf && (
                           <span>Prev. NF: {format(new Date(event.previsao_nf), 'dd/MM/yy')}</span>
