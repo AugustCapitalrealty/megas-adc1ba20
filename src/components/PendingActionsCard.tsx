@@ -65,7 +65,7 @@ export function PendingActionsCard({
     { type: 'aceite_oc', count: pendingAcceptance, label: 'Liberar OC', description: 'Ordens de compra aguardando liberação' },
     { type: 'nf_boleto', count: pendingNfBoleto, label: 'NF/Boleto', description: 'Aguardando envio de documentos fiscais' },
     { type: 'info_requests', count: pendingInfoRequests, label: 'Informações', description: 'Backoffice solicitou informações adicionais' },
-    { type: 'justificativa_oc', count: pendingJustificativas, label: 'Justificativas OC', description: 'OCs sem NF que precisam de justificativa', ownCount: pendingJustificativasOwn },
+    { type: 'justificativa_oc', count: isBackofficeOrAdmin ? pendingJustificativas : pendingJustificativasOwn, label: 'Justificativas OC', description: 'OCs sem NF que precisam de justificativa', ownCount: isBackofficeOrAdmin ? pendingJustificativasOwn : undefined },
   ];
   
   const actions = allActions.filter(a => a.count > 0);

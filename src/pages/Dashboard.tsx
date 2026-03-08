@@ -220,6 +220,7 @@ export default function Dashboard() {
               pendingInfoRequests={metrics.pendingInfoRequests}
               pendingJustificativas={metrics.pendingJustificativas}
               pendingJustificativasOwn={metrics.pendingJustificativasOwn}
+              isBackofficeOrAdmin={isBackofficeOrAdmin}
               onViewPending={(filter) => {
                 if (filter === 'justificativa_oc') {
                   navigate('/monitoramento-oc?status=pendente_justificativa');
