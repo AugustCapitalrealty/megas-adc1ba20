@@ -72,6 +72,7 @@ interface BackofficeSolicitacaoCardProps {
   cadastroLoading: boolean;
   cancelamentoActionLoading: boolean;
   callbacks: CardCallbacks;
+  isSelected?: boolean;
 }
 
 // ── Helpers ────────────────────────────────────────────
