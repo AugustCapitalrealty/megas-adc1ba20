@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useMemo } from 'react';
 import { Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -10,10 +10,11 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { formatBR } from '@/lib/date-utils';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface Notification {
   id: string;
@@ -24,6 +25,8 @@ interface Notification {
   solicitacao_id: string | null;
   created_at: string;
 }
+
+const MAX_VISIBLE = 8;
 
 export function NotificationBell() {
   const { user } = useAuth();
@@ -44,10 +47,21 @@ export function NotificationBell() {
       return (data || []) as Notification[];
     },
     enabled: !!user,
-    staleTime: 1000 * 30, // 30 seconds
+    staleTime: 1000 * 30,
   });
 
   const unreadCount = notifications.filter(n => !n.lida).length;
+
+  // Group notifications: actions first, then info
+  const grouped = useMemo(() => {
+    const actions = notifications.filter(n => n.tipo === 'action_required');
+    const info = notifications.filter(n => n.tipo !== 'action_required');
+    return { actions, info };
+  }, [notifications]);
+
+  const visibleActions = grouped.actions.slice(0, MAX_VISIBLE);
+  const visibleInfo = grouped.info.slice(0, MAX_VISIBLE - visibleActions.length);
+  const hasMore = notifications.length > visibleActions.length + visibleInfo.length;
 
   // Realtime subscription
   useEffect(() => {
@@ -116,6 +130,32 @@ export function NotificationBell() {
     }
   }, [markAsRead, navigate]);
 
+  const renderItem = (notification: Notification) => (
+    <DropdownMenuItem
+      key={notification.id}
+      className={cn(
+        'flex flex-col items-start p-3 cursor-pointer',
+        !notification.lida && 'bg-accent/50'
+      )}
+      onClick={() => handleNotificationClick(notification)}
+    >
+      <div className="flex items-start gap-2 w-full">
+        {!notification.lida && (
+          <span className="w-2 h-2 rounded-full bg-primary mt-1.5 flex-shrink-0" />
+        )}
+        <div className="flex-1 min-w-0">
+          <p className="font-medium text-sm">{notification.titulo}</p>
+          <p className="text-xs text-muted-foreground line-clamp-2">
+            {notification.mensagem}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true, locale: ptBR })}
+          </p>
+        </div>
+      </div>
+    </DropdownMenuItem>
+  );
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -132,7 +172,7 @@ export function NotificationBell() {
         <div className="flex items-center justify-between px-3 py-2">
           <span className="font-semibold">Notificações</span>
           {unreadCount > 0 && (
-            <Button variant="ghost" size="sm" onClick={markAllAsRead}>
+            <Button variant="ghost" size="sm" onClick={markAllAsRead} className="text-xs h-7">
               Marcar todas como lidas
             </Button>
           )}
@@ -145,31 +185,38 @@ export function NotificationBell() {
           </div>
         ) : (
           <div className="max-h-80 overflow-y-auto">
-            {notifications.map(notification => (
-              <DropdownMenuItem
-                key={notification.id}
-                className={cn(
-                  'flex flex-col items-start p-3 cursor-pointer',
-                  !notification.lida && 'bg-accent/50'
-                )}
-                onClick={() => handleNotificationClick(notification)}
-              >
-                <div className="flex items-start gap-2 w-full">
-                  {!notification.lida && (
-                    <span className="w-2 h-2 rounded-full bg-primary mt-1.5 flex-shrink-0" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm">{notification.titulo}</p>
-                    <p className="text-xs text-muted-foreground line-clamp-2">
-                      {notification.mensagem}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {formatBR(notification.created_at, "dd/MM 'às' HH:mm")}
-                    </p>
-                  </div>
+            {/* Action required group */}
+            {visibleActions.length > 0 && (
+              <>
+                <div className="px-3 py-1.5 text-xs font-medium text-destructive uppercase tracking-wider">
+                  Ações pendentes
                 </div>
-              </DropdownMenuItem>
-            ))}
+                {visibleActions.map(renderItem)}
+              </>
+            )}
+            
+            {/* Info group */}
+            {visibleInfo.length > 0 && (
+              <>
+                {visibleActions.length > 0 && <DropdownMenuSeparator />}
+                <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Informativo
+                </div>
+                {visibleInfo.map(renderItem)}
+              </>
+            )}
+
+            {/* View all */}
+            {hasMore && (
+              <>
+                <DropdownMenuSeparator />
+                <div className="px-3 py-2 text-center">
+                  <Button variant="ghost" size="sm" className="text-xs w-full" onClick={() => navigate('/minhas-solicitacoes')}>
+                    Ver todas as notificações
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         )}
       </DropdownMenuContent>

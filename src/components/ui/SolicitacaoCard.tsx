@@ -111,31 +111,38 @@ export const SolicitacaoCard = memo(function SolicitacaoCard({
               </TooltipContent>
             </Tooltip>
             <StatusBadge status={sol.status} />
-            <TimeInStatusBadge updatedAt={sol.updated_at} status={sol.status} />
-            <CorrectionDeadlineBadge 
-              dataPendenteCorrecao={sol.data_pendente_correcao} 
-              status={sol.status} 
-            />
-            {sol.emergencial && (
+            {/* Priority badge: emergencial > time-in-status > correction deadline */}
+            {sol.emergencial ? (
               <span className="text-xs bg-destructive/10 text-destructive px-2 py-0.5 rounded font-medium">
                 Emergencial
               </span>
+            ) : (
+              <>
+                <TimeInStatusBadge updatedAt={sol.updated_at} status={sol.status} />
+                <CorrectionDeadlineBadge 
+                  dataPendenteCorrecao={sol.data_pendente_correcao} 
+                  status={sol.status} 
+                />
+              </>
             )}
-            {sol.numero_chamado_fluig && sol.numero_chamado_fluig === 'RM' && (
-              <Badge variant="outline" className="text-xs bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800">
-                RM
-              </Badge>
-            )}
-            {sol.numero_chamado_fluig && sol.numero_chamado_fluig !== 'RM' && (
-              <Badge variant="outline" className="text-xs bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800">
-                Fluig: {sol.numero_chamado_fluig}
-              </Badge>
-            )}
-            {sol.tipo_contratacao && (
-              <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded">
-                {TIPO_CONTRATACAO_LABELS[sol.tipo_contratacao]}
-              </span>
-            )}
+            {/* Secondary badges hidden on small screens, visible on expand or md+ */}
+            <div className="hidden md:contents">
+              {sol.numero_chamado_fluig && sol.numero_chamado_fluig === 'RM' && (
+                <Badge variant="outline" className="text-xs bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800">
+                  RM
+                </Badge>
+              )}
+              {sol.numero_chamado_fluig && sol.numero_chamado_fluig !== 'RM' && (
+                <Badge variant="outline" className="text-xs bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800">
+                  Fluig: {sol.numero_chamado_fluig}
+                </Badge>
+              )}
+              {sol.tipo_contratacao && (
+                <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded">
+                  {TIPO_CONTRATACAO_LABELS[sol.tipo_contratacao]}
+                </span>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-2">
             {headerActions}

@@ -136,8 +136,8 @@ export function PendingActionsCard({
               </span>
             </div>
             
-            <p className="text-sm text-muted-foreground mb-3">
-              Você tem {totalPending} {totalPending === 1 ? 'solicitação que precisa' : 'solicitações que precisam'} da sua atenção
+            <p className="text-xs sm:text-sm text-muted-foreground mb-2 sm:mb-3">
+              {totalPending} {totalPending === 1 ? 'item precisa' : 'itens precisam'} da sua atenção
             </p>
             
             {/* Action Items */}
