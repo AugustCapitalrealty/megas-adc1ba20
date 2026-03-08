@@ -180,6 +180,18 @@ export default function Backoffice() {
   const [transferOpen, setTransferOpen] = useState(false);
   const [transferSolicitacao, setTransferSolicitacao] = useState<SolicitacaoBackoffice | null>(null);
 
+  // Confirmation modal state (#4 improvement)
+  const [confirmAction, setConfirmAction] = useState<{
+    type: 'baixa' | 'envio_fornecedor' | 'concluir_liberada';
+    sol: SolicitacaoBackoffice;
+    title: string;
+    description: string;
+  } | null>(null);
+
+  // Pagination state (#2 improvement)
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 20;
+
   // Fetch details when opening details modal
   useEffect(() => {
     if (detailsOpen && selectedSolicitacao) {
