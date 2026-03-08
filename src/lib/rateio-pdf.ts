@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { EMPREENDIMENTO_LABELS, type Empreendimento } from '@/types';
-import logoMega from '@/assets/logos/logo-mega.png';
+import logoMega from '@/assets/logos/logo-mega_1.png';
 
 interface RateioValor {
   empreendimento: string;
@@ -54,21 +54,26 @@ export async function generateRateioPDF(data: RateioPDFData) {
   const mx = 14; // margin x
 
   // ─── 1. HEADER ───────────────────────────────────────────
+  // White background
+  doc.setFillColor(...white);
+  doc.rect(0, 0, pw, 58, 'F');
+  // Orange accent line
   doc.setFillColor(...orange);
-  doc.rect(0, 0, pw, 60, 'F');
+  doc.rect(0, 58, pw, 2, 'F');
 
   try {
     const logoBase64 = await loadImageAsBase64(logoMega);
-    doc.addImage(logoBase64, 'PNG', mx, 6, 48, 48);
+    doc.addImage(logoBase64, 'PNG', mx, 8, 55, 28);
   } catch { /* proceed without logo */ }
 
-  doc.setTextColor(...white);
-  doc.setFontSize(24);
+  doc.setTextColor(...greyDark);
+  doc.setFontSize(22);
   doc.setFont('helvetica', 'bold');
-  doc.text('Demonstrativo de Rateio', 70, 28);
-  doc.setFontSize(12);
+  doc.text('Demonstrativo de Rateio', pw - mx, 24, { align: 'right' });
+  doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
-  doc.text('entre Condomínios', 70, 40);
+  doc.setTextColor(...grey);
+  doc.text('entre Condomínios', pw - mx, 36, { align: 'right' });
 
   // ─── 2. SUMMARY CARDS (2x2 grid) ────────────────────────
   let y = 68;
