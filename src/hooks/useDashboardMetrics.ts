@@ -92,8 +92,7 @@ export function useDashboardMetrics(viewMode: ViewMode = 'minhas'): DashboardMet
       return data;
     },
     enabled: !!user?.id && !loadingEmp,
-    staleTime: 15_000,
-    refetchOnWindowFocus: true,
+    staleTime: 120_000,
   });
 
   // Query for OCs pending justification (day >= 23, no NF, no forecast)

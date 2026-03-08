@@ -1138,6 +1138,7 @@ export type Database = {
         Returns: Json
       }
       generate_protocolo: { Args: never; Returns: string }
+      get_fluig_filter_options: { Args: never; Returns: Json }
       get_retrabalho_eficiencia: {
         Args: {
           p_data_fim: string

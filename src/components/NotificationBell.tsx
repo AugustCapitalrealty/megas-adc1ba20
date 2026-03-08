@@ -47,7 +47,7 @@ export function NotificationBell() {
       return (data || []) as Notification[];
     },
     enabled: !!user,
-    staleTime: 1000 * 30,
+    staleTime: 300_000,
   });
 
   const unreadCount = notifications.filter(n => !n.lida).length;
