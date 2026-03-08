@@ -169,19 +169,24 @@ export function AppLayout() {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-1">
-            <Link
-              to="/nova-solicitacao"
-              onMouseEnter={() => prefetchRoute('/nova-solicitacao')}
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-semibold transition-colors mr-1',
-                isActive('/nova-solicitacao')
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-primary/10 text-primary hover:bg-primary/20'
-              )}
-            >
-              <Plus className="h-4 w-4" />
-              Nova
-            </Link>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link
+                  to="/nova-solicitacao"
+                  onMouseEnter={() => prefetchRoute('/nova-solicitacao')}
+                  className={cn(
+                    'flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-semibold transition-colors mr-1 shadow-md',
+                    isActive('/nova-solicitacao')
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                  )}
+                >
+                  <Plus className="h-4 w-4" />
+                  <span className="hidden xl:inline">Nova</span>
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent className="xl:hidden">Nova Solicitação</TooltipContent>
+            </Tooltip>
 
             <NavLinks />
 
