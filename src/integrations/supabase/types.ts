@@ -14,6 +14,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      acompanhamento_juridico: {
+        Row: {
+          created_at: string
+          etapa: string
+          id: string
+          observacao: string | null
+          solicitacao_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          etapa: string
+          id?: string
+          observacao?: string | null
+          solicitacao_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          etapa?: string
+          id?: string
+          observacao?: string | null
+          solicitacao_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "acompanhamento_juridico_solicitacao_id_fkey"
+            columns: ["solicitacao_id"]
+            isOneToOne: false
+            referencedRelation: "solicitacoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       anexos: {
         Row: {
           created_at: string
