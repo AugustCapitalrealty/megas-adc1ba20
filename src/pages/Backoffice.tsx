@@ -86,7 +86,8 @@ import {
   Shield,
   Mail,
   Phone,
-  Plus
+  Plus,
+  MessageSquare
 } from 'lucide-react';
 import { differenceInDays, differenceInHours } from 'date-fns';
 import { formatBR } from '@/lib/date-utils';
@@ -99,6 +100,7 @@ import { saveAs } from 'file-saver';
 import { TransferOwnershipModal } from '@/components/TransferOwnershipModal';
 import { ConfirmModal } from '@/components/ui/ActionModal';
 import { exportToExcel } from '@/lib/export-utils';
+import { SolicitacaoMessages } from '@/components/SolicitacaoMessages';
 
 // PDF validation types
 interface PdfValidationResult {
@@ -1598,6 +1600,14 @@ export default function Backoffice() {
                 </h4>
                 <SolicitacaoTimeline solicitacaoId={sol.id} />
               </div>
+              {/* Mensagens */}
+              <div>
+                <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                  Mensagens
+                </h4>
+                <SolicitacaoMessages solicitacaoId={sol.id} />
+              </div>
             </div>
           )}
         </CardContent>
@@ -2382,6 +2392,21 @@ export default function Backoffice() {
                   </CollapsibleTrigger>
                   <CollapsibleContent className="pt-3">
                     <SolicitacaoTimeline solicitacaoId={detalhes.solicitacao.id} />
+                  </CollapsibleContent>
+                </Collapsible>
+
+                {/* Mensagens */}
+                <Collapsible>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" className="w-full justify-between px-0 hover:bg-transparent">
+                      <span className="font-semibold flex items-center gap-2">
+                        <MessageSquare className="h-4 w-4" /> Mensagens
+                      </span>
+                      <ChevronDown className="h-4 w-4 transition-transform duration-200 [[data-state=open]>svg&]:rotate-180" />
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pt-3">
+                    <SolicitacaoMessages solicitacaoId={detalhes.solicitacao.id} />
                   </CollapsibleContent>
                 </Collapsible>
 
