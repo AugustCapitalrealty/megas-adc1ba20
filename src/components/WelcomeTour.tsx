@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Plus, Bell, ClipboardList, X } from 'lucide-react';
+import { Plus, Bell, ClipboardList, LayoutDashboard, FileCheck, Users, Timer, Settings, X } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 const STORAGE_KEY = 'onboarding_done';
 
@@ -11,7 +13,7 @@ interface TourStep {
   icon: React.ElementType;
 }
 
-const steps: TourStep[] = [
+const solicitanteSteps: TourStep[] = [
   {
     title: 'Crie sua primeira solicitação',
     description: 'Clique em "Nova Solicitação" para abrir um chamado de AC ou OC de forma rápida e guiada.',
@@ -19,7 +21,7 @@ const steps: TourStep[] = [
   },
   {
     title: 'Acompanhe suas solicitações',
-    description: 'No menu "Minhas Solicitações" você vê o status de cada pedido em tempo real.',
+    description: 'No menu "Solicitações" você vê o status de cada pedido em tempo real.',
     icon: ClipboardList,
   },
   {
@@ -29,25 +31,83 @@ const steps: TourStep[] = [
   },
 ];
 
+const backofficeSteps: TourStep[] = [
+  {
+    title: 'Sua fila de trabalho',
+    description: 'No Backoffice você encontra todas as solicitações pendentes organizadas por status.',
+    icon: LayoutDashboard,
+  },
+  {
+    title: 'Analise e processe solicitações',
+    description: 'Abra cada solicitação para analisar, emitir OC/AC e acompanhar o fluxo completo.',
+    icon: FileCheck,
+  },
+  {
+    title: 'Painel Fluig integrado',
+    description: 'Acompanhe o status das solicitações no Fluig diretamente pelo Painel.',
+    icon: ClipboardList,
+  },
+];
+
+const adminSteps: TourStep[] = [
+  {
+    title: 'Gerencie usuários e permissões',
+    description: 'Na área Admin, aprove novos usuários e atribua roles de acesso.',
+    icon: Users,
+  },
+  {
+    title: 'Dashboard SLA',
+    description: 'Monitore o tempo de atendimento e identifique gargalos no processo.',
+    icon: Timer,
+  },
+  {
+    title: 'Configurações avançadas',
+    description: 'Configure rateios, feriados e parâmetros do sistema.',
+    icon: Settings,
+  },
+];
+
+function getStepsForRole(isBackofficeOrAdmin: boolean, isAdmin: boolean): TourStep[] {
+  if (isAdmin) return adminSteps;
+  if (isBackofficeOrAdmin) return backofficeSteps;
+  return solicitanteSteps;
+}
+
 interface WelcomeTourProps {
   userName?: string;
   onComplete: () => void;
 }
 
 export function WelcomeTour({ userName, onComplete }: WelcomeTourProps) {
+  const { user, profile, isBackofficeOrAdmin, isAdmin } = useAuth();
   const [currentStep, setCurrentStep] = useState(0);
   const [visible, setVisible] = useState(false);
 
+  const steps = getStepsForRole(isBackofficeOrAdmin, isAdmin);
+
   useEffect(() => {
+    // Check DB first, then fallback to localStorage
+    if (profile?.onboarding_completed_at) {
+      localStorage.setItem(STORAGE_KEY, 'true');
+      return;
+    }
     if (!localStorage.getItem(STORAGE_KEY)) {
       setVisible(true);
     }
-  }, []);
+  }, [profile]);
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
     localStorage.setItem(STORAGE_KEY, 'true');
     setVisible(false);
     onComplete();
+
+    // Persist to DB
+    if (user?.id) {
+      await supabase
+        .from('profiles')
+        .update({ onboarding_completed_at: new Date().toISOString() } as any)
+        .eq('id', user.id);
+    }
   };
 
   const handleNext = () => {
@@ -74,6 +134,12 @@ export function WelcomeTour({ userName, onComplete }: WelcomeTourProps) {
     </svg>
   );
 
+  const greeting = isAdmin
+    ? `Bem-vindo, Admin${userName ? ` ${userName}` : ''}! 🛡️`
+    : isBackofficeOrAdmin
+    ? `Bem-vindo ao Backoffice${userName ? `, ${userName}` : ''}! 🔧`
+    : `Bem-vindo${userName ? `, ${userName}` : ''}! 👋`;
+
   return (
     <Card className="border-primary/30 bg-primary/5 relative overflow-hidden">
       <button
@@ -95,7 +161,7 @@ export function WelcomeTour({ userName, onComplete }: WelcomeTourProps) {
           <div className="flex-1 min-w-0">
             {currentStep === 0 && (
               <p className="text-sm text-primary font-medium mb-1">
-                Bem-vindo{userName ? `, ${userName}` : ''}! 👋
+                {greeting}
               </p>
             )}
             <h3 className="font-semibold text-base">{step.title}</h3>

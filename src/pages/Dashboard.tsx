@@ -16,7 +16,7 @@ import { KpiSparkline } from '@/components/KpiSparkline';
 import { WelcomeTour, isOnboardingComplete } from '@/components/WelcomeTour';
 import { 
   Plus, LayoutDashboard, ClipboardList, 
-  CheckCircle2, Clock, ArrowRight, Loader2, Users, User, AlertTriangle, RefreshCw
+  CheckCircle2, Clock, ArrowRight, Users, User, AlertTriangle, RefreshCw
 } from 'lucide-react';
 import { EMPREENDIMENTO_LABELS } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
@@ -29,16 +29,17 @@ const formatCurrency = (value: number) =>
 type ViewMode = 'minhas' | 'geral';
 
 export default function Dashboard() {
-  const { user, profile, isBackofficeOrAdmin } = useAuth();
+  const { user, profile, isBackofficeOrAdmin, isAdmin } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const track = useTrackEvent();
   const { empreendimentos } = useUserEmpreendimentos(user?.id);
   
+  const isSolicitante = !isBackofficeOrAdmin && !isAdmin;
   const canToggle = isBackofficeOrAdmin || empreendimentos.length > 0;
   const [viewMode, setViewMode] = useState<ViewMode>('minhas');
 
-  // Sync viewMode when canToggle becomes available (roles load async)
+  // Default to 'geral' for backoffice/admin
   useEffect(() => {
     if (canToggle) {
       setViewMode('geral');
@@ -51,7 +52,6 @@ export default function Dashboard() {
     queryClient.invalidateQueries({ queryKey: ['dashboard-user-solicitacoes'] });
   };
 
-  // Different KPIs depending on viewMode
   const trendMap = {
     total: metrics.trend.total,
     pending: metrics.trend.pending,
@@ -105,6 +105,18 @@ export default function Dashboard() {
         },
       ];
 
+  // Persona-aware greeting
+  const greetingSuffix = isAdmin
+    ? 'Painel administrativo'
+    : isBackofficeOrAdmin
+    ? viewMode === 'geral' ? 'Visão geral de todas as solicitações' : 'Suas solicitações'
+    : viewMode === 'geral' ? 'Visão geral das solicitações' : 'Suas solicitações';
+
+  // Persona-aware primary CTA
+  const primaryCtaLabel = isSolicitante ? 'Nova Solicitação' : 'Ir ao Backoffice';
+  const primaryCtaHref = isSolicitante ? '/nova-solicitacao' : '/backoffice';
+  const PrimaryCtaIcon = isSolicitante ? Plus : LayoutDashboard;
+
   return (
     <div className="space-y-6 animate-fade-in">
         {/* Greeting + Toggle */}
@@ -113,11 +125,7 @@ export default function Dashboard() {
             <h1 className="text-2xl font-bold tracking-tight">
               Olá, {profile?.full_name?.split(' ')[0] || 'Usuário'}!
             </h1>
-            <p className="text-muted-foreground text-sm mt-0.5">
-              {viewMode === 'geral' 
-                ? 'Visão geral de todas as solicitações' 
-                : 'Suas solicitações'}
-            </p>
+            <p className="text-muted-foreground text-sm mt-0.5">{greetingSuffix}</p>
           </div>
           <div className="flex items-center gap-2">
             {canToggle && (
@@ -147,9 +155,9 @@ export default function Dashboard() {
                 </Button>
               </div>
             )}
-            <Button onClick={() => navigate('/nova-solicitacao')} className="gap-2 hidden sm:flex">
-              <Plus className="h-4 w-4" />
-              Nova Solicitação
+            <Button onClick={() => navigate(primaryCtaHref)} className="gap-2 hidden sm:flex">
+              <PrimaryCtaIcon className="h-4 w-4" />
+              {primaryCtaLabel}
             </Button>
           </div>
         </div>
@@ -322,7 +330,6 @@ export default function Dashboard() {
             {metrics.total === 0 && !metrics.error && (
               <Card className="border-dashed">
                 <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                  {/* Illustrated empty state */}
                   <svg width="80" height="80" viewBox="0 0 80 80" fill="none" className="mb-4">
                     <rect x="16" y="8" width="48" height="60" rx="6" className="stroke-primary/30" strokeWidth="2" fill="none" />
                     <rect x="16" y="8" width="48" height="60" rx="6" className="fill-primary/5" />
@@ -338,7 +345,6 @@ export default function Dashboard() {
                       ? 'Nenhuma solicitação encontrada no sistema'
                       : 'Comece criando sua primeira solicitação de AC ou OC'}
                   </p>
-                  {/* Onboarding checklist */}
                   {viewMode === 'minhas' && (
                     <div className="flex flex-col items-start gap-2 mb-5 text-sm text-muted-foreground">
                       <div className="flex items-center gap-2">
@@ -359,14 +365,14 @@ export default function Dashboard() {
               </Card>
             )}
 
-            {/* Mobile CTA */}
+            {/* Mobile CTA - persona-aware */}
             <Button 
-              onClick={() => navigate('/nova-solicitacao')} 
+              onClick={() => navigate(primaryCtaHref)} 
               className="w-full gap-2 sm:hidden"
               size="lg"
             >
-              <Plus className="h-4 w-4" />
-              Nova Solicitação
+              <PrimaryCtaIcon className="h-4 w-4" />
+              {primaryCtaLabel}
             </Button>
           </>
         )}

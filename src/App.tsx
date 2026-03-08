@@ -24,6 +24,7 @@ const DashboardSLA = lazy(() => import("./pages/DashboardSLA"));
 const GarantiasVigentes = lazy(() => import("./pages/GarantiasVigentes"));
 const DashboardEficiencia = lazy(() => import("./pages/DashboardEficiencia"));
 const MonitoramentoOC = lazy(() => import("./pages/MonitoramentoOC"));
+const Notificacoes = lazy(() => import("./pages/Notificacoes"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
