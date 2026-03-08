@@ -644,7 +644,7 @@ export default function MonitoramentoOC() {
                           <span>Prev. execução: {formatBR(event.previsao_execucao, 'dd/MM/yy')}</span>
                         )}
                         {event.previsao_nf && (
-                          <span>Prev. NF: {format(new Date(event.previsao_nf), 'dd/MM/yy')}</span>
+                          <span>Prev. NF: {formatBR(event.previsao_nf, 'dd/MM/yy')}</span>
                         )}
                       </div>
                     )}
