@@ -598,6 +598,12 @@ export default function MonitoramentoOC() {
             </TableBody>
           </Table>
         </Card>
+          </TabsContent>
+
+          <TabsContent value="projuris">
+            <TabProjuris />
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* History Modal */}
