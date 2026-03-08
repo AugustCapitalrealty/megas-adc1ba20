@@ -112,6 +112,7 @@ type BackofficeTab = 'recebidas' | 'pendentes' | 'em_processamento' | 'oc_emitid
 export default function Backoffice() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const track = useTrackEvent();
   const [searchParams] = useSearchParams();
   const urlSearch = searchParams.get('search') || '';
   const [searchTerm, setSearchTerm] = useState(urlSearch);

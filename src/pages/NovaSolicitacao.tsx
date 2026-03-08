@@ -1006,7 +1006,9 @@ export default function NovaSolicitacao() {
 
   const goNext = () => {
     if (currentIndex < visibleSteps.length - 1) {
-      setCurrentStep(visibleSteps[currentIndex + 1].id);
+      const nextStep = visibleSteps[currentIndex + 1];
+      track('step_viewed', { step: nextStep.id, index: currentIndex + 1 }, '/nova-solicitacao');
+      setCurrentStep(nextStep.id);
     }
   };
 
