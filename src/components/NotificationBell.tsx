@@ -164,7 +164,7 @@ export function NotificationBell() {
                       {notification.mensagem}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {format(new Date(notification.created_at), "dd/MM 'às' HH:mm", { locale: ptBR })}
+                      {formatBR(notification.created_at, "dd/MM 'às' HH:mm")}
                     </p>
                   </div>
                 </div>

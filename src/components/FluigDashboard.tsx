@@ -73,7 +73,7 @@ export function FluigDashboard({ onNavigateToSolicitacao }: FluigDashboardProps)
   const formatDateShort = (date: string | null) => {
     if (!date) return '-';
     try {
-      return format(new Date(date), "dd/MM/yy", { locale: ptBR });
+      return formatBR(date, "dd/MM/yy");
     } catch {
       return date;
     }

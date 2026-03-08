@@ -388,7 +388,7 @@ export function TabProjuris() {
                             </TooltipTrigger>
                             {row.etapa_data && (
                               <TooltipContent>
-                                <p>Desde {format(new Date(row.etapa_data), 'dd/MM/yyyy', { locale: ptBR })}</p>
+                                <p>Desde {formatBR(row.etapa_data, 'dd/MM/yyyy')}</p>
                               </TooltipContent>
                             )}
                           </Tooltip>

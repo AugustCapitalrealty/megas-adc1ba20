@@ -290,7 +290,7 @@ export function SolicitacoesManagement() {
                       <TableCell>
                         <div className="flex items-center gap-1 text-sm text-muted-foreground">
                           <Calendar className="h-3 w-3" />
-                          {format(new Date(solicitacao.created_at), 'dd/MM/yyyy', { locale: ptBR })}
+                          {formatBR(solicitacao.created_at, 'dd/MM/yyyy')}
                         </div>
                       </TableCell>
                       <TableCell className="text-center">

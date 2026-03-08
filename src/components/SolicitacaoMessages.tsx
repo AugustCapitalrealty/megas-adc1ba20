@@ -117,7 +117,7 @@ export function SolicitacaoMessages({ solicitacaoId }: SolicitacaoMessagesProps)
                   </span>
                   <span>•</span>
                   <span>
-                    {format(new Date(msg.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                    {formatBR(msg.created_at, "dd/MM/yyyy 'às' HH:mm")}
                   </span>
                 </div>
                 <p className="text-sm mt-1 whitespace-pre-wrap break-words">{msg.mensagem}</p>

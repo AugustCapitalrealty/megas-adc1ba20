@@ -429,7 +429,7 @@ export function SolicitacaoTimeline({ solicitacaoId, showMessages = true }: Soli
                   <User className="h-3 w-3" />
                   {hist.profile?.full_name || hist.profile?.email || 'Usuário'}
                   {' • '}
-                  {format(new Date(hist.created_at), "dd/MM/yyyy HH:mm:ss", { locale: ptBR })}
+                  {formatBR(hist.created_at, "dd/MM/yyyy HH:mm:ss")}
                 </p>
                 
                 {hist.motivo && !isFluigUpdate && !isFluigNumberAction && (

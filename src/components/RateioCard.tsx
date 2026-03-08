@@ -116,7 +116,7 @@ export function RateioCard({ tipoRateio, rateioValores, protocolo, valorTotal }:
     doc.line(14, pageHeight - 20, pageWidth - 14, pageHeight - 20);
     doc.setFontSize(8);
     doc.setTextColor(...grey);
-    doc.text(`Mega Centro Logístico — Documento gerado em ${new Date().toLocaleDateString('pt-BR')}`, 14, pageHeight - 14);
+    doc.text(`Mega Centro Logístico — Documento gerado em ${new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`, 14, pageHeight - 14);
 
     doc.save(`rateio_${protocolo || 'demonstrativo'}.pdf`);
   };
