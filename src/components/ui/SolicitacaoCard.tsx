@@ -18,6 +18,7 @@ import {
 } from '@/types';
 import { ChevronDown, ChevronUp, User, Copy, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { FavoriteButton } from '@/components/FavoriteButton';
 
 export interface SolicitacaoWithDetails extends Solicitacao {
   fornecedor?: Fornecedor | null;
