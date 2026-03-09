@@ -727,22 +727,22 @@ function AceiteModal(props: AceiteModalProps) {
                 )}
 
                 <div className="space-y-3">
-                  <Label className="text-sm font-medium">Dados de contato do fornecedor (opcional)</Label>
+                  <Label className="text-sm font-medium">Dados de contato do fornecedor (obrigatório)</Label>
                   <div className="grid gap-3">
                     <div>
-                      <Label htmlFor="fornecedor_email" className="text-sm text-muted-foreground">E-mail</Label>
-                      <Input id="fornecedor_email" type="email" placeholder="fornecedor@empresa.com"
+                      <Label htmlFor="fornecedor_email" className="text-sm text-muted-foreground">E-mail *</Label>
+                      <Input id="fornecedor_email" type="email" placeholder="fornecedor@empresa.com" required
                         value={fornecedorEmailContato} onChange={(e) => setFornecedorEmailContato(e.target.value)} />
                     </div>
                     <div>
-                      <Label htmlFor="fornecedor_telefone" className="text-sm text-muted-foreground">Telefone</Label>
-                      <Input id="fornecedor_telefone" type="tel" placeholder="(XX) XXXXX-XXXX"
+                      <Label htmlFor="fornecedor_telefone" className="text-sm text-muted-foreground">Telefone *</Label>
+                      <Input id="fornecedor_telefone" type="tel" placeholder="(XX) XXXXX-XXXX" required
                         value={fornecedorTelefoneContato} onChange={(e) => setFornecedorTelefoneContato(e.target.value)} />
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground flex items-center gap-1 mt-2">
                     <AlertTriangle className="h-3 w-3" />
-                    Confira se os dados estão corretos para envio da OC
+                    Informe o e-mail e telefone do fornecedor para que o Backoffice consiga entrar em contato
                   </p>
                 </div>
 
