@@ -270,7 +270,8 @@ export function AppLayout() {
             {isAdmin && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button
+                    <button
+                    aria-label="Menu administração"
                     className={cn(
                       'flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors',
                       isAdminActive
