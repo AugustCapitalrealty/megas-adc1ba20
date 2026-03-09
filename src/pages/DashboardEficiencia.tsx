@@ -730,8 +730,8 @@ export default function DashboardEficiencia() {
                   )}
                 </CardTitle>
                 <CardDescription>
-                  {filteredEntries.length} solicitações
-                  {filteredEntries.length > TABLE_LIMIT && (
+                  {currentEntries.length} solicitações
+                  {currentEntries.length > TABLE_LIMIT && (
                     <span className="text-warning ml-1">(exibindo primeiras {TABLE_LIMIT})</span>
                   )}
                 </CardDescription>
