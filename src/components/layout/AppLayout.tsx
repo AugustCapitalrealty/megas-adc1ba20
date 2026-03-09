@@ -129,9 +129,10 @@ export function AppLayout() {
         .map((item) => {
           const Icon = item.icon;
           const link = (
-            <Link
+              <Link
               key={item.href}
               to={item.href}
+              aria-label={item.label}
               onClick={() => mobile && setMobileMenuOpen(false)}
               onMouseEnter={() => !mobile && prefetchRoute(item.href)}
               className={cn(
@@ -158,9 +159,17 @@ export function AppLayout() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Skip to content */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md focus:text-sm focus:font-medium"
+      >
+        Pular para conteúdo
+      </a>
+
       {/* Impersonation Banner */}
       {isImpersonating && impersonatedProfile && (
-        <div className="bg-warning text-warning-foreground px-4 py-2 flex items-center justify-center gap-3">
+        <div role="alert" className="bg-warning text-warning-foreground px-4 py-2 flex items-center justify-center gap-3">
           <UserCog className="h-4 w-4" />
           <span className="text-sm font-medium">
             Visualizando como: <strong>{impersonatedProfile.full_name || impersonatedProfile.email}</strong>
@@ -174,14 +183,14 @@ export function AppLayout() {
 
       {/* Offline Banner */}
       {!isOnline && (
-        <div className="bg-destructive text-destructive-foreground px-4 py-2 flex items-center justify-center gap-2">
+        <div role="alert" className="bg-destructive text-destructive-foreground px-4 py-2 flex items-center justify-center gap-2">
           <WifiOff className="h-4 w-4" />
           <span className="text-sm font-medium">Sem conexão com a internet. Verifique sua rede.</span>
         </div>
       )}
 
       {/* Header */}
-      <header className="sticky top-0 z-50 w-full border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
+      <header role="banner" className="sticky top-0 z-50 w-full border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
         <div className="container flex h-14 sm:h-16 items-center justify-between gap-2">
           <Link to="/" className="flex items-center gap-3 shrink-0">
             <img src={logoMega} alt="Mega Centro Logístico" width={86} height={40} className="h-10 w-auto object-contain" />
@@ -189,7 +198,7 @@ export function AppLayout() {
 
           {/* Desktop Navigation */}
           <TooltipProvider delayDuration={300}>
-          <nav className="hidden md:flex items-center gap-1">
+          <nav aria-label="Navegação principal" className="hidden md:flex items-center gap-1">
             {/* Primary CTA - persona-based */}
             {primaryCta && (
               <Tooltip>
@@ -261,7 +270,8 @@ export function AppLayout() {
             {isAdmin && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button
+                    <button
+                    aria-label="Menu administração"
                     className={cn(
                       'flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors',
                       isAdminActive
@@ -296,7 +306,7 @@ export function AppLayout() {
             <NotificationBell />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+                <Button variant="ghost" className="relative h-9 w-9 rounded-full" aria-label="Menu do usuário">
                   <Avatar className="h-9 w-9">
                     <AvatarImage src={displayProfile?.avatar_url || undefined} alt={displayProfile?.full_name || displayEmail || ''} />
                     <AvatarFallback className="bg-primary/10 text-primary font-medium">
@@ -335,7 +345,7 @@ export function AppLayout() {
             {/* Mobile Menu */}
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="md:hidden">
+                <Button variant="ghost" size="icon" className="md:hidden" aria-label="Abrir menu">
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
@@ -343,7 +353,7 @@ export function AppLayout() {
                 <div className="flex items-center gap-2 mb-8">
                   <img src={logoMega} alt="Mega Centro Logístico" width={69} height={32} className="h-8 w-auto object-contain" />
                 </div>
-                <nav className="flex flex-col gap-2">
+                <nav aria-label="Menu mobile" className="flex flex-col gap-2">
                   <Link
                     to="/nova-solicitacao"
                     onClick={() => setMobileMenuOpen(false)}
@@ -392,7 +402,7 @@ export function AppLayout() {
       </header>
 
       {/* Main Content — Outlet replaces {children} for App Shell */}
-      <main className="container max-w-screen-2xl py-6">
+      <main id="main-content" role="main" className="container max-w-screen-2xl py-6">
         <AppBreadcrumbs />
         <Outlet />
       </main>
