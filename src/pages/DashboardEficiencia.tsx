@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { subDays, startOfMonth, startOfYear } from 'date-fns';
+import { startOfMonth, startOfYear } from 'date-fns';
 import { formatBR } from '@/lib/date-utils';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
