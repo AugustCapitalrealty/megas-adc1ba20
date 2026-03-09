@@ -27,7 +27,7 @@ import { JuridicoTracker } from '@/components/JuridicoTracker';
 import { RateioCard } from '@/components/RateioCard';
 import { FluigStatusCard } from '@/components/FluigStatusCard';
 import { SolicitacaoTimeline } from '@/components/SolicitacaoTimeline';
-import { SolicitacaoMessages } from '@/components/SolicitacaoMessages';
+
 import { StageDurationTimeline } from '@/components/monitoramento/StageDurationTimeline';
 import type { SolicitacaoBackoffice } from '@/hooks/useBackofficeSolicitacoes';
 import type { RequestStatus, DocumentoEmitido, DocumentoFiscal, Fornecedor, CNAESecundario } from '@/types';
@@ -740,7 +740,7 @@ export function BackofficeModals(props: BackofficeModalsProps) {
                     </Button>
                   </CollapsibleTrigger>
                   <CollapsibleContent className="pt-3">
-                    <SolicitacaoMessages solicitacaoId={detalhes.solicitacao.id} />
+                    <SolicitacaoTimeline solicitacaoId={detalhes.solicitacao.id} showHistorico={false} showMessages />
                   </CollapsibleContent>
                 </Collapsible>
 

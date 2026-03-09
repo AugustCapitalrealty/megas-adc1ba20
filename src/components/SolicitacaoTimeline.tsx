@@ -32,6 +32,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 interface SolicitacaoTimelineProps {
   solicitacaoId: string;
   showMessages?: boolean;
+  showHistorico?: boolean;
   isBackoffice?: boolean;
 }
 
@@ -238,7 +239,7 @@ const getActionDetails = (acao: string, statusNovo: string | null, isBackoffice?
   }
 };
 
-export function SolicitacaoTimeline({ solicitacaoId, showMessages = true, isBackoffice = false }: SolicitacaoTimelineProps) {
+export function SolicitacaoTimeline({ solicitacaoId, showMessages = true, showHistorico = true, isBackoffice = false }: SolicitacaoTimelineProps) {
   const { user, isBackofficeOrAdmin } = useAuth();
   const { toast } = useToast();
   const [historico, setHistorico] = useState<HistoricoSolicitacao[]>([]);
@@ -350,12 +351,12 @@ export function SolicitacaoTimeline({ solicitacaoId, showMessages = true, isBack
 
   // Merge historico and messages into a single timeline
   const timelineItems: TimelineItem[] = [
-    ...historico.map(h => ({
+    ...(showHistorico ? historico.map(h => ({
       id: h.id,
       type: 'historico' as const,
       created_at: h.created_at,
       data: h
-    })),
+    })) : []),
     ...visibleMessages.map(m => ({
       id: m.id,
       type: 'mensagem' as const,
@@ -369,7 +370,7 @@ export function SolicitacaoTimeline({ solicitacaoId, showMessages = true, isBack
   }
 
   if (timelineItems.length === 0 && !showMessages) {
-    return <p className="text-sm text-muted-foreground">Nenhum histórico disponível</p>;
+    return <p className="text-sm text-muted-foreground">{showHistorico ? 'Nenhum histórico disponível' : 'Nenhuma mensagem registrada'}</p>;
   }
 
   return (
