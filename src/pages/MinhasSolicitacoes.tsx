@@ -643,6 +643,7 @@ export default function MinhasSolicitacoes() {
       setTipoEntrega(null);
       setDataExecucaoServico('');
       setEvidenciaFile(null);
+      setMotivoOCAntes('');
       fetchSolicitacoes();
     } catch (error: any) {
       toast({ title: 'Erro ao liberar OC', description: error?.message || 'Tente novamente.', variant: 'destructive' });
