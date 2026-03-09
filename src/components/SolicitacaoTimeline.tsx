@@ -325,10 +325,11 @@ export function SolicitacaoTimeline({ solicitacaoId, showMessages = true, isBack
       }
 
       setNewMessage('');
+      setIsInternal(false);
       fetchData();
       toast({
-        title: 'Mensagem enviada',
-        description: 'Sua mensagem foi registrada no histórico.',
+        title: isInternal ? 'Nota interna salva' : 'Mensagem enviada',
+        description: isInternal ? 'Sua nota interna foi registrada.' : 'Sua mensagem foi registrada no histórico.',
       });
     } catch (error) {
       console.error('Error sending message:', error);
