@@ -856,6 +856,18 @@ export default function MinhasSolicitacoes() {
           tabGroups={filterTabGroups}
           activeTab={activeTab}
           onTabChange={(tab) => setActiveTab(tab as FilterTab)}
+          rightSlot={
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => exportToExcel(sortedAndFilteredSolicitacoes as any, 'minhas_solicitacoes')}
+              disabled={sortedAndFilteredSolicitacoes.length === 0}
+              className="gap-1.5"
+            >
+              <Download className="h-4 w-4" />
+              Exportar
+            </Button>
+          }
         />
 
         {/* Content */}
