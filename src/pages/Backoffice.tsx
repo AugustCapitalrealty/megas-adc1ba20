@@ -1480,6 +1480,17 @@ export default function Backoffice() {
                   <SelectItem value="mega_esteio">Mega Esteio</SelectItem>
                 </SelectContent>
               </Select>
+              <Select value={selectedFornecedor} onValueChange={setSelectedFornecedor}>
+                <SelectTrigger className="w-full md:w-[200px]">
+                  <SelectValue placeholder="Fornecedor" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos Fornecedores</SelectItem>
+                  {uniqueVendors.map((v) => (
+                    <SelectItem key={v} value={v}>{v.length > 30 ? v.slice(0, 30) + '…' : v}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Button 
                 variant={showOnlyMine ? "default" : "outline"} 
                 onClick={() => setShowOnlyMine(!showOnlyMine)}
