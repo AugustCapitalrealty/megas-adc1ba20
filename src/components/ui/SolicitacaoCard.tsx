@@ -95,7 +95,10 @@ export const SolicitacaoCard = memo(function SolicitacaoCard({
       
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1 flex-wrap">
+            {onToggleFavorite && (
+              <FavoriteButton isFavorite={!!isFavorite} onToggle={onToggleFavorite} />
+            )}
             <Tooltip>
               <TooltipTrigger asChild>
                 <button
