@@ -441,6 +441,8 @@ interface AceiteModalProps {
   setDataExecucaoServico: (v: string) => void;
   evidenciaFile: File | null;
   setEvidenciaFile: (v: File | null) => void;
+  motivoOCAntes: string;
+  setMotivoOCAntes: (v: string) => void;
   handleAceitarOC: () => void;
   handleSolicitarAjuste: () => void;
   openOCInNewTab: (doc: DocumentoEmitido) => void;
