@@ -1,17 +1,15 @@
-# ✅ Plano Concluído: Refatorar NovaSolicitacao.tsx
+# ✅ Plano Concluído: Virtualização de Listagens
 
 ## Resultado
 
-| Arquivo | Linhas | Responsabilidade |
-|---------|--------|-----------------|
-| `src/pages/NovaSolicitacao.tsx` | ~280 | Orquestração, submit, navegação |
-| `src/hooks/useNovaSolicitacaoForm.ts` | ~330 | Todo o estado, draft, validações, derived values |
-| `src/components/nova-solicitacao/types.ts` | ~160 | Interfaces + constantes compartilhadas |
-| `src/components/nova-solicitacao/steps/EmpreendimentoStep.tsx` | ~50 | Step 1 - Local |
-| `src/components/nova-solicitacao/steps/DescricaoStep.tsx` | ~130 | Step 2 - Descrição + valor |
-| `src/components/nova-solicitacao/steps/TipoStep.tsx` | ~60 | Step 3 - Tipo contratação |
-| `src/components/nova-solicitacao/steps/DetalhesStep.tsx` | ~220 | Step 4 - Detalhes financeiros |
-| `src/components/nova-solicitacao/steps/FornecedorStep.tsx` | ~130 | Step 5 - Fornecedores |
-| `src/components/nova-solicitacao/steps/AnexosStep.tsx` | ~100 | Step 6 - Anexos |
-| `src/components/nova-solicitacao/steps/RevisaoStep.tsx` | ~180 | Step 7 - Revisão |
-| `src/components/nova-solicitacao/FormNavigation.tsx` | ~35 | Botões navegação |
+| Arquivo | Mudança |
+|---------|---------|
+| `src/components/ui/VirtualizedList.tsx` | Componente genérico com `@tanstack/react-virtual` |
+| `src/pages/MinhasSolicitacoes.tsx` | `.map()` → `VirtualizedList` (estimateSize: 200px) |
+| `src/pages/GarantiasVigentes.tsx` | `.map()` → `VirtualizedList` (estimateSize: 180px) |
+| `src/components/admin/SolicitacoesManagement.tsx` | Tabela virtualizada (estimateSize: 56px) |
+
+## Detalhes técnicos
+- Biblioteca: `@tanstack/react-virtual` (alturas dinâmicas via `measureElement`)
+- Overscan: 5 itens (cards), 10 itens (tabela)
+- Container com `maxHeight: calc(100vh - 300px)` e scroll interno
