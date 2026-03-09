@@ -467,7 +467,7 @@ function AceiteModal(props: AceiteModalProps) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileCheck className="h-5 w-5 text-success" />
-            {aceiteStep === 'revisar' ? 'Visualizar OC' : aceiteStep === 'decidir' ? 'Liberar para Fornecedor' : aceiteStep === 'tipo_entrega' ? 'Tipo de Entrega' : 'Confirmar Liberação'} - #{aceiteSolicitacao?.protocolo}
+            {aceiteStep === 'revisar' ? 'Revisar OC' : aceiteStep === 'decidir' ? 'Liberar para Fornecedor' : aceiteStep === 'tipo_entrega' ? 'Tipo de Entrega' : 'Confirmar Liberação'} - #{aceiteSolicitacao?.protocolo}
           </DialogTitle>
         </DialogHeader>
 
