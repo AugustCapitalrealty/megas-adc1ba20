@@ -37,6 +37,8 @@ export interface SolicitacaoCardProps {
   expandedContent?: ReactNode;
   infoAlert?: ReactNode;
   className?: string;
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
 }
 
 const formatCurrency = (value: number) => {
