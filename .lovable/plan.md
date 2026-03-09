@@ -1,24 +1,15 @@
-# ✅ Plano Concluído: Unificar métricas Dashboard Eficiência
 
-## Problema Resolvido
 
-O card "Backlog Crítico" e o histograma "Distribuição do Lead Time" usavam datasets diferentes:
-- Card: solicitações **em aberto** >15 dias
-- Histograma "15d+": solicitações **concluídas** com lead time >15 dias
+## Remover exigência de evidência quando data for futura
 
-Isso causava confusão: clicar na barra do histograma não atualizava o card.
+### Lógica
+Quando a data de execução do serviço é **futura**, o serviço ainda não foi executado, logo não faz sentido exigir evidência. A evidência só é necessária quando a data é passada ou hoje.
 
-## Solução Implementada
+### Mudanças em `SolicitanteModals.tsx`
 
-Unificamos o card para usar o mesmo dataset do histograma (solicitações finalizadas):
+1. **Campo de evidência** (linhas 662-686): Condicionar exibição — só mostrar quando `dataExecucaoServico` está preenchida **e** não é futura.
 
-| Arquivo | Mudança |
-|---------|---------|
-| `src/hooks/useEficienciaDashboard.ts` | Adicionado `critico15Count` e `critico15Percent` calculados de `entries.filter(e => e.lead_time_dias > 15)` |
-| `src/pages/DashboardEficiencia.tsx` | Card renomeado para "Crítico (>15 dias)", usa `critico15Count`, drilldown unificado, tabela simplificada |
+2. **Validação do botão "Continuar"** (linha 780): Ajustar para só exigir `evidenciaFile` quando a data **não** for futura.
 
-## Resultado
+3. **Texto de confirmação** (linha 700-702): Ajustar mensagem para data futura — algo como "Ao confirmar, o Backoffice enviará a OC ao fornecedor antes da execução do serviço."
 
-- Card e histograma agora mostram o mesmo número
-- Clicar no card ou na barra "15d+" filtra a mesma lista na tabela
-- Linhas com >15 dias têm highlight vermelho e ícone de alerta
