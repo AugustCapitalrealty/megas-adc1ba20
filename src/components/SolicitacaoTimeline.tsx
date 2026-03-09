@@ -18,7 +18,8 @@ import {
   HelpCircle,
   RefreshCw,
   Loader2,
-  Package
+  Package,
+  Lock
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -26,6 +27,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface SolicitacaoTimelineProps {
   solicitacaoId: string;
@@ -38,6 +40,7 @@ interface Message {
   mensagem: string;
   created_at: string;
   user_id: string;
+  interno?: boolean;
   profile?: {
     full_name: string | null;
     email: string;
@@ -236,13 +239,14 @@ const getActionDetails = (acao: string, statusNovo: string | null, isBackoffice?
 };
 
 export function SolicitacaoTimeline({ solicitacaoId, showMessages = true, isBackoffice = false }: SolicitacaoTimelineProps) {
-  const { user } = useAuth();
+  const { user, isBackofficeOrAdmin } = useAuth();
   const { toast } = useToast();
   const [historico, setHistorico] = useState<HistoricoSolicitacao[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const [isInternal, setIsInternal] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -310,18 +314,22 @@ export function SolicitacaoTimeline({ solicitacaoId, showMessages = true, isBack
           solicitacao_id: solicitacaoId,
           user_id: user.id,
           mensagem: newMessage.trim(),
-        });
+          interno: isInternal,
+        } as any);
 
       if (error) throw error;
 
-      // Notify the other party
-      notifyMessageRecipients(solicitacaoId, user.id, newMessage.trim());
+      // Don't notify for internal messages
+      if (!isInternal) {
+        notifyMessageRecipients(solicitacaoId, user.id, newMessage.trim());
+      }
 
       setNewMessage('');
+      setIsInternal(false);
       fetchData();
       toast({
-        title: 'Mensagem enviada',
-        description: 'Sua mensagem foi registrada no histórico.',
+        title: isInternal ? 'Nota interna salva' : 'Mensagem enviada',
+        description: isInternal ? 'Sua nota interna foi registrada.' : 'Sua mensagem foi registrada no histórico.',
       });
     } catch (error) {
       console.error('Error sending message:', error);
@@ -335,6 +343,11 @@ export function SolicitacaoTimeline({ solicitacaoId, showMessages = true, isBack
     }
   };
 
+  // Filter internal messages for non-backoffice users
+  const visibleMessages = isBackofficeOrAdmin 
+    ? messages 
+    : messages.filter(m => !(m as any).interno);
+
   // Merge historico and messages into a single timeline
   const timelineItems: TimelineItem[] = [
     ...historico.map(h => ({
@@ -343,7 +356,7 @@ export function SolicitacaoTimeline({ solicitacaoId, showMessages = true, isBack
       created_at: h.created_at,
       data: h
     })),
-    ...messages.map(m => ({
+    ...visibleMessages.map(m => ({
       id: m.id,
       type: 'mensagem' as const,
       created_at: m.created_at,
@@ -368,11 +381,20 @@ export function SolicitacaoTimeline({ solicitacaoId, showMessages = true, isBack
 
           if (item.type === 'mensagem') {
             const msg = item.data as Message;
+            const msgIsInternal = !!(msg as any).interno;
             return (
               <div key={item.id} className="flex gap-3">
                 <div className="flex flex-col items-center">
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <MessageSquare className="h-4 w-4 text-primary" />
+                  <div className={cn(
+                    "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
+                    msgIsInternal 
+                      ? "bg-amber-100 dark:bg-amber-900/30" 
+                      : "bg-primary/10"
+                  )}>
+                    {msgIsInternal 
+                      ? <Lock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                      : <MessageSquare className="h-4 w-4 text-primary" />
+                    }
                   </div>
                   {!isLast && (
                     <div className="w-0.5 flex-1 bg-border min-h-[24px]" />
@@ -384,17 +406,31 @@ export function SolicitacaoTimeline({ solicitacaoId, showMessages = true, isBack
                     <span className="font-medium text-sm">
                       {msg.profile?.full_name || msg.profile?.email || 'Usuário'}
                     </span>
-                    <span className="text-sm text-muted-foreground">comentou</span>
-                    <Badge variant="outline" className="text-xs bg-primary/5 text-primary border-primary/20">
-                      Mensagem
-                    </Badge>
+                    <span className="text-sm text-muted-foreground">
+                      {msgIsInternal ? 'anotou internamente' : 'comentou'}
+                    </span>
+                    {msgIsInternal ? (
+                      <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-700">
+                        <Lock className="h-3 w-3 mr-1" />
+                        Interno
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-xs bg-primary/5 text-primary border-primary/20">
+                        Mensagem
+                      </Badge>
+                    )}
                   </div>
                   
                   <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
                     {formatBR(msg.created_at, "dd/MM/yyyy HH:mm:ss")}
                   </p>
                   
-                  <div className="mt-2 p-3 bg-muted/30 rounded-lg border-l-4 border-primary/40">
+                  <div className={cn(
+                    "mt-2 p-3 rounded-lg border-l-4",
+                    msgIsInternal 
+                      ? "bg-amber-50/50 border-amber-400 dark:bg-amber-900/10 dark:border-amber-600" 
+                      : "bg-muted/30 border-primary/40"
+                  )}>
                     <p className="text-sm whitespace-pre-wrap break-words">{msg.mensagem}</p>
                   </div>
                 </div>
@@ -467,12 +503,31 @@ export function SolicitacaoTimeline({ solicitacaoId, showMessages = true, isBack
       {/* Message input */}
       {showMessages && (
         <div className="pt-4 border-t">
+          {isBackofficeOrAdmin && (
+            <div className="flex items-center gap-2 mb-2">
+              <Checkbox
+                id="interno-toggle"
+                checked={isInternal}
+                onCheckedChange={(checked) => setIsInternal(!!checked)}
+              />
+              <label
+                htmlFor="interno-toggle"
+                className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none"
+              >
+                <Lock className="h-3 w-3" />
+                Nota interna (visível apenas para o backoffice)
+              </label>
+            </div>
+          )}
           <div className="flex gap-2">
             <Textarea
-              placeholder="Digite sua mensagem..."
+              placeholder={isInternal ? "Escreva uma nota interna..." : "Digite sua mensagem..."}
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-              className="min-h-[60px] resize-none"
+              className={cn(
+                "min-h-[60px] resize-none",
+                isInternal && "border-amber-300 dark:border-amber-700 focus-visible:ring-amber-400"
+              )}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
@@ -484,10 +539,15 @@ export function SolicitacaoTimeline({ solicitacaoId, showMessages = true, isBack
               onClick={handleSendMessage}
               disabled={!newMessage.trim() || sending}
               size="icon"
-              className="shrink-0 h-[60px] w-[60px]"
+              className={cn(
+                "shrink-0 h-[60px] w-[60px]",
+                isInternal && "bg-amber-500 hover:bg-amber-600"
+              )}
             >
               {sending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
+              ) : isInternal ? (
+                <Lock className="h-4 w-4" />
               ) : (
                 <Send className="h-4 w-4" />
               )}

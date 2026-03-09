@@ -1,0 +1,1 @@
+ALTER TABLE public.solicitacao_mensagens ADD COLUMN interno boolean NOT NULL DEFAULT false;
