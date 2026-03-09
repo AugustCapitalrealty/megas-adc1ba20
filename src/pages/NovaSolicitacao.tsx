@@ -1360,13 +1360,51 @@ export default function NovaSolicitacao() {
                 {isAC && (
                   <>
                     <div className="grid grid-cols-2 gap-4">
-                      <div>
+                      <div className="space-y-2">
                         <Label>Data Início</Label>
-                        <Input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)} />
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={cn("w-full justify-start text-left font-normal", !dataInicio && "text-muted-foreground")}
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {dataInicio ? format(parseISO(dataInicio), 'dd/MM/yyyy') : 'Selecionar'}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={dataInicio ? parseISO(dataInicio) : undefined}
+                              onSelect={(date) => setDataInicio(date ? format(date, 'yyyy-MM-dd') : '')}
+                              locale={ptBR}
+                              className="pointer-events-auto"
+                            />
+                          </PopoverContent>
+                        </Popover>
                       </div>
-                      <div>
+                      <div className="space-y-2">
                         <Label>Data Fim</Label>
-                        <Input type="date" value={dataFim} onChange={(e) => setDataFim(e.target.value)} />
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={cn("w-full justify-start text-left font-normal", !dataFim && "text-muted-foreground")}
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {dataFim ? format(parseISO(dataFim), 'dd/MM/yyyy') : 'Selecionar'}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={dataFim ? parseISO(dataFim) : undefined}
+                              onSelect={(date) => setDataFim(date ? format(date, 'yyyy-MM-dd') : '')}
+                              locale={ptBR}
+                              className="pointer-events-auto"
+                            />
+                          </PopoverContent>
+                        </Popover>
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">

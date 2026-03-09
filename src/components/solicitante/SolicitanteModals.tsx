@@ -707,7 +707,26 @@ function NfBoletoModal(props: NfBoletoModalProps) {
             <Input type="file" accept=".pdf,.xml" onChange={(e) => setNfFile(e.target.files?.[0] || null)} />
             <div className="space-y-2">
               <Label>Data de emissão da NF</Label>
-              <Input type="date" value={dataEmissaoNF} onChange={(e) => setDataEmissaoNF(e.target.value)} />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn("w-full justify-start text-left font-normal", !dataEmissaoNF && "text-muted-foreground")}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dataEmissaoNF ? format(parseISO(dataEmissaoNF), 'dd/MM/yyyy') : 'Selecionar'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={dataEmissaoNF ? parseISO(dataEmissaoNF) : undefined}
+                    onSelect={(date) => setDataEmissaoNF(date ? format(date, 'yyyy-MM-dd') : '')}
+                    locale={ptBR}
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
         )}
@@ -717,7 +736,26 @@ function NfBoletoModal(props: NfBoletoModalProps) {
           <Input type="file" accept=".pdf" onChange={(e) => setBoletoFile(e.target.files?.[0] || null)} />
           <div className="space-y-2">
             <Label>Data de vencimento do boleto *</Label>
-            <Input type="date" value={dataVencimentoBoleto} onChange={(e) => setDataVencimentoBoleto(e.target.value)} />
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn("w-full justify-start text-left font-normal", !dataVencimentoBoleto && "text-muted-foreground")}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dataVencimentoBoleto ? format(parseISO(dataVencimentoBoleto), 'dd/MM/yyyy') : 'Selecionar'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={dataVencimentoBoleto ? parseISO(dataVencimentoBoleto) : undefined}
+                  onSelect={(date) => setDataVencimentoBoleto(date ? format(date, 'yyyy-MM-dd') : '')}
+                  locale={ptBR}
+                  className="pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
       </div>
