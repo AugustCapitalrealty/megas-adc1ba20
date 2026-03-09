@@ -109,10 +109,13 @@ export default function MinhasSolicitacoes() {
   const [aceiteSolicitacao, setAceiteSolicitacao] = useState<SolicitacaoComFornecedor | null>(null);
   const [aceiteAjuste, setAceiteAjuste] = useState('');
   const [aceiteLoading, setAceiteLoading] = useState(false);
-  const [aceiteStep, setAceiteStep] = useState<'revisar' | 'decidir' | 'confirmar'>('revisar');
+  const [aceiteStep, setAceiteStep] = useState<'revisar' | 'decidir' | 'tipo_entrega' | 'confirmar'>('revisar');
   const [fornecedorEmailContato, setFornecedorEmailContato] = useState('');
   const [fornecedorTelefoneContato, setFornecedorTelefoneContato] = useState('');
   const [showAjusteField, setShowAjusteField] = useState(false);
+  const [tipoEntrega, setTipoEntrega] = useState<'produto' | 'servico' | null>(null);
+  const [dataExecucaoServico, setDataExecucaoServico] = useState('');
+  const [evidenciaFile, setEvidenciaFile] = useState<File | null>(null);
 
   // NF/Boleto modal state
   const [nfBoletoOpen, setNfBoletoOpen] = useState(false);
