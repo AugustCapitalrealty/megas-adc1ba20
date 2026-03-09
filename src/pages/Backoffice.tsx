@@ -1344,11 +1344,7 @@ export default function Backoffice() {
     return (
       <div className="space-y-4">
         {items.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center text-muted-foreground">
-              {emptyMessage}
-            </CardContent>
-          </Card>
+          <ContextualEmptyState tab={activeTab} variant="backoffice" />
         ) : (
           <>
             {paginatedItems.map((sol) => (
