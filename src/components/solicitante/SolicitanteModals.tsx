@@ -659,6 +659,7 @@ function AceiteModal(props: AceiteModalProps) {
                       </div>
                     )}
 
+                    {(!dataExecucaoServico || dataExecucaoServico <= new Date().toISOString().split('T')[0]) && (
                     <div>
                       <Label className="text-sm">Evidência (foto/documento) *</Label>
                       <div className="mt-1">
@@ -684,6 +685,7 @@ function AceiteModal(props: AceiteModalProps) {
                         )}
                       </div>
                     </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -697,9 +699,11 @@ function AceiteModal(props: AceiteModalProps) {
                     Confirmação de Liberação
                   </p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    {tipoEntrega === 'servico' 
-                      ? 'Ao confirmar, o Backoffice verificará a evidência e enviará a OC ao fornecedor.'
-                      : 'Ao confirmar, o Backoffice poderá enviar formalmente a OC ao fornecedor.'}
+                    {tipoEntrega === 'servico' && dataExecucaoServico && dataExecucaoServico > new Date().toISOString().split('T')[0]
+                      ? 'Ao confirmar, o Backoffice enviará a OC ao fornecedor antes da execução do serviço.'
+                      : tipoEntrega === 'servico' 
+                        ? 'Ao confirmar, o Backoffice verificará a evidência e enviará a OC ao fornecedor.'
+                        : 'Ao confirmar, o Backoffice poderá enviar formalmente a OC ao fornecedor.'}
                   </p>
                 </div>
 
@@ -777,7 +781,7 @@ function AceiteModal(props: AceiteModalProps) {
               <Button 
                 className="bg-success hover:bg-success/90 text-success-foreground" 
                 onClick={() => setAceiteStep('confirmar')}
-                disabled={!tipoEntrega || (tipoEntrega === 'servico' && (!dataExecucaoServico || !evidenciaFile)) || (tipoEntrega === 'servico' && dataExecucaoServico > new Date().toISOString().split('T')[0] && !motivoOCAntes.trim())}
+                disabled={!tipoEntrega || (tipoEntrega === 'servico' && !dataExecucaoServico) || (tipoEntrega === 'servico' && dataExecucaoServico <= new Date().toISOString().split('T')[0] && !evidenciaFile) || (tipoEntrega === 'servico' && dataExecucaoServico > new Date().toISOString().split('T')[0] && !motivoOCAntes.trim())}
               >
                 <Send className="h-4 w-4 mr-2" />
                 Continuar
