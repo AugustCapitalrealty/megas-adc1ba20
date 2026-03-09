@@ -141,8 +141,12 @@ export interface BackofficeModalsProps {
   confirmAction: { type: string; sol: SolicitacaoBackoffice; title: string; description: string } | null;
   setConfirmAction: (v: any) => void;
   handleDarBaixaConfirmed: () => Promise<void>;
-  handleRegistrarEnvioFornecedorConfirmed: (sol: SolicitacaoBackoffice) => Promise<void>;
   handleConcluirLiberadaConfirmed: (sol: SolicitacaoBackoffice) => Promise<void>;
+
+  // Envio Fornecedor Modal
+  envioFornecedorModal: SolicitacaoBackoffice | null;
+  setEnvioFornecedorModal: (v: SolicitacaoBackoffice | null) => void;
+  handleRegistrarEnvioFornecedorConfirmed: (sol: SolicitacaoBackoffice, meioEnvio: string, observacaoEnvio?: string) => Promise<void>;
 }
 
 // ── Helper ─────────────────────────────────────────────
