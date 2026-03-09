@@ -240,13 +240,15 @@ export default function DashboardEficiencia() {
           </div>
 
           <div className="flex items-center gap-1.5">
-            <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              type="date"
-              value={filters.dataInicio}
-              onChange={(e) => handleFilterChange('dataInicio', e.target.value)}
-              className="h-8 w-[140px] text-xs"
-            />
+            <div className="flex items-center gap-1">
+              <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+              <Input
+                type="date"
+                value={filters.dataInicio}
+                onChange={(e) => handleFilterChange('dataInicio', e.target.value)}
+                className="h-8 w-[140px] text-xs"
+              />
+            </div>
             <span className="text-muted-foreground text-xs">—</span>
             <Input
               type="date"
