@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { subDays } from 'date-fns';
+import { subDays, startOfMonth, startOfYear } from 'date-fns';
 import { formatBR } from '@/lib/date-utils';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
+import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Table,
@@ -20,14 +21,13 @@ import {
 } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-  TrendingDown,
+  Timer,
   Zap,
   AlertTriangle,
   ArrowUpDown,
   RefreshCw,
   Calendar,
   Building2,
-  Filter,
   Activity,
   RotateCcw,
   Clock,
@@ -35,6 +35,10 @@ import {
   Truck,
   Info,
   ExternalLink,
+  Search,
+  X,
+  BarChart3,
+  Inbox,
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useNavigate } from 'react-router-dom';
@@ -64,10 +68,39 @@ const EMPREENDIMENTO_COLORS: Record<string, string> = {
   mega_esteio: 'hsl(var(--success))',
 };
 
-export default function DashboardEficiencia() {
-  const [filters, setFilters] = useState<EficienciaFilters>({
-    dataInicio: formatBR(subDays(new Date(), 90), 'yyyy-MM-dd'),
+const DRILLDOWN_LABELS: Record<string, string> = {
+  all: 'Todas',
+  same_day: 'Same-Day (0 dias)',
+  backlog: '>15 dias úteis',
+  'bucket_0_0': '0 dias (Same-Day)',
+  'bucket_1_2': '1–2 dias',
+  'bucket_3_5': '3–5 dias',
+  'bucket_6_10': '6–10 dias',
+  'bucket_11_15': '11–15 dias',
+  'bucket_16_Infinity': '15+ dias',
+};
+
+const DEFAULT_RANGE_DAYS = 90;
+
+function getDefaultDates() {
+  return {
+    dataInicio: formatBR(subDays(new Date(), DEFAULT_RANGE_DAYS), 'yyyy-MM-dd'),
     dataFim: formatBR(new Date(), 'yyyy-MM-dd'),
+  };
+}
+
+const QUICK_RANGES = [
+  { label: '7d', days: 7 },
+  { label: '30d', days: 30 },
+  { label: '90d', days: 90 },
+  { label: 'Este mês', fn: () => ({ dataInicio: formatBR(startOfMonth(new Date()), 'yyyy-MM-dd'), dataFim: formatBR(new Date(), 'yyyy-MM-dd') }) },
+  { label: 'Este ano', fn: () => ({ dataInicio: formatBR(startOfYear(new Date()), 'yyyy-MM-dd'), dataFim: formatBR(new Date(), 'yyyy-MM-dd') }) },
+] as const;
+
+export default function DashboardEficiencia() {
+  const defaults = getDefaultDates();
+  const [filters, setFilters] = useState<EficienciaFilters>({
+    ...defaults,
     empreendimento: null,
   });
 
@@ -76,6 +109,7 @@ export default function DashboardEficiencia() {
 
   const [showYoY, setShowYoY] = useState(false);
   const [drilldownFilter, setDrilldownFilter] = useState<DrilldownFilter>('all');
+  const [searchProtocolo, setSearchProtocolo] = useState('');
 
   const {
     entries,
@@ -95,6 +129,27 @@ export default function DashboardEficiencia() {
     refetch,
   } = useEficienciaDashboard(filters);
 
+  const hasFilters = filters.dataInicio !== defaults.dataInicio || filters.dataFim !== defaults.dataFim || filters.empreendimento !== null;
+
+  const clearFilters = () => {
+    setFilters({ ...getDefaultDates(), empreendimento: null });
+    setDrilldownFilter('all');
+    setSearchProtocolo('');
+  };
+
+  const applyQuickRange = (range: typeof QUICK_RANGES[number]) => {
+    if ('fn' in range && range.fn) {
+      const dates = range.fn();
+      setFilters(prev => ({ ...prev, ...dates }));
+    } else if ('days' in range) {
+      setFilters(prev => ({
+        ...prev,
+        dataInicio: formatBR(subDays(new Date(), range.days), 'yyyy-MM-dd'),
+        dataFim: formatBR(new Date(), 'yyyy-MM-dd'),
+      }));
+    }
+  };
+
   // Filtered entries for drill-down table
   const filteredEntries = useMemo(() => {
     let filtered = [...entries];
@@ -108,8 +163,12 @@ export default function DashboardEficiencia() {
         e.lead_time_dias >= parseInt(min) && e.lead_time_dias <= (max === 'Infinity' ? 9999 : parseInt(max))
       );
     }
+    if (searchProtocolo.trim()) {
+      const q = searchProtocolo.trim().toLowerCase();
+      filtered = filtered.filter(e => e.protocolo.toLowerCase().includes(q));
+    }
     return filtered;
-  }, [entries, drilldownFilter]);
+  }, [entries, drilldownFilter, searchProtocolo]);
 
   // YoY data
   const yoyData = useMemo(() => {
@@ -140,6 +199,9 @@ export default function DashboardEficiencia() {
     ? Math.round((retrabalho.count / retrabalho.total) * 100)
     : 0;
 
+  const TABLE_LIMIT = 100;
+  const displayEntries = filteredEntries.slice(0, TABLE_LIMIT);
+
   return (
     <>
       <div className="space-y-6 animate-fade-in">
@@ -160,70 +222,73 @@ export default function DashboardEficiencia() {
           </Button>
         </div>
 
-        {/* Filters */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs flex items-center gap-1.5">
-                  <Calendar className="h-3.5 w-3.5" /> Data Início
-                </Label>
-                <Input
-                  type="date"
-                  value={filters.dataInicio}
-                  onChange={(e) => handleFilterChange('dataInicio', e.target.value)}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs flex items-center gap-1.5">
-                  <Calendar className="h-3.5 w-3.5" /> Data Fim
-                </Label>
-                <Input
-                  type="date"
-                  value={filters.dataFim}
-                  onChange={(e) => handleFilterChange('dataFim', e.target.value)}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs flex items-center gap-1.5">
-                  <Building2 className="h-3.5 w-3.5" /> Empreendimento
-                </Label>
-                <Select
-                  value={filters.empreendimento || 'all'}
-                  onValueChange={(v) => handleFilterChange('empreendimento', v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todos" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    {(['mega_curitiba', 'mega_itajai', 'mega_esteio'] as const).map(e => (
-                      <SelectItem key={e} value={e}>{EMPREENDIMENTO_LABELS[e]}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-end">
-                <Button
-                  variant={drilldownFilter !== 'all' ? 'default' : 'outline'}
-                  size="sm"
-                  className="gap-1.5"
-                  onClick={() => setDrilldownFilter('all')}
-                >
-                  <Filter className="h-3.5 w-3.5" />
-                  {drilldownFilter !== 'all' ? 'Limpar Filtro' : 'Todos'}
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Filters — inline bar */}
+        <div className="flex flex-wrap items-end gap-3">
+          {/* Quick Range Buttons */}
+          <div className="flex items-center gap-1">
+            {QUICK_RANGES.map((range) => (
+              <Button
+                key={range.label}
+                variant="outline"
+                size="sm"
+                className="h-8 px-2.5 text-xs"
+                onClick={() => applyQuickRange(range)}
+              >
+                {range.label}
+              </Button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              type="date"
+              value={filters.dataInicio}
+              onChange={(e) => handleFilterChange('dataInicio', e.target.value)}
+              className="h-8 w-[140px] text-xs"
+            />
+            <span className="text-muted-foreground text-xs">—</span>
+            <Input
+              type="date"
+              value={filters.dataFim}
+              onChange={(e) => handleFilterChange('dataFim', e.target.value)}
+              className="h-8 w-[140px] text-xs"
+            />
+          </div>
+
+          <Select
+            value={filters.empreendimento || 'all'}
+            onValueChange={(v) => handleFilterChange('empreendimento', v)}
+          >
+            <SelectTrigger className="h-8 w-[160px] text-xs">
+              <Building2 className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
+              <SelectValue placeholder="Todos" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              {(['mega_curitiba', 'mega_itajai', 'mega_esteio'] as const).map(e => (
+                <SelectItem key={e} value={e}>{EMPREENDIMENTO_LABELS[e]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {hasFilters && (
+            <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs text-muted-foreground" onClick={clearFilters}>
+              <X className="h-3.5 w-3.5" />
+              Limpar
+            </Button>
+          )}
+        </div>
 
         {/* 4 KPI Cards */}
         <TooltipProvider>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {/* Lead Time Médio */}
           <Card
-            className="cursor-pointer hover:shadow-md transition-shadow"
+            className={cn(
+              "cursor-pointer hover:shadow-md transition-shadow",
+              drilldownFilter === 'all' && drilldownFilter === 'all' && "ring-2 ring-primary/30"
+            )}
             onClick={() => setDrilldownFilter('all')}
           >
             <CardContent className="p-5">
@@ -250,7 +315,7 @@ export default function DashboardEficiencia() {
                   )}
                 </div>
                 <div className="p-3 rounded-xl bg-primary/10">
-                  <TrendingDown className="h-6 w-6 text-primary" />
+                  <Timer className="h-6 w-6 text-primary" />
                 </div>
               </div>
             </CardContent>
@@ -258,7 +323,10 @@ export default function DashboardEficiencia() {
 
           {/* Same-Day */}
           <Card
-            className="cursor-pointer hover:shadow-md transition-shadow"
+            className={cn(
+              "cursor-pointer hover:shadow-md transition-shadow",
+              drilldownFilter === 'same_day' && "ring-2 ring-primary/30"
+            )}
             onClick={() => setDrilldownFilter('same_day')}
           >
             <CardContent className="p-5">
@@ -295,7 +363,8 @@ export default function DashboardEficiencia() {
           <Card
             className={cn(
               "cursor-pointer hover:shadow-md transition-shadow",
-              backlogCritico > 0 && "border-destructive/50 bg-destructive/5"
+              backlogCritico > 0 && "border-destructive/50 bg-destructive/5",
+              drilldownFilter === 'backlog' && "ring-2 ring-primary/30"
             )}
             onClick={() => setDrilldownFilter('backlog')}
           >
@@ -329,8 +398,14 @@ export default function DashboardEficiencia() {
             </CardContent>
           </Card>
 
-          {/* Vazão */}
-          <Card>
+          {/* Vazão — now clickable */}
+          <Card
+            className={cn(
+              "cursor-pointer hover:shadow-md transition-shadow",
+              drilldownFilter === 'all' && "ring-2 ring-primary/30"
+            )}
+            onClick={() => setDrilldownFilter('all')}
+          >
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
                 <div className="flex-1">
@@ -410,7 +485,7 @@ export default function DashboardEficiencia() {
           </Card>
 
           {/* Lead Time por Empreendimento */}
-          <Card className="lg:col-span-2">
+          <Card className="lg:col-span-2" id="lead-time-empreendimento">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <Building2 className="h-4 w-4 text-primary" />
@@ -458,7 +533,7 @@ export default function DashboardEficiencia() {
         </div>
 
         {/* Tempo por Etapa */}
-        <Card>
+        <Card id="tempo-etapa">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <Clock className="h-4 w-4 text-primary" />
@@ -493,7 +568,7 @@ export default function DashboardEficiencia() {
         {/* Charts Row: Histogram + Weekly */}
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Histogram */}
-          <Card>
+          <Card id="distribuicao">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Distribuição do Lead Time</CardTitle>
               <CardDescription>Em dias úteis — clique em uma faixa para filtrar</CardDescription>
@@ -529,7 +604,7 @@ export default function DashboardEficiencia() {
           </Card>
 
           {/* Weekly Evolution */}
-          <Card>
+          <Card id="evolucao-semanal">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <div>
@@ -537,10 +612,10 @@ export default function DashboardEficiencia() {
                   <CardDescription>Média de lead time em dias úteis</CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Checkbox
+                  <Switch
                     id="yoy"
                     checked={showYoY}
-                    onCheckedChange={(checked) => setShowYoY(!!checked)}
+                    onCheckedChange={setShowYoY}
                   />
                   <Label htmlFor="yoy" className="text-xs cursor-pointer">Comparar Ano Anterior</Label>
                 </div>
@@ -592,7 +667,7 @@ export default function DashboardEficiencia() {
         {/* Rankings: Top Solicitantes + Top Fornecedores */}
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Top Solicitantes */}
-          <Card>
+          <Card id="top-solicitantes">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <Users className="h-4 w-4 text-primary" />
@@ -604,25 +679,18 @@ export default function DashboardEficiencia() {
               {isLoading ? (
                 <Skeleton className="h-[200px] w-full" />
               ) : topSolicitantes.length === 0 ? (
-                <div className="py-8 text-center text-muted-foreground text-sm">Sem dados</div>
-              ) : (
-                <div className="space-y-2">
-                  {topSolicitantes.map((s, i) => (
-                    <div key={s.id} className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono text-muted-foreground w-5">{i + 1}.</span>
-                        <span className="text-sm truncate max-w-[250px]">{s.nome}</span>
-                      </div>
-                      <Badge variant="secondary" className="text-xs">{s.count}</Badge>
-                    </div>
-                  ))}
+                <div className="py-8 flex flex-col items-center gap-2 text-muted-foreground text-sm">
+                  <BarChart3 className="h-8 w-8 opacity-40" />
+                  Nenhum dado no período
                 </div>
+              ) : (
+                <RankingList items={topSolicitantes} />
               )}
             </CardContent>
           </Card>
 
           {/* Top Fornecedores */}
-          <Card>
+          <Card id="top-fornecedores">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <Truck className="h-4 w-4 text-primary" />
@@ -634,45 +702,60 @@ export default function DashboardEficiencia() {
               {isLoading ? (
                 <Skeleton className="h-[200px] w-full" />
               ) : topFornecedores.length === 0 ? (
-                <div className="py-8 text-center text-muted-foreground text-sm">Sem dados</div>
-              ) : (
-                <div className="space-y-2">
-                  {topFornecedores.map((f, i) => (
-                    <div key={f.id} className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono text-muted-foreground w-5">{i + 1}.</span>
-                        <span className="text-sm truncate max-w-[250px]">{f.nome}</span>
-                      </div>
-                      <Badge variant="secondary" className="text-xs">{f.count}</Badge>
-                    </div>
-                  ))}
+                <div className="py-8 flex flex-col items-center gap-2 text-muted-foreground text-sm">
+                  <BarChart3 className="h-8 w-8 opacity-40" />
+                  Nenhum dado no período
                 </div>
+              ) : (
+                <RankingList items={topFornecedores} />
               )}
             </CardContent>
           </Card>
         </div>
 
         {/* Drill-down Table */}
-        <Card>
+        <Card id="detalhamento">
           <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              Detalhamento
-              {drilldownFilter !== 'all' && (
-                <Badge variant="secondary" className="text-xs">
-                  Filtro ativo: {drilldownFilter === 'same_day' ? 'Same-Day' : drilldownFilter === 'backlog' ? '>15 dias úteis' : drilldownFilter.replace('bucket_', '')}
-                </Badge>
-              )}
-            </CardTitle>
-            <CardDescription>{filteredEntries.length} solicitações</CardDescription>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <CardTitle className="text-base flex items-center gap-2">
+                  Detalhamento
+                  {drilldownFilter !== 'all' && (
+                    <Badge variant="secondary" className="text-xs gap-1">
+                      {DRILLDOWN_LABELS[drilldownFilter] || drilldownFilter}
+                      <button onClick={(e) => { e.stopPropagation(); setDrilldownFilter('all'); }} className="ml-0.5 hover:text-foreground">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  )}
+                </CardTitle>
+                <CardDescription>
+                  {filteredEntries.length} solicitações
+                  {filteredEntries.length > TABLE_LIMIT && (
+                    <span className="text-warning ml-1">(exibindo primeiras {TABLE_LIMIT})</span>
+                  )}
+                </CardDescription>
+              </div>
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar protocolo…"
+                  value={searchProtocolo}
+                  onChange={(e) => setSearchProtocolo(e.target.value)}
+                  className="pl-8 h-8 text-xs"
+                />
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {isLoading ? (
               <div className="space-y-3">
                 {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
               </div>
-            ) : filteredEntries.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                Nenhuma solicitação encontrada para os filtros selecionados
+            ) : displayEntries.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground flex flex-col items-center gap-2">
+                <Inbox className="h-10 w-10 opacity-40" />
+                <p className="text-sm">Nenhuma solicitação encontrada para os filtros selecionados</p>
               </div>
             ) : (
               <ScrollArea className="max-h-[500px]">
@@ -689,7 +772,7 @@ export default function DashboardEficiencia() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredEntries.slice(0, 100).map((entry) => (
+                    {displayEntries.map((entry) => (
                       <TableRow
                         key={entry.id}
                         className={cn(
@@ -742,5 +825,27 @@ export default function DashboardEficiencia() {
         </Card>
       </div>
     </>
+  );
+}
+
+/* ── Ranking List with proportional progress bars ── */
+function RankingList({ items }: { items: { id: string; nome: string; count: number }[] }) {
+  const maxCount = Math.max(...items.map(i => i.count), 1);
+
+  return (
+    <div className="space-y-2.5">
+      {items.map((item, i) => (
+        <div key={item.id} className="flex items-center gap-2">
+          <span className="text-xs font-mono text-muted-foreground w-5 shrink-0">{i + 1}.</span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between mb-0.5">
+              <span className="text-sm truncate">{item.nome}</span>
+              <span className="text-xs font-medium text-muted-foreground ml-2 shrink-0">{item.count}</span>
+            </div>
+            <Progress value={(item.count / maxCount) * 100} className="h-1.5" />
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
