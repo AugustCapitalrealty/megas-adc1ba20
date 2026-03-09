@@ -135,11 +135,14 @@ export default function Backoffice() {
 
   // Confirmation modal state (#4 improvement)
   const [confirmAction, setConfirmAction] = useState<{
-    type: 'baixa' | 'envio_fornecedor' | 'concluir_liberada';
+    type: 'baixa' | 'concluir_liberada';
     sol: SolicitacaoBackoffice;
     title: string;
     description: string;
   } | null>(null);
+
+  // Envio Fornecedor modal state
+  const [envioFornecedorModal, setEnvioFornecedorModal] = useState<SolicitacaoBackoffice | null>(null);
 
   // Pagination state (#2 improvement)
   const [currentPage, setCurrentPage] = useState(1);
