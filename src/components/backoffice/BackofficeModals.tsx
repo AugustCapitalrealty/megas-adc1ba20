@@ -740,7 +740,7 @@ export function BackofficeModals(props: BackofficeModalsProps) {
                     </Button>
                   </CollapsibleTrigger>
                   <CollapsibleContent className="pt-3">
-                    <SolicitacaoMessages solicitacaoId={detalhes.solicitacao.id} />
+                    <SolicitacaoTimeline solicitacaoId={detalhes.solicitacao.id} showHistorico={false} showMessages />
                   </CollapsibleContent>
                 </Collapsible>
 

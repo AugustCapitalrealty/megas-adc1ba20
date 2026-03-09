@@ -370,7 +370,7 @@ export function SolicitacaoTimeline({ solicitacaoId, showMessages = true, showHi
   }
 
   if (timelineItems.length === 0 && !showMessages) {
-    return <p className="text-sm text-muted-foreground">Nenhum histórico disponível</p>;
+    return <p className="text-sm text-muted-foreground">{showHistorico ? 'Nenhum histórico disponível' : 'Nenhuma mensagem registrada'}</p>;
   }
 
   return (

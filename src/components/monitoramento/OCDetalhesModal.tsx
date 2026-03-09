@@ -268,7 +268,7 @@ export function OCDetalhesModal({ open, onOpenChange, solicitacaoId, protocolo, 
               </TabsContent>
 
               <TabsContent value="mensagens" className="mt-4">
-                {solicitacaoId && <SolicitacaoMessages solicitacaoId={solicitacaoId} />}
+                {solicitacaoId && <SolicitacaoTimeline solicitacaoId={solicitacaoId} showHistorico={false} showMessages />}
               </TabsContent>
 
               <TabsContent value="info" className="mt-4 space-y-4">
