@@ -592,13 +592,11 @@ export default function Backoffice() {
     }
   };
 
+  // Concluir modal state
+  const [concluirModal, setConcluirModal] = useState<SolicitacaoBackoffice | null>(null);
+
   const handleConcluirLiberada = (sol: SolicitacaoBackoffice) => {
-    setConfirmAction({
-      type: 'concluir_liberada',
-      sol,
-      title: 'Concluir Solicitação',
-      description: `Confirma a conclusão da solicitação #${sol.protocolo}?`,
-    });
+    setConcluirModal(sol);
   };
 
   const handleConcluirLiberadaConfirmed = async (sol: SolicitacaoBackoffice) => {
