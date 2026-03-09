@@ -1,3 +1,5 @@
+import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale/pt-BR';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -6,6 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { ActionModal } from '@/components/ui/ActionModal';
 import { AnexoCard } from '@/components/AnexoCard';
 import { MultiFileUpload, type UploadedFile } from '@/components/FileUpload';
@@ -21,7 +25,7 @@ import {
 import {
   Loader2, FileText, Edit, Send, AlertTriangle, XCircle, Download,
   FileCheck, CheckCircle, MessageSquare, RotateCcw, Receipt, Upload,
-  Building2, Trash2,
+  Building2, Trash2, Calendar as CalendarIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { SolicitacaoComFornecedor, RejectionInfo, InfoRequest } from './types';
@@ -703,7 +707,26 @@ function NfBoletoModal(props: NfBoletoModalProps) {
             <Input type="file" accept=".pdf,.xml" onChange={(e) => setNfFile(e.target.files?.[0] || null)} />
             <div className="space-y-2">
               <Label>Data de emissão da NF</Label>
-              <Input type="date" value={dataEmissaoNF} onChange={(e) => setDataEmissaoNF(e.target.value)} />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn("w-full justify-start text-left font-normal", !dataEmissaoNF && "text-muted-foreground")}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dataEmissaoNF ? format(parseISO(dataEmissaoNF), 'dd/MM/yyyy') : 'Selecionar'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={dataEmissaoNF ? parseISO(dataEmissaoNF) : undefined}
+                    onSelect={(date) => setDataEmissaoNF(date ? format(date, 'yyyy-MM-dd') : '')}
+                    locale={ptBR}
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
         )}
@@ -713,7 +736,26 @@ function NfBoletoModal(props: NfBoletoModalProps) {
           <Input type="file" accept=".pdf" onChange={(e) => setBoletoFile(e.target.files?.[0] || null)} />
           <div className="space-y-2">
             <Label>Data de vencimento do boleto *</Label>
-            <Input type="date" value={dataVencimentoBoleto} onChange={(e) => setDataVencimentoBoleto(e.target.value)} />
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn("w-full justify-start text-left font-normal", !dataVencimentoBoleto && "text-muted-foreground")}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {dataVencimentoBoleto ? format(parseISO(dataVencimentoBoleto), 'dd/MM/yyyy') : 'Selecionar'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={dataVencimentoBoleto ? parseISO(dataVencimentoBoleto) : undefined}
+                  onSelect={(date) => setDataVencimentoBoleto(date ? format(date, 'yyyy-MM-dd') : '')}
+                  locale={ptBR}
+                  className="pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
       </div>

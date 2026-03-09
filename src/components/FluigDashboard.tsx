@@ -230,11 +230,12 @@ export function FluigDashboard({ onNavigateToSolicitacao }: FluigDashboardProps)
                   className={cn('h-8 text-xs', !filters.dataInicio && 'text-muted-foreground')}
                 >
                   <CalendarIcon className="h-3 w-3 mr-1" />
-                  {filters.dataInicio ? formatBR(filters.dataInicio, 'dd/MM') : 'De'}
+                  {filters.dataInicio ? formatBR(filters.dataInicio, 'dd/MM/yyyy') : 'De'}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
                 <Calendar
+                  className="pointer-events-auto"
                   mode="single"
                   selected={filters.dataInicio}
                   onSelect={(date) => setFilters(prev => ({ ...prev, dataInicio: date || undefined }))}
@@ -251,11 +252,12 @@ export function FluigDashboard({ onNavigateToSolicitacao }: FluigDashboardProps)
                   className={cn('h-8 text-xs', !filters.dataFim && 'text-muted-foreground')}
                 >
                   <CalendarIcon className="h-3 w-3 mr-1" />
-                  {filters.dataFim ? formatBR(filters.dataFim, 'dd/MM') : 'Até'}
+                  {filters.dataFim ? formatBR(filters.dataFim, 'dd/MM/yyyy') : 'Até'}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
                 <Calendar
+                  className="pointer-events-auto"
                   mode="single"
                   selected={filters.dataFim}
                   onSelect={(date) => setFilters(prev => ({ ...prev, dataFim: date || undefined }))}
