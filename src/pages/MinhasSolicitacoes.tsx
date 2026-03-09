@@ -109,7 +109,7 @@ export default function MinhasSolicitacoes() {
   const [aceiteSolicitacao, setAceiteSolicitacao] = useState<SolicitacaoComFornecedor | null>(null);
   const [aceiteAjuste, setAceiteAjuste] = useState('');
   const [aceiteLoading, setAceiteLoading] = useState(false);
-  const [aceiteStep, setAceiteStep] = useState<'revisar' | 'decidir' | 'tipo_entrega' | 'confirmar'>('revisar');
+  const [aceiteStep, setAceiteStep] = useState<'revisar' | 'tipo_entrega' | 'confirmar'>('revisar');
   const [fornecedorEmailContato, setFornecedorEmailContato] = useState('');
   const [fornecedorTelefoneContato, setFornecedorTelefoneContato] = useState('');
   const [showAjusteField, setShowAjusteField] = useState(false);

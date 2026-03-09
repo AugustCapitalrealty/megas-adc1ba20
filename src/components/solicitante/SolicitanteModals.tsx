@@ -723,12 +723,6 @@ function AceiteModal(props: AceiteModalProps) {
           {aceiteStep === 'revisar' && (
             <>
               <Button variant="outline" onClick={() => onOpenChange(false)}>Fechar</Button>
-              <Button onClick={() => setAceiteStep('decidir')}>Liberar para Fornecedor</Button>
-            </>
-          )}
-          {aceiteStep === 'decidir' && (
-            <>
-              <Button variant="outline" onClick={() => setAceiteStep('revisar')} disabled={aceiteLoading}>Voltar</Button>
               {showAjusteField ? (
                 <Button variant="default" className="bg-warning hover:bg-warning/90 text-warning-foreground"
                   onClick={handleSolicitarAjuste} disabled={aceiteLoading || !aceiteAjuste.trim()}>
@@ -745,7 +739,7 @@ function AceiteModal(props: AceiteModalProps) {
           )}
           {aceiteStep === 'tipo_entrega' && (
             <>
-              <Button variant="outline" onClick={() => setAceiteStep('decidir')} disabled={aceiteLoading}>Voltar</Button>
+              <Button variant="outline" onClick={() => setAceiteStep('revisar')} disabled={aceiteLoading}>Voltar</Button>
               <Button 
                 className="bg-success hover:bg-success/90 text-success-foreground" 
                 onClick={() => setAceiteStep('confirmar')}
