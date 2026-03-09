@@ -24,6 +24,8 @@ import { saveAs } from 'file-saver';
 import type { UploadedFile } from '@/components/FileUpload';
 import { useToast } from '@/hooks/use-toast';
 import { TransferOwnershipModal } from '@/components/TransferOwnershipModal';
+import { exportToExcel } from '@/lib/export-utils';
+import { useFavorites } from '@/hooks/useFavorites';
 import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 
 // Design System Components
