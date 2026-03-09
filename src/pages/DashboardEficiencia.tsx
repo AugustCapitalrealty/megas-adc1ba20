@@ -133,16 +133,8 @@ export default function DashboardEficiencia() {
   };
 
   const applyQuickRange = (range: typeof QUICK_RANGES[number]) => {
-    if ('fn' in range && range.fn) {
-      const dates = range.fn();
-      setFilters(prev => ({ ...prev, ...dates }));
-    } else if ('days' in range) {
-      setFilters(prev => ({
-        ...prev,
-        dataInicio: formatBR(subDays(new Date(), range.days), 'yyyy-MM-dd'),
-        dataFim: formatBR(new Date(), 'yyyy-MM-dd'),
-      }));
-    }
+    const dates = range.fn();
+    setFilters(prev => ({ ...prev, ...dates }));
   };
 
   // Filtered entries for drill-down table
