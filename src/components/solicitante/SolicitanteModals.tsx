@@ -699,9 +699,11 @@ function AceiteModal(props: AceiteModalProps) {
                     Confirmação de Liberação
                   </p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    {tipoEntrega === 'servico' 
-                      ? 'Ao confirmar, o Backoffice verificará a evidência e enviará a OC ao fornecedor.'
-                      : 'Ao confirmar, o Backoffice poderá enviar formalmente a OC ao fornecedor.'}
+                    {tipoEntrega === 'servico' && dataExecucaoServico && dataExecucaoServico > new Date().toISOString().split('T')[0]
+                      ? 'Ao confirmar, o Backoffice enviará a OC ao fornecedor antes da execução do serviço.'
+                      : tipoEntrega === 'servico' 
+                        ? 'Ao confirmar, o Backoffice verificará a evidência e enviará a OC ao fornecedor.'
+                        : 'Ao confirmar, o Backoffice poderá enviar formalmente a OC ao fornecedor.'}
                   </p>
                 </div>
 
