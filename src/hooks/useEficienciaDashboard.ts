@@ -194,7 +194,7 @@ export function useEficienciaDashboard(filters: EficienciaFilters) {
       // Get open solicitações without any documento_emitido
       let query = supabase
         .from('solicitacoes')
-        .select('id, created_at')
+        .select('id, protocolo, created_at, empreendimento, status')
         .is('numero_chamado_fluig', null)
         .not('status', 'in', '(concluida,rejeitado,cancelado)');
 
@@ -203,11 +203,11 @@ export function useEficienciaDashboard(filters: EficienciaFilters) {
       }
 
       const { data: openSols } = await query;
-      if (!openSols) return 0;
+      if (!openSols) return { count: 0, entries: [] as BacklogEntry[] };
 
       // Check which ones DON'T have a doc emitted
       const openIds = openSols.map(s => s.id);
-      if (openIds.length === 0) return 0;
+      if (openIds.length === 0) return { count: 0, entries: [] as BacklogEntry[] };
 
       const { data: docsEmitted } = await supabase
         .from('documentos_emitidos')
@@ -217,12 +217,24 @@ export function useEficienciaDashboard(filters: EficienciaFilters) {
       const emittedSet = new Set((docsEmitted || []).map(d => d.solicitacao_id));
       const withoutDoc = openSols.filter(s => !emittedSet.has(s.id));
 
-      // Count those with >15 business days
+      // Filter those with >15 business days and build entries
       const now = new Date();
-      return withoutDoc.filter(s => {
+      const backlogEntries: BacklogEntry[] = [];
+      withoutDoc.forEach(s => {
         const dias = calcularDiasUteis(new Date(s.created_at), now, feriadosList);
-        return dias > 15;
-      }).length;
+        if (dias > 15) {
+          backlogEntries.push({
+            id: s.id,
+            protocolo: s.protocolo || '',
+            created_at: s.created_at,
+            empreendimento: s.empreendimento as Empreendimento,
+            status: s.status,
+            dias_em_aberto: dias,
+          });
+        }
+      });
+
+      return { count: backlogEntries.length, entries: backlogEntries };
     },
     enabled: !!user?.id && feriadosList.length > 0,
     staleTime: 120_000,
