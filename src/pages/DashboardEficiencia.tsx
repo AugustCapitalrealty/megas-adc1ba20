@@ -56,8 +56,8 @@ import {
   Legend,
   Cell,
 } from 'recharts';
-import { useEficienciaDashboard, type EficienciaFilters } from '@/hooks/useEficienciaDashboard';
-import { EMPREENDIMENTO_LABELS, type Empreendimento } from '@/types';
+import { useEficienciaDashboard, type EficienciaFilters, type BacklogEntry } from '@/hooks/useEficienciaDashboard';
+import { EMPREENDIMENTO_LABELS, STATUS_LABELS, type Empreendimento } from '@/types';
 import { cn } from '@/lib/utils';
 
 type DrilldownFilter = 'all' | 'same_day' | 'backlog' | string;
