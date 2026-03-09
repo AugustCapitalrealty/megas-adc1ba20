@@ -1542,7 +1542,11 @@ export default function Backoffice() {
             },
           ]}
           activeTab={activeTab}
-          onTabChange={(tab) => setActiveTab(tab as BackofficeTab)}
+          onTabChange={(tab) => {
+            setActiveTab(tab as BackofficeTab);
+            setCurrentPage(1);
+            document.getElementById('backoffice-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }}
         />
 
         {/* Tab Content */}

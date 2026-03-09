@@ -856,7 +856,10 @@ export default function MinhasSolicitacoes() {
           onSearchChange={setSearchTerm}
           tabGroups={filterTabGroups}
           activeTab={activeTab}
-          onTabChange={(tab) => setActiveTab(tab as FilterTab)}
+          onTabChange={(tab) => {
+            setActiveTab(tab as FilterTab);
+            document.getElementById('solicitacoes-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }}
           rightSlot={
             <Button
               variant="outline"
