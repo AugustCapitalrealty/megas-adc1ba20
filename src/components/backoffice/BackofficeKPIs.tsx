@@ -11,6 +11,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useCountUp } from '@/hooks/useCountUp';
 import { differenceInDays } from 'date-fns';
 import type { SolicitacaoBackoffice } from '@/hooks/useBackofficeSolicitacoes';
 
