@@ -11,7 +11,7 @@ import { UnreadMessageBanner, type UnreadMessageInfo } from '@/components/Unread
 import type { DocumentoEmitido, DocumentoFiscal } from '@/types';
 import {
   FileText, Edit, AlertTriangle, Copy, XCircle, Download,
-  FileCheck, CheckCircle, MessageSquare, Receipt, Upload, UserCheck, Wrench,
+  FileCheck, CheckCircle, MessageSquare, Receipt, Upload, UserCheck, Wrench, Send,
 } from 'lucide-react';
 import type { SolicitacaoComFornecedor, RejectionInfo, InfoRequest } from './types';
 
@@ -105,11 +105,11 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
           <div className="flex items-center gap-2">
             <CheckCircle className="h-5 w-5" />
             <span className="font-semibold">OC DISPONÍVEL</span>
-            <span className="text-sm opacity-90">- Visualize e libere para o fornecedor</span>
+            <span className="text-sm opacity-90">- Revise e libere a OC para o fornecedor</span>
           </div>
           <Button size="sm" variant="secondary" onClick={() => openAceiteModal(sol)}
-            className="bg-white text-green-700 hover:bg-white/90 border border-green-300 shadow-sm">
-            <FileText className="h-4 w-4 mr-1" /> Visualizar OC
+            className="bg-white text-green-700 hover:bg-white/90 border border-green-300 shadow-sm font-semibold">
+            <Send className="h-4 w-4 mr-1" /> Liberar OC
           </Button>
         </div>
       );
