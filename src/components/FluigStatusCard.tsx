@@ -345,8 +345,8 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
       </div>
 
       <div className="grid gap-2 text-sm">
-        {/* Current responsible - always show REAL responsible based on responsavel_atual/localizacao */}
-        {(status.responsavel_atual || devolucaoDetectada) && (
+        {/* Current responsible - only show when process is active */}
+        {!processoConcluido && (status.responsavel_atual || devolucaoDetectada) && (
           <div className="flex items-center gap-2 flex-wrap">
             <User className={`h-3.5 w-3.5 ${devolucaoDetectada ? 'text-amber-500' : 'text-blue-500'}`} />
             <span className="text-muted-foreground">Responsável atual:</span>
