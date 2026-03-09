@@ -314,7 +314,8 @@ export function SolicitacaoTimeline({ solicitacaoId, showMessages = true, isBack
           solicitacao_id: solicitacaoId,
           user_id: user.id,
           mensagem: newMessage.trim(),
-        });
+          interno: isInternal,
+        } as any);
 
       if (error) throw error;
 
