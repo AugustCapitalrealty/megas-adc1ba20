@@ -130,7 +130,7 @@ export function BackofficeKPIs({ grouped, activeTab, onTabChange }: BackofficeKP
           <CardContent className="p-3 flex flex-col gap-1">
             <div className="flex items-center justify-between">
               <span className={cn('', iconClasses[kpi.variant])}>{kpi.icon}</span>
-              <span className="text-2xl font-bold tabular-nums">{kpi.value}</span>
+              <AnimatedValue value={kpi.value} />
             </div>
             <span className="text-xs font-medium truncate">{kpi.label}</span>
             <span className="text-[10px] text-muted-foreground truncate">{kpi.subtitle}</span>
