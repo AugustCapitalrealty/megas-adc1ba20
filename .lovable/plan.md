@@ -1,34 +1,24 @@
+# ✅ Plano Concluído: Unificar métricas Dashboard Eficiência
 
+## Problema Resolvido
 
-## Melhorar modal "Concluir Solicitação"
+O card "Backlog Crítico" e o histograma "Distribuição do Lead Time" usavam datasets diferentes:
+- Card: solicitações **em aberto** >15 dias
+- Histograma "15d+": solicitações **concluídas** com lead time >15 dias
 
-Substituir o `ConfirmModal` genérico por um modal dedicado com checklist de confirmação obrigatória.
+Isso causava confusão: clicar na barra do histograma não atualizava o card.
 
-### Nova UI do modal
+## Solução Implementada
 
-```text
-┌─────────────────────────────────────────┐
-│ ✅ Concluir Solicitação                 │
-│ Solicitação #2026000210                 │
-│                                         │
-│ Confirme antes de concluir:             │
-│                                         │
-│ ☐ NF recebida e conferida              │
-│ ☐ Pagamento lançado no Fluig           │
-│                                         │
-│          [Cancelar] [Confirmar]         │
-│          (desabilitado sem os 2 checks) │
-└─────────────────────────────────────────┘
-```
+Unificamos o card para usar o mesmo dataset do histograma (solicitações finalizadas):
 
-### Mudanças
+| Arquivo | Mudança |
+|---------|---------|
+| `src/hooks/useEficienciaDashboard.ts` | Adicionado `critico15Count` e `critico15Percent` calculados de `entries.filter(e => e.lead_time_dias > 15)` |
+| `src/pages/DashboardEficiencia.tsx` | Card renomeado para "Crítico (>15 dias)", usa `critico15Count`, drilldown unificado, tabela simplificada |
 
-| Arquivo | O que muda |
-|---------|-----------|
-| `BackofficeModals.tsx` | Criar componente `ConcluirSolicitacaoModal` com dois checkboxes obrigatórios. Botão "Confirmar" só habilita quando ambos marcados. Substituir o uso do `ConfirmModal` para `concluir_liberada`. |
-| `Backoffice.tsx` | Trocar `setConfirmAction` por um novo estado `concluirModal` (tipo `SolicitacaoBackoffice | null`). Atualizar `handleConcluirLiberada` para setar esse estado. Ajustar `handleConcluirLiberadaConfirmed` para salvar no motivo: `"NF recebida e pagamento lançado no Fluig"`. |
+## Resultado
 
-### Persistência
-
-Salvar confirmação no campo `motivo` do `historico_solicitacoes`: `"NF recebida e pagamento lançado no Fluig"` — sem migration.
-
+- Card e histograma agora mostram o mesmo número
+- Clicar no card ou na barra "15d+" filtra a mesma lista na tabela
+- Linhas com >15 dias têm highlight vermelho e ícone de alerta

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -138,10 +138,14 @@ export interface BackofficeModalsProps {
   editProjurisLoading: boolean;
   handleSaveProjuris: () => void;
 
-  // Confirmation Modal
+  // Confirmation Modal (baixa only now)
   confirmAction: { type: string; sol: SolicitacaoBackoffice; title: string; description: string } | null;
   setConfirmAction: (v: any) => void;
   handleDarBaixaConfirmed: () => Promise<void>;
+
+  // Concluir Modal
+  concluirModal: SolicitacaoBackoffice | null;
+  setConcluirModal: (v: SolicitacaoBackoffice | null) => void;
   handleConcluirLiberadaConfirmed: (sol: SolicitacaoBackoffice) => Promise<void>;
 
   // Envio Fornecedor Modal
@@ -166,6 +170,93 @@ function getSLAInfo(sol: SolicitacaoBackoffice) {
   return { tempoDesdeAbertura, tempoDesdeAprovacao, atrasadoAnalise, atrasadoEmissao };
 }
 
+// ── Concluir Solicitação Modal ─────────────────────────
+
+function ConcluirSolicitacaoModal({
+  sol,
+  onClose,
+  onConfirm,
+}: {
+  sol: SolicitacaoBackoffice | null;
+  onClose: () => void;
+  onConfirm: (sol: SolicitacaoBackoffice) => Promise<void>;
+}) {
+  const [checkNF, setCheckNF] = useState(false);
+  const [checkFluig, setCheckFluig] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const isReady = checkNF && checkFluig;
+
+  const handleConfirm = async () => {
+    if (!sol || !isReady) return;
+    setLoading(true);
+    try {
+      await onConfirm(sol);
+      onClose();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      setCheckNF(false);
+      setCheckFluig(false);
+      onClose();
+    }
+  };
+
+  return (
+    <Dialog open={!!sol} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <CheckCircle className="h-5 w-5 text-success" />
+            Concluir Solicitação
+          </DialogTitle>
+          {sol && (
+            <DialogDescription>
+              Solicitação #{sol.protocolo}
+            </DialogDescription>
+          )}
+        </DialogHeader>
+
+        <div className="py-2 space-y-4">
+          <p className="text-sm text-muted-foreground">Confirme antes de concluir:</p>
+
+          <div className="space-y-3">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <Checkbox
+                checked={checkNF}
+                onCheckedChange={(v) => setCheckNF(v === true)}
+              />
+              <span className="text-sm font-medium">NF recebida e conferida</span>
+            </label>
+
+            <label className="flex items-center gap-3 cursor-pointer">
+              <Checkbox
+                checked={checkFluig}
+                onCheckedChange={(v) => setCheckFluig(v === true)}
+              />
+              <span className="text-sm font-medium">Pagamento lançado no Fluig</span>
+            </label>
+          </div>
+        </div>
+
+        <DialogFooter className="flex flex-col sm:flex-row gap-2">
+          <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={loading}>
+            Cancelar
+          </Button>
+          <Button onClick={handleConfirm} disabled={!isReady || loading}>
+            {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+            Confirmar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ── Component ──────────────────────────────────────────
 
 export function BackofficeModals(props: BackofficeModalsProps) {
@@ -182,7 +273,8 @@ export function BackofficeModals(props: BackofficeModalsProps) {
     editFluigOpen, setEditFluigOpen, editFluigValue, setEditFluigValue, editFluigLoading, handleSaveFluig,
     editFluigCadastroOpen, setEditFluigCadastroOpen, editFluigCadastroValue, setEditFluigCadastroValue, editFluigCadastroLoading, handleSaveFluigCadastro,
     editProjurisOpen, setEditProjurisOpen, editProjurisValue, setEditProjurisValue, editProjurisLoading, handleSaveProjuris,
-    confirmAction, setConfirmAction, handleDarBaixaConfirmed, handleConcluirLiberadaConfirmed,
+    confirmAction, setConfirmAction, handleDarBaixaConfirmed,
+    concluirModal, setConcluirModal, handleConcluirLiberadaConfirmed,
     envioFornecedorModal, setEnvioFornecedorModal, handleRegistrarEnvioFornecedorConfirmed,
   } = props;
 
@@ -1041,7 +1133,7 @@ export function BackofficeModals(props: BackofficeModalsProps) {
         </DialogContent>
       </Dialog>
 
-      {/* ═══════════════ Confirmation Modal ═══════════════ */}
+      {/* ═══════════════ Confirmation Modal (baixa only) ═══════════════ */}
       <ConfirmModal
         open={!!confirmAction}
         onOpenChange={(open) => !open && setConfirmAction(null)}
@@ -1050,11 +1142,16 @@ export function BackofficeModals(props: BackofficeModalsProps) {
         confirmText="Confirmar"
         onConfirm={async () => {
           if (!confirmAction) return;
-          const { type, sol } = confirmAction;
           setConfirmAction(null);
-          if (type === 'baixa') await handleDarBaixaConfirmed();
-          else if (type === 'concluir_liberada') await handleConcluirLiberadaConfirmed(sol);
+          if (confirmAction.type === 'baixa') await handleDarBaixaConfirmed();
         }}
+      />
+
+      {/* ═══════════════ Concluir Solicitação Modal ═══════════════ */}
+      <ConcluirSolicitacaoModal
+        sol={concluirModal}
+        onClose={() => setConcluirModal(null)}
+        onConfirm={handleConcluirLiberadaConfirmed}
       />
 
       {/* ═══════════════ Envio Fornecedor Modal ═══════════════ */}

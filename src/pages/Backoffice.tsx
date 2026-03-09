@@ -135,7 +135,7 @@ export default function Backoffice() {
 
   // Confirmation modal state (#4 improvement)
   const [confirmAction, setConfirmAction] = useState<{
-    type: 'baixa' | 'concluir_liberada';
+    type: 'baixa';
     sol: SolicitacaoBackoffice;
     title: string;
     description: string;
@@ -592,13 +592,11 @@ export default function Backoffice() {
     }
   };
 
+  // Concluir modal state
+  const [concluirModal, setConcluirModal] = useState<SolicitacaoBackoffice | null>(null);
+
   const handleConcluirLiberada = (sol: SolicitacaoBackoffice) => {
-    setConfirmAction({
-      type: 'concluir_liberada',
-      sol,
-      title: 'Concluir Solicitação',
-      description: `Confirma a conclusão da solicitação #${sol.protocolo}?`,
-    });
+    setConcluirModal(sol);
   };
 
   const handleConcluirLiberadaConfirmed = async (sol: SolicitacaoBackoffice) => {
@@ -617,7 +615,7 @@ export default function Backoffice() {
         acao: 'Conclusão',
         status_anterior: sol.status,
         status_novo: 'concluida',
-        motivo: 'Solicitação concluída',
+        motivo: 'NF recebida e pagamento lançado no Fluig',
       });
 
       toast({
@@ -1615,6 +1613,8 @@ export default function Backoffice() {
         confirmAction={confirmAction}
         setConfirmAction={setConfirmAction}
         handleDarBaixaConfirmed={handleDarBaixaConfirmed}
+        concluirModal={concluirModal}
+        setConcluirModal={setConcluirModal}
         handleConcluirLiberadaConfirmed={handleConcluirLiberadaConfirmed}
         envioFornecedorModal={envioFornecedorModal}
         setEnvioFornecedorModal={setEnvioFornecedorModal}
