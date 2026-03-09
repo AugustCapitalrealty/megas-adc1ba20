@@ -56,8 +56,8 @@ import {
   Legend,
   Cell,
 } from 'recharts';
-import { useEficienciaDashboard, type EficienciaFilters } from '@/hooks/useEficienciaDashboard';
-import { EMPREENDIMENTO_LABELS, type Empreendimento } from '@/types';
+import { useEficienciaDashboard, type EficienciaFilters, type BacklogEntry, type LeadTimeEntry } from '@/hooks/useEficienciaDashboard';
+import { EMPREENDIMENTO_LABELS, STATUS_LABELS, type Empreendimento } from '@/types';
 import { cn } from '@/lib/utils';
 
 type DrilldownFilter = 'all' | 'same_day' | 'backlog' | string;
@@ -112,6 +112,7 @@ export default function DashboardEficiencia() {
     sameDayPercent,
     sameDayCount,
     backlogCritico,
+    backlogEntries,
     ocEmitted,
     histogram,
     weeklyAverages,
@@ -142,8 +143,6 @@ export default function DashboardEficiencia() {
     let filtered = [...entries];
     if (drilldownFilter === 'same_day') {
       filtered = filtered.filter(e => e.lead_time_dias === 0);
-    } else if (drilldownFilter === 'backlog') {
-      filtered = filtered.filter(e => e.lead_time_dias > 15);
     } else if (drilldownFilter.startsWith('bucket_')) {
       const [, min, max] = drilldownFilter.split('_');
       filtered = filtered.filter(e =>
@@ -156,6 +155,19 @@ export default function DashboardEficiencia() {
     }
     return filtered;
   }, [entries, drilldownFilter, searchProtocolo]);
+
+  // Filtered backlog entries
+  const filteredBacklogEntries = useMemo(() => {
+    if (drilldownFilter !== 'backlog') return [];
+    let filtered = [...backlogEntries];
+    if (searchProtocolo.trim()) {
+      const q = searchProtocolo.trim().toLowerCase();
+      filtered = filtered.filter(e => e.protocolo.toLowerCase().includes(q));
+    }
+    return filtered;
+  }, [backlogEntries, drilldownFilter, searchProtocolo]);
+
+  const isBacklogView = drilldownFilter === 'backlog';
 
   // YoY data
   const yoyData = useMemo(() => {
@@ -187,7 +199,8 @@ export default function DashboardEficiencia() {
     : 0;
 
   const TABLE_LIMIT = 100;
-  const displayEntries = filteredEntries.slice(0, TABLE_LIMIT);
+  const currentEntries = isBacklogView ? filteredBacklogEntries : filteredEntries;
+  const displayEntries = currentEntries.slice(0, TABLE_LIMIT);
 
   return (
     <>
@@ -365,7 +378,7 @@ export default function DashboardEficiencia() {
                         <Info className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-muted-foreground cursor-help shrink-0" />
                       </TooltipTrigger>
                       <TooltipContent side="top" className="max-w-[280px]">
-                        <p className="text-xs">Solicitações com mais de 15 dias úteis de lead time. Clique para filtrar o detalhamento abaixo.</p>
+                        <p className="text-xs">Solicitações abertas há mais de 15 dias úteis sem OC/AC emitida. Clique para ver o detalhamento com os itens reais do backlog.</p>
                       </TooltipContent>
                     </Tooltip>
                   </div>
@@ -717,8 +730,8 @@ export default function DashboardEficiencia() {
                   )}
                 </CardTitle>
                 <CardDescription>
-                  {filteredEntries.length} solicitações
-                  {filteredEntries.length > TABLE_LIMIT && (
+                  {currentEntries.length} solicitações
+                  {currentEntries.length > TABLE_LIMIT && (
                     <span className="text-warning ml-1">(exibindo primeiras {TABLE_LIMIT})</span>
                   )}
                 </CardDescription>
@@ -752,57 +765,90 @@ export default function DashboardEficiencia() {
                     <TableRow>
                       <TableHead>Protocolo</TableHead>
                       <TableHead>Data Abertura</TableHead>
-                      <TableHead>Data Upload OC</TableHead>
-                      <TableHead className="text-center">Lead Time (dias úteis)</TableHead>
+                      {isBacklogView ? (
+                        <>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="text-center">Dias em Aberto (dias úteis)</TableHead>
+                        </>
+                      ) : (
+                        <>
+                          <TableHead>Data Upload OC</TableHead>
+                          <TableHead className="text-center">Lead Time (dias úteis)</TableHead>
+                        </>
+                      )}
                       <TableHead>Empreendimento</TableHead>
-                      <TableHead className="text-right">Valor</TableHead>
+                      {!isBacklogView && <TableHead className="text-right">Valor</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {displayEntries.map((entry) => (
-                      <TableRow
-                        key={entry.id}
-                        className={cn(
-                          entry.lead_time_dias === 0 && "bg-success/5",
-                          entry.lead_time_dias > 10 && "bg-destructive/5"
-                        )}
-                      >
-                        <TableCell className="font-mono font-medium">
-                          <button
-                            className="hover:underline text-primary font-mono font-medium flex items-center gap-1"
-                            onClick={(e) => { e.stopPropagation(); navigate(isBackofficeOrAdmin ? `/backoffice?search=${entry.protocolo}` : `/minhas-solicitacoes?search=${entry.protocolo}`); }}
-                          >
-                            {entry.protocolo}
-                            <ExternalLink className="h-3 w-3 opacity-60" />
-                          </button>
-                        </TableCell>
-                        <TableCell>
-                          {formatBR(entry.created_at, 'dd/MM HH:mm')}
-                        </TableCell>
-                        <TableCell>
-                          {formatBR(entry.data_oc, 'dd/MM HH:mm')}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge
-                            variant={entry.lead_time_dias === 0 ? 'default' : entry.lead_time_dias > 10 ? 'destructive' : 'outline'}
-                            className={cn(
-                              entry.lead_time_dias === 0 && "bg-success text-success-foreground",
-                            )}
-                          >
-                            {entry.lead_time_dias === 0 && <Zap className="h-3 w-3 mr-1" />}
-                            {formatDuration(entry.lead_time_dias)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="text-xs">
-                            {EMPREENDIMENTO_LABELS[entry.empreendimento]}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(entry.valor)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {displayEntries.map((entry) => {
+                      const isBacklogEntry = 'dias_em_aberto' in entry;
+                      const dias = isBacklogEntry ? entry.dias_em_aberto : entry.lead_time_dias;
+
+                      return (
+                        <TableRow
+                          key={entry.id}
+                          className={cn(
+                            !isBacklogEntry && dias === 0 && "bg-success/5",
+                            dias > 10 && "bg-destructive/5"
+                          )}
+                        >
+                          <TableCell className="font-mono font-medium">
+                            <button
+                              className="hover:underline text-primary font-mono font-medium flex items-center gap-1"
+                              onClick={(e) => { e.stopPropagation(); navigate(isBackofficeOrAdmin ? `/backoffice?search=${entry.protocolo}` : `/minhas-solicitacoes?search=${entry.protocolo}`); }}
+                            >
+                              {entry.protocolo}
+                              <ExternalLink className="h-3 w-3 opacity-60" />
+                            </button>
+                          </TableCell>
+                          <TableCell>
+                            {formatBR(entry.created_at, 'dd/MM HH:mm')}
+                          </TableCell>
+
+                          {isBacklogEntry ? (
+                            <>
+                              <TableCell>
+                                <Badge variant="outline" className="text-xs">
+                                  {STATUS_LABELS[entry.status as keyof typeof STATUS_LABELS] || entry.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <Badge variant="destructive">
+                                  <AlertTriangle className="h-3 w-3 mr-1" />
+                                  {formatDuration(dias)}
+                                </Badge>
+                              </TableCell>
+                            </>
+                          ) : (
+                            <>
+                              <TableCell>{formatBR(entry.data_oc, 'dd/MM HH:mm')}</TableCell>
+                              <TableCell className="text-center">
+                                <Badge
+                                  variant={dias === 0 ? 'default' : dias > 10 ? 'destructive' : 'outline'}
+                                  className={cn(dias === 0 && "bg-success text-success-foreground")}
+                                >
+                                  {dias === 0 && <Zap className="h-3 w-3 mr-1" />}
+                                  {formatDuration(dias)}
+                                </Badge>
+                              </TableCell>
+                            </>
+                          )}
+
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs">
+                              {EMPREENDIMENTO_LABELS[entry.empreendimento]}
+                            </Badge>
+                          </TableCell>
+
+                          {!isBacklogEntry && (
+                            <TableCell className="text-right font-medium">
+                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(entry.valor)}
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>

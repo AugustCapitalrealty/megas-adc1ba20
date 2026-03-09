@@ -1,32 +1,59 @@
 
 
-## Correção — Backlog Crítico: KPI vs Tabela
+# Plano: Trocar Logo + Eliminar Loading Duplo
 
-### Problema (persiste desde a primeira análise)
+## Diagnóstico
 
-O KPI "Backlog Crítico" e a tabela de drilldown continuam usando **datasets diferentes**:
+Dois problemas distintos:
 
-- **Card KPI**: Query separada → solicitações **abertas sem OC**, >15 dias úteis desde criação até hoje → resultado: **1**
-- **Tabela drilldown**: Filtra `entries` → solicitações **já com OC emitida** que levaram >15 dias → resultado: **vários**
+**1. Logo desatualizada** — Precisa trocar para a nova versão enviada.
 
-O clique foi reativado mas o filtro da tabela não foi corrigido.
+**2. Três shells separados causam remontagem do layout:**
 
-### Solução
+```text
+Atual (App.tsx):
+  <Route element={<ProtectedShell />}>           ← Shell A (monta AppLayout)
+    Dashboard, MinhasSolicitacoes, etc.
+  </Route>
+  <Route element={<ProtectedShell requireBackoffice />}>  ← Shell B (OUTRO AppLayout)
+    Backoffice, DashboardSLA, etc.
+  </Route>
+  <Route element={<ProtectedShell requireAdmin />}>       ← Shell C (OUTRO AppLayout)
+    Admin
+  </Route>
+```
 
-Expor os itens reais do backlog crítico no hook e usá-los na tabela quando `drilldownFilter === 'backlog'`.
+Ao navegar de Dashboard (Shell A) para Backoffice (Shell B), o React desmonta o Shell A inteiro (incluindo header/logo/menu) e monta o Shell B do zero. Isso causa o efeito de "carregar duas vezes" — primeiro o loading do auth no novo shell, depois o loading dos dados da página.
 
-**Arquivo: `src/hooks/useEficienciaDashboard.ts`**
-- Na query de backlog (linha 182-220), em vez de retornar apenas o `count`, retornar também os dados das solicitações (id, protocolo, created_at, empreendimento, status, dias úteis calculados)
-- Exportar `backlogEntries: BacklogEntry[]` além de `backlogCritico: number`
+## Alterações
 
-**Arquivo: `src/pages/DashboardEficiencia.tsx`**
-- Quando `drilldownFilter === 'backlog'`, renderizar uma tabela diferente usando `backlogEntries` (com colunas: Protocolo, Empreendimento, Status, Dias em aberto)
-- Para os outros filtros, manter a tabela atual baseada em `entries`
+### 1. Trocar logo
+Copiar `user-uploads://logo-mega-removebg-preview-2.png` para `src/assets/logos/logo-mega.png`. Todas as referências já apontam para esse arquivo.
 
-### Mudanças detalhadas
+### 2. Unificar em um único Shell (`src/App.tsx`)
+Usar **um único** `<ProtectedShell>` para todas as rotas protegidas. Cheques de permissão (backoffice/admin) movidos para componentes wrapper inline nas rotas individuais:
 
-| Arquivo | O quê |
-|---|---|
-| `src/hooks/useEficienciaDashboard.ts` | Backlog query retorna array de items + count; novo tipo `BacklogEntry`; exportar `backlogEntries` |
-| `src/pages/DashboardEficiencia.tsx` | Condicional na tabela: se `backlog` → tabela com `backlogEntries`; senão → tabela existente |
+```text
+Depois:
+  <Route element={<ProtectedShell />}>     ← UM ÚNICO Shell (AppLayout monta 1 vez)
+    Dashboard
+    MinhasSolicitacoes
+    Backoffice         ← permissão checada internamente
+    Admin              ← permissão checada internamente
+    DashboardSLA       ← permissão checada internamente
+    etc.
+  </Route>
+```
+
+Criar um componente `<RequireRole>` que checa permissão e redireciona se não autorizado, sem mostrar loading (auth já foi verificado pelo shell pai).
+
+### 3. Loading mais leve no ProtectedShell
+Ao invés da tela cheia com logo + spinner (que compete visualmente com o Suspense), usar apenas um spinner discreto centralizado. A logo já está no header do AppLayout — não precisa repetir no loading.
+
+## Arquivos alterados
+
+| Arquivo | Alteração |
+|---------|-----------|
+| `src/assets/logos/logo-mega.png` | Substituir pela nova logo |
+| `src/App.tsx` | Unificar 3 shells em 1, criar RequireRole, loading simplificado |
 
