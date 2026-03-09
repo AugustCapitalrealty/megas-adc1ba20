@@ -1,72 +1,59 @@
 
-## Diagnóstico completo
 
-O botão "Ver OC Original" atualmente chama `navigate('/minhas-solicitacoes?search=${protocolo}')` — navega para outra página com filtro de busca, saindo do painel de garantias.
+# Plano: Trocar Logo + Eliminar Loading Duplo
 
-O objetivo é abrir o `OCDetalhesModal` inline (como o modal "Ver Detalhes" do Monitoramento/Projuris), sem sair da página.
+## Diagnóstico
 
-O `OCDetalhesModal` já existe em `src/components/monitoramento/OCDetalhesModal.tsx` e aceita:
-- `open: boolean`
-- `onOpenChange: (open: boolean) => void`
-- `solicitacaoId: string | null`
-- `protocolo: string | null`
-- `onAction?: ...` (opcional — não precisamos passar)
+Dois problemas distintos:
 
-O `GarantiaItem.id` é exatamente o `solicitacoes.id` (UUID) — confirmado no query do hook (linha 149: `id, protocolo, ...`). Todos os dados necessários já existem.
+**1. Logo desatualizada** — Precisa trocar para a nova versão enviada.
 
----
+**2. Três shells separados causam remontagem do layout:**
 
-## Plano de implementação
-
-### 1 — `src/pages/GarantiasVigentes.tsx`
-
-Adicionar estado para o modal:
-```ts
-const [modalOpen, setModalOpen] = useState(false);
-const [modalSolicitacaoId, setModalSolicitacaoId] = useState<string | null>(null);
-const [modalProtocolo, setModalProtocolo] = useState<string | null>(null);
+```text
+Atual (App.tsx):
+  <Route element={<ProtectedShell />}>           ← Shell A (monta AppLayout)
+    Dashboard, MinhasSolicitacoes, etc.
+  </Route>
+  <Route element={<ProtectedShell requireBackoffice />}>  ← Shell B (OUTRO AppLayout)
+    Backoffice, DashboardSLA, etc.
+  </Route>
+  <Route element={<ProtectedShell requireAdmin />}>       ← Shell C (OUTRO AppLayout)
+    Admin
+  </Route>
 ```
 
-Substituir `handleVerOriginal`:
-```ts
-const handleVerOriginal = (id: string, protocolo: string) => {
-  setModalSolicitacaoId(id);
-  setModalProtocolo(protocolo);
-  setModalOpen(true);
-};
+Ao navegar de Dashboard (Shell A) para Backoffice (Shell B), o React desmonta o Shell A inteiro (incluindo header/logo/menu) e monta o Shell B do zero. Isso causa o efeito de "carregar duas vezes" — primeiro o loading do auth no novo shell, depois o loading dos dados da página.
+
+## Alterações
+
+### 1. Trocar logo
+Copiar `user-uploads://logo-mega-removebg-preview-2.png` para `src/assets/logos/logo-mega.png`. Todas as referências já apontam para esse arquivo.
+
+### 2. Unificar em um único Shell (`src/App.tsx`)
+Usar **um único** `<ProtectedShell>` para todas as rotas protegidas. Cheques de permissão (backoffice/admin) movidos para componentes wrapper inline nas rotas individuais:
+
+```text
+Depois:
+  <Route element={<ProtectedShell />}>     ← UM ÚNICO Shell (AppLayout monta 1 vez)
+    Dashboard
+    MinhasSolicitacoes
+    Backoffice         ← permissão checada internamente
+    Admin              ← permissão checada internamente
+    DashboardSLA       ← permissão checada internamente
+    etc.
+  </Route>
 ```
 
-Adicionar `<OCDetalhesModal>` ao final do JSX:
-```tsx
-<OCDetalhesModal
-  open={modalOpen}
-  onOpenChange={setModalOpen}
-  solicitacaoId={modalSolicitacaoId}
-  protocolo={modalProtocolo}
-/>
-```
+Criar um componente `<RequireRole>` que checa permissão e redireciona se não autorizado, sem mostrar loading (auth já foi verificado pelo shell pai).
 
-Remover `useNavigate` (não será mais necessário).
+### 3. Loading mais leve no ProtectedShell
+Ao invés da tela cheia com logo + spinner (que compete visualmente com o Suspense), usar apenas um spinner discreto centralizado. A logo já está no header do AppLayout — não precisa repetir no loading.
 
-### 2 — `src/components/garantias/GarantiaCard.tsx`
+## Arquivos alterados
 
-Atualizar a assinatura da prop:
-```ts
-onVerOriginal: (id: string, protocolo: string) => void;
-```
+| Arquivo | Alteração |
+|---------|-----------|
+| `src/assets/logos/logo-mega.png` | Substituir pela nova logo |
+| `src/App.tsx` | Unificar 3 shells em 1, criar RequireRole, loading simplificado |
 
-Atualizar o `onClick` do botão:
-```tsx
-onClick={() => onVerOriginal(g.id, g.protocolo)}
-```
-
-Trocar ícone `ExternalLink` → `FileText` e label "Ver OC Original" → "Ver Detalhes" para alinhar com o padrão visual do resto do app.
-
----
-
-## Arquivos modificados
-
-| Arquivo | Mudança |
-|---|---|
-| `src/pages/GarantiasVigentes.tsx` | Estado do modal + handler + renderizar `OCDetalhesModal` |
-| `src/components/garantias/GarantiaCard.tsx` | Assinatura da prop + ícone/label do botão |

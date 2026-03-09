@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   ShieldCheck, ShieldAlert, Shield, ShieldX,
-  Building2, Calendar, Wrench, ExternalLink, Loader2,
+  Building2, Calendar, Wrench, FileText, Loader2,
 } from 'lucide-react';
 import { formatBR } from '@/lib/date-utils';
 import { EMPREENDIMENTO_LABELS, TIPO_GARANTIA_LABELS } from '@/types';
@@ -82,7 +82,7 @@ interface GarantiaCardProps {
   garantia: GarantiaItem;
   infraspeakLoading: string | null;
   onToggleInfraspeak: (id: string, current: boolean) => void;
-  onVerOriginal: (protocolo: string) => void;
+  onVerOriginal: (id: string, protocolo: string) => void;
 }
 
 export const GarantiaCard = React.memo(function GarantiaCard({
@@ -157,10 +157,10 @@ export const GarantiaCard = React.memo(function GarantiaCard({
               size="sm"
               variant="ghost"
               className="gap-1.5 text-xs text-muted-foreground hover:text-primary"
-              onClick={() => onVerOriginal(g.protocolo)}
+              onClick={() => onVerOriginal(g.id, g.protocolo)}
             >
-              <ExternalLink className="h-3.5 w-3.5" />
-              Ver OC Original
+              <FileText className="h-3.5 w-3.5" />
+              Ver Detalhes
             </Button>
             <Button
               size="sm"
