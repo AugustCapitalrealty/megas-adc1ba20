@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Shield, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -7,11 +6,14 @@ import { useGarantiasVigentes } from '@/hooks/useGarantiasVigentes';
 import { GarantiaKPIs } from '@/components/garantias/GarantiaKPIs';
 import { GarantiaFiltros } from '@/components/garantias/GarantiaFiltros';
 import { GarantiaCard } from '@/components/garantias/GarantiaCard';
+import { OCDetalhesModal } from '@/components/monitoramento/OCDetalhesModal';
 
 export default function GarantiasVigentes() {
   const { toast } = useToast();
-  const navigate = useNavigate();
   const [infraspeakLoading, setInfraspeakLoading] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalSolicitacaoId, setModalSolicitacaoId] = useState<string | null>(null);
+  const [modalProtocolo, setModalProtocolo] = useState<string | null>(null);
 
   const {
     garantias,
