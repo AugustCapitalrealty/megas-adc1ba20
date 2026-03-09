@@ -271,6 +271,8 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
     );
   }
 
+  const processoConcluido = isFluigFechado(status);
+
   const dataLancamentoFormatted = status.data_lancamento 
     ? formatBR(status.data_lancamento, "dd/MM/yyyy")
     : null;
