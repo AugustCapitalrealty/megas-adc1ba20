@@ -503,12 +503,31 @@ export function SolicitacaoTimeline({ solicitacaoId, showMessages = true, isBack
       {/* Message input */}
       {showMessages && (
         <div className="pt-4 border-t">
+          {isBackofficeOrAdmin && (
+            <div className="flex items-center gap-2 mb-2">
+              <Checkbox
+                id="interno-toggle"
+                checked={isInternal}
+                onCheckedChange={(checked) => setIsInternal(!!checked)}
+              />
+              <label
+                htmlFor="interno-toggle"
+                className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none"
+              >
+                <Lock className="h-3 w-3" />
+                Nota interna (visível apenas para o backoffice)
+              </label>
+            </div>
+          )}
           <div className="flex gap-2">
             <Textarea
-              placeholder="Digite sua mensagem..."
+              placeholder={isInternal ? "Escreva uma nota interna..." : "Digite sua mensagem..."}
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-              className="min-h-[60px] resize-none"
+              className={cn(
+                "min-h-[60px] resize-none",
+                isInternal && "border-amber-300 dark:border-amber-700 focus-visible:ring-amber-400"
+              )}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
@@ -520,10 +539,15 @@ export function SolicitacaoTimeline({ solicitacaoId, showMessages = true, isBack
               onClick={handleSendMessage}
               disabled={!newMessage.trim() || sending}
               size="icon"
-              className="shrink-0 h-[60px] w-[60px]"
+              className={cn(
+                "shrink-0 h-[60px] w-[60px]",
+                isInternal && "bg-amber-500 hover:bg-amber-600"
+              )}
             >
               {sending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
+              ) : isInternal ? (
+                <Lock className="h-4 w-4" />
               ) : (
                 <Send className="h-4 w-4" />
               )}
