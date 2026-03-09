@@ -456,7 +456,7 @@ function AceiteModal(props: AceiteModalProps) {
     aceiteLoading, fornecedorEmailContato, setFornecedorEmailContato,
     fornecedorTelefoneContato, setFornecedorTelefoneContato,
     tipoEntrega, setTipoEntrega, dataExecucaoServico, setDataExecucaoServico,
-    evidenciaFile, setEvidenciaFile,
+    evidenciaFile, setEvidenciaFile, motivoOCAntes, setMotivoOCAntes,
     handleAceitarOC, handleSolicitarAjuste, openOCInNewTab, downloadDocumentoEmitido,
   } = props;
 
