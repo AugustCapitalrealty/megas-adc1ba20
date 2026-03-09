@@ -355,6 +355,19 @@ export function AppLayout() {
                 </div>
                 <nav aria-label="Menu mobile" className="flex flex-col gap-2">
                   <Link
+                    to="/"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={cn(
+                      'flex items-center gap-2 px-3 py-2.5 rounded-md text-sm font-medium transition-colors',
+                      isActive('/')
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-foreground/70 hover:text-primary hover:bg-accent'
+                    )}
+                  >
+                    <LayoutDashboard className="h-4 w-4" />
+                    Dashboard
+                  </Link>
+                  <Link
                     to="/nova-solicitacao"
                     onClick={() => setMobileMenuOpen(false)}
                     className={cn(

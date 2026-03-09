@@ -239,7 +239,7 @@ export default function Dashboard() {
                   <Card 
                     key={kpi.label}
                     className={cn(
-                      'cursor-pointer hover:shadow-md transition-all focus-visible:ring-2 focus-visible:ring-ring',
+                      'cursor-pointer hover:shadow-md transition-all active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring',
                       kpi.highlight ? 'border-destructive/50 shadow-sm' : 'hover:border-primary/30'
                     )}
                     role="button"

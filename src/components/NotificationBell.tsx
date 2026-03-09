@@ -226,7 +226,7 @@ export function NotificationBell() {
                 ? 'bg-destructive text-destructive-foreground animate-pulse'
                 : 'bg-destructive text-destructive-foreground'
             )}>
-              {unreadCount > 9 ? '9+' : unreadCount}
+              {unreadCount > 99 ? '99+' : unreadCount}
             </span>
           )}
         </Button>
