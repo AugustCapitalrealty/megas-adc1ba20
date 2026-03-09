@@ -39,8 +39,10 @@ export default function GarantiasVigentes() {
     setInfraspeakLoading(null);
   };
 
-  const handleVerOriginal = (protocolo: string) => {
-    navigate(`/minhas-solicitacoes?search=${protocolo}`);
+  const handleVerOriginal = (id: string, protocolo: string) => {
+    setModalSolicitacaoId(id);
+    setModalProtocolo(protocolo);
+    setModalOpen(true);
   };
 
   return (
