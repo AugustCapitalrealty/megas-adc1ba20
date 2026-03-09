@@ -1,76 +1,24 @@
+# ✅ Plano Concluído: Unificar métricas Dashboard Eficiência
 
+## Problema Resolvido
 
-## Problema
+O card "Backlog Crítico" e o histograma "Distribuição do Lead Time" usavam datasets diferentes:
+- Card: solicitações **em aberto** >15 dias
+- Histograma "15d+": solicitações **concluídas** com lead time >15 dias
 
-Os inputs nativos `<input type="date">` não são intuitivos:
-- Visual inconsistente entre navegadores
-- Não mostra calendário visual ao clicar
-- Difícil selecionar datas rapidamente
-- Não segue o padrão visual do resto da aplicação
+Isso causava confusão: clicar na barra do histograma não atualizava o card.
 
----
+## Solução Implementada
 
-## Solução
+Unificamos o card para usar o mesmo dataset do histograma (solicitações finalizadas):
 
-Substituir por **DatePicker com Popover + Calendar** do Shadcn — padrão já utilizado na aplicação que oferece:
-- Calendário visual com seleção por clique
-- Visual consistente com o design system
-- Exibe data formatada (dd/MM/yyyy) de forma legível
+| Arquivo | Mudança |
+|---------|---------|
+| `src/hooks/useEficienciaDashboard.ts` | Adicionado `critico15Count` e `critico15Percent` calculados de `entries.filter(e => e.lead_time_dias > 15)` |
+| `src/pages/DashboardEficiencia.tsx` | Card renomeado para "Crítico (>15 dias)", usa `critico15Count`, drilldown unificado, tabela simplificada |
 
-### Layout proposto
+## Resultado
 
-```
-┌─────────────────────┐   ┌─────────────────────┐
-│ 📅  01/01/2025   ▾  │   │ 📅  31/01/2025   ▾  │
-└─────────────────────┘   └─────────────────────┘
-      Data Início              Data Fim
-```
-
-Cada campo abre um popover com calendário ao clicar.
-
-### Mudanças técnicas
-
-| Arquivo | Alteração |
-|---------|-----------|
-| `src/pages/DashboardEficiencia.tsx` | Adicionar imports de `Popover`, `PopoverTrigger`, `PopoverContent`, `Calendar`, `format` do date-fns |
-| Linha 234-249 | Substituir bloco de inputs nativos por dois `<Popover>` com `<Calendar>` |
-| State | Converter `dataInicio`/`dataFim` de string ISO para objetos `Date` (ou manter string e parsear) |
-
-### Código exemplo
-
-```tsx
-<div className="flex items-center gap-2">
-  <Popover>
-    <PopoverTrigger asChild>
-      <Button variant="outline" size="sm" className="h-8 w-[130px] justify-start text-xs">
-        <Calendar className="mr-1.5 h-3.5 w-3.5" />
-        {filters.dataInicio ? format(parseISO(filters.dataInicio), 'dd/MM/yyyy') : 'Data início'}
-      </Button>
-    </PopoverTrigger>
-    <PopoverContent className="w-auto p-0" align="start">
-      <Calendar
-        mode="single"
-        selected={filters.dataInicio ? parseISO(filters.dataInicio) : undefined}
-        onSelect={(date) => handleFilterChange('dataInicio', date ? format(date, 'yyyy-MM-dd') : '')}
-        className="pointer-events-auto"
-      />
-    </PopoverContent>
-  </Popover>
-
-  <span className="text-muted-foreground text-xs">—</span>
-
-  <Popover>
-    {/* Similar para dataFim */}
-  </Popover>
-</div>
-```
-
----
-
-## Resultado esperado
-
-- Clique no botão → abre calendário visual
-- Seleciona data com um clique
-- Exibe data formatada "dd/MM/yyyy" no botão
-- UX consistente com padrões modernos
-
+- Card e histograma agora mostram o mesmo número
+- Clicar no card ou na barra "15d+" filtra a mesma lista na tabela
+- Linhas com >15 dias têm highlight vermelho e ícone de alerta

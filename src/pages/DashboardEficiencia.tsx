@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
-import { startOfMonth, startOfYear } from 'date-fns';
+import { startOfMonth, startOfYear, format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { formatBR } from '@/lib/date-utils';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,6 +12,8 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import {
   Table,
   TableBody,
@@ -231,21 +234,44 @@ export default function DashboardEficiencia() {
             ))}
           </div>
 
-          <div className="flex items-center gap-1.5 border rounded-md px-2.5 h-8 bg-background">
-            <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-            <input
-              type="date"
-              value={filters.dataInicio}
-              onChange={(e) => handleFilterChange('dataInicio', e.target.value)}
-              className="text-xs bg-transparent border-none outline-none w-[110px] text-foreground"
-            />
+          <div className="flex items-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 w-[140px] justify-start text-xs font-normal">
+                  <Calendar className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
+                  {filters.dataInicio ? format(parseISO(filters.dataInicio), 'dd/MM/yyyy') : 'Data início'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarComponent
+                  mode="single"
+                  selected={filters.dataInicio ? parseISO(filters.dataInicio) : undefined}
+                  onSelect={(date) => handleFilterChange('dataInicio', date ? format(date, 'yyyy-MM-dd') : '')}
+                  locale={ptBR}
+                  className="pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+
             <span className="text-muted-foreground text-xs">—</span>
-            <input
-              type="date"
-              value={filters.dataFim}
-              onChange={(e) => handleFilterChange('dataFim', e.target.value)}
-              className="text-xs bg-transparent border-none outline-none w-[110px] text-foreground"
-            />
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 w-[140px] justify-start text-xs font-normal">
+                  <Calendar className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
+                  {filters.dataFim ? format(parseISO(filters.dataFim), 'dd/MM/yyyy') : 'Data fim'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarComponent
+                  mode="single"
+                  selected={filters.dataFim ? parseISO(filters.dataFim) : undefined}
+                  onSelect={(date) => handleFilterChange('dataFim', date ? format(date, 'yyyy-MM-dd') : '')}
+                  locale={ptBR}
+                  className="pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
           </div>
 
           <Select
