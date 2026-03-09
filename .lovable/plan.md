@@ -1,59 +1,32 @@
 
+Objetivo: deixar novamente todos os 4 cards de KPI clicáveis (incluindo Backlog Crítico), como você pediu.
 
-# Plano: Trocar Logo + Eliminar Loading Duplo
+Diagnóstico atual:
+- O Backlog Crítico está sem `onClick` e sem estilos de card interativo.
+- Os outros cards continuam clicáveis.
+- O filtro `drilldownFilter = 'backlog'` já existe e já filtra a tabela por `lead_time_dias > 15`, então a base técnica para clique já está pronta.
 
-## Diagnóstico
+Plano de implementação (arquivo: `src/pages/DashboardEficiencia.tsx`):
+1) Reativar clique no card “Backlog Crítico”
+- Adicionar `onClick={() => setDrilldownFilter('backlog')}` no card.
+- Reaplicar classes de interação visual:
+  - `cursor-pointer`
+  - `hover:shadow-md`
+  - `transition-shadow`
+  - estado ativo com `ring-2 ring-primary/30` quando `drilldownFilter === 'backlog'`.
 
-Dois problemas distintos:
+2) Ajustar texto explicativo do tooltip do Backlog
+- Remover a mensagem que diz que “não possui detalhamento”.
+- Substituir por descrição neutra alinhada ao comportamento clicável (ex.: ao clicar, aplica filtro de backlog no detalhamento).
 
-**1. Logo desatualizada** — Precisa trocar para a nova versão enviada.
+3) Garantir consistência dos 4 cards
+- Lead Time Médio → `all`
+- Same-Day → `same_day`
+- Backlog Crítico → `backlog`
+- Vazão → `all`
+- Assim todos ficam clicáveis e com feedback visual uniforme.
 
-**2. Três shells separados causam remontagem do layout:**
-
-```text
-Atual (App.tsx):
-  <Route element={<ProtectedShell />}>           ← Shell A (monta AppLayout)
-    Dashboard, MinhasSolicitacoes, etc.
-  </Route>
-  <Route element={<ProtectedShell requireBackoffice />}>  ← Shell B (OUTRO AppLayout)
-    Backoffice, DashboardSLA, etc.
-  </Route>
-  <Route element={<ProtectedShell requireAdmin />}>       ← Shell C (OUTRO AppLayout)
-    Admin
-  </Route>
-```
-
-Ao navegar de Dashboard (Shell A) para Backoffice (Shell B), o React desmonta o Shell A inteiro (incluindo header/logo/menu) e monta o Shell B do zero. Isso causa o efeito de "carregar duas vezes" — primeiro o loading do auth no novo shell, depois o loading dos dados da página.
-
-## Alterações
-
-### 1. Trocar logo
-Copiar `user-uploads://logo-mega-removebg-preview-2.png` para `src/assets/logos/logo-mega.png`. Todas as referências já apontam para esse arquivo.
-
-### 2. Unificar em um único Shell (`src/App.tsx`)
-Usar **um único** `<ProtectedShell>` para todas as rotas protegidas. Cheques de permissão (backoffice/admin) movidos para componentes wrapper inline nas rotas individuais:
-
-```text
-Depois:
-  <Route element={<ProtectedShell />}>     ← UM ÚNICO Shell (AppLayout monta 1 vez)
-    Dashboard
-    MinhasSolicitacoes
-    Backoffice         ← permissão checada internamente
-    Admin              ← permissão checada internamente
-    DashboardSLA       ← permissão checada internamente
-    etc.
-  </Route>
-```
-
-Criar um componente `<RequireRole>` que checa permissão e redireciona se não autorizado, sem mostrar loading (auth já foi verificado pelo shell pai).
-
-### 3. Loading mais leve no ProtectedShell
-Ao invés da tela cheia com logo + spinner (que compete visualmente com o Suspense), usar apenas um spinner discreto centralizado. A logo já está no header do AppLayout — não precisa repetir no loading.
-
-## Arquivos alterados
-
-| Arquivo | Alteração |
-|---------|-----------|
-| `src/assets/logos/logo-mega.png` | Substituir pela nova logo |
-| `src/App.tsx` | Unificar 3 shells em 1, criar RequireRole, loading simplificado |
-
+4) Validação funcional após ajuste
+- Clicar em cada card e confirmar mudança do anel ativo.
+- Clicar em Backlog Crítico e confirmar filtro `>15 dias úteis` no detalhamento.
+- Confirmar que tooltip e comportamento não se contradizem.
