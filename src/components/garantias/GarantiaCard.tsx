@@ -49,7 +49,7 @@ function GarantiaBadge({ detalhe }: { detalhe: GarantiaDetalhe }) {
       {detalhe.label}: {detalhe.diasRestantes}d
     </Badge>
   );
-});
+}
 
 // ── Progress bar ──────────────────────────────────────────────────────────────
 const GarantiaProgressBar = React.memo(function GarantiaProgressBar({ detalhe }: { detalhe: GarantiaDetalhe }) {
