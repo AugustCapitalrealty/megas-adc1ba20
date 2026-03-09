@@ -1,57 +1,59 @@
 
-## Implementação confirmada — pronto para execução
 
-Todos os arquivos originais foram relidos e confirmados. O refactor está totalmente planejado. Abaixo estão os 5 arquivos completos a serem criados/reescritos.
+# Plano: Trocar Logo + Eliminar Loading Duplo
 
----
+## Diagnóstico
 
-### Arquivo 1 — `src/hooks/useGarantiasVigentes.ts` (reescrever)
+Dois problemas distintos:
 
-**Mudanças-chave:**
-- `GarantiaStatus` = `'vigente' | 'expirando_breve' | 'expirando' | 'expirada'`
-- `calcularGarantiaDetalhe`: threshold em 60d (`expirando_breve`) e 30d (`expirando`)
-- `STATUS_PRIORITY` map para comparação de "pior status"
-- Campo `proximaExpiracaoDias` em cada `GarantiaItem` (usado na ordenação)
-- `StatusFiltro` inclui `'expirando_breve'`
-- `OrdemFiltro = 'expiracao_asc' | 'expiracao_desc' | 'valor_desc' | 'recente'`
-- `garantiasFiltradas` via `useMemo` com sort integrado
-- KPIs: `expirando_breve`, `valorTotal`, `valorVigentes`, `valorExpirando`, `proximaExpiracao`
-- Retorna `ordem, setOrdem`
+**1. Logo desatualizada** — Precisa trocar para a nova versão enviada.
 
-### Arquivo 2 — `src/components/garantias/GarantiaKPIs.tsx` (criar)
-
-4 cards em `sm:grid-cols-4`:
-- Vigentes (verde): count + valor vigente formatado
-- Expirando <30d (laranja): count + "próxima em Xd" ou "—"
-- Expirando 30–60d (âmbar): count + valor expirando
-- Expiradas (vermelho): count + total expiradas
-
-Ring highlight `ring-2 ring-offset-1 ring-primary` quando `filtroStatus === status do card`. Clique no card ativo reseta para `'todos'`. `React.memo`.
-
-### Arquivo 3 — `src/components/garantias/GarantiaCard.tsx` (criar)
-
-`React.memo`. Layout corrigido: tudo dentro de `<CardContent>`, incluindo o footer com border-t. Badges com 4 estados: `expirada` (vermelho), `expirando` (laranja), `expirando_breve` (âmbar claro), `vigente` (verde). Barras de progresso com cor correspondente ao status. Props: `garantia`, `infraspeakLoading`, `onToggleInfraspeak`, `onVerOriginal`.
-
-### Arquivo 4 — `src/components/garantias/GarantiaFiltros.tsx` (criar)
-
-`React.memo`. Grid 2 linhas: (1) busca + 4 selects + botão export; (2) select de ordenação integrado. Select de status inclui "Expirando <30d" e "Expirando 30–60d". Exportação XLSX: `Protocolo, Empreendimento, Fornecedor, CNPJ, Tipo, Dias Serviço, Dias Produto, Conclusão, Expira em (data), Dias Restantes, Valor, Infraspeak` — usando padrão da lib `xlsx` + `file-saver`.
-
-### Arquivo 5 — `src/pages/GarantiasVigentes.tsx` (reescrever)
-
-Slim orchestrator ~80 linhas: header fixo + `<GarantiaKPIs>` + `<GarantiaFiltros>` + estados (loading/error/empty) + lista de `<GarantiaCard>`. `handleToggleInfraspeak` permanece na página (mantém toast). Zero componentes inline.
-
----
-
-### Estrutura de arquivos
+**2. Três shells separados causam remontagem do layout:**
 
 ```text
-src/
-├── hooks/
-│   └── useGarantiasVigentes.ts     [REESCREVER]
-├── components/garantias/           [CRIAR PASTA]
-│   ├── GarantiaKPIs.tsx
-│   ├── GarantiaCard.tsx
-│   └── GarantiaFiltros.tsx
-└── pages/
-    └── GarantiasVigentes.tsx       [REESCREVER]
+Atual (App.tsx):
+  <Route element={<ProtectedShell />}>           ← Shell A (monta AppLayout)
+    Dashboard, MinhasSolicitacoes, etc.
+  </Route>
+  <Route element={<ProtectedShell requireBackoffice />}>  ← Shell B (OUTRO AppLayout)
+    Backoffice, DashboardSLA, etc.
+  </Route>
+  <Route element={<ProtectedShell requireAdmin />}>       ← Shell C (OUTRO AppLayout)
+    Admin
+  </Route>
 ```
+
+Ao navegar de Dashboard (Shell A) para Backoffice (Shell B), o React desmonta o Shell A inteiro (incluindo header/logo/menu) e monta o Shell B do zero. Isso causa o efeito de "carregar duas vezes" — primeiro o loading do auth no novo shell, depois o loading dos dados da página.
+
+## Alterações
+
+### 1. Trocar logo
+Copiar `user-uploads://logo-mega-removebg-preview-2.png` para `src/assets/logos/logo-mega.png`. Todas as referências já apontam para esse arquivo.
+
+### 2. Unificar em um único Shell (`src/App.tsx`)
+Usar **um único** `<ProtectedShell>` para todas as rotas protegidas. Cheques de permissão (backoffice/admin) movidos para componentes wrapper inline nas rotas individuais:
+
+```text
+Depois:
+  <Route element={<ProtectedShell />}>     ← UM ÚNICO Shell (AppLayout monta 1 vez)
+    Dashboard
+    MinhasSolicitacoes
+    Backoffice         ← permissão checada internamente
+    Admin              ← permissão checada internamente
+    DashboardSLA       ← permissão checada internamente
+    etc.
+  </Route>
+```
+
+Criar um componente `<RequireRole>` que checa permissão e redireciona se não autorizado, sem mostrar loading (auth já foi verificado pelo shell pai).
+
+### 3. Loading mais leve no ProtectedShell
+Ao invés da tela cheia com logo + spinner (que compete visualmente com o Suspense), usar apenas um spinner discreto centralizado. A logo já está no header do AppLayout — não precisa repetir no loading.
+
+## Arquivos alterados
+
+| Arquivo | Alteração |
+|---------|-----------|
+| `src/assets/logos/logo-mega.png` | Substituir pela nova logo |
+| `src/App.tsx` | Unificar 3 shells em 1, criar RequireRole, loading simplificado |
+
