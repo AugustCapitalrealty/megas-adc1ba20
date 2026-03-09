@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { subDays, startOfMonth, startOfYear } from 'date-fns';
+import { startOfMonth, startOfYear } from 'date-fns';
 import { formatBR } from '@/lib/date-utils';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -80,19 +80,14 @@ const DRILLDOWN_LABELS: Record<string, string> = {
   'bucket_16_Infinity': '15+ dias',
 };
 
-const DEFAULT_RANGE_DAYS = 90;
-
 function getDefaultDates() {
   return {
-    dataInicio: formatBR(subDays(new Date(), DEFAULT_RANGE_DAYS), 'yyyy-MM-dd'),
+    dataInicio: formatBR(startOfMonth(new Date()), 'yyyy-MM-dd'),
     dataFim: formatBR(new Date(), 'yyyy-MM-dd'),
   };
 }
 
 const QUICK_RANGES = [
-  { label: '7d', days: 7 },
-  { label: '30d', days: 30 },
-  { label: '90d', days: 90 },
   { label: 'Este mês', fn: () => ({ dataInicio: formatBR(startOfMonth(new Date()), 'yyyy-MM-dd'), dataFim: formatBR(new Date(), 'yyyy-MM-dd') }) },
   { label: 'Este ano', fn: () => ({ dataInicio: formatBR(startOfYear(new Date()), 'yyyy-MM-dd'), dataFim: formatBR(new Date(), 'yyyy-MM-dd') }) },
 ] as const;
@@ -138,16 +133,8 @@ export default function DashboardEficiencia() {
   };
 
   const applyQuickRange = (range: typeof QUICK_RANGES[number]) => {
-    if ('fn' in range && range.fn) {
-      const dates = range.fn();
-      setFilters(prev => ({ ...prev, ...dates }));
-    } else if ('days' in range) {
-      setFilters(prev => ({
-        ...prev,
-        dataInicio: formatBR(subDays(new Date(), range.days), 'yyyy-MM-dd'),
-        dataFim: formatBR(new Date(), 'yyyy-MM-dd'),
-      }));
-    }
+    const dates = range.fn();
+    setFilters(prev => ({ ...prev, ...dates }));
   };
 
   // Filtered entries for drill-down table
