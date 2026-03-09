@@ -1,24 +1,26 @@
-# ✅ Plano Concluído: Unificar métricas Dashboard Eficiência
 
-## Problema Resolvido
 
-O card "Backlog Crítico" e o histograma "Distribuição do Lead Time" usavam datasets diferentes:
-- Card: solicitações **em aberto** >15 dias
-- Histograma "15d+": solicitações **concluídas** com lead time >15 dias
+## Corrigir badge "Devolvido" exibido em solicitações já aprovadas
 
-Isso causava confusão: clicar na barra do histograma não atualizava o card.
+### Problema
 
-## Solução Implementada
+O `FluigStatusCard` detecta devoluções históricas nos eventos e exibe o badge "Devolvido por Gerência Financeira" mesmo quando o processo já foi **fechado/aprovado**. A lógica de `devolucaoDetectada` olha o histórico de eventos sem considerar se o processo já concluiu todas as aprovações necessárias.
 
-Unificamos o card para usar o mesmo dataset do histograma (solicitações finalizadas):
+Na imagem: Facilities ✅ e Financeiro ✅ estão ambos verdes (aprovados), mas o badge laranja "Devolvido por Gerência Financeira" aparece indevidamente.
 
-| Arquivo | Mudança |
-|---------|---------|
-| `src/hooks/useEficienciaDashboard.ts` | Adicionado `critico15Count` e `critico15Percent` calculados de `entries.filter(e => e.lead_time_dias > 15)` |
-| `src/pages/DashboardEficiencia.tsx` | Card renomeado para "Crítico (>15 dias)", usa `critico15Count`, drilldown unificado, tabela simplificada |
+### Causa raiz
 
-## Resultado
+Duas áreas no `FluigStatusCard.tsx`:
 
-- Card e histograma agora mostram o mesmo número
-- Clicar no card ou na barra "15d+" filtra a mesma lista na tabela
-- Linhas com >15 dias têm highlight vermelho e ícone de alerta
+1. **`devolucaoDetectada` (linhas 171-194)** — busca eventos de localização que diminuíram de nível, sem verificar se `isFluigFechado(status)` é true
+2. **`approvalStages` (linha 295-297)** — devolução detectada sobrescreve o status "approved" vindo de `getFluigApprovalStatus`
+
+### Correção
+
+**`src/components/FluigStatusCard.tsx`** — duas mudanças:
+
+1. No memo `devolucaoDetectada`: se `isFluigFechado(status)` retornar true, retornar `null` imediatamente (processo concluído, devolução é histórica)
+2. No `approvalStages`: mover a verificação de `stage.aprovado` (done) **antes** da verificação de `devolucaoDetectada`, para que aprovações confirmadas nunca sejam sobrescritas
+
+Isso garante que quando o Painel Fluig mostra o processo como aprovado, o card na tela de Minhas Solicitações mostra a mesma coisa.
+
