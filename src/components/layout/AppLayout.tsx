@@ -352,7 +352,7 @@ export function AppLayout() {
                 <div className="flex items-center gap-2 mb-8">
                   <img src={logoMega} alt="Mega Centro Logístico" width={69} height={32} className="h-8 w-auto object-contain" />
                 </div>
-                <nav className="flex flex-col gap-2">
+                <nav aria-label="Menu mobile" className="flex flex-col gap-2">
                   <Link
                     to="/nova-solicitacao"
                     onClick={() => setMobileMenuOpen(false)}
