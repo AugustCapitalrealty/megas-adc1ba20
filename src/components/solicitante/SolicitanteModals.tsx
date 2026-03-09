@@ -424,8 +424,8 @@ interface AceiteModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   aceiteSolicitacao: SolicitacaoComFornecedor | null;
-  aceiteStep: 'revisar' | 'decidir' | 'tipo_entrega' | 'confirmar';
-  setAceiteStep: (v: 'revisar' | 'decidir' | 'tipo_entrega' | 'confirmar') => void;
+  aceiteStep: 'revisar' | 'tipo_entrega' | 'confirmar';
+  setAceiteStep: (v: 'revisar' | 'tipo_entrega' | 'confirmar') => void;
   showAjusteField: boolean;
   setShowAjusteField: (v: boolean) => void;
   aceiteAjuste: string;
@@ -467,7 +467,7 @@ function AceiteModal(props: AceiteModalProps) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileCheck className="h-5 w-5 text-success" />
-            {aceiteStep === 'revisar' ? 'Revisar OC' : aceiteStep === 'decidir' ? 'Liberar para Fornecedor' : aceiteStep === 'tipo_entrega' ? 'Tipo de Entrega' : 'Confirmar Liberação'} - #{aceiteSolicitacao?.protocolo}
+            {aceiteStep === 'revisar' ? 'Revisar OC' : aceiteStep === 'tipo_entrega' ? 'Tipo de Entrega' : 'Confirmar Liberação'} - #{aceiteSolicitacao?.protocolo}
           </DialogTitle>
         </DialogHeader>
 
@@ -514,12 +514,8 @@ function AceiteModal(props: AceiteModalProps) {
                     <strong>Importante:</strong> Revise a OC com atenção antes de prosseguir. Verifique se os dados, valores e condições estão corretos.
                   </p>
                 </div>
-              </>
-            )}
 
-            {aceiteStep === 'decidir' && (
-              <>
-                <div className="grid gap-4">
+                <div className="grid gap-4 mt-4">
                   <div
                     className={cn(
                       "p-4 rounded-lg border-2 cursor-pointer transition-all",
@@ -727,12 +723,6 @@ function AceiteModal(props: AceiteModalProps) {
           {aceiteStep === 'revisar' && (
             <>
               <Button variant="outline" onClick={() => onOpenChange(false)}>Fechar</Button>
-              <Button onClick={() => setAceiteStep('decidir')}>Liberar para Fornecedor</Button>
-            </>
-          )}
-          {aceiteStep === 'decidir' && (
-            <>
-              <Button variant="outline" onClick={() => setAceiteStep('revisar')} disabled={aceiteLoading}>Voltar</Button>
               {showAjusteField ? (
                 <Button variant="default" className="bg-warning hover:bg-warning/90 text-warning-foreground"
                   onClick={handleSolicitarAjuste} disabled={aceiteLoading || !aceiteAjuste.trim()}>
@@ -749,7 +739,7 @@ function AceiteModal(props: AceiteModalProps) {
           )}
           {aceiteStep === 'tipo_entrega' && (
             <>
-              <Button variant="outline" onClick={() => setAceiteStep('decidir')} disabled={aceiteLoading}>Voltar</Button>
+              <Button variant="outline" onClick={() => setAceiteStep('revisar')} disabled={aceiteLoading}>Voltar</Button>
               <Button 
                 className="bg-success hover:bg-success/90 text-success-foreground" 
                 onClick={() => setAceiteStep('confirmar')}
