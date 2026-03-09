@@ -171,6 +171,9 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
   const devolucaoDetectada = useMemo(() => {
     if (!status || !eventos.length) return null;
     
+    // Se o processo já está fechado/aprovado, devoluções são históricas e irrelevantes
+    if (isFluigFechado(status)) return null;
+    
     // Procurar no histórico de eventos por mudança de localização que DIMINUIU de nível
     for (let i = 0; i < eventos.length; i++) {
       const e = eventos[i];
