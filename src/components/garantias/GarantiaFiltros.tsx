@@ -8,16 +8,14 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Search, Download, ArrowUpDown } from 'lucide-react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { formatBR } from '@/lib/date-utils';
 import { EMPREENDIMENTO_LABELS, TIPO_GARANTIA_LABELS } from '@/types';
 import type { Empreendimento } from '@/types';
 import type { GarantiaItem, StatusFiltro, TipoFiltro, OrdemFiltro } from '@/hooks/useGarantiasVigentes';
 
 const EMPREENDIMENTOS: Empreendimento[] = ['mega_curitiba', 'mega_itajai', 'mega_esteio'];
 
-const fmtDate = (d: Date | string) =>
-  format(typeof d === 'string' ? new Date(d) : d, 'dd/MM/yyyy', { locale: ptBR });
+const fmtDate = (d: Date | string) => formatBR(d, 'dd/MM/yyyy');
 
 const BRL = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
@@ -56,7 +54,7 @@ function exportGarantiasXLSX(garantias: GarantiaItem[]) {
 
   const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
   const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-  saveAs(blob, `garantias_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+  saveAs(blob, `garantias_${formatBR(new Date(), 'yyyy-MM-dd')}.xlsx`);
 }
 
 interface GarantiaFiltrosProps {

@@ -1,43 +1,59 @@
 
-## Diagnóstico — 3 problemas encontrados
 
-### Problema 1 — `GarantiaFiltros.tsx` linha 17: tipo `Empreendimento` inclui `'todos'`
-O tipo `Empreendimento = 'mega_curitiba' | 'mega_itajai' | 'mega_esteio' | 'todos'` mas o array hardcoded só tem 3 valores — isso é correto. Porém o `EMPREENDIMENTO_LABELS` é `Record<Empreendimento, string>` que inclui a chave `'todos'`, então o acesso `EMPREENDIMENTO_LABELS[g.empreendimento]` no `GarantiaCard.tsx` pode retornar `'Rateio entre Megas'` para empreendimentos com valor `'todos'` — aceitável, não é bug.
+# Plano: Trocar Logo + Eliminar Loading Duplo
 
-### Problema 2 — `GarantiaCard.tsx` linha 9: `import { format } from 'date-fns'` duplicado com `date-utils.ts`
-O projeto tem `src/lib/date-utils.ts` com `formatBR` que usa timezone de Brasília. O `GarantiaCard` e `GarantiaFiltros` usam `format` direto do `date-fns` sem timezone. Isso pode causar datas "erradas" em UTC (ex: 31/12 vira 01/01). Deve usar `formatBR` de `@/lib/date-utils`.
+## Diagnóstico
 
-### Problema 3 — `GarantiaFiltros.tsx` linha 49: `colWidths` pode quebrar se `rows` está vazio
-```ts
-const colWidths = Object.keys(rows[0] || {}).map(...)
+Dois problemas distintos:
+
+**1. Logo desatualizada** — Precisa trocar para a nova versão enviada.
+
+**2. Três shells separados causam remontagem do layout:**
+
+```text
+Atual (App.tsx):
+  <Route element={<ProtectedShell />}>           ← Shell A (monta AppLayout)
+    Dashboard, MinhasSolicitacoes, etc.
+  </Route>
+  <Route element={<ProtectedShell requireBackoffice />}>  ← Shell B (OUTRO AppLayout)
+    Backoffice, DashboardSLA, etc.
+  </Route>
+  <Route element={<ProtectedShell requireAdmin />}>       ← Shell C (OUTRO AppLayout)
+    Admin
+  </Route>
 ```
-Se `garantias.length === 0` o botão está desabilitado, então esse código nunca roda com array vazio. **Não é bug** — mas o `|| {}` resolve preventivamente.
 
-### Problema 4 — `useGarantiasVigentes.ts` linha 144: dependency array do `useEffect` incompleto
-```ts
-useEffect(() => {
-  if (loadingEmp) return;
-  fetchGarantias();
-}, [loadingEmp, empreendimentos, hasAllAccess]);
+Ao navegar de Dashboard (Shell A) para Backoffice (Shell B), o React desmonta o Shell A inteiro (incluindo header/logo/menu) e monta o Shell B do zero. Isso causa o efeito de "carregar duas vezes" — primeiro o loading do auth no novo shell, depois o loading dos dados da página.
+
+## Alterações
+
+### 1. Trocar logo
+Copiar `user-uploads://logo-mega-removebg-preview-2.png` para `src/assets/logos/logo-mega.png`. Todas as referências já apontam para esse arquivo.
+
+### 2. Unificar em um único Shell (`src/App.tsx`)
+Usar **um único** `<ProtectedShell>` para todas as rotas protegidas. Cheques de permissão (backoffice/admin) movidos para componentes wrapper inline nas rotas individuais:
+
+```text
+Depois:
+  <Route element={<ProtectedShell />}>     ← UM ÚNICO Shell (AppLayout monta 1 vez)
+    Dashboard
+    MinhasSolicitacoes
+    Backoffice         ← permissão checada internamente
+    Admin              ← permissão checada internamente
+    DashboardSLA       ← permissão checada internamente
+    etc.
+  </Route>
 ```
-`fetchGarantias` não está no dep array — é um bug de linting (eslint exhaustive-deps). A função é definida fora do `useEffect`, portanto sofre stale closure. Deve ser convertida para `useCallback` ou movida para dentro do `useEffect`.
 
-### Problema 5 — `GarantiaCard.tsx` linha 40-42: `expirando_breve` usa `bg-warning/10` mas `warning` pode não existir no tema
-O projeto usa `text-warning` e `bg-warning` em vários lugares — verificar se a cor `warning` está definida no `tailwind.config.ts`.
+Criar um componente `<RequireRole>` que checa permissão e redireciona se não autorizado, sem mostrar loading (auth já foi verificado pelo shell pai).
 
----
+### 3. Loading mais leve no ProtectedShell
+Ao invés da tela cheia com logo + spinner (que compete visualmente com o Suspense), usar apenas um spinner discreto centralizado. A logo já está no header do AppLayout — não precisa repetir no loading.
 
-## O que precisa ser corrigido
+## Arquivos alterados
 
-### Fix 1 — `GarantiaCard.tsx` e `GarantiaFiltros.tsx`: usar `formatBR` de `date-utils`
-Trocar `import { format } from 'date-fns'` + `import { ptBR }` pelo `import { formatBR } from '@/lib/date-utils'` e usar `formatBR(date, 'dd/MM/yyyy')` em ambos os arquivos.
+| Arquivo | Alteração |
+|---------|-----------|
+| `src/assets/logos/logo-mega.png` | Substituir pela nova logo |
+| `src/App.tsx` | Unificar 3 shells em 1, criar RequireRole, loading simplificado |
 
-### Fix 2 — `useGarantiasVigentes.ts`: corrigir dependency array
-Mover a lógica de `fetchGarantias` para dentro do `useEffect` ou usar `useCallback` com deps corretas. A abordagem mais limpa: envolver `fetchGarantias` em `useCallback` com as dependências `[empreendimentos, hasAllAccess]`.
-
-### Fix 3 — verificar `tailwind.config.ts` se `warning` está definido
-
----
-
-## Verificação do tailwind.config.ts
-Preciso ler antes de confirmar o fix 3.

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserEmpreendimentos } from '@/hooks/useUserEmpreendimentos';
@@ -138,12 +138,7 @@ export function useGarantiasVigentes() {
   const [busca, setBusca] = useState('');
   const [ordem, setOrdem] = useState<OrdemFiltro>('expiracao_asc');
 
-  useEffect(() => {
-    if (loadingEmp) return;
-    fetchGarantias();
-  }, [loadingEmp, empreendimentos, hasAllAccess]);
-
-  const fetchGarantias = async () => {
+  const fetchGarantias = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -180,7 +175,12 @@ export function useGarantiasVigentes() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [empreendimentos, hasAllAccess]);
+
+  useEffect(() => {
+    if (loadingEmp) return;
+    fetchGarantias();
+  }, [loadingEmp, fetchGarantias]);
 
   // Filtros + ordenação via useMemo
   const garantiasFiltradas = useMemo(() => {
