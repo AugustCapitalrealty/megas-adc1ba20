@@ -1,15 +1,20 @@
-# ✅ Plano Concluído: Virtualização de Listagens
+# ✅ Plano Concluído: Rate Limiting nas Edge Functions
 
 ## Resultado
 
 | Arquivo | Mudança |
 |---------|---------|
-| `src/components/ui/VirtualizedList.tsx` | Componente genérico com `@tanstack/react-virtual` |
-| `src/pages/MinhasSolicitacoes.tsx` | `.map()` → `VirtualizedList` (estimateSize: 200px) |
-| `src/pages/GarantiasVigentes.tsx` | `.map()` → `VirtualizedList` (estimateSize: 180px) |
-| `src/components/admin/SolicitacoesManagement.tsx` | Tabela virtualizada (estimateSize: 56px) |
+| `supabase/functions/_shared/rate-limit.ts` | Módulo utilitário com sliding window rate limiting |
+| `supabase/functions/validate-description/index.ts` | Rate limit: 20 req/min |
+| `supabase/functions/validate-cnae/index.ts` | Rate limit: 20 req/min |
+| `supabase/functions/validate-oc-value/index.ts` | Rate limit: 10 req/min |
+| `supabase/functions/send-notification-email/index.ts` | Rate limit: 30 req/min |
+| `supabase/functions/check-sla-alerts/index.ts` | Rate limit: 5 req/min |
+| `supabase/functions/check-correction-deadline/index.ts` | Rate limit: 5 req/min |
 
 ## Detalhes técnicos
-- Biblioteca: `@tanstack/react-virtual` (alturas dinâmicas via `measureElement`)
-- Overscan: 5 itens (cards), 10 itens (tabela)
-- Container com `maxHeight: calc(100vh - 300px)` e scroll interno
+
+- **Algoritmo**: Sliding window por IP
+- **Identificação**: Headers `cf-connecting-ip`, `x-forwarded-for`
+- **Resposta**: HTTP 429 com `Retry-After`, `X-RateLimit-Remaining`
+- **Cleanup**: Automático a cada 5 minutos para liberar memória
