@@ -1,20 +1,20 @@
-# ✅ Plano Concluído: Rate Limiting nas Edge Functions
+# ✅ Plano Concluído: Varredura Final UI/UX
 
 ## Resultado
 
 | Arquivo | Mudança |
 |---------|---------|
-| `supabase/functions/_shared/rate-limit.ts` | Módulo utilitário com sliding window rate limiting |
-| `supabase/functions/validate-description/index.ts` | Rate limit: 20 req/min |
-| `supabase/functions/validate-cnae/index.ts` | Rate limit: 20 req/min |
-| `supabase/functions/validate-oc-value/index.ts` | Rate limit: 10 req/min |
-| `supabase/functions/send-notification-email/index.ts` | Rate limit: 30 req/min |
-| `supabase/functions/check-sla-alerts/index.ts` | Rate limit: 5 req/min |
-| `supabase/functions/check-correction-deadline/index.ts` | Rate limit: 5 req/min |
+| `src/components/layout/AppLayout.tsx` | Link "Dashboard" adicionado no menu mobile |
+| `src/pages/Dashboard.tsx` | `active:scale-[0.98]` nos KPI cards |
+| `src/components/PendingActionsCard.tsx` | `truncate` nos labels dos botões |
+| `src/components/NotificationBell.tsx` | Contador expandido até 99 (era 9+) |
+| `src/components/ui/FilterBar.tsx` | Gradientes de fade suavizados (w-4, 80% opacidade) |
 
-## Detalhes técnicos
+## Detalhes
 
-- **Algoritmo**: Sliding window por IP
-- **Identificação**: Headers `cf-connecting-ip`, `x-forwarded-for`
-- **Resposta**: HTTP 429 com `Retry-After`, `X-RateLimit-Remaining`
-- **Cleanup**: Automático a cada 5 minutos para liberar memória
+- **Mobile nav**: Dashboard agora é o primeiro item do menu mobile
+- **KPI feedback tátil**: Cards diminuem levemente ao pressionar
+- **Labels responsivos**: Truncam em telas pequenas sem quebrar layout
+- **Notificações**: Badge mostra contagem real até 99, depois "99+"
+- **FilterBar**: Gradientes laterais mais sutis para não ocultar tabs
+- **Empty states**: Backoffice já utilizava `ContextualEmptyState` — sem mudança necessária
