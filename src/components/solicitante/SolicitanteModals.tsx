@@ -791,7 +791,7 @@ function AceiteModal(props: AceiteModalProps) {
           {aceiteStep === 'confirmar' && (
             <>
               <Button variant="outline" onClick={() => setAceiteStep('tipo_entrega')} disabled={aceiteLoading}>Voltar</Button>
-              <Button className="bg-success hover:bg-success/90 text-success-foreground" onClick={handleAceitarOC} disabled={aceiteLoading}>
+              <Button className="bg-success hover:bg-success/90 text-success-foreground" onClick={handleAceitarOC} disabled={aceiteLoading || !fornecedorEmailContato.trim() || !fornecedorTelefoneContato.trim()}>
                 {aceiteLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
                 Confirmar Liberação
               </Button>
