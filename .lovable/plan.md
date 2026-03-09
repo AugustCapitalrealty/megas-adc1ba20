@@ -1,24 +1,44 @@
-# ✅ Plano Concluído: Unificar métricas Dashboard Eficiência
 
-## Problema Resolvido
 
-O card "Backlog Crítico" e o histograma "Distribuição do Lead Time" usavam datasets diferentes:
-- Card: solicitações **em aberto** >15 dias
-- Histograma "15d+": solicitações **concluídas** com lead time >15 dias
+## Melhorar modal "Registrar Envio ao Fornecedor"
 
-Isso causava confusão: clicar na barra do histograma não atualizava o card.
+Atualmente o modal é um simples `ConfirmModal` com título e descrição. A ideia é transformá-lo em um modal mais completo que coleta informações sobre o envio.
 
-## Solução Implementada
+### Campos a adicionar
 
-Unificamos o card para usar o mesmo dataset do histograma (solicitações finalizadas):
+1. **Meio de envio** (select obrigatório): E-mail / WhatsApp / Correios / Entrega presencial / Outro
+2. **Observação** (textarea opcional): campo livre para anotações
+3. Exibir no modal os **dados de contato do fornecedor** (e-mail e telefone) que o solicitante informou, para referência rápida
 
-| Arquivo | Mudança |
-|---------|---------|
-| `src/hooks/useEficienciaDashboard.ts` | Adicionado `critico15Count` e `critico15Percent` calculados de `entries.filter(e => e.lead_time_dias > 15)` |
-| `src/pages/DashboardEficiencia.tsx` | Card renomeado para "Crítico (>15 dias)", usa `critico15Count`, drilldown unificado, tabela simplificada |
+### Persistência
 
-## Resultado
+- Salvar o meio de envio e observação no campo `motivo` do `historico_solicitacoes` (já existente), formatado como: `"OC enviada via E-mail. Obs: ..."` — sem necessidade de migration.
 
-- Card e histograma agora mostram o mesmo número
-- Clicar no card ou na barra "15d+" filtra a mesma lista na tabela
-- Linhas com >15 dias têm highlight vermelho e ícone de alerta
+### Mudanças
+
+| Arquivo | O que muda |
+|---------|-----------|
+| `Backoffice.tsx` | `handleRegistrarEnvioFornecedor`: em vez de setar `confirmAction`, abre um novo estado dedicado (`envioFornecedorModal`). `handleRegistrarEnvioFornecedorConfirmed`: recebe `meioEnvio` e `observacao`, salva no `motivo` do histórico. |
+| `BackofficeModals.tsx` | Substituir o uso do `ConfirmModal` genérico por um modal dedicado com select de meio de envio, exibição dos dados de contato do fornecedor, e textarea de observação. |
+
+### UI do novo modal
+
+```text
+┌─────────────────────────────────────┐
+│ ✅ Registrar Envio ao Fornecedor    │
+│ Solicitação #2026000210             │
+│                                     │
+│ Contato do fornecedor:              │
+│  📧 fornecedor@email.com            │
+│  📱 (41) 99999-9999                 │
+│                                     │
+│ Por onde a OC foi enviada? *        │
+│ [ E-mail               ▼ ]         │
+│                                     │
+│ Observação                          │
+│ [                          ]        │
+│                                     │
+│        [Cancelar] [Confirmar]       │
+└─────────────────────────────────────┘
+```
+
