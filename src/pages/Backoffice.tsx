@@ -557,6 +557,7 @@ export default function Backoffice() {
     
     setActionLoading(true);
     try {
+      const statusAnterior = sol.status;
       await supabase
         .from('solicitacoes')
         .update({ 
@@ -570,7 +571,7 @@ export default function Backoffice() {
         solicitacao_id: sol.id,
         user_id: user.id,
         acao: 'oc_enviada_fornecedor',
-        status_anterior: 'liberado_fornecedor',
+        status_anterior: statusAnterior,
         status_novo: 'enviado_fornecedor',
         motivo: 'OC enviada ao fornecedor',
       });
