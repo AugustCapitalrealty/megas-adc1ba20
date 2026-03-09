@@ -615,7 +615,7 @@ export default function Backoffice() {
         acao: 'Conclusão',
         status_anterior: sol.status,
         status_novo: 'concluida',
-        motivo: 'Solicitação concluída',
+        motivo: 'NF recebida e pagamento lançado no Fluig',
       });
 
       toast({
