@@ -1,24 +1,27 @@
-# ✅ Plano Concluído: Unificar métricas Dashboard Eficiência
 
-## Problema Resolvido
 
-O card "Backlog Crítico" e o histograma "Distribuição do Lead Time" usavam datasets diferentes:
-- Card: solicitações **em aberto** >15 dias
-- Histograma "15d+": solicitações **concluídas** com lead time >15 dias
+## Exibir status "Concluída" quando processo Fluig está fechado
 
-Isso causava confusão: clicar na barra do histograma não atualizava o card.
+### Problema
 
-## Solução Implementada
+Quando todas as aprovações necessárias foram concluídas (Facilities ✅, Financeiro ✅, Diretoria N/A por valor ≤ 2500), o card ainda mostra o `situacao` original do banco ("Em Aberto") e exibe "Responsável atual" e "Próxima etapa" como se o processo estivesse em andamento.
 
-Unificamos o card para usar o mesmo dataset do histograma (solicitações finalizadas):
+### Causa raiz
 
-| Arquivo | Mudança |
-|---------|---------|
-| `src/hooks/useEficienciaDashboard.ts` | Adicionado `critico15Count` e `critico15Percent` calculados de `entries.filter(e => e.lead_time_dias > 15)` |
-| `src/pages/DashboardEficiencia.tsx` | Card renomeado para "Crítico (>15 dias)", usa `critico15Count`, drilldown unificado, tabela simplificada |
+O `FluigStatusCard` exibe `status.situacao` diretamente do snapshot sem verificar `isFluigFechado()`. O campo `situacao` no banco não é atualizado automaticamente quando todas as aprovações são concluídas.
 
-## Resultado
+### Correção em `src/components/FluigStatusCard.tsx`
 
-- Card e histograma agora mostram o mesmo número
-- Clicar no card ou na barra "15d+" filtra a mesma lista na tabela
-- Linhas com >15 dias têm highlight vermelho e ícone de alerta
+1. **Badge de situação**: Se `isFluigFechado(status)` for true, exibir "Concluída" (verde) em vez de `status.situacao`
+2. **Ocultar "Responsável atual"** e **"Próxima etapa"** quando o processo está fechado — não faz sentido mostrar
+3. **Ocultar dias com responsável** quando fechado
+
+Lógica:
+```
+const processoConcluido = isFluigFechado(status);
+
+// Badge: se concluído → "Concluída" (verde), senão → status.situacao
+// Responsável atual: só mostra se !processoConcluido
+// Próxima etapa: só mostra se !processoConcluido
+```
+
