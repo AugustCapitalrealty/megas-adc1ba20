@@ -17,7 +17,7 @@ import { useUserEmpreendimentos } from '@/hooks/useUserEmpreendimentos';
 import { EMPREENDIMENTO_LABELS, type Empreendimento } from '@/types';
 import { 
   FileCheck, Clock, AlertTriangle, XCircle, CheckCircle, 
-  CalendarDays, Loader2, BarChart3,
+  CalendarDays, Loader2, BarChart3, Download,
   FileText, Ban, History, AlertCircle, Search, XOctagon, Scale, X, Inbox
 } from 'lucide-react';
 import { differenceInDays } from 'date-fns';
