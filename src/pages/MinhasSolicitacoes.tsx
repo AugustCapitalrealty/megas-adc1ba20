@@ -895,6 +895,8 @@ export default function MinhasSolicitacoes() {
               <SolicitanteSolicitacaoCard
                 key={sol.id}
                 sol={sol}
+                isFavorite={favoriteSet.has(sol.id)}
+                onToggleFavorite={() => toggleFavorite(sol.id)}
                 isExpanded={expandedId === sol.id}
                 onToggleExpand={() => toggleExpand(sol.id)}
                 isOwner={sol.user_id === effectiveUserId}

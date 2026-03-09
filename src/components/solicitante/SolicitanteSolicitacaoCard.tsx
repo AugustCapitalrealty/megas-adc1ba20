@@ -364,6 +364,8 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
       infoAlert={renderInfoAlert()}
       expandedContent={renderExpandedContent()}
       className={getCardClassName()}
+      isFavorite={isFavorite}
+      onToggleFavorite={onToggleFavorite}
     />
   );
 });
