@@ -547,15 +547,10 @@ export default function Backoffice() {
   };
 
   const handleRegistrarEnvioFornecedor = (sol: SolicitacaoBackoffice) => {
-    setConfirmAction({
-      type: 'envio_fornecedor',
-      sol,
-      title: 'Registrar Envio ao Fornecedor',
-      description: `Confirma que a OC da solicitação #${sol.protocolo} foi enviada ao fornecedor?`,
-    });
+    setEnvioFornecedorModal(sol);
   };
 
-  const handleRegistrarEnvioFornecedorConfirmed = async (sol: SolicitacaoBackoffice) => {
+  const handleRegistrarEnvioFornecedorConfirmed = async (sol: SolicitacaoBackoffice, meioEnvio: string, observacaoEnvio?: string) => {
     if (!user) return;
     
     setActionLoading(true);
