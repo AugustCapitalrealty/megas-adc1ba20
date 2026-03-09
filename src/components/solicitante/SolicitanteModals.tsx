@@ -424,8 +424,8 @@ interface AceiteModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   aceiteSolicitacao: SolicitacaoComFornecedor | null;
-  aceiteStep: 'revisar' | 'decidir' | 'tipo_entrega' | 'confirmar';
-  setAceiteStep: (v: 'revisar' | 'decidir' | 'tipo_entrega' | 'confirmar') => void;
+  aceiteStep: 'revisar' | 'tipo_entrega' | 'confirmar';
+  setAceiteStep: (v: 'revisar' | 'tipo_entrega' | 'confirmar') => void;
   showAjusteField: boolean;
   setShowAjusteField: (v: boolean) => void;
   aceiteAjuste: string;
