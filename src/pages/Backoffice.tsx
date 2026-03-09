@@ -1613,6 +1613,8 @@ export default function Backoffice() {
         confirmAction={confirmAction}
         setConfirmAction={setConfirmAction}
         handleDarBaixaConfirmed={handleDarBaixaConfirmed}
+        concluirModal={concluirModal}
+        setConcluirModal={setConcluirModal}
         handleConcluirLiberadaConfirmed={handleConcluirLiberadaConfirmed}
         envioFornecedorModal={envioFornecedorModal}
         setEnvioFornecedorModal={setEnvioFornecedorModal}
