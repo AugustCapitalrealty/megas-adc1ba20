@@ -43,6 +43,7 @@ import { BackofficeKPIs } from '@/components/backoffice/BackofficeKPIs';
 import { BackofficeSolicitacaoCard, type CardCallbacks } from '@/components/backoffice/BackofficeSolicitacaoCard';
 import { BackofficeModals } from '@/components/backoffice/BackofficeModals';
 import { BatchActionBar } from '@/components/backoffice/BatchActionBar';
+import { ContextualEmptyState } from '@/components/ui/ContextualEmptyState';
 
 // PDF validation types
 interface PdfValidationResult {
@@ -1344,11 +1345,7 @@ export default function Backoffice() {
     return (
       <div className="space-y-4">
         {items.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center text-muted-foreground">
-              {emptyMessage}
-            </CardContent>
-          </Card>
+          <ContextualEmptyState tab={activeTab} variant="backoffice" />
         ) : (
           <>
             {paginatedItems.map((sol) => (
@@ -1545,11 +1542,15 @@ export default function Backoffice() {
             },
           ]}
           activeTab={activeTab}
-          onTabChange={(tab) => setActiveTab(tab as BackofficeTab)}
+          onTabChange={(tab) => {
+            setActiveTab(tab as BackofficeTab);
+            setCurrentPage(1);
+            document.getElementById('backoffice-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }}
         />
 
         {/* Tab Content */}
-        <div className="space-y-4">
+        <div id="backoffice-list" className="space-y-4">
           {activeTab === 'recebidas' && (
             <TabContent items={groupedSolicitacoes.recebidas} emptyMessage="Nenhuma solicitação recebida" />
           )}

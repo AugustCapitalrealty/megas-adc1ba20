@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Inbox, AlertTriangle, FileCheck, Truck, CheckCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useCountUp } from '@/hooks/useCountUp';
 import type { SolicitacaoComFornecedor } from './types';
 
 interface KpiItem {
@@ -94,6 +95,10 @@ export function SolicitanteKPIs({ solicitacoes, activeTab, onTabChange }: Solici
     destructive: 'text-destructive',
     success: 'text-success',
   };
+  const AnimatedValue = ({ value }: { value: number }) => {
+    const animated = useCountUp(value);
+    return <span className="text-2xl font-bold tabular-nums">{animated}</span>;
+  };
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
@@ -110,7 +115,7 @@ export function SolicitanteKPIs({ solicitacoes, activeTab, onTabChange }: Solici
           <CardContent className="p-3 flex flex-col gap-1">
             <div className="flex items-center justify-between">
               <span className={cn('', iconClasses[kpi.variant])}>{kpi.icon}</span>
-              <span className="text-2xl font-bold tabular-nums">{kpi.value}</span>
+              <AnimatedValue value={kpi.value} />
             </div>
             <span className="text-xs font-medium truncate">{kpi.label}</span>
             <span className="text-[10px] text-muted-foreground truncate">{kpi.subtitle}</span>

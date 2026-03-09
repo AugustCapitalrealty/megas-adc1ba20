@@ -67,14 +67,14 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
 
     if (sol.status === 'aguardando_nf_boleto') {
       return (
-        <div className="bg-[hsl(260,70%,50%)] text-white px-4 py-2 flex items-center justify-between rounded-t-lg">
+        <div className="bg-[hsl(260,70%,50%)] text-white px-4 py-2 flex flex-col sm:flex-row sm:items-center justify-between rounded-t-lg gap-2">
           <div className="flex items-center gap-2">
-            <Receipt className="h-5 w-5" />
+            <Receipt className="h-5 w-5 shrink-0" />
             <span className="font-semibold">INCLUIR NF E BOLETO</span>
-            <span className="text-sm opacity-90">- Anexe a Nota Fiscal e o Boleto</span>
+            <span className="text-sm opacity-90 hidden sm:inline">- Anexe a Nota Fiscal e o Boleto</span>
           </div>
           <Button size="sm" variant="secondary" onClick={() => openNfBoletoModal(sol)}
-            className="bg-background hover:bg-background/90 text-foreground">
+            className="bg-background hover:bg-background/90 text-foreground w-full sm:w-auto">
             <Upload className="h-4 w-4 mr-1" /> Incluir Documentos
           </Button>
         </div>
@@ -83,19 +83,19 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
 
     if (sol.status === 'pendente_correcao') {
       return (
-        <div className="bg-warning text-warning-foreground px-4 py-2 flex items-center justify-between rounded-t-lg">
+        <div className="bg-warning text-warning-foreground px-4 py-2 flex flex-col sm:flex-row sm:items-center justify-between rounded-t-lg gap-2">
           <div className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5" />
+            <AlertTriangle className="h-5 w-5 shrink-0" />
             <span className="font-semibold">AÇÃO NECESSÁRIA</span>
-            <span className="text-sm opacity-90">- Esta solicitação precisa de correção</span>
+            <span className="text-sm opacity-90 hidden sm:inline">- Esta solicitação precisa de correção</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <Button size="sm" variant="secondary" onClick={() => openCancelModal(sol)}
-              className="bg-white/80 text-destructive hover:bg-white/90 border border-destructive/30 shadow-sm">
+              className="bg-white/80 text-destructive hover:bg-white/90 border border-destructive/30 shadow-sm flex-1 sm:flex-initial">
               <XCircle className="h-4 w-4 mr-1" /> Cancelar
             </Button>
             <Button size="sm" variant="secondary" onClick={() => openEditModal(sol)}
-              className="bg-white text-orange-700 hover:bg-white/90 border border-orange-300 shadow-sm">
+              className="bg-white text-orange-700 hover:bg-white/90 border border-orange-300 shadow-sm flex-1 sm:flex-initial">
               <Edit className="h-4 w-4 mr-1" /> Corrigir Agora
             </Button>
           </div>
@@ -105,14 +105,14 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
 
     if (sol.status === 'aguardando_aceite') {
       return (
-        <div className="bg-success text-success-foreground px-4 py-2 flex items-center justify-between rounded-t-lg">
+        <div className="bg-success text-success-foreground px-4 py-2 flex flex-col sm:flex-row sm:items-center justify-between rounded-t-lg gap-2">
           <div className="flex items-center gap-2">
-            <CheckCircle className="h-5 w-5" />
+            <CheckCircle className="h-5 w-5 shrink-0" />
             <span className="font-semibold">OC DISPONÍVEL</span>
-            <span className="text-sm opacity-90">- Revise e libere a OC para o fornecedor</span>
+            <span className="text-sm opacity-90 hidden sm:inline">- Revise e libere a OC para o fornecedor</span>
           </div>
           <Button size="sm" variant="secondary" onClick={() => openAceiteModal(sol)}
-            className="bg-white text-green-700 hover:bg-white/90 border border-green-300 shadow-sm font-semibold">
+            className="bg-white text-green-700 hover:bg-white/90 border border-green-300 shadow-sm font-semibold w-full sm:w-auto">
             <Send className="h-4 w-4 mr-1" /> Liberar OC
           </Button>
         </div>
@@ -121,31 +121,29 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
 
     if (sol.status === 'aguardando_execucao') {
       return (
-        <div className="bg-amber-500 text-white px-4 py-2 flex items-center justify-between rounded-t-lg">
-          <div className="flex items-center gap-2">
-            <Wrench className="h-5 w-5" />
-            <span className="font-semibold">AGUARDANDO EXECUÇÃO</span>
-            <span className="text-sm opacity-90">- O serviço está sendo executado pelo fornecedor</span>
-          </div>
+        <div className="bg-amber-500 text-white px-4 py-2 flex items-center gap-2 rounded-t-lg">
+          <Wrench className="h-5 w-5 shrink-0" />
+          <span className="font-semibold">AGUARDANDO EXECUÇÃO</span>
+          <span className="text-sm opacity-90 hidden sm:inline">- O serviço está sendo executado pelo fornecedor</span>
         </div>
       );
     }
 
     if (sol.status === 'aguardando_informacoes') {
       return (
-        <div className="bg-info text-info-foreground px-4 py-2 flex items-center justify-between rounded-t-lg">
+        <div className="bg-info text-info-foreground px-4 py-2 flex flex-col sm:flex-row sm:items-center justify-between rounded-t-lg gap-2">
           <div className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5" />
+            <MessageSquare className="h-5 w-5 shrink-0" />
             <span className="font-semibold">INFORMAÇÕES SOLICITADAS</span>
-            <span className="text-sm opacity-90">- O backoffice precisa de mais informações</span>
+            <span className="text-sm opacity-90 hidden sm:inline">- O backoffice precisa de mais informações</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <Button size="sm" variant="secondary" onClick={() => openCancelModal(sol)}
-              className="bg-white/80 text-destructive hover:bg-white/90 border border-destructive/30 shadow-sm">
+              className="bg-white/80 text-destructive hover:bg-white/90 border border-destructive/30 shadow-sm flex-1 sm:flex-initial">
               <XCircle className="h-4 w-4 mr-1" /> Cancelar
             </Button>
             <Button size="sm" variant="secondary" onClick={() => openEditModal(sol)}
-              className="bg-white text-blue-700 hover:bg-white/90 border border-blue-300 shadow-sm">
+              className="bg-white text-blue-700 hover:bg-white/90 border border-blue-300 shadow-sm flex-1 sm:flex-initial">
               <Edit className="h-4 w-4 mr-1" /> Corrigir e Reenviar
             </Button>
           </div>
