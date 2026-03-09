@@ -1,54 +1,57 @@
 
-## Estado atual
-Confirmado que **nenhum dos arquivos novos foi criado ainda** — `src/components/garantias/` está vazio e o hook/página ainda estão na versão original. Posso implementar tudo do zero com clareza total.
+## Implementação confirmada — pronto para execução
 
-## O que será implementado
+Todos os arquivos originais foram relidos e confirmados. O refactor está totalmente planejado. Abaixo estão os 5 arquivos completos a serem criados/reescritos.
 
-### 1. `src/hooks/useGarantiasVigentes.ts` — reescrever completamente
-- Tipo `GarantiaStatus = 'vigente' | 'expirando_breve' | 'expirando' | 'expirada'`
-- `calcularGarantiaDetalhe`: thresholds em 30 e 60 dias
-- `processarGarantias`: `statusGeral` segue pior status das garantias individuais
+---
+
+### Arquivo 1 — `src/hooks/useGarantiasVigentes.ts` (reescrever)
+
+**Mudanças-chave:**
+- `GarantiaStatus` = `'vigente' | 'expirando_breve' | 'expirando' | 'expirada'`
+- `calcularGarantiaDetalhe`: threshold em 60d (`expirando_breve`) e 30d (`expirando`)
+- `STATUS_PRIORITY` map para comparação de "pior status"
+- Campo `proximaExpiracaoDias` em cada `GarantiaItem` (usado na ordenação)
 - `StatusFiltro` inclui `'expirando_breve'`
 - `OrdemFiltro = 'expiracao_asc' | 'expiracao_desc' | 'valor_desc' | 'recente'`
-- KPIs: adicionar `expirando_breve`, `valorTotal`, `valorExpirando`, `proximaExpiracao` (min diasRestantes entre expirando)
-- Filtro aplica `filtroStatus === 'expirando'` também captura `expirando_breve` (ou filtra exato, segundo select)
-- Ordenação aplicada sobre `garantiasFiltradas`
-- Retorna `ordem` + `setOrdem`
+- `garantiasFiltradas` via `useMemo` com sort integrado
+- KPIs: `expirando_breve`, `valorTotal`, `valorVigentes`, `valorExpirando`, `proximaExpiracao`
+- Retorna `ordem, setOrdem`
 
-### 2. `src/components/garantias/GarantiaKPIs.tsx` — criar
-4 cards em grid `sm:grid-cols-4`:
-- Vigentes: count + valor total vigente
-- Expirando (<30d): count + "próxima: Xd"  
-- Expirando breve (30–60d): count + valor
-- Expiradas: count + valor
-- Ring highlight `ring-2 ring-primary` quando `filtroStatus === variant`
-- Clique no card define `setFiltroStatus` correspondente; segundo clique em ativo → `'todos'`
-- `React.memo`
+### Arquivo 2 — `src/components/garantias/GarantiaKPIs.tsx` (criar)
 
-### 3. `src/components/garantias/GarantiaCard.tsx` — criar
-- `React.memo`
-- Layout corrigido: todo conteúdo dentro do mesmo `flex flex-col gap-3`, o footer `border-t` dentro do mesmo `CardContent`
-- `GarantiaBadge` memoizado inline: trata `expirando_breve` com badge âmbar mais claro (`bg-amber-100 text-amber-600`)
-- `GarantiaProgressBar` memoizado: barra âmbar para 30–60d, laranja para <30d, vermelho para expirada
-- Props: `garantia`, `infraspeakLoading`, `onToggleInfraspeak`, `onVerOriginal`
+4 cards em `sm:grid-cols-4`:
+- Vigentes (verde): count + valor vigente formatado
+- Expirando <30d (laranja): count + "próxima em Xd" ou "—"
+- Expirando 30–60d (âmbar): count + valor expirando
+- Expiradas (vermelho): count + total expiradas
 
-### 4. `src/components/garantias/GarantiaFiltros.tsx` — criar
-- `React.memo`
-- Grid compacto com busca, select empreendimento, select tipo, select status (inclui "Expirando < 30d" e "Expirando 30–60d"), select ordenação, botão Exportar XLSX
-- Exportação: função local que recebe `garantias` e gera XLSX usando padrão de `export-utils.ts` — colunas: Protocolo, Empreendimento, Fornecedor, CNPJ, Tipo Garantia, Dias (Serviço / Produto), Data Conclusão, Expira em (data), Dias Restantes, Valor, Infraspeak
+Ring highlight `ring-2 ring-offset-1 ring-primary` quando `filtroStatus === status do card`. Clique no card ativo reseta para `'todos'`. `React.memo`.
 
-### 5. `src/pages/GarantiasVigentes.tsx` — reescrever
-- Importa os 3 novos componentes
-- Hook expõe `ordem/setOrdem` adicionais
-- Componente principal: cabeçalho + `<GarantiaKPIs>` + `<GarantiaFiltros>` + lista de `<GarantiaCard>` + empty/loading/error states
-- Remove todos os componentes inline (KpiCard, GarantiaBadge, GarantiaProgressBar)
-- `handleToggleInfraspeak` permanece na página (mantém toast)
+### Arquivo 3 — `src/components/garantias/GarantiaCard.tsx` (criar)
 
-### Arquivos
-| Arquivo | Ação |
-|---|---|
-| `src/hooks/useGarantiasVigentes.ts` | Reescrever |
-| `src/components/garantias/GarantiaKPIs.tsx` | Criar |
-| `src/components/garantias/GarantiaCard.tsx` | Criar |
-| `src/components/garantias/GarantiaFiltros.tsx` | Criar |
-| `src/pages/GarantiasVigentes.tsx` | Reescrever |
+`React.memo`. Layout corrigido: tudo dentro de `<CardContent>`, incluindo o footer com border-t. Badges com 4 estados: `expirada` (vermelho), `expirando` (laranja), `expirando_breve` (âmbar claro), `vigente` (verde). Barras de progresso com cor correspondente ao status. Props: `garantia`, `infraspeakLoading`, `onToggleInfraspeak`, `onVerOriginal`.
+
+### Arquivo 4 — `src/components/garantias/GarantiaFiltros.tsx` (criar)
+
+`React.memo`. Grid 2 linhas: (1) busca + 4 selects + botão export; (2) select de ordenação integrado. Select de status inclui "Expirando <30d" e "Expirando 30–60d". Exportação XLSX: `Protocolo, Empreendimento, Fornecedor, CNPJ, Tipo, Dias Serviço, Dias Produto, Conclusão, Expira em (data), Dias Restantes, Valor, Infraspeak` — usando padrão da lib `xlsx` + `file-saver`.
+
+### Arquivo 5 — `src/pages/GarantiasVigentes.tsx` (reescrever)
+
+Slim orchestrator ~80 linhas: header fixo + `<GarantiaKPIs>` + `<GarantiaFiltros>` + estados (loading/error/empty) + lista de `<GarantiaCard>`. `handleToggleInfraspeak` permanece na página (mantém toast). Zero componentes inline.
+
+---
+
+### Estrutura de arquivos
+
+```text
+src/
+├── hooks/
+│   └── useGarantiasVigentes.ts     [REESCREVER]
+├── components/garantias/           [CRIAR PASTA]
+│   ├── GarantiaKPIs.tsx
+│   ├── GarantiaCard.tsx
+│   └── GarantiaFiltros.tsx
+└── pages/
+    └── GarantiasVigentes.tsx       [REESCREVER]
+```
