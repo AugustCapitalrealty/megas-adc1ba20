@@ -112,6 +112,7 @@ export default function DashboardEficiencia() {
     sameDayPercent,
     sameDayCount,
     backlogCritico,
+    backlogEntries,
     ocEmitted,
     histogram,
     weeklyAverages,
