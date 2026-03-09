@@ -62,6 +62,8 @@ export const SolicitacaoCard = memo(function SolicitacaoCard({
   expandedContent,
   infoAlert,
   className,
+  isFavorite,
+  onToggleFavorite,
 }: SolicitacaoCardProps) {
   const fornecedorNome = getFornecedorNome(sol);
   const [copied, setCopied] = useState(false);
