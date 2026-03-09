@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.validate-oc-value]
 verify_jwt = false
+
+[functions.check-sla-alerts]
+verify_jwt = false
