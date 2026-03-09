@@ -875,6 +875,7 @@ export default function MinhasSolicitacoes() {
         />
 
         {/* Content */}
+        <div id="solicitacoes-list"></div>
         {sortedAndFilteredSolicitacoes.length === 0 ? (
           <ContextualEmptyState
             tab={activeTab}
