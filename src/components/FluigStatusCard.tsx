@@ -371,8 +371,8 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
           </div>
         )}
 
-        {/* Next stage */}
-        {status.localizacao && (
+        {/* Next stage - only show when process is active */}
+        {!processoConcluido && status.localizacao && (
           <div className="flex items-center gap-2">
             <MapPin className="h-3.5 w-3.5 text-blue-500" />
             <span className="text-muted-foreground">Próxima etapa:</span>
