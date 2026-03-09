@@ -18,7 +18,7 @@ import { EMPREENDIMENTO_LABELS, type Empreendimento } from '@/types';
 import { 
   FileCheck, Clock, AlertTriangle, XCircle, CheckCircle, 
   CalendarDays, Loader2, BarChart3,
-  FileText, Ban, History, AlertCircle, Search, XOctagon
+  FileText, Ban, History, AlertCircle, Search, XOctagon, Scale, X, Inbox
 } from 'lucide-react';
 import { differenceInDays } from 'date-fns';
 import { formatBR } from '@/lib/date-utils';
@@ -77,6 +77,14 @@ const EMPREENDIMENTO_BADGE_COLORS: Record<string, string> = {
   mega_esteio: 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700',
 };
 
+// KPI filter mapping
+const KPI_FILTER_MAP: { key: string; status: MonitorStatus }[] = [
+  { key: 'total_ativas', status: 'todos' },
+  { key: 'sem_nf_mes', status: 'aguardando_nf' },
+  { key: 'pendente_justificativa', status: 'pendente_justificativa' },
+  { key: 'cancelamento_pendente', status: 'cancelamento_solicitado' },
+];
+
 export default function MonitoramentoOC() {
   const { user } = useAuth();
   const { empreendimentos: userEmpreendimentos, loading: loadingEmpreendimentos, hasAllAccess } = useUserEmpreendimentos(user?.id);
@@ -91,10 +99,17 @@ export default function MonitoramentoOC() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [detailRow, setDetailRow] = useState<OCMonitorRow | null>(null);
   const [justificativaRow, setJustificativaRow] = useState<OCMonitorRow | null>(null);
-  // Cancellation modal state
   const [cancelRow, setCancelRow] = useState<OCMonitorRow | null>(null);
   const [cancelJustificativa, setCancelJustificativa] = useState('');
   const [cancelSaving, setCancelSaving] = useState(false);
+
+  const hasActiveFilters = filterEmpreendimento !== 'todos' || filterStatus !== 'todos' || searchTerm !== '';
+
+  const clearFilters = () => {
+    setFilterEmpreendimento('todos');
+    setFilterStatus('todos');
+    setSearchTerm('');
+  };
 
   useEffect(() => {
     if (!loadingEmpreendimentos) {
@@ -164,7 +179,6 @@ export default function MonitoramentoOC() {
         if (sol.natureza_orcamentaria === 'agua' || sol.natureza_orcamentaria === 'energia_eletrica') return null;
         if (sol.status === 'concluida') return null;
         
-        // Filter by user empreendimentos
         if (!hasAllAccess && !userEmpreendimentos.includes(sol.empreendimento)) return null;
 
         const diasAberto = differenceInDays(new Date(), new Date(doc.created_at));
@@ -196,9 +210,7 @@ export default function MonitoramentoOC() {
         };
       }).filter(Boolean) as OCMonitorRow[];
 
-      // Default sort: dias_aberto descending
       enrichedRows.sort((a, b) => b.dias_aberto - a.dias_aberto);
-
       setRows(enrichedRows);
     } catch (error) {
       console.error('Error fetching monitoring data:', error);
@@ -291,7 +303,6 @@ export default function MonitoramentoOC() {
     });
   }, [rows, filterEmpreendimento, filterStatus, searchTerm]);
 
-  // KPIs
   const kpis = useMemo(() => {
     const activeOCs = rows.filter(r => r.status !== 'cancelado' && r.status !== 'concluida');
     return {
@@ -302,7 +313,6 @@ export default function MonitoramentoOC() {
     };
   }, [rows]);
 
-  // Empreendimentos available for filter
   const availableEmpreendimentos = useMemo(() => {
     if (hasAllAccess) {
       return Object.entries(EMPREENDIMENTO_LABELS).filter(([k]) => k !== 'todos');
@@ -345,7 +355,6 @@ export default function MonitoramentoOC() {
     }
   };
 
-  // Cancellation request handler
   const handleSolicitarCancelamento = async () => {
     if (!cancelRow || !user || cancelJustificativa.trim().length < 10) return;
     setCancelSaving(true);
@@ -392,10 +401,17 @@ export default function MonitoramentoOC() {
   if (loading || loadingEmpreendimentos) {
     return (
       <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
     );
   }
+
+  const kpiCards = [
+    { key: 'total_ativas', value: kpis.total_ativas, label: 'OCs Ativas', borderColor: 'border-l-primary', bgColor: 'bg-primary/10', icon: <FileCheck className="h-5 w-5 text-primary" />, targetStatus: 'todos' as MonitorStatus },
+    { key: 'sem_nf_mes', value: kpis.sem_nf_mes, label: 'Sem NF', borderColor: 'border-l-amber-500', bgColor: 'bg-amber-500/10', icon: <Clock className="h-5 w-5 text-amber-600" />, targetStatus: 'aguardando_nf' as MonitorStatus },
+    { key: 'pendente_justificativa', value: kpis.pendente_justificativa, label: 'Pend. Justificativa', borderColor: 'border-l-destructive', bgColor: 'bg-destructive/10', icon: <AlertTriangle className="h-5 w-5 text-destructive" />, targetStatus: 'pendente_justificativa' as MonitorStatus },
+    { key: 'cancelamento_pendente', value: kpis.cancelamento_pendente, label: 'Cancel. Pendentes', borderColor: 'border-l-orange-500', bgColor: 'bg-orange-500/10', icon: <XCircle className="h-5 w-5 text-orange-600" />, targetStatus: 'cancelamento_solicitado' as MonitorStatus },
+  ];
 
   return (
     <>
@@ -408,119 +424,97 @@ export default function MonitoramentoOC() {
 
         <Tabs defaultValue="oc-nf" className="space-y-6">
           <TabsList>
-            <TabsTrigger value="oc-nf">OC x NF</TabsTrigger>
-            <TabsTrigger value="projuris">Projuris</TabsTrigger>
+            <TabsTrigger value="oc-nf" className="gap-1.5">
+              <FileCheck className="h-4 w-4" />
+              OC x NF
+            </TabsTrigger>
+            <TabsTrigger value="projuris" className="gap-1.5">
+              <Scale className="h-4 w-4" />
+              Projuris
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="oc-nf" className="space-y-6">
 
-        {/* KPIs */}
+        {/* KPIs — clickable */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="border-l-4 border-l-primary">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <FileCheck className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{kpis.total_ativas}</p>
-                  <p className="text-xs text-muted-foreground">OCs Ativas</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-l-4 border-l-amber-500">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-amber-500/10">
-                  <Clock className="h-5 w-5 text-amber-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{kpis.sem_nf_mes}</p>
-                  <p className="text-xs text-muted-foreground">Sem NF</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-l-4 border-l-destructive">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-destructive/10">
-                  <AlertTriangle className="h-5 w-5 text-destructive" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{kpis.pendente_justificativa}</p>
-                  <p className="text-xs text-muted-foreground">Pend. Justificativa</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-l-4 border-l-orange-500">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-orange-500/10">
-                  <XCircle className="h-5 w-5 text-orange-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{kpis.cancelamento_pendente}</p>
-                  <p className="text-xs text-muted-foreground">Cancel. Pendentes</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          {kpiCards.map(kpi => {
+            const isActive = filterStatus === kpi.targetStatus && kpi.targetStatus !== 'todos';
+            return (
+              <Card
+                key={kpi.key}
+                className={cn(
+                  'border-l-4 cursor-pointer transition-all hover:shadow-md',
+                  kpi.borderColor,
+                  isActive && 'ring-2 ring-primary shadow-md'
+                )}
+                onClick={() => setFilterStatus(isActive ? 'todos' : kpi.targetStatus)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className={cn('p-2 rounded-lg', kpi.bgColor)}>
+                      {kpi.icon}
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold">{kpi.value}</p>
+                      <p className="text-xs text-muted-foreground">{kpi.label}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
-        {/* Filters */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex flex-wrap gap-4 items-center">
-              <div className="relative w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar protocolo, fornecedor..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
-              <div className="w-48">
-                <Select value={filterEmpreendimento} onValueChange={setFilterEmpreendimento}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Empreendimento" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableEmpreendimentos.length > 1 && <SelectItem value="todos">Todos</SelectItem>}
-                    {availableEmpreendimentos.map(([key, label]) => (
-                      <SelectItem key={key} value={key}>{label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="w-56">
-                <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as MonitorStatus)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(MONITOR_STATUS_LABELS).map(([key, label]) => (
-                      <SelectItem key={key} value={key}>{label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="ml-auto flex items-center gap-4">
-                <div className="flex items-center gap-1.5 text-xs text-primary">
-                  <div className="w-3 h-3 rounded-sm border-l-[3px] border-l-primary bg-primary/10" />
-                  Suas solicitações
-                </div>
-                <div className="text-sm text-muted-foreground flex items-center gap-1">
-                  <BarChart3 className="h-4 w-4" />
-                  {filteredRows.length} registro(s)
-                </div>
-              </div>
+        {/* Filters — inline, no Card wrapper */}
+        <div className="flex flex-wrap gap-3 items-center">
+          <div className="relative w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar protocolo, fornecedor..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <div className="w-48">
+            <Select value={filterEmpreendimento} onValueChange={setFilterEmpreendimento}>
+              <SelectTrigger>
+                <SelectValue placeholder="Empreendimento" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableEmpreendimentos.length > 1 && <SelectItem value="todos">Todos</SelectItem>}
+                {availableEmpreendimentos.map(([key, label]) => (
+                  <SelectItem key={key} value={key}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="w-56">
+            <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as MonitorStatus)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(MONITOR_STATUS_LABELS).map(([key, label]) => (
+                  <SelectItem key={key} value={key}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="ml-auto flex items-center gap-3">
+            {hasActiveFilters && (
+              <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-1 text-muted-foreground hover:text-foreground">
+                <X className="h-3.5 w-3.5" />
+                Limpar filtros
+              </Button>
+            )}
+            <div className="text-sm text-muted-foreground flex items-center gap-1">
+              <BarChart3 className="h-4 w-4" />
+              {filteredRows.length} registro(s)
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Table */}
         <Card>
@@ -543,13 +537,23 @@ export default function MonitoramentoOC() {
             <TableBody>
               {filteredRows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-12 text-muted-foreground">
-                    Nenhuma OC encontrada com os filtros selecionados.
+                  <TableCell colSpan={9} className="text-center py-16">
+                    <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                      <Inbox className="h-10 w-10 opacity-40" />
+                      <p className="text-sm font-medium">Nenhuma OC encontrada</p>
+                      {hasActiveFilters && (
+                        <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-1 mt-1">
+                          <X className="h-3.5 w-3.5" />
+                          Limpar filtros
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ) : (
                 filteredRows.map(row => {
                   const monitorStatus = getRowMonitorStatus(row);
+                  const isOwn = row.user_id === user?.id;
                   return (
                     <TableRow 
                       key={row.id} 
@@ -557,11 +561,16 @@ export default function MonitoramentoOC() {
                         'cursor-pointer',
                         row.cancelamento_pendente && 'bg-destructive/5',
                         monitorStatus === 'pendente_justificativa' && 'bg-amber-50/50 dark:bg-amber-950/10',
-                        row.user_id === user?.id && 'border-l-4 border-l-primary bg-primary/[0.03]'
+                        isOwn && 'border-l-4 border-l-primary bg-primary/[0.03]'
                       )}
                       onClick={() => setDetailRow(row)}
                     >
-                      <TableCell className="font-mono text-sm font-medium">#{row.protocolo}</TableCell>
+                      <TableCell className="font-mono text-sm font-medium">
+                        #{row.protocolo}
+                        {isOwn && (
+                          <span className="ml-1.5 inline-block w-2 h-2 rounded-full bg-primary" title="Sua solicitação" />
+                        )}
+                      </TableCell>
                       <TableCell className="text-sm">{row.documento_numero}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={cn('text-xs', EMPREENDIMENTO_BADGE_COLORS[row.empreendimento] || '')}>
