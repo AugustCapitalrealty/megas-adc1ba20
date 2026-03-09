@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   ShieldCheck, ShieldAlert, Shield, ShieldX,
-  Building2, Calendar, Wrench, ExternalLink, Loader2,
+  Building2, Calendar, Wrench, FileText, Loader2,
 } from 'lucide-react';
 import { formatBR } from '@/lib/date-utils';
 import { EMPREENDIMENTO_LABELS, TIPO_GARANTIA_LABELS } from '@/types';
