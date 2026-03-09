@@ -138,11 +138,14 @@ export default function DashboardEficiencia() {
     setFilters(prev => ({ ...prev, ...dates }));
   };
 
-  // Filtered entries for drill-down table
+  // Filtered entries for drill-down table (unified - backlog now uses same entries dataset)
   const filteredEntries = useMemo(() => {
     let filtered = [...entries];
     if (drilldownFilter === 'same_day') {
       filtered = filtered.filter(e => e.lead_time_dias === 0);
+    } else if (drilldownFilter === 'backlog') {
+      // Backlog now means entries with lead_time > 15 days (same as histogram 15d+ bucket)
+      filtered = filtered.filter(e => e.lead_time_dias > 15);
     } else if (drilldownFilter.startsWith('bucket_')) {
       const [, min, max] = drilldownFilter.split('_');
       filtered = filtered.filter(e =>
@@ -156,18 +159,8 @@ export default function DashboardEficiencia() {
     return filtered;
   }, [entries, drilldownFilter, searchProtocolo]);
 
-  // Filtered backlog entries
-  const filteredBacklogEntries = useMemo(() => {
-    if (drilldownFilter !== 'backlog') return [];
-    let filtered = [...backlogEntries];
-    if (searchProtocolo.trim()) {
-      const q = searchProtocolo.trim().toLowerCase();
-      filtered = filtered.filter(e => e.protocolo.toLowerCase().includes(q));
-    }
-    return filtered;
-  }, [backlogEntries, drilldownFilter, searchProtocolo]);
-
-  const isBacklogView = drilldownFilter === 'backlog';
+  // isBacklogView no longer needs separate dataset
+  const isBacklogView = false; // Always use unified entries view
 
   // YoY data
   const yoyData = useMemo(() => {
