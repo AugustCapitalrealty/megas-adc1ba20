@@ -199,7 +199,8 @@ export default function DashboardEficiencia() {
     : 0;
 
   const TABLE_LIMIT = 100;
-  const displayEntries = filteredEntries.slice(0, TABLE_LIMIT);
+  const currentEntries = isBacklogView ? filteredBacklogEntries : filteredEntries;
+  const displayEntries = currentEntries.slice(0, TABLE_LIMIT);
 
   return (
     <>
