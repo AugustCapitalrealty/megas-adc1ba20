@@ -783,7 +783,8 @@ export default function DashboardEficiencia() {
                   <TableBody>
                     {displayEntries.map((entry) => {
                       const isBacklogEntry = 'dias_em_aberto' in entry;
-                      const dias = isBacklogEntry ? (entry as BacklogEntry).dias_em_aberto : (entry as any).lead_time_dias;
+                      const dias = isBacklogEntry ? entry.dias_em_aberto : entry.lead_time_dias;
+
                       return (
                         <TableRow
                           key={entry.id}
@@ -804,11 +805,12 @@ export default function DashboardEficiencia() {
                           <TableCell>
                             {formatBR(entry.created_at, 'dd/MM HH:mm')}
                           </TableCell>
+
                           {isBacklogEntry ? (
                             <>
                               <TableCell>
                                 <Badge variant="outline" className="text-xs">
-                                  {STATUS_LABELS[(entry as BacklogEntry).status as keyof typeof STATUS_LABELS] || (entry as BacklogEntry).status}
+                                  {STATUS_LABELS[entry.status as keyof typeof STATUS_LABELS] || entry.status}
                                 </Badge>
                               </TableCell>
                               <TableCell className="text-center">
@@ -820,9 +822,7 @@ export default function DashboardEficiencia() {
                             </>
                           ) : (
                             <>
-                              <TableCell>
-                                {formatBR((entry as any).data_oc, 'dd/MM HH:mm')}
-                              </TableCell>
+                              <TableCell>{formatBR(entry.data_oc, 'dd/MM HH:mm')}</TableCell>
                               <TableCell className="text-center">
                                 <Badge
                                   variant={dias === 0 ? 'default' : dias > 10 ? 'destructive' : 'outline'}
@@ -834,14 +834,16 @@ export default function DashboardEficiencia() {
                               </TableCell>
                             </>
                           )}
+
                           <TableCell>
                             <Badge variant="outline" className="text-xs">
                               {EMPREENDIMENTO_LABELS[entry.empreendimento]}
                             </Badge>
                           </TableCell>
+
                           {!isBacklogEntry && (
                             <TableCell className="text-right font-medium">
-                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((entry as any).valor)}
+                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(entry.valor)}
                             </TableCell>
                           )}
                         </TableRow>
