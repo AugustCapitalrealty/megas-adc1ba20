@@ -1074,6 +1074,20 @@ export default function Backoffice() {
     setAnexosComProblema([]);
   };
 
+  // Vendor filter state
+  const [selectedFornecedor, setSelectedFornecedor] = useState<string>('todos');
+
+  // Get unique vendors from current data
+  const uniqueVendors = useMemo(() => {
+    const vendors = new Map<string, string>();
+    solicitacoes.forEach(s => {
+      if (s.fornecedor_razao) {
+        vendors.set(s.fornecedor_razao, s.fornecedor_razao);
+      }
+    });
+    return [...vendors.values()].sort();
+  }, [solicitacoes]);
+
   // Filter solicitacoes - search already handled by RPC, but we can still do local filtering
   const filteredSolicitacoes = useMemo(() => {
     let filtered = solicitacoes;
@@ -1082,9 +1096,14 @@ export default function Backoffice() {
     if (showOnlyMine) {
       filtered = filtered.filter(sol => sol.responsavelId === user?.id);
     }
+
+    // Filter by vendor
+    if (selectedFornecedor !== 'todos') {
+      filtered = filtered.filter(sol => sol.fornecedor_razao === selectedFornecedor);
+    }
     
     return filtered;
-  }, [solicitacoes, showOnlyMine, user?.id]);
+  }, [solicitacoes, showOnlyMine, user?.id, selectedFornecedor]);
 
   // Unread messages for backoffice
   const backofficeSolIds = useMemo(() => solicitacoes.map(s => s.id), [solicitacoes]);

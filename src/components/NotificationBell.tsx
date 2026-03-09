@@ -155,6 +155,16 @@ export function NotificationBell() {
     return '';
   };
 
+  const getActionLabel = (notification: Notification) => {
+    if (notification.tipo !== 'action_required') return null;
+    if (notification.titulo.includes('Correção')) return 'Ver correção';
+    if (notification.titulo.includes('OC')) return 'Ver OC';
+    if (notification.titulo.includes('NF')) return 'Ver NF';
+    if (notification.titulo.includes('SLA')) return 'Ver solicitação';
+    if (notification.titulo.includes('Informações')) return 'Responder';
+    return 'Ver detalhes';
+  };
+
   const renderItem = (notification: Notification) => (
     <DropdownMenuItem
       key={notification.id}
@@ -177,9 +187,16 @@ export function NotificationBell() {
           <p className="text-xs text-muted-foreground line-clamp-2">
             {notification.mensagem}
           </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true, locale: ptBR })}
-          </p>
+          <div className="flex items-center justify-between mt-1">
+            <p className="text-xs text-muted-foreground">
+              {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true, locale: ptBR })}
+            </p>
+            {notification.tipo === 'action_required' && notification.solicitacao_id && (
+              <span className="text-xs font-medium text-primary">
+                {getActionLabel(notification)} →
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </DropdownMenuItem>

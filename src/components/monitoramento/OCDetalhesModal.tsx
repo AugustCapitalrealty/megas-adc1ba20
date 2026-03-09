@@ -142,6 +142,8 @@ export function OCDetalhesModal({ open, onOpenChange, solicitacaoId, protocolo, 
           <p className="text-sm text-muted-foreground text-center py-8">Não foi possível carregar os detalhes.</p>
         ) : (
           <ScrollArea className="max-h-[70vh] pr-4">
+            {/* Recent Activity Summary */}
+            <RecentActivitySummary historico={detalhes.historico} />
             {/* Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
               <Card>
