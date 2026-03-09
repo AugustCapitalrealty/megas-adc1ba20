@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { VirtualizedList } from '@/components/ui/VirtualizedList';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -243,7 +244,7 @@ export function SolicitacoesManagement() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
+          <div className="rounded-md border overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -256,58 +257,66 @@ export function SolicitacoesManagement() {
                   <TableHead className="text-center">Ações</TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
-                {filteredSolicitacoes.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      {searchTerm ? 'Nenhuma solicitação encontrada' : 'Nenhuma solicitação cadastrada'}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredSolicitacoes.map((solicitacao) => (
-                    <TableRow key={solicitacao.id}>
-                      <TableCell className="font-mono font-medium">
-                        {solicitacao.protocolo}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{solicitacao.tipo}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge status={solicitacao.status} />
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col">
-                          <span className="font-medium text-sm">{solicitacao.solicitante_nome || '-'}</span>
-                          <span className="text-xs text-muted-foreground">{solicitacao.solicitante_email}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {new Intl.NumberFormat('pt-BR', {
-                          style: 'currency',
-                          currency: 'BRL',
-                        }).format(solicitacao.valor)}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <Calendar className="h-3 w-3" />
-                          {formatBR(solicitacao.created_at, 'dd/MM/yyyy')}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteClick(solicitacao)}
-                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
             </Table>
+            {filteredSolicitacoes.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                {searchTerm ? 'Nenhuma solicitação encontrada' : 'Nenhuma solicitação cadastrada'}
+              </div>
+            ) : (
+              <VirtualizedList
+                items={filteredSolicitacoes}
+                getItemKey={(s) => s.id}
+                estimateSize={56}
+                overscan={10}
+                gap={0}
+                className="max-h-[600px]"
+                renderItem={(solicitacao) => (
+                  <Table>
+                    <TableBody>
+                      <TableRow>
+                        <TableCell className="font-mono font-medium">
+                          {solicitacao.protocolo}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{solicitacao.tipo}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge status={solicitacao.status} />
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="font-medium text-sm">{solicitacao.solicitante_nome || '-'}</span>
+                            <span className="text-xs text-muted-foreground">{solicitacao.solicitante_email}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {new Intl.NumberFormat('pt-BR', {
+                            style: 'currency',
+                            currency: 'BRL',
+                          }).format(solicitacao.valor)}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <Calendar className="h-3 w-3" />
+                            {formatBR(solicitacao.created_at, 'dd/MM/yyyy')}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteClick(solicitacao)}
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                )}
+              />
+            )}
           </div>
           <div className="mt-4 text-sm text-muted-foreground">
             Total: {filteredSolicitacoes.length} solicitação(ões)

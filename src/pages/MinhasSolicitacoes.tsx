@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SolicitacaoCardSkeletonList } from '@/components/ui/SolicitacaoCardSkeleton';
 import { Button } from '@/components/ui/button';
+import { VirtualizedList } from '@/components/ui/VirtualizedList';
 
 import { useAuth } from '@/hooks/useAuth';
 import { useUserEmpreendimentos } from '@/hooks/useUserEmpreendimentos';
@@ -886,10 +887,13 @@ export default function MinhasSolicitacoes() {
             } : undefined}
           />
         ) : (
-          <div className="space-y-4">
-            {sortedAndFilteredSolicitacoes.map((sol) => (
+          <VirtualizedList
+            items={sortedAndFilteredSolicitacoes}
+            getItemKey={(sol) => sol.id}
+            estimateSize={200}
+            overscan={5}
+            renderItem={(sol) => (
               <SolicitanteSolicitacaoCard
-                key={sol.id}
                 sol={sol}
                 isFavorite={favoriteSet.has(sol.id)}
                 onToggleFavorite={() => toggleFavorite(sol.id)}
@@ -914,8 +918,8 @@ export default function MinhasSolicitacoes() {
                 setTransferSolicitacao={setTransferSolicitacao}
                 setTransferOpen={setTransferOpen}
               />
-            ))}
-          </div>
+            )}
+          />
         )}
       </div>
 
