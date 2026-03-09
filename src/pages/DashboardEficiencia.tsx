@@ -56,7 +56,7 @@ import {
   Legend,
   Cell,
 } from 'recharts';
-import { useEficienciaDashboard, type EficienciaFilters, type BacklogEntry } from '@/hooks/useEficienciaDashboard';
+import { useEficienciaDashboard, type EficienciaFilters, type BacklogEntry, type LeadTimeEntry } from '@/hooks/useEficienciaDashboard';
 import { EMPREENDIMENTO_LABELS, STATUS_LABELS, type Empreendimento } from '@/types';
 import { cn } from '@/lib/utils';
 
