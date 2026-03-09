@@ -1,24 +1,37 @@
-# ✅ Plano Concluído: Unificar métricas Dashboard Eficiência
 
-## Problema Resolvido
 
-O card "Backlog Crítico" e o histograma "Distribuição do Lead Time" usavam datasets diferentes:
-- Card: solicitações **em aberto** >15 dias
-- Histograma "15d+": solicitações **concluídas** com lead time >15 dias
+## Mover "Solicitar Revisão" para a tela de revisão da OC
 
-Isso causava confusão: clicar na barra do histograma não atualizava o card.
+### Problema
+Hoje o fluxo é: `revisar` → `decidir` (onde aparecem as opções Liberar / Solicitar Revisão) → `tipo_entrega` → `confirmar`. O usuário precisa clicar "Liberar para Fornecedor" para só então ver a opção de pedir revisão — não é intuitivo.
 
-## Solução Implementada
+### Solução
+Colocar os dois caminhos na tela `revisar`, eliminando o step `decidir`:
 
-Unificamos o card para usar o mesmo dataset do histograma (solicitações finalizadas):
+```text
+ANTES:
+revisar → decidir (Liberar | Revisão) → tipo_entrega → confirmar
 
-| Arquivo | Mudança |
-|---------|---------|
-| `src/hooks/useEficienciaDashboard.ts` | Adicionado `critico15Count` e `critico15Percent` calculados de `entries.filter(e => e.lead_time_dias > 15)` |
-| `src/pages/DashboardEficiencia.tsx` | Card renomeado para "Crítico (>15 dias)", usa `critico15Count`, drilldown unificado, tabela simplificada |
+DEPOIS:
+revisar (Liberar | Solicitar Revisão) → tipo_entrega → confirmar
+                                      ↘ ajuste (campo texto + botão)
+```
 
-## Resultado
+### Mudanças em `SolicitanteModals.tsx`
 
-- Card e histograma agora mostram o mesmo número
-- Clicar no card ou na barra "15d+" filtra a mesma lista na tabela
-- Linhas com >15 dias têm highlight vermelho e ícone de alerta
+**Step `revisar`** — após os documentos da OC e o aviso "Revise com atenção":
+- Adicionar os dois cards de opção (Liberar / Solicitar Revisão) que hoje estão no `decidir`
+- Se "Solicitar Revisão" selecionado, exibir campo de texto + botão "Solicitar Ajuste"
+- Se "Liberar" selecionado, botão no footer vai para `tipo_entrega`
+
+**Footer do `revisar`**:
+- Botão "Fechar" (outline)
+- Se `showAjusteField`: botão "Solicitar Ajuste" (warning)
+- Se não: botão "Liberar para Fornecedor" → vai para `tipo_entrega` (pula `decidir`)
+
+**Remover step `decidir`** completamente — o conteúdo foi absorvido pelo `revisar`.
+
+**Step `tipo_entrega`**: botão "Voltar" volta para `revisar` (em vez de `decidir`).
+
+**Type `aceiteStep`**: remover `'decidir'` do union type em `AceiteModalProps` e `MinhasSolicitacoes.tsx`.
+
