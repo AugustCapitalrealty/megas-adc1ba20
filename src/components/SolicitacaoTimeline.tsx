@@ -351,12 +351,12 @@ export function SolicitacaoTimeline({ solicitacaoId, showMessages = true, showHi
 
   // Merge historico and messages into a single timeline
   const timelineItems: TimelineItem[] = [
-    ...historico.map(h => ({
+    ...(showHistorico ? historico.map(h => ({
       id: h.id,
       type: 'historico' as const,
       created_at: h.created_at,
       data: h
-    })),
+    })) : []),
     ...visibleMessages.map(m => ({
       id: m.id,
       type: 'mensagem' as const,
