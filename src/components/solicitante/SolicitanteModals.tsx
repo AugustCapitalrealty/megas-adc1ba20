@@ -424,8 +424,8 @@ interface AceiteModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   aceiteSolicitacao: SolicitacaoComFornecedor | null;
-  aceiteStep: 'revisar' | 'decidir' | 'confirmar';
-  setAceiteStep: (v: 'revisar' | 'decidir' | 'confirmar') => void;
+  aceiteStep: 'revisar' | 'decidir' | 'tipo_entrega' | 'confirmar';
+  setAceiteStep: (v: 'revisar' | 'decidir' | 'tipo_entrega' | 'confirmar') => void;
   showAjusteField: boolean;
   setShowAjusteField: (v: boolean) => void;
   aceiteAjuste: string;
@@ -435,6 +435,12 @@ interface AceiteModalProps {
   setFornecedorEmailContato: (v: string) => void;
   fornecedorTelefoneContato: string;
   setFornecedorTelefoneContato: (v: string) => void;
+  tipoEntrega: 'produto' | 'servico' | null;
+  setTipoEntrega: (v: 'produto' | 'servico' | null) => void;
+  dataExecucaoServico: string;
+  setDataExecucaoServico: (v: string) => void;
+  evidenciaFile: File | null;
+  setEvidenciaFile: (v: File | null) => void;
   handleAceitarOC: () => void;
   handleSolicitarAjuste: () => void;
   openOCInNewTab: (doc: DocumentoEmitido) => void;
@@ -447,6 +453,8 @@ function AceiteModal(props: AceiteModalProps) {
     showAjusteField, setShowAjusteField, aceiteAjuste, setAceiteAjuste,
     aceiteLoading, fornecedorEmailContato, setFornecedorEmailContato,
     fornecedorTelefoneContato, setFornecedorTelefoneContato,
+    tipoEntrega, setTipoEntrega, dataExecucaoServico, setDataExecucaoServico,
+    evidenciaFile, setEvidenciaFile,
     handleAceitarOC, handleSolicitarAjuste, openOCInNewTab, downloadDocumentoEmitido,
   } = props;
 
