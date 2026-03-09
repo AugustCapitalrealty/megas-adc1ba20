@@ -116,6 +116,7 @@ export default function MinhasSolicitacoes() {
   const [tipoEntrega, setTipoEntrega] = useState<'produto' | 'servico' | null>(null);
   const [dataExecucaoServico, setDataExecucaoServico] = useState('');
   const [evidenciaFile, setEvidenciaFile] = useState<File | null>(null);
+  const [motivoOCAntes, setMotivoOCAntes] = useState('');
 
   // NF/Boleto modal state
   const [nfBoletoOpen, setNfBoletoOpen] = useState(false);
@@ -622,8 +623,9 @@ export default function MinhasSolicitacoes() {
 
       const contatoInfo = fornecedorEmailContato || fornecedorTelefoneContato 
         ? `Contato fornecedor: ${fornecedorEmailContato || '-'} | ${fornecedorTelefoneContato || '-'}` : null;
+      const motivoOCAntesPart = motivoOCAntes.trim() ? ` | Motivo OC antecipada: ${motivoOCAntes.trim()}` : '';
       const motivoText = isServico 
-        ? `Tipo: Serviço | Data execução: ${dataExecucaoServico || '-'}${contatoInfo ? ` | ${contatoInfo}` : ''}`
+        ? `Tipo: Serviço | Data execução: ${dataExecucaoServico || '-'}${motivoOCAntesPart}${contatoInfo ? ` | ${contatoInfo}` : ''}`
         : `Tipo: Produto${contatoInfo ? ` | ${contatoInfo}` : ''}`;
 
       await supabase.from('historico_solicitacoes').insert({
@@ -641,6 +643,7 @@ export default function MinhasSolicitacoes() {
       setTipoEntrega(null);
       setDataExecucaoServico('');
       setEvidenciaFile(null);
+      setMotivoOCAntes('');
       fetchSolicitacoes();
     } catch (error: any) {
       toast({ title: 'Erro ao liberar OC', description: error?.message || 'Tente novamente.', variant: 'destructive' });
@@ -926,6 +929,7 @@ export default function MinhasSolicitacoes() {
           fornecedorTelefoneContato, setFornecedorTelefoneContato,
           tipoEntrega, setTipoEntrega, dataExecucaoServico, setDataExecucaoServico,
           evidenciaFile, setEvidenciaFile,
+          motivoOCAntes, setMotivoOCAntes,
           handleAceitarOC, handleSolicitarAjuste, openOCInNewTab, downloadDocumentoEmitido,
         }}
         nfBoletoOpen={nfBoletoOpen}

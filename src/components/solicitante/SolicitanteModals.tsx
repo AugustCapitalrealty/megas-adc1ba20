@@ -441,6 +441,8 @@ interface AceiteModalProps {
   setDataExecucaoServico: (v: string) => void;
   evidenciaFile: File | null;
   setEvidenciaFile: (v: File | null) => void;
+  motivoOCAntes: string;
+  setMotivoOCAntes: (v: string) => void;
   handleAceitarOC: () => void;
   handleSolicitarAjuste: () => void;
   openOCInNewTab: (doc: DocumentoEmitido) => void;
@@ -454,7 +456,7 @@ function AceiteModal(props: AceiteModalProps) {
     aceiteLoading, fornecedorEmailContato, setFornecedorEmailContato,
     fornecedorTelefoneContato, setFornecedorTelefoneContato,
     tipoEntrega, setTipoEntrega, dataExecucaoServico, setDataExecucaoServico,
-    evidenciaFile, setEvidenciaFile,
+    evidenciaFile, setEvidenciaFile, motivoOCAntes, setMotivoOCAntes,
     handleAceitarOC, handleSolicitarAjuste, openOCInNewTab, downloadDocumentoEmitido,
   } = props;
 
@@ -626,10 +628,37 @@ function AceiteModal(props: AceiteModalProps) {
                         id="data_execucao"
                         type="date"
                         value={dataExecucaoServico}
-                        onChange={(e) => setDataExecucaoServico(e.target.value)}
+                        onChange={(e) => {
+                          setDataExecucaoServico(e.target.value);
+                          if (!e.target.value || e.target.value <= new Date().toISOString().split('T')[0]) {
+                            setMotivoOCAntes('');
+                          }
+                        }}
                         className="mt-1"
                       />
                     </div>
+
+                    {dataExecucaoServico && dataExecucaoServico > new Date().toISOString().split('T')[0] && (
+                      <div className="space-y-2 animate-in slide-in-from-top-2 duration-200">
+                        <div className="p-3 bg-warning/10 border border-warning/20 rounded-lg">
+                          <p className="text-sm text-warning font-medium flex items-center gap-2">
+                            <AlertTriangle className="h-4 w-4" />
+                            A data informada é futura — o fornecedor receberá a OC antes da execução do serviço
+                          </p>
+                        </div>
+                        <div>
+                          <Label className="text-sm">Motivo do fornecedor receber a OC antes da execução *</Label>
+                          <Textarea
+                            placeholder="Explique o motivo..."
+                            value={motivoOCAntes}
+                            onChange={(e) => setMotivoOCAntes(e.target.value)}
+                            className="mt-1"
+                            rows={3}
+                          />
+                        </div>
+                      </div>
+                    )}
+
                     <div>
                       <Label className="text-sm">Evidência (foto/documento) *</Label>
                       <div className="mt-1">
@@ -677,7 +706,7 @@ function AceiteModal(props: AceiteModalProps) {
                 {tipoEntrega && (
                   <div className="p-3 bg-muted/50 rounded-lg border">
                     <p className="text-sm flex items-center gap-2">
-                      {tipoEntrega === 'produto' ? <Package className="h-4 w-4" /> : <Wrench className="h-4 w-4" />}
+                    {tipoEntrega === 'produto' ? <Package className="h-4 w-4" /> : <Wrench className="h-4 w-4" />}
                       <span className="font-medium">
                         {tipoEntrega === 'produto' ? 'Produto/Material' : 'Serviço'}
                       </span>
@@ -685,6 +714,11 @@ function AceiteModal(props: AceiteModalProps) {
                         <span className="text-muted-foreground">— Executado em {dataExecucaoServico}</span>
                       )}
                     </p>
+                    {motivoOCAntes.trim() && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        <span className="font-medium text-foreground">Motivo OC antecipada:</span> {motivoOCAntes}
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -743,7 +777,7 @@ function AceiteModal(props: AceiteModalProps) {
               <Button 
                 className="bg-success hover:bg-success/90 text-success-foreground" 
                 onClick={() => setAceiteStep('confirmar')}
-                disabled={!tipoEntrega || (tipoEntrega === 'servico' && (!dataExecucaoServico || !evidenciaFile))}
+                disabled={!tipoEntrega || (tipoEntrega === 'servico' && (!dataExecucaoServico || !evidenciaFile)) || (tipoEntrega === 'servico' && dataExecucaoServico > new Date().toISOString().split('T')[0] && !motivoOCAntes.trim())}
               >
                 <Send className="h-4 w-4 mr-2" />
                 Continuar

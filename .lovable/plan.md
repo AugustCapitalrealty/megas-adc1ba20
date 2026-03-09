@@ -1,24 +1,24 @@
+# ✅ Plano Concluído: Unificar métricas Dashboard Eficiência
 
+## Problema Resolvido
 
-## Validação de data de execução do serviço
+O card "Backlog Crítico" e o histograma "Distribuição do Lead Time" usavam datasets diferentes:
+- Card: solicitações **em aberto** >15 dias
+- Histograma "15d+": solicitações **concluídas** com lead time >15 dias
 
-### Regra
-- Data no passado ou hoje: fluxo normal (serviço já executado)
-- Data no futuro: exibir campo obrigatório "Motivo do fornecedor receber a OC antes da execução"
+Isso causava confusão: clicar na barra do histograma não atualizava o card.
 
-### Mudanças em `SolicitanteModals.tsx`
+## Solução Implementada
 
-**Props**: adicionar `motivoOCAntes: string` e `setMotivoOCAntes` (estado gerenciado em `MinhasSolicitacoes.tsx`).
+Unificamos o card para usar o mesmo dataset do histograma (solicitações finalizadas):
 
-**Step `tipo_entrega`** (linhas ~617-658): Após o campo de data, verificar se a data é futura. Se sim, exibir:
-- Alerta amarelo: "A data informada é futura — o fornecedor receberá a OC antes da execução do serviço"
-- Textarea obrigatório: "Motivo *"
+| Arquivo | Mudança |
+|---------|---------|
+| `src/hooks/useEficienciaDashboard.ts` | Adicionado `critico15Count` e `critico15Percent` calculados de `entries.filter(e => e.lead_time_dias > 15)` |
+| `src/pages/DashboardEficiencia.tsx` | Card renomeado para "Crítico (>15 dias)", usa `critico15Count`, drilldown unificado, tabela simplificada |
 
-**Botão "Continuar"** (linha 746): adicionar validação — se data futura, `motivoOCAntes` obrigatório.
+## Resultado
 
-**Step `confirmar`** (linha ~684): exibir o motivo no resumo quando presente.
-
-**`MinhasSolicitacoes.tsx`**: adicionar estado `motivoOCAntes`, passar para modal, salvar no histórico da solicitação junto com a transição de status.
-
-**DB**: O motivo será salvo como observação no `historico_solicitacoes` (campo `observacao` existente), sem necessidade de migration.
-
+- Card e histograma agora mostram o mesmo número
+- Clicar no card ou na barra "15d+" filtra a mesma lista na tabela
+- Linhas com >15 dias têm highlight vermelho e ícone de alerta
