@@ -231,6 +231,10 @@
     @apply bg-secondary/10 text-secondary;
   }
 
+  .status-aguardando-execucao {
+    @apply bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400;
+  }
+
   .form-step {
     @apply p-6 bg-card rounded-lg border border-border shadow-sm;
   }
