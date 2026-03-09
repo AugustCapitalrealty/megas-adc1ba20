@@ -138,10 +138,14 @@ export interface BackofficeModalsProps {
   editProjurisLoading: boolean;
   handleSaveProjuris: () => void;
 
-  // Confirmation Modal
+  // Confirmation Modal (baixa only now)
   confirmAction: { type: string; sol: SolicitacaoBackoffice; title: string; description: string } | null;
   setConfirmAction: (v: any) => void;
   handleDarBaixaConfirmed: () => Promise<void>;
+
+  // Concluir Modal
+  concluirModal: SolicitacaoBackoffice | null;
+  setConcluirModal: (v: SolicitacaoBackoffice | null) => void;
   handleConcluirLiberadaConfirmed: (sol: SolicitacaoBackoffice) => Promise<void>;
 
   // Envio Fornecedor Modal
