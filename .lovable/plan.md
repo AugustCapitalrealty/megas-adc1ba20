@@ -1,24 +1,19 @@
-# ✅ Plano Concluído: Unificar métricas Dashboard Eficiência
 
-## Problema Resolvido
 
-O card "Backlog Crítico" e o histograma "Distribuição do Lead Time" usavam datasets diferentes:
-- Card: solicitações **em aberto** >15 dias
-- Histograma "15d+": solicitações **concluídas** com lead time >15 dias
+## Refatorar botão "Visualizar OC" para indicar ação de liberação
 
-Isso causava confusão: clicar na barra do histograma não atualizava o card.
+### Problema
+O botão "Visualizar OC" no banner verde não transmite a intenção real: o solicitante precisa **liberar** a OC para o fornecedor, não apenas visualizar.
 
-## Solução Implementada
+### Mudanças
 
-Unificamos o card para usar o mesmo dataset do histograma (solicitações finalizadas):
+**`src/components/solicitante/SolicitanteSolicitacaoCard.tsx`** (banner verde):
+- Texto do botão: "Visualizar OC" → **"Liberar OC"**
+- Ícone: `FileText` → `Send` (reforça a ideia de envio/liberação)
+- Subtexto do banner: "Visualize e libere para o fornecedor" → **"Revise e libere a OC para o fornecedor"**
+- Estilo do botão: manter branco mas com cor mais chamativa (borda + texto mais forte)
 
-| Arquivo | Mudança |
-|---------|---------|
-| `src/hooks/useEficienciaDashboard.ts` | Adicionado `critico15Count` e `critico15Percent` calculados de `entries.filter(e => e.lead_time_dias > 15)` |
-| `src/pages/DashboardEficiencia.tsx` | Card renomeado para "Crítico (>15 dias)", usa `critico15Count`, drilldown unificado, tabela simplificada |
+**`src/components/solicitante/SolicitanteModals.tsx`** (título do modal):
+- Step `'revisar'`: "Visualizar OC" → **"Revisar OC"** (dentro do modal faz sentido "revisar" antes de liberar)
+- Botão interno de visualização do PDF mantém "Visualizar OC" pois ali é literalmente abrir o documento
 
-## Resultado
-
-- Card e histograma agora mostram o mesmo número
-- Clicar no card ou na barra "15d+" filtra a mesma lista na tabela
-- Linhas com >15 dias têm highlight vermelho e ícone de alerta
