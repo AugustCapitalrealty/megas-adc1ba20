@@ -18,7 +18,8 @@ import {
   HelpCircle,
   RefreshCw,
   Loader2,
-  Package
+  Package,
+  Lock
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -26,6 +27,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface SolicitacaoTimelineProps {
   solicitacaoId: string;
