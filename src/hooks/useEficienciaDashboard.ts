@@ -463,6 +463,10 @@ export function useEficienciaDashboard(filters: EficienciaFilters) {
     staleTime: 120_000,
   });
 
+  // Critico15Count - entries with lead_time > 15 days (same as histogram bucket 16+)
+  const critico15Count = entries.filter(e => e.lead_time_dias > 15).length;
+  const critico15Percent = entries.length > 0 ? (critico15Count / entries.length) * 100 : 0;
+
   return {
     entries,
     avgLeadTime: Math.round(avgLeadTime * 10) / 10,
@@ -470,6 +474,8 @@ export function useEficienciaDashboard(filters: EficienciaFilters) {
     sameDayCount,
     backlogCritico: backlogData?.count || 0,
     backlogEntries: backlogData?.entries || [],
+    critico15Count,
+    critico15Percent: Math.round(critico15Percent),
     ocEmitted,
     histogram,
     weeklyAverages,

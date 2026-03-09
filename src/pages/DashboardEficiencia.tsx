@@ -354,12 +354,12 @@ export default function DashboardEficiencia() {
             </CardContent>
           </Card>
 
-          {/* Backlog Crítico */}
+          {/* Crítico >15 dias */}
           <Card
             className={cn(
               "cursor-pointer hover:shadow-md transition-shadow",
               drilldownFilter === 'backlog' && "ring-2 ring-primary/30",
-              backlogCritico > 0 && "border-destructive/50 bg-destructive/5",
+              critico15Percent > 20 && "border-destructive/50 bg-destructive/5",
             )}
             onClick={() => setDrilldownFilter('backlog')}
           >
@@ -367,27 +367,27 @@ export default function DashboardEficiencia() {
               <div className="flex items-center justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-1.5">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Backlog Crítico (Em aberto)</p>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Crítico ({'>'}15 dias)</p>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Info className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-muted-foreground cursor-help shrink-0" />
                       </TooltipTrigger>
                       <TooltipContent side="top" className="max-w-[280px]">
-                        <p className="text-xs">Solicitações <strong>em aberto</strong> há mais de 15 dias úteis e que ainda <strong>não possuem OC/AC emitida</strong>. Não inclui solicitações já concluídas. Clique para ver os itens.</p>
+                        <p className="text-xs">Solicitações <strong>finalizadas</strong> no período que levaram mais de 15 dias úteis para emissão da OC/AC. Mesmo dataset do histograma "15d+".</p>
                       </TooltipContent>
                     </Tooltip>
                   </div>
                   {isLoading ? (
                     <Skeleton className="h-9 w-20 mt-1" />
                   ) : (
-                    <p className={cn("text-3xl font-bold mt-1", backlogCritico > 0 && "text-destructive")}>
-                      {backlogCritico}
-                      <span className="text-sm font-normal text-muted-foreground ml-1">{'>'}15 dias úteis</span>
+                    <p className={cn("text-3xl font-bold mt-1", critico15Percent > 20 && "text-destructive")}>
+                      {critico15Count}
+                      <span className="text-sm font-normal text-muted-foreground ml-1">({critico15Percent}%)</span>
                     </p>
                   )}
                 </div>
-                <div className={cn("p-3 rounded-xl", backlogCritico > 0 ? "bg-destructive/10" : "bg-muted")}>
-                  <AlertTriangle className={cn("h-6 w-6", backlogCritico > 0 ? "text-destructive" : "text-muted-foreground")} />
+                <div className={cn("p-3 rounded-xl", critico15Percent > 20 ? "bg-destructive/10" : "bg-muted")}>
+                  <AlertTriangle className={cn("h-6 w-6", critico15Percent > 20 ? "text-destructive" : "text-muted-foreground")} />
                 </div>
               </div>
             </CardContent>
