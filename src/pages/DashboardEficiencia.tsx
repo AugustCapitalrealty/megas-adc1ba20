@@ -378,7 +378,7 @@ export default function DashboardEficiencia() {
                         <Info className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-muted-foreground cursor-help shrink-0" />
                       </TooltipTrigger>
                       <TooltipContent side="top" className="max-w-[280px]">
-                        <p className="text-xs">Solicitações com mais de 15 dias úteis de lead time. Clique para filtrar o detalhamento abaixo.</p>
+                        <p className="text-xs">Solicitações abertas há mais de 15 dias úteis sem OC/AC emitida. Clique para ver o detalhamento com os itens reais do backlog.</p>
                       </TooltipContent>
                     </Tooltip>
                   </div>
