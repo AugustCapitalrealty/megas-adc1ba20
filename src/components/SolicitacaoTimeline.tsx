@@ -381,11 +381,20 @@ export function SolicitacaoTimeline({ solicitacaoId, showMessages = true, isBack
 
           if (item.type === 'mensagem') {
             const msg = item.data as Message;
+            const msgIsInternal = !!(msg as any).interno;
             return (
               <div key={item.id} className="flex gap-3">
                 <div className="flex flex-col items-center">
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <MessageSquare className="h-4 w-4 text-primary" />
+                  <div className={cn(
+                    "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
+                    msgIsInternal 
+                      ? "bg-amber-100 dark:bg-amber-900/30" 
+                      : "bg-primary/10"
+                  )}>
+                    {msgIsInternal 
+                      ? <Lock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                      : <MessageSquare className="h-4 w-4 text-primary" />
+                    }
                   </div>
                   {!isLast && (
                     <div className="w-0.5 flex-1 bg-border min-h-[24px]" />
@@ -397,17 +406,31 @@ export function SolicitacaoTimeline({ solicitacaoId, showMessages = true, isBack
                     <span className="font-medium text-sm">
                       {msg.profile?.full_name || msg.profile?.email || 'Usuário'}
                     </span>
-                    <span className="text-sm text-muted-foreground">comentou</span>
-                    <Badge variant="outline" className="text-xs bg-primary/5 text-primary border-primary/20">
-                      Mensagem
-                    </Badge>
+                    <span className="text-sm text-muted-foreground">
+                      {msgIsInternal ? 'anotou internamente' : 'comentou'}
+                    </span>
+                    {msgIsInternal ? (
+                      <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-700">
+                        <Lock className="h-3 w-3 mr-1" />
+                        Interno
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-xs bg-primary/5 text-primary border-primary/20">
+                        Mensagem
+                      </Badge>
+                    )}
                   </div>
                   
                   <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
                     {formatBR(msg.created_at, "dd/MM/yyyy HH:mm:ss")}
                   </p>
                   
-                  <div className="mt-2 p-3 bg-muted/30 rounded-lg border-l-4 border-primary/40">
+                  <div className={cn(
+                    "mt-2 p-3 rounded-lg border-l-4",
+                    msgIsInternal 
+                      ? "bg-amber-50/50 border-amber-400 dark:bg-amber-900/10 dark:border-amber-600" 
+                      : "bg-muted/30 border-primary/40"
+                  )}>
                     <p className="text-sm whitespace-pre-wrap break-words">{msg.mensagem}</p>
                   </div>
                 </div>
