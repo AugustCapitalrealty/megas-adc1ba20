@@ -1,59 +1,37 @@
 
+## Problema
 
-# Plano: Trocar Logo + Eliminar Loading Duplo
+Há inconsistência entre o card **Backlog Crítico** e o histograma **Distribuição do Lead Time**:
 
-## Diagnóstico
+- **Card Backlog Crítico**: Conta solicitações **abertas** sem OC há >15 dias úteis → mostra **1**
+- **Histograma barra "15d+"**: Conta solicitações **concluídas** que levaram >15 dias úteis → mostra **8** (ou mais)
 
-Dois problemas distintos:
+Quando o usuário clica na barra do histograma, espera que o card mostre o mesmo número. São datasets diferentes, causando confusão.
 
-**1. Logo desatualizada** — Precisa trocar para a nova versão enviada.
+---
 
-**2. Três shells separados causam remontagem do layout:**
+## Solução
 
-```text
-Atual (App.tsx):
-  <Route element={<ProtectedShell />}>           ← Shell A (monta AppLayout)
-    Dashboard, MinhasSolicitacoes, etc.
-  </Route>
-  <Route element={<ProtectedShell requireBackoffice />}>  ← Shell B (OUTRO AppLayout)
-    Backoffice, DashboardSLA, etc.
-  </Route>
-  <Route element={<ProtectedShell requireAdmin />}>       ← Shell C (OUTRO AppLayout)
-    Admin
-  </Route>
-```
+Unificar o conceito: o card "Backlog Crítico" passa a contar **solicitações concluídas com lead time >15 dias** (mesmo dataset do histograma), não mais "em aberto".
 
-Ao navegar de Dashboard (Shell A) para Backoffice (Shell B), o React desmonta o Shell A inteiro (incluindo header/logo/menu) e monta o Shell B do zero. Isso causa o efeito de "carregar duas vezes" — primeiro o loading do auth no novo shell, depois o loading dos dados da página.
+### Mudanças em `src/pages/DashboardEficiencia.tsx`
 
-## Alterações
+| Item | Antes | Depois |
+|------|-------|--------|
+| Card título | "Backlog Crítico (Em aberto)" | "Crítico (>15 dias)" |
+| Valor | `backlogCritico` (query separada de abertos) | Contagem de `entries` com `lead_time_dias > 15` |
+| Tooltip | "Solicitações em aberto..." | "Solicitações finalizadas que levaram mais de 15 dias úteis" |
+| Drilldown | `'backlog'` → `backlogEntries` | `'backlog'` → `entries` filtradas por `lead_time > 15` |
+| Cor | Sempre vermelho se > 0 | Vermelho apenas se % alto (ex: >20% do total) |
 
-### 1. Trocar logo
-Copiar `user-uploads://logo-mega-removebg-preview-2.png` para `src/assets/logos/logo-mega.png`. Todas as referências já apontam para esse arquivo.
+### Mudanças em `src/hooks/useEficienciaDashboard.ts`
 
-### 2. Unificar em um único Shell (`src/App.tsx`)
-Usar **um único** `<ProtectedShell>` para todas as rotas protegidas. Cheques de permissão (backoffice/admin) movidos para componentes wrapper inline nas rotas individuais:
+- Manter a query de `backlogEntries` (itens em aberto) para uso futuro se necessário
+- Adicionar novo campo `critico15Count` calculado de `entries.filter(e => e.lead_time_dias > 15).length`
+- Exportar `critico15Count` para o dashboard
 
-```text
-Depois:
-  <Route element={<ProtectedShell />}>     ← UM ÚNICO Shell (AppLayout monta 1 vez)
-    Dashboard
-    MinhasSolicitacoes
-    Backoffice         ← permissão checada internamente
-    Admin              ← permissão checada internamente
-    DashboardSLA       ← permissão checada internamente
-    etc.
-  </Route>
-```
+### Resultado esperado
 
-Criar um componente `<RequireRole>` que checa permissão e redireciona se não autorizado, sem mostrar loading (auth já foi verificado pelo shell pai).
-
-### 3. Loading mais leve no ProtectedShell
-Ao invés da tela cheia com logo + spinner (que compete visualmente com o Suspense), usar apenas um spinner discreto centralizado. A logo já está no header do AppLayout — não precisa repetir no loading.
-
-## Arquivos alterados
-
-| Arquivo | Alteração |
-|---------|-----------|
-| `src/assets/logos/logo-mega.png` | Substituir pela nova logo |
-| `src/App.tsx` | Unificar 3 shells em 1, criar RequireRole, loading simplificado |
-
+- Card mostra **8** (mesmo número da barra "15d+" do histograma)
+- Clicar no card ou na barra do histograma filtra a mesma lista de itens na tabela
+- Linguagem consistente em todo o painel
