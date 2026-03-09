@@ -740,16 +740,29 @@ function AceiteModal(props: AceiteModalProps) {
                   Solicitar Ajuste
                 </Button>
               ) : (
-                <Button className="bg-success hover:bg-success/90 text-success-foreground" onClick={() => setAceiteStep('confirmar')}>
+                <Button className="bg-success hover:bg-success/90 text-success-foreground" onClick={() => setAceiteStep('tipo_entrega')}>
                   <Send className="h-4 w-4 mr-2" />
                   Liberar para Fornecedor
                 </Button>
               )}
             </>
           )}
-          {aceiteStep === 'confirmar' && (
+          {aceiteStep === 'tipo_entrega' && (
             <>
               <Button variant="outline" onClick={() => setAceiteStep('decidir')} disabled={aceiteLoading}>Voltar</Button>
+              <Button 
+                className="bg-success hover:bg-success/90 text-success-foreground" 
+                onClick={() => setAceiteStep('confirmar')}
+                disabled={!tipoEntrega || (tipoEntrega === 'servico' && (!dataExecucaoServico || !evidenciaFile))}
+              >
+                <Send className="h-4 w-4 mr-2" />
+                Continuar
+              </Button>
+            </>
+          )}
+          {aceiteStep === 'confirmar' && (
+            <>
+              <Button variant="outline" onClick={() => setAceiteStep('tipo_entrega')} disabled={aceiteLoading}>Voltar</Button>
               <Button className="bg-success hover:bg-success/90 text-success-foreground" onClick={handleAceitarOC} disabled={aceiteLoading}>
                 {aceiteLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
                 Confirmar Liberação
