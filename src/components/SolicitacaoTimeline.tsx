@@ -40,6 +40,7 @@ interface Message {
   mensagem: string;
   created_at: string;
   user_id: string;
+  interno?: boolean;
   profile?: {
     full_name: string | null;
     email: string;
