@@ -268,7 +268,12 @@ export function OCDetalhesModal({ open, onOpenChange, solicitacaoId, protocolo, 
                 {solicitacaoId && <SolicitacaoMessages solicitacaoId={solicitacaoId} />}
               </TabsContent>
 
-              <TabsContent value="info" className="mt-4">
+              <TabsContent value="info" className="mt-4 space-y-4">
+                <StageDurationTimeline
+                  historico={detalhes.historico}
+                  createdAt={detalhes.solicitacao.created_at}
+                  currentStatus={detalhes.solicitacao.status}
+                />
                 <Card>
                   <CardContent className="pt-4 space-y-3 text-sm">
                     <div className="grid grid-cols-2 gap-3">
