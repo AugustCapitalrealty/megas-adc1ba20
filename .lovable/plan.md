@@ -1,49 +1,59 @@
 
 
-## Diagnóstico — Discrepância no "Backlog Crítico"
+# Plano: Trocar Logo + Eliminar Loading Duplo
 
-### Problema identificado
+## Diagnóstico
 
-**Root cause**: O KPI "Backlog Crítico" e a tabela de detalhamento usam **conjuntos de dados completamente diferentes**:
+Dois problemas distintos:
 
-1. **KPI "Backlog Crítico"** (linha 182-220 em `useEficienciaDashboard.ts`):
-   - Query: solicitações **abertas** (não concluídas/rejeitadas/canceladas)
-   - Sem `numero_chamado_fluig`
-   - Sem nenhum `documento_emitido`
-   - Com >15 dias úteis desde criação até **hoje**
-   - **Representa backlog atual não resolvido**
+**1. Logo desatualizada** — Precisa trocar para a nova versão enviada.
 
-2. **Drilldown da tabela** (linha 154-165 em `DashboardEficiencia.tsx`):
-   - Filtra `entries` (solicitações que **já têm** `documento_emitido` no período de filtro)
-   - Condição: `lead_time_dias > 15`
-   - **Representa solicitações já concluídas que levaram >15 dias**
+**2. Três shells separados causam remontagem do layout:**
 
-### Solução proposta
+```text
+Atual (App.tsx):
+  <Route element={<ProtectedShell />}>           ← Shell A (monta AppLayout)
+    Dashboard, MinhasSolicitacoes, etc.
+  </Route>
+  <Route element={<ProtectedShell requireBackoffice />}>  ← Shell B (OUTRO AppLayout)
+    Backoffice, DashboardSLA, etc.
+  </Route>
+  <Route element={<ProtectedShell requireAdmin />}>       ← Shell C (OUTRO AppLayout)
+    Admin
+  </Route>
+```
 
-**Opção A — Desabilitar drilldown do "Backlog Crítico"** (mais simples):
-- Remover `onClick` do KPI "Backlog Crítico"
-- Adicionar tooltip explicando que é uma métrica de backlog atual, não histórico
-- Manter apenas drilldown para KPIs baseados em `entries` (Lead Time, Same-Day, Vazão)
+Ao navegar de Dashboard (Shell A) para Backoffice (Shell B), o React desmonta o Shell A inteiro (incluindo header/logo/menu) e monta o Shell B do zero. Isso causa o efeito de "carregar duas vezes" — primeiro o loading do auth no novo shell, depois o loading dos dados da página.
 
-**Opção B — Criar tabela separada para Backlog Crítico** (mais complexo):
-- Adicionar query separada no hook para buscar detalhes das solicitações do backlog
-- Ao clicar no KPI, trocar para uma "view" diferente mostrando:
-  - Protocolo
-  - Data criação
-  - Dias desde criação
-  - Status atual
-  - Empreendimento
-- Link para `/minhas-solicitacoes` com filtro aplicado
+## Alterações
 
-### Recomendação
+### 1. Trocar logo
+Copiar `user-uploads://logo-mega-removebg-preview-2.png` para `src/assets/logos/logo-mega.png`. Todas as referências já apontam para esse arquivo.
 
-**Opção A**: mais alinhada com a semântica do indicador. "Backlog Crítico" é uma métrica de alerta sobre solicitações travadas, não uma dimensão de análise histórica como os outros KPIs.
+### 2. Unificar em um único Shell (`src/App.tsx`)
+Usar **um único** `<ProtectedShell>` para todas as rotas protegidas. Cheques de permissão (backoffice/admin) movidos para componentes wrapper inline nas rotas individuais:
 
----
+```text
+Depois:
+  <Route element={<ProtectedShell />}>     ← UM ÚNICO Shell (AppLayout monta 1 vez)
+    Dashboard
+    MinhasSolicitacoes
+    Backoffice         ← permissão checada internamente
+    Admin              ← permissão checada internamente
+    DashboardSLA       ← permissão checada internamente
+    etc.
+  </Route>
+```
 
-## Arquivos modificados
+Criar um componente `<RequireRole>` que checa permissão e redireciona se não autorizado, sem mostrar loading (auth já foi verificado pelo shell pai).
 
-| Arquivo | Mudança |
-|---|---|
-| `src/pages/DashboardEficiencia.tsx` | Remover `onClick` do card "Backlog Crítico" + adicionar tooltip explicativo |
+### 3. Loading mais leve no ProtectedShell
+Ao invés da tela cheia com logo + spinner (que compete visualmente com o Suspense), usar apenas um spinner discreto centralizado. A logo já está no header do AppLayout — não precisa repetir no loading.
+
+## Arquivos alterados
+
+| Arquivo | Alteração |
+|---------|-----------|
+| `src/assets/logos/logo-mega.png` | Substituir pela nova logo |
+| `src/App.tsx` | Unificar 3 shells em 1, criar RequireRole, loading simplificado |
 
