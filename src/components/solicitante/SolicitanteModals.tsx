@@ -514,12 +514,8 @@ function AceiteModal(props: AceiteModalProps) {
                     <strong>Importante:</strong> Revise a OC com atenção antes de prosseguir. Verifique se os dados, valores e condições estão corretos.
                   </p>
                 </div>
-              </>
-            )}
 
-            {aceiteStep === 'decidir' && (
-              <>
-                <div className="grid gap-4">
+                <div className="grid gap-4 mt-4">
                   <div
                     className={cn(
                       "p-4 rounded-lg border-2 cursor-pointer transition-all",
