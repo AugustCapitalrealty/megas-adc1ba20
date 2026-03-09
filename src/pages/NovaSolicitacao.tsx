@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTrackEvent } from '@/hooks/useTrackEvent';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale/pt-BR';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,6 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useCNPJ } from '@/hooks/useCNPJ';
@@ -31,7 +35,7 @@ import {
   type Fornecedor,
   type InstrumentoJuridico,
 } from '@/types';
-import { ArrowLeft, ArrowRight, Check, Loader2, Search, AlertTriangle, ChevronDown, ChevronUp, FileText, Sparkles, DollarSign, Package, RotateCcw } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Loader2, Search, AlertTriangle, ChevronDown, ChevronUp, FileText, Sparkles, DollarSign, Package, RotateCcw, Calendar as CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MultiFileUpload, OtherFilesUpload, type UploadedFile } from '@/components/FileUpload';
 import { SupplierSearch } from '@/components/SupplierSearch';
