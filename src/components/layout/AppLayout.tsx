@@ -158,9 +158,17 @@ export function AppLayout() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Skip to content */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md focus:text-sm focus:font-medium"
+      >
+        Pular para conteúdo
+      </a>
+
       {/* Impersonation Banner */}
       {isImpersonating && impersonatedProfile && (
-        <div className="bg-warning text-warning-foreground px-4 py-2 flex items-center justify-center gap-3">
+        <div role="alert" className="bg-warning text-warning-foreground px-4 py-2 flex items-center justify-center gap-3">
           <UserCog className="h-4 w-4" />
           <span className="text-sm font-medium">
             Visualizando como: <strong>{impersonatedProfile.full_name || impersonatedProfile.email}</strong>
