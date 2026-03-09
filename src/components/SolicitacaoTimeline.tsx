@@ -239,13 +239,14 @@ const getActionDetails = (acao: string, statusNovo: string | null, isBackoffice?
 };
 
 export function SolicitacaoTimeline({ solicitacaoId, showMessages = true, isBackoffice = false }: SolicitacaoTimelineProps) {
-  const { user } = useAuth();
+  const { user, isBackofficeOrAdmin } = useAuth();
   const { toast } = useToast();
   const [historico, setHistorico] = useState<HistoricoSolicitacao[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const [isInternal, setIsInternal] = useState(false);
 
   useEffect(() => {
     fetchData();
