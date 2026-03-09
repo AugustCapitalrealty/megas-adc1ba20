@@ -343,6 +343,11 @@ export function SolicitacaoTimeline({ solicitacaoId, showMessages = true, isBack
     }
   };
 
+  // Filter internal messages for non-backoffice users
+  const visibleMessages = isBackofficeOrAdmin 
+    ? messages 
+    : messages.filter(m => !(m as any).interno);
+
   // Merge historico and messages into a single timeline
   const timelineItems: TimelineItem[] = [
     ...historico.map(h => ({
@@ -351,7 +356,7 @@ export function SolicitacaoTimeline({ solicitacaoId, showMessages = true, isBack
       created_at: h.created_at,
       data: h
     })),
-    ...messages.map(m => ({
+    ...visibleMessages.map(m => ({
       id: m.id,
       type: 'mensagem' as const,
       created_at: m.created_at,
