@@ -11,7 +11,7 @@ import { UnreadMessageBanner, type UnreadMessageInfo } from '@/components/Unread
 import type { DocumentoEmitido, DocumentoFiscal } from '@/types';
 import {
   FileText, Edit, AlertTriangle, Copy, XCircle, Download,
-  FileCheck, CheckCircle, MessageSquare, Receipt, Upload, UserCheck,
+  FileCheck, CheckCircle, MessageSquare, Receipt, Upload, UserCheck, Wrench,
 } from 'lucide-react';
 import type { SolicitacaoComFornecedor, RejectionInfo, InfoRequest } from './types';
 
