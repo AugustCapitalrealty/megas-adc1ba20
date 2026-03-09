@@ -927,6 +927,7 @@ export default function MinhasSolicitacoes() {
           fornecedorTelefoneContato, setFornecedorTelefoneContato,
           tipoEntrega, setTipoEntrega, dataExecucaoServico, setDataExecucaoServico,
           evidenciaFile, setEvidenciaFile,
+          motivoOCAntes, setMotivoOCAntes,
           handleAceitarOC, handleSolicitarAjuste, openOCInNewTab, downloadDocumentoEmitido,
         }}
         nfBoletoOpen={nfBoletoOpen}
