@@ -310,8 +310,8 @@ export default function MinhasSolicitacoes() {
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
     
-    return filtered;
-  }, [solicitacoes, activeTab, debouncedSearch]);
+    return sortWithFavorites(filtered);
+  }, [solicitacoes, activeTab, debouncedSearch, sortWithFavorites]);
 
   const statusCounts = useMemo(() => ({
     todas: solicitacoes.length,
