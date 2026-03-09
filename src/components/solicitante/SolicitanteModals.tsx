@@ -571,6 +571,99 @@ function AceiteModal(props: AceiteModalProps) {
               </>
             )}
 
+            {aceiteStep === 'tipo_entrega' && (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">Selecione o tipo de entrega para definir o fluxo correto:</p>
+                <div className="grid gap-4">
+                  <div
+                    className={cn(
+                      "p-4 rounded-lg border-2 cursor-pointer transition-all",
+                      tipoEntrega === 'produto' ? "border-primary bg-primary/5" : "border-muted hover:border-primary/50"
+                    )}
+                    onClick={() => setTipoEntrega('produto')}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={cn("w-5 h-5 rounded-full border-2 flex items-center justify-center", tipoEntrega === 'produto' ? "border-primary bg-primary" : "border-muted")}>
+                        {tipoEntrega === 'produto' && <CheckCircle className="h-3 w-3 text-primary-foreground" />}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Package className="h-5 w-5 text-primary" />
+                        <div>
+                          <p className="font-medium">Produto / Material</p>
+                          <p className="text-sm text-muted-foreground">O fornecedor precisa da OC <strong>antes</strong> da entrega</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    className={cn(
+                      "p-4 rounded-lg border-2 cursor-pointer transition-all",
+                      tipoEntrega === 'servico' ? "border-amber-500 bg-amber-50 dark:bg-amber-900/10" : "border-muted hover:border-amber-500/50"
+                    )}
+                    onClick={() => setTipoEntrega('servico')}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={cn("w-5 h-5 rounded-full border-2 flex items-center justify-center", tipoEntrega === 'servico' ? "border-amber-500 bg-amber-500" : "border-muted")}>
+                        {tipoEntrega === 'servico' && <CheckCircle className="h-3 w-3 text-white" />}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Wrench className="h-5 w-5 text-amber-600" />
+                        <div>
+                          <p className="font-medium">Serviço</p>
+                          <p className="text-sm text-muted-foreground">O serviço será executado <strong>antes</strong> do envio da OC</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {tipoEntrega === 'servico' && (
+                  <div className="space-y-3 animate-in slide-in-from-top-2 duration-200 p-4 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 rounded-lg">
+                    <p className="text-sm font-medium text-amber-800 dark:text-amber-300 flex items-center gap-2">
+                      <Wrench className="h-4 w-4" />
+                      Evidência do Serviço Executado
+                    </p>
+                    <div>
+                      <Label htmlFor="data_execucao" className="text-sm">Data da execução do serviço *</Label>
+                      <Input
+                        id="data_execucao"
+                        type="date"
+                        value={dataExecucaoServico}
+                        onChange={(e) => setDataExecucaoServico(e.target.value)}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-sm">Evidência (foto/documento) *</Label>
+                      <div className="mt-1">
+                        {evidenciaFile ? (
+                          <div className="flex items-center gap-2 p-2 bg-background rounded border">
+                            <FileText className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-sm truncate flex-1">{evidenciaFile.name}</span>
+                            <Button variant="ghost" size="sm" onClick={() => setEvidenciaFile(null)}>
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <label className="flex items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg cursor-pointer hover:border-primary/50 transition-colors">
+                            <Upload className="h-5 w-5 text-muted-foreground" />
+                            <span className="text-sm text-muted-foreground">Clique para anexar evidência</span>
+                            <input
+                              type="file"
+                              className="hidden"
+                              accept="image/*,.pdf,.doc,.docx"
+                              onChange={(e) => setEvidenciaFile(e.target.files?.[0] || null)}
+                            />
+                          </label>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {aceiteStep === 'confirmar' && (
               <div className="space-y-4">
                 <div className="p-4 bg-success/10 border border-success/20 rounded-lg">
@@ -579,9 +672,25 @@ function AceiteModal(props: AceiteModalProps) {
                     Confirmação de Liberação
                   </p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Ao confirmar, o Backoffice poderá enviar formalmente a OC ao fornecedor.
+                    {tipoEntrega === 'servico' 
+                      ? 'Ao confirmar, o Backoffice verificará a evidência e enviará a OC ao fornecedor.'
+                      : 'Ao confirmar, o Backoffice poderá enviar formalmente a OC ao fornecedor.'}
                   </p>
                 </div>
+
+                {tipoEntrega && (
+                  <div className="p-3 bg-muted/50 rounded-lg border">
+                    <p className="text-sm flex items-center gap-2">
+                      {tipoEntrega === 'produto' ? <Package className="h-4 w-4" /> : <Wrench className="h-4 w-4" />}
+                      <span className="font-medium">
+                        {tipoEntrega === 'produto' ? 'Produto/Material' : 'Serviço'}
+                      </span>
+                      {tipoEntrega === 'servico' && dataExecucaoServico && (
+                        <span className="text-muted-foreground">— Executado em {dataExecucaoServico}</span>
+                      )}
+                    </p>
+                  </div>
+                )}
 
                 <div className="space-y-3">
                   <Label className="text-sm font-medium">Dados de contato do fornecedor (opcional)</Label>
