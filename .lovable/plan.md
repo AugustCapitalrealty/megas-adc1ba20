@@ -1,24 +1,73 @@
-# ✅ Plano Concluído: Unificar métricas Dashboard Eficiência
 
-## Problema Resolvido
 
-O card "Backlog Crítico" e o histograma "Distribuição do Lead Time" usavam datasets diferentes:
-- Card: solicitações **em aberto** >15 dias
-- Histograma "15d+": solicitações **concluídas** com lead time >15 dias
+## Refatorar NovaSolicitacao.tsx em sub-componentes por step
 
-Isso causava confusão: clicar na barra do histograma não atualizava o card.
+O arquivo atual tem 2104 linhas com toda a lógica de formulário, estado, validação e renderização misturadas. A refatoração vai separar em componentes por step + hooks especializados.
 
-## Solução Implementada
+---
 
-Unificamos o card para usar o mesmo dataset do histograma (solicitações finalizadas):
+### Arquitetura Proposta
 
-| Arquivo | Mudança |
-|---------|---------|
-| `src/hooks/useEficienciaDashboard.ts` | Adicionado `critico15Count` e `critico15Percent` calculados de `entries.filter(e => e.lead_time_dias > 15)` |
-| `src/pages/DashboardEficiencia.tsx` | Card renomeado para "Crítico (>15 dias)", usa `critico15Count`, drilldown unificado, tabela simplificada |
+```text
+src/
+├── pages/
+│   └── NovaSolicitacao.tsx (~400 linhas - orquestração)
+├── components/
+│   └── nova-solicitacao/
+│       ├── steps/
+│       │   ├── EmpreendimentoStep.tsx
+│       │   ├── DescricaoStep.tsx
+│       │   ├── TipoStep.tsx
+│       │   ├── DetalhesStep.tsx
+│       │   ├── FornecedorStep.tsx
+│       │   ├── AnexosStep.tsx
+│       │   └── RevisaoStep.tsx
+│       ├── FormNavigation.tsx (botões voltar/próximo/enviar)
+│       └── types.ts (interfaces compartilhadas)
+├── hooks/
+│   └── useNovaSolicitacaoForm.ts (todo o estado do formulário)
+```
 
-## Resultado
+---
 
-- Card e histograma agora mostram o mesmo número
-- Clicar no card ou na barra "15d+" filtra a mesma lista na tabela
-- Linhas com >15 dias têm highlight vermelho e ícone de alerta
+### Mudanças por arquivo
+
+**1. `src/hooks/useNovaSolicitacaoForm.ts` (novo)**
+- Extrair os ~50 estados (`useState`) do componente atual
+- Extrair lógica de draft (load/save)
+- Extrair valores derivados (`valorNumerico`, `isOC`, `isAC`, `instrumentoJuridico`, etc.)
+- Extrair `getRequiredAttachments()`
+- Retornar objeto tipado com todos os valores e setters
+
+**2. `src/components/nova-solicitacao/types.ts` (novo)**
+- Interface `NovaSolicitacaoFormState` com todos os campos
+- Interface `StepProps` base para todos os steps
+- Type `Step` (reutilizar do StepIndicator)
+
+**3. Steps individuais (7 arquivos novos)**
+- Cada step recebe `formState` e callbacks via props
+- Renderiza apenas o conteúdo específico do step
+- ~100-250 linhas cada
+
+**4. `src/components/nova-solicitacao/FormNavigation.tsx` (novo)**
+- Botões Voltar/Próximo/Enviar
+- Lógica `canProceed()` extraída do componente principal
+
+**5. `src/pages/NovaSolicitacao.tsx` (refatorado)**
+- Importa `useNovaSolicitacaoForm` hook
+- Renderiza `StepIndicator` + step atual + `FormNavigation`
+- Mantém `handleSubmit()` (lógica de envio)
+- ~400 linhas
+
+---
+
+### Benefícios
+
+| Aspecto | Antes | Depois |
+|---------|-------|--------|
+| Linhas no arquivo principal | 2104 | ~400 |
+| Testabilidade | Baixa (tudo acoplado) | Alta (steps isolados) |
+| Code splitting | Não | Sim (lazy load por step) |
+| Reuso | Nenhum | Steps podem ser reusados |
+| Manutenção | Difícil encontrar código | Estrutura previsível |
+
