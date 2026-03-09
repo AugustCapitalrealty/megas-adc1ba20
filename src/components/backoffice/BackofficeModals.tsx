@@ -1046,7 +1046,7 @@ export function BackofficeModals(props: BackofficeModalsProps) {
         </DialogContent>
       </Dialog>
 
-      {/* ═══════════════ Confirmation Modal ═══════════════ */}
+      {/* ═══════════════ Confirmation Modal (baixa only) ═══════════════ */}
       <ConfirmModal
         open={!!confirmAction}
         onOpenChange={(open) => !open && setConfirmAction(null)}
@@ -1055,11 +1055,16 @@ export function BackofficeModals(props: BackofficeModalsProps) {
         confirmText="Confirmar"
         onConfirm={async () => {
           if (!confirmAction) return;
-          const { type, sol } = confirmAction;
           setConfirmAction(null);
-          if (type === 'baixa') await handleDarBaixaConfirmed();
-          else if (type === 'concluir_liberada') await handleConcluirLiberadaConfirmed(sol);
+          if (confirmAction.type === 'baixa') await handleDarBaixaConfirmed();
         }}
+      />
+
+      {/* ═══════════════ Concluir Solicitação Modal ═══════════════ */}
+      <ConcluirSolicitacaoModal
+        sol={concluirModal}
+        onClose={() => setConcluirModal(null)}
+        onConfirm={handleConcluirLiberadaConfirmed}
       />
 
       {/* ═══════════════ Envio Fornecedor Modal ═══════════════ */}
