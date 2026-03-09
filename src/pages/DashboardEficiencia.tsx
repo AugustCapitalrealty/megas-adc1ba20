@@ -374,13 +374,13 @@ export default function DashboardEficiencia() {
               <div className="flex items-center justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-1.5">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Backlog Crítico</p>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Backlog Crítico (Em aberto)</p>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Info className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-muted-foreground cursor-help shrink-0" />
                       </TooltipTrigger>
                       <TooltipContent side="top" className="max-w-[280px]">
-                        <p className="text-xs">Solicitações abertas há mais de 15 dias úteis sem OC/AC emitida. Clique para ver o detalhamento com os itens reais do backlog.</p>
+                        <p className="text-xs">Solicitações <strong>em aberto</strong> há mais de 15 dias úteis e que ainda <strong>não possuem OC/AC emitida</strong>. Não inclui solicitações já concluídas. Clique para ver os itens.</p>
                       </TooltipContent>
                     </Tooltip>
                   </div>
