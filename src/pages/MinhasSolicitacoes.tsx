@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SolicitacaoCardSkeletonList } from '@/components/ui/SolicitacaoCardSkeleton';
 import { Button } from '@/components/ui/button';
+import { VirtualizedList } from '@/components/ui/VirtualizedList';
 
 import { useAuth } from '@/hooks/useAuth';
 import { useUserEmpreendimentos } from '@/hooks/useUserEmpreendimentos';

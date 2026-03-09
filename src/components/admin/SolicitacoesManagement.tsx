@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { VirtualizedList } from '@/components/ui/VirtualizedList';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';

@@ -7,6 +7,7 @@ import { GarantiaKPIs } from '@/components/garantias/GarantiaKPIs';
 import { GarantiaFiltros } from '@/components/garantias/GarantiaFiltros';
 import { GarantiaCard } from '@/components/garantias/GarantiaCard';
 import { OCDetalhesModal } from '@/components/monitoramento/OCDetalhesModal';
+import { VirtualizedList } from '@/components/ui/VirtualizedList';
 
 export default function GarantiasVigentes() {
   const { toast } = useToast();
