@@ -319,8 +319,10 @@ export function SolicitacaoTimeline({ solicitacaoId, showMessages = true, isBack
 
       if (error) throw error;
 
-      // Notify the other party
-      notifyMessageRecipients(solicitacaoId, user.id, newMessage.trim());
+      // Don't notify for internal messages
+      if (!isInternal) {
+        notifyMessageRecipients(solicitacaoId, user.id, newMessage.trim());
+      }
 
       setNewMessage('');
       fetchData();
