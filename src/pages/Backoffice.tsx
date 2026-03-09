@@ -571,7 +571,7 @@ export default function Backoffice() {
         acao: 'oc_enviada_fornecedor',
         status_anterior: statusAnterior,
         status_novo: 'enviado_fornecedor',
-        motivo: 'OC enviada ao fornecedor',
+        motivo: `OC enviada via ${meioEnvio}${observacaoEnvio ? '. Obs: ' + observacaoEnvio : ''}`,
       });
 
       toast({
