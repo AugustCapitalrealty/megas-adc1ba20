@@ -129,9 +129,10 @@ export function AppLayout() {
         .map((item) => {
           const Icon = item.icon;
           const link = (
-            <Link
+              <Link
               key={item.href}
               to={item.href}
+              aria-label={item.label}
               onClick={() => mobile && setMobileMenuOpen(false)}
               onMouseEnter={() => !mobile && prefetchRoute(item.href)}
               className={cn(
