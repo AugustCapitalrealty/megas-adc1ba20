@@ -346,11 +346,14 @@ export default function DashboardEficiencia() {
             </CardContent>
           </Card>
 
-          {/* Backlog Crítico — não clicável (métrica de backlog atual, não histórico) */}
+          {/* Backlog Crítico */}
           <Card
             className={cn(
+              "cursor-pointer hover:shadow-md transition-shadow",
+              drilldownFilter === 'backlog' && "ring-2 ring-primary/30",
               backlogCritico > 0 && "border-destructive/50 bg-destructive/5",
             )}
+            onClick={() => setDrilldownFilter('backlog')}
           >
             <CardContent className="p-5">
               <div className="flex items-center justify-between">
@@ -362,7 +365,7 @@ export default function DashboardEficiencia() {
                         <Info className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-muted-foreground cursor-help shrink-0" />
                       </TooltipTrigger>
                       <TooltipContent side="top" className="max-w-[280px]">
-                        <p className="text-xs">Solicitações <strong>abertas agora</strong> há mais de 15 dias úteis sem documento de OC emitido. É uma métrica de alerta em tempo real — não reflete o histórico do período filtrado e por isso não possui detalhamento na tabela abaixo.</p>
+                        <p className="text-xs">Solicitações com mais de 15 dias úteis de lead time. Clique para filtrar o detalhamento abaixo.</p>
                       </TooltipContent>
                     </Tooltip>
                   </div>
