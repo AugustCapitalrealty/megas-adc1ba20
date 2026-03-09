@@ -509,6 +509,38 @@ export default function MonitoramentoOC() {
                 Limpar filtros
               </Button>
             )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const data = filteredRows.map(r => ({
+                  'Protocolo': r.protocolo,
+                  'Nº OC': r.documento_numero,
+                  'Empreendimento': EMPREENDIMENTO_LABELS[r.empreendimento],
+                  'Fornecedor': r.fornecedor_razao || '-',
+                  'Valor (R$)': r.valor,
+                  'Dias Aberto': r.dias_aberto,
+                  'Status': MONITOR_STATUS_LABELS[getRowMonitorStatus(r)],
+                  'Tem NF': r.tem_nf ? 'Sim' : 'Não',
+                  'Previsão NF': r.previsao_nf || '-',
+                }));
+                import('xlsx').then(XLSX => {
+                  import('file-saver').then(({ saveAs }) => {
+                    const ws = XLSX.utils.json_to_sheet(data);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, 'Monitoramento OC');
+                    const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+                    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                    saveAs(blob, `monitoramento_oc_${new Date().toISOString().slice(0, 10)}.xlsx`);
+                  });
+                });
+              }}
+              disabled={filteredRows.length === 0}
+              className="gap-1.5"
+            >
+              <Download className="h-4 w-4" />
+              Exportar
+            </Button>
             <div className="text-sm text-muted-foreground flex items-center gap-1">
               <BarChart3 className="h-4 w-4" />
               {filteredRows.length} registro(s)
