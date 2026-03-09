@@ -724,10 +724,10 @@ export default function DashboardEficiencia() {
                   )}
                 </CardTitle>
                 <CardDescription>
-                  {isBacklogView
-                    ? `${currentEntries.length} solicitações em aberto >15 dias úteis (sem OC emitida)`
-                    : `${currentEntries.length} OCs emitidas no período`}
-                  {currentEntries.length > TABLE_LIMIT && (
+                  {drilldownFilter === 'backlog'
+                    ? `${filteredEntries.length} solicitações finalizadas com >15 dias úteis de lead time`
+                    : `${filteredEntries.length} OCs emitidas no período`}
+                  {filteredEntries.length > TABLE_LIMIT && (
                     <span className="text-warning ml-1">(exibindo primeiras {TABLE_LIMIT})</span>
                   )}
                 </CardDescription>
