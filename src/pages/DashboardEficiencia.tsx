@@ -111,8 +111,8 @@ export default function DashboardEficiencia() {
     avgLeadTime,
     sameDayPercent,
     sameDayCount,
-    backlogCritico,
-    backlogEntries,
+    critico15Count,
+    critico15Percent,
     ocEmitted,
     histogram,
     weeklyAverages,
@@ -138,11 +138,14 @@ export default function DashboardEficiencia() {
     setFilters(prev => ({ ...prev, ...dates }));
   };
 
-  // Filtered entries for drill-down table
+  // Filtered entries for drill-down table (unified - backlog now uses same entries dataset)
   const filteredEntries = useMemo(() => {
     let filtered = [...entries];
     if (drilldownFilter === 'same_day') {
       filtered = filtered.filter(e => e.lead_time_dias === 0);
+    } else if (drilldownFilter === 'backlog') {
+      // Backlog now means entries with lead_time > 15 days (same as histogram 15d+ bucket)
+      filtered = filtered.filter(e => e.lead_time_dias > 15);
     } else if (drilldownFilter.startsWith('bucket_')) {
       const [, min, max] = drilldownFilter.split('_');
       filtered = filtered.filter(e =>
@@ -156,18 +159,8 @@ export default function DashboardEficiencia() {
     return filtered;
   }, [entries, drilldownFilter, searchProtocolo]);
 
-  // Filtered backlog entries
-  const filteredBacklogEntries = useMemo(() => {
-    if (drilldownFilter !== 'backlog') return [];
-    let filtered = [...backlogEntries];
-    if (searchProtocolo.trim()) {
-      const q = searchProtocolo.trim().toLowerCase();
-      filtered = filtered.filter(e => e.protocolo.toLowerCase().includes(q));
-    }
-    return filtered;
-  }, [backlogEntries, drilldownFilter, searchProtocolo]);
-
-  const isBacklogView = drilldownFilter === 'backlog';
+  // isBacklogView no longer needs separate dataset
+  const isBacklogView = false; // Always use unified entries view
 
   // YoY data
   const yoyData = useMemo(() => {
@@ -199,8 +192,7 @@ export default function DashboardEficiencia() {
     : 0;
 
   const TABLE_LIMIT = 100;
-  const currentEntries = isBacklogView ? filteredBacklogEntries : filteredEntries;
-  const displayEntries = currentEntries.slice(0, TABLE_LIMIT);
+  const displayEntries = filteredEntries.slice(0, TABLE_LIMIT);
 
   return (
     <>
@@ -361,12 +353,12 @@ export default function DashboardEficiencia() {
             </CardContent>
           </Card>
 
-          {/* Backlog Crítico */}
+          {/* Crítico >15 dias */}
           <Card
             className={cn(
               "cursor-pointer hover:shadow-md transition-shadow",
               drilldownFilter === 'backlog' && "ring-2 ring-primary/30",
-              backlogCritico > 0 && "border-destructive/50 bg-destructive/5",
+              critico15Percent > 20 && "border-destructive/50 bg-destructive/5",
             )}
             onClick={() => setDrilldownFilter('backlog')}
           >
@@ -374,27 +366,27 @@ export default function DashboardEficiencia() {
               <div className="flex items-center justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-1.5">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Backlog Crítico (Em aberto)</p>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Crítico ({'>'}15 dias)</p>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Info className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-muted-foreground cursor-help shrink-0" />
                       </TooltipTrigger>
                       <TooltipContent side="top" className="max-w-[280px]">
-                        <p className="text-xs">Solicitações <strong>em aberto</strong> há mais de 15 dias úteis e que ainda <strong>não possuem OC/AC emitida</strong>. Não inclui solicitações já concluídas. Clique para ver os itens.</p>
+                        <p className="text-xs">Solicitações <strong>finalizadas</strong> no período que levaram mais de 15 dias úteis para emissão da OC/AC. Mesmo dataset do histograma "15d+".</p>
                       </TooltipContent>
                     </Tooltip>
                   </div>
                   {isLoading ? (
                     <Skeleton className="h-9 w-20 mt-1" />
                   ) : (
-                    <p className={cn("text-3xl font-bold mt-1", backlogCritico > 0 && "text-destructive")}>
-                      {backlogCritico}
-                      <span className="text-sm font-normal text-muted-foreground ml-1">{'>'}15 dias úteis</span>
+                    <p className={cn("text-3xl font-bold mt-1", critico15Percent > 20 && "text-destructive")}>
+                      {critico15Count}
+                      <span className="text-sm font-normal text-muted-foreground ml-1">({critico15Percent}%)</span>
                     </p>
                   )}
                 </div>
-                <div className={cn("p-3 rounded-xl", backlogCritico > 0 ? "bg-destructive/10" : "bg-muted")}>
-                  <AlertTriangle className={cn("h-6 w-6", backlogCritico > 0 ? "text-destructive" : "text-muted-foreground")} />
+                <div className={cn("p-3 rounded-xl", critico15Percent > 20 ? "bg-destructive/10" : "bg-muted")}>
+                  <AlertTriangle className={cn("h-6 w-6", critico15Percent > 20 ? "text-destructive" : "text-muted-foreground")} />
                 </div>
               </div>
             </CardContent>
@@ -732,10 +724,10 @@ export default function DashboardEficiencia() {
                   )}
                 </CardTitle>
                 <CardDescription>
-                  {isBacklogView
-                    ? `${currentEntries.length} solicitações em aberto >15 dias úteis (sem OC emitida)`
-                    : `${currentEntries.length} OCs emitidas no período`}
-                  {currentEntries.length > TABLE_LIMIT && (
+                  {drilldownFilter === 'backlog'
+                    ? `${filteredEntries.length} solicitações finalizadas com >15 dias úteis de lead time`
+                    : `${filteredEntries.length} OCs emitidas no período`}
+                  {filteredEntries.length > TABLE_LIMIT && (
                     <span className="text-warning ml-1">(exibindo primeiras {TABLE_LIMIT})</span>
                   )}
                 </CardDescription>
@@ -769,32 +761,23 @@ export default function DashboardEficiencia() {
                     <TableRow>
                       <TableHead>Protocolo</TableHead>
                       <TableHead>Data Abertura</TableHead>
-                      {isBacklogView ? (
-                        <>
-                          <TableHead>Status</TableHead>
-                          <TableHead className="text-center">Dias em Aberto (dias úteis)</TableHead>
-                        </>
-                      ) : (
-                        <>
-                          <TableHead>Data Upload OC</TableHead>
-                          <TableHead className="text-center">Lead Time (dias úteis)</TableHead>
-                        </>
-                      )}
+                      <TableHead>Data Upload OC</TableHead>
+                      <TableHead className="text-center">Lead Time (dias úteis)</TableHead>
                       <TableHead>Empreendimento</TableHead>
-                      {!isBacklogView && <TableHead className="text-right">Valor</TableHead>}
+                      <TableHead className="text-right">Valor</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {displayEntries.map((entry) => {
-                      const isBacklogEntry = 'dias_em_aberto' in entry;
-                      const dias = isBacklogEntry ? entry.dias_em_aberto : entry.lead_time_dias;
+                      const dias = entry.lead_time_dias;
+                      const isCritical = dias > 15;
 
                       return (
                          <TableRow
                           key={entry.id}
                           className={cn(
-                            !isBacklogEntry && dias === 0 && "bg-success/5",
-                            isBacklogEntry && "bg-destructive/5"
+                            dias === 0 && "bg-success/5",
+                            isCritical && "bg-destructive/5"
                           )}
                         >
                           <TableCell className="font-mono font-medium">
@@ -809,47 +792,25 @@ export default function DashboardEficiencia() {
                           <TableCell>
                             {formatBR(entry.created_at, 'dd/MM HH:mm')}
                           </TableCell>
-
-                          {isBacklogEntry ? (
-                            <>
-                              <TableCell>
-                                <Badge variant="outline" className="text-xs">
-                                  {STATUS_LABELS[entry.status as keyof typeof STATUS_LABELS] || entry.status}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="text-center">
-                                <Badge variant="destructive">
-                                  <AlertTriangle className="h-3 w-3 mr-1" />
-                                  {formatDuration(dias)}
-                                </Badge>
-                              </TableCell>
-                            </>
-                          ) : (
-                            <>
-                              <TableCell>{formatBR(entry.data_oc, 'dd/MM HH:mm')}</TableCell>
-                              <TableCell className="text-center">
-                                <Badge
-                                  variant={dias === 0 ? 'default' : dias > 10 ? 'destructive' : 'outline'}
-                                  className={cn(dias === 0 && "bg-success text-success-foreground")}
-                                >
-                                  {dias === 0 && <Zap className="h-3 w-3 mr-1" />}
-                                  {formatDuration(dias)}
-                                </Badge>
-                              </TableCell>
-                            </>
-                          )}
-
-                          <TableCell>
-                            <Badge variant="outline" className="text-xs">
-                              {EMPREENDIMENTO_LABELS[entry.empreendimento]}
+                          <TableCell>{formatBR(entry.data_oc, 'dd/MM HH:mm')}</TableCell>
+                          <TableCell className="text-center">
+                            <Badge
+                              variant={dias === 0 ? 'default' : isCritical ? 'destructive' : 'outline'}
+                              className={cn(dias === 0 && "bg-success text-success-foreground")}
+                            >
+                              {dias === 0 && <Zap className="h-3 w-3 mr-1" />}
+                              {isCritical && <AlertTriangle className="h-3 w-3 mr-1" />}
+                              {formatDuration(dias)}
                             </Badge>
                           </TableCell>
-
-                          {!isBacklogEntry && (
-                            <TableCell className="text-right font-medium">
-                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(entry.valor)}
-                            </TableCell>
-                          )}
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs">
+                              {EMPREENDIMENTO_LABELS[entry.empreendimento] || entry.empreendimento}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-mono">
+                            {entry.valor?.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) ?? '—'}
+                          </TableCell>
                         </TableRow>
                       );
                     })}

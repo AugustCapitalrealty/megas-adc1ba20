@@ -1,37 +1,24 @@
+# ✅ Plano Concluído: Unificar métricas Dashboard Eficiência
 
-## Problema
+## Problema Resolvido
 
-Há inconsistência entre o card **Backlog Crítico** e o histograma **Distribuição do Lead Time**:
+O card "Backlog Crítico" e o histograma "Distribuição do Lead Time" usavam datasets diferentes:
+- Card: solicitações **em aberto** >15 dias
+- Histograma "15d+": solicitações **concluídas** com lead time >15 dias
 
-- **Card Backlog Crítico**: Conta solicitações **abertas** sem OC há >15 dias úteis → mostra **1**
-- **Histograma barra "15d+"**: Conta solicitações **concluídas** que levaram >15 dias úteis → mostra **8** (ou mais)
+Isso causava confusão: clicar na barra do histograma não atualizava o card.
 
-Quando o usuário clica na barra do histograma, espera que o card mostre o mesmo número. São datasets diferentes, causando confusão.
+## Solução Implementada
 
----
+Unificamos o card para usar o mesmo dataset do histograma (solicitações finalizadas):
 
-## Solução
+| Arquivo | Mudança |
+|---------|---------|
+| `src/hooks/useEficienciaDashboard.ts` | Adicionado `critico15Count` e `critico15Percent` calculados de `entries.filter(e => e.lead_time_dias > 15)` |
+| `src/pages/DashboardEficiencia.tsx` | Card renomeado para "Crítico (>15 dias)", usa `critico15Count`, drilldown unificado, tabela simplificada |
 
-Unificar o conceito: o card "Backlog Crítico" passa a contar **solicitações concluídas com lead time >15 dias** (mesmo dataset do histograma), não mais "em aberto".
+## Resultado
 
-### Mudanças em `src/pages/DashboardEficiencia.tsx`
-
-| Item | Antes | Depois |
-|------|-------|--------|
-| Card título | "Backlog Crítico (Em aberto)" | "Crítico (>15 dias)" |
-| Valor | `backlogCritico` (query separada de abertos) | Contagem de `entries` com `lead_time_dias > 15` |
-| Tooltip | "Solicitações em aberto..." | "Solicitações finalizadas que levaram mais de 15 dias úteis" |
-| Drilldown | `'backlog'` → `backlogEntries` | `'backlog'` → `entries` filtradas por `lead_time > 15` |
-| Cor | Sempre vermelho se > 0 | Vermelho apenas se % alto (ex: >20% do total) |
-
-### Mudanças em `src/hooks/useEficienciaDashboard.ts`
-
-- Manter a query de `backlogEntries` (itens em aberto) para uso futuro se necessário
-- Adicionar novo campo `critico15Count` calculado de `entries.filter(e => e.lead_time_dias > 15).length`
-- Exportar `critico15Count` para o dashboard
-
-### Resultado esperado
-
-- Card mostra **8** (mesmo número da barra "15d+" do histograma)
-- Clicar no card ou na barra do histograma filtra a mesma lista de itens na tabela
-- Linguagem consistente em todo o painel
+- Card e histograma agora mostram o mesmo número
+- Clicar no card ou na barra "15d+" filtra a mesma lista na tabela
+- Linhas com >15 dias têm highlight vermelho e ícone de alerta
