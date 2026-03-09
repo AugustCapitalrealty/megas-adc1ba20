@@ -170,6 +170,93 @@ function getSLAInfo(sol: SolicitacaoBackoffice) {
   return { tempoDesdeAbertura, tempoDesdeAprovacao, atrasadoAnalise, atrasadoEmissao };
 }
 
+// ── Concluir Solicitação Modal ─────────────────────────
+
+function ConcluirSolicitacaoModal({
+  sol,
+  onClose,
+  onConfirm,
+}: {
+  sol: SolicitacaoBackoffice | null;
+  onClose: () => void;
+  onConfirm: (sol: SolicitacaoBackoffice) => Promise<void>;
+}) {
+  const [checkNF, setCheckNF] = useState(false);
+  const [checkFluig, setCheckFluig] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const isReady = checkNF && checkFluig;
+
+  const handleConfirm = async () => {
+    if (!sol || !isReady) return;
+    setLoading(true);
+    try {
+      await onConfirm(sol);
+      onClose();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      setCheckNF(false);
+      setCheckFluig(false);
+      onClose();
+    }
+  };
+
+  return (
+    <Dialog open={!!sol} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <CheckCircle className="h-5 w-5 text-success" />
+            Concluir Solicitação
+          </DialogTitle>
+          {sol && (
+            <DialogDescription>
+              Solicitação #{sol.protocolo}
+            </DialogDescription>
+          )}
+        </DialogHeader>
+
+        <div className="py-2 space-y-4">
+          <p className="text-sm text-muted-foreground">Confirme antes de concluir:</p>
+
+          <div className="space-y-3">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <Checkbox
+                checked={checkNF}
+                onCheckedChange={(v) => setCheckNF(v === true)}
+              />
+              <span className="text-sm font-medium">NF recebida e conferida</span>
+            </label>
+
+            <label className="flex items-center gap-3 cursor-pointer">
+              <Checkbox
+                checked={checkFluig}
+                onCheckedChange={(v) => setCheckFluig(v === true)}
+              />
+              <span className="text-sm font-medium">Pagamento lançado no Fluig</span>
+            </label>
+          </div>
+        </div>
+
+        <DialogFooter className="flex flex-col sm:flex-row gap-2">
+          <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={loading}>
+            Cancelar
+          </Button>
+          <Button onClick={handleConfirm} disabled={!isReady || loading}>
+            {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+            Confirmar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ── Component ──────────────────────────────────────────
 
 export function BackofficeModals(props: BackofficeModalsProps) {
