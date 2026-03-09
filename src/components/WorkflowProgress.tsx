@@ -14,7 +14,7 @@ const WORKFLOW_STEPS: WorkflowStep[] = [
   { label: 'Análise', statuses: ['em_analise', 'pendente_correcao', 'aguardando_informacoes'] },
   { label: 'Lançamento', statuses: ['aprovado', 'em_processamento'] },
   { label: 'OC Emitida', statuses: ['oc_ac_emitida', 'aguardando_aceite'] },
-  { label: 'Liberada', statuses: ['liberado_fornecedor', 'enviado_fornecedor', 'aguardando_nf_boleto', 'nf_boleto_enviados', 'enviado_pagamento'] },
+  { label: 'Liberada', statuses: ['liberado_fornecedor', 'aguardando_execucao', 'enviado_fornecedor', 'aguardando_nf_boleto', 'nf_boleto_enviados', 'enviado_pagamento'] },
   { label: 'Concluída', statuses: ['concluida'] },
 ];
 

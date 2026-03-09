@@ -11,7 +11,7 @@ import { UnreadMessageBanner, type UnreadMessageInfo } from '@/components/Unread
 import type { DocumentoEmitido, DocumentoFiscal } from '@/types';
 import {
   FileText, Edit, AlertTriangle, Copy, XCircle, Download,
-  FileCheck, CheckCircle, MessageSquare, Receipt, Upload, UserCheck,
+  FileCheck, CheckCircle, MessageSquare, Receipt, Upload, UserCheck, Wrench,
 } from 'lucide-react';
 import type { SolicitacaoComFornecedor, RejectionInfo, InfoRequest } from './types';
 
@@ -111,6 +111,18 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
             className="bg-white text-green-700 hover:bg-white/90 border border-green-300 shadow-sm">
             <FileText className="h-4 w-4 mr-1" /> Visualizar OC
           </Button>
+        </div>
+      );
+    }
+
+    if (sol.status === 'aguardando_execucao') {
+      return (
+        <div className="bg-amber-500 text-white px-4 py-2 flex items-center justify-between rounded-t-lg">
+          <div className="flex items-center gap-2">
+            <Wrench className="h-5 w-5" />
+            <span className="font-semibold">AGUARDANDO EXECUÇÃO</span>
+            <span className="text-sm opacity-90">- O serviço está sendo executado pelo fornecedor</span>
+          </div>
         </div>
       );
     }

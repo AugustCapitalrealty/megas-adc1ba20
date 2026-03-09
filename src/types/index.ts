@@ -1,6 +1,6 @@
 export type AppRole = 'solicitante' | 'backoffice' | 'admin' | 'super_admin';
 export type RequestType = 'AC' | 'OC';
-export type RequestStatus = 'recebido' | 'em_analise' | 'pendente_correcao' | 'aprovado' | 'rejeitado' | 'em_processamento' | 'oc_ac_emitida' | 'aguardando_aceite' | 'aguardando_informacoes' | 'concluida' | 'aguardando_nf_boleto' | 'nf_boleto_enviados' | 'enviado_pagamento' | 'liberado_fornecedor' | 'enviado_fornecedor' | 'cancelado';
+export type RequestStatus = 'recebido' | 'em_analise' | 'pendente_correcao' | 'aprovado' | 'rejeitado' | 'em_processamento' | 'oc_ac_emitida' | 'aguardando_aceite' | 'aguardando_informacoes' | 'concluida' | 'aguardando_nf_boleto' | 'nf_boleto_enviados' | 'enviado_pagamento' | 'liberado_fornecedor' | 'enviado_fornecedor' | 'cancelado' | 'aguardando_execucao';
 export type Empreendimento = 'mega_curitiba' | 'mega_itajai' | 'mega_esteio' | 'todos';
 export type NaturezaOrcamentaria = 
   | 'materiais_informatica'
@@ -219,6 +219,7 @@ export const STATUS_LABELS: Record<RequestStatus, string> = {
   liberado_fornecedor: 'Liberada para Fornecedor',
   enviado_fornecedor: 'OC Enviada ao Fornecedor',
   cancelado: 'Cancelada pelo Solicitante',
+  aguardando_execucao: 'Aguardando Execução do Serviço',
 };
 
 export interface DocumentoEmitido {
@@ -271,6 +272,7 @@ export const STATUS_ACTION_LABELS: Record<RequestStatus, string> = {
   liberado_fornecedor: 'Fornecedor já pode executar o serviço',
   enviado_fornecedor: 'OC foi enviada ao fornecedor',
   cancelado: 'Cancelada pelo solicitante',
+  aguardando_execucao: 'Aguardando a execução do serviço pelo fornecedor',
 };
 
 export const ANEXO_LABELS: Record<string, string> = {

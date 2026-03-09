@@ -194,6 +194,13 @@ export const BackofficeSolicitacaoCard = memo(function BackofficeSolicitacaoCard
         </Button>
       );
     }
+    if (sol.status === 'aguardando_execucao') {
+      return (
+        <Button size="sm" onClick={() => callbacks.handleRegistrarEnvioFornecedor(sol)} disabled={actionLoading}>
+          <Send className="h-4 w-4 mr-1" /> Liberar OC ao Fornecedor
+        </Button>
+      );
+    }
     if (sol.status === 'enviado_fornecedor') {
       return (
         <Button size="sm" onClick={() => callbacks.handleConcluirLiberada(sol)} disabled={actionLoading}>

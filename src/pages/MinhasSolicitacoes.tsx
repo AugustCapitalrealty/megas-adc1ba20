@@ -109,10 +109,13 @@ export default function MinhasSolicitacoes() {
   const [aceiteSolicitacao, setAceiteSolicitacao] = useState<SolicitacaoComFornecedor | null>(null);
   const [aceiteAjuste, setAceiteAjuste] = useState('');
   const [aceiteLoading, setAceiteLoading] = useState(false);
-  const [aceiteStep, setAceiteStep] = useState<'revisar' | 'decidir' | 'confirmar'>('revisar');
+  const [aceiteStep, setAceiteStep] = useState<'revisar' | 'decidir' | 'tipo_entrega' | 'confirmar'>('revisar');
   const [fornecedorEmailContato, setFornecedorEmailContato] = useState('');
   const [fornecedorTelefoneContato, setFornecedorTelefoneContato] = useState('');
   const [showAjusteField, setShowAjusteField] = useState(false);
+  const [tipoEntrega, setTipoEntrega] = useState<'produto' | 'servico' | null>(null);
+  const [dataExecucaoServico, setDataExecucaoServico] = useState('');
+  const [evidenciaFile, setEvidenciaFile] = useState<File | null>(null);
 
   // NF/Boleto modal state
   const [nfBoletoOpen, setNfBoletoOpen] = useState(false);
@@ -580,11 +583,18 @@ export default function MinhasSolicitacoes() {
     if (!aceiteSolicitacao || !user) return;
     setAceiteLoading(true);
     try {
+      const isServico = tipoEntrega === 'servico';
+      const targetStatus = isServico ? 'aguardando_execucao' : 'liberado_fornecedor';
+      
       const updateData: Record<string, any> = { 
-        status: 'liberado_fornecedor' as any,
+        status: targetStatus as any,
         data_liberado_fornecedor: new Date().toISOString(),
         liberado_fornecedor_por: user.id,
+        tipo_entrega: tipoEntrega,
       };
+      if (isServico && dataExecucaoServico) {
+        updateData.data_execucao_servico = dataExecucaoServico;
+      }
       if (fornecedorEmailContato.trim()) updateData.fornecedor_email_contato = fornecedorEmailContato.trim();
       if (fornecedorTelefoneContato.trim()) updateData.fornecedor_telefone_contato = fornecedorTelefoneContato.trim();
       
@@ -595,16 +605,42 @@ export default function MinhasSolicitacoes() {
         throw new Error(updateError?.message || 'Atualização bloqueada por permissão.');
       }
 
+      // Upload evidence file for service
+      if (isServico && evidenciaFile) {
+        const fileExt = evidenciaFile.name.split('.').pop();
+        const storagePath = `${aceiteSolicitacao.id}/evidencia_servico_${Date.now()}.${fileExt}`;
+        await supabase.storage.from('anexos').upload(storagePath, evidenciaFile);
+        await supabase.from('anexos').insert({
+          solicitacao_id: aceiteSolicitacao.id,
+          tipo: 'evidencia_servico',
+          nome_arquivo: evidenciaFile.name,
+          storage_path: storagePath,
+          mime_type: evidenciaFile.type,
+          tamanho_bytes: evidenciaFile.size,
+        });
+      }
+
       const contatoInfo = fornecedorEmailContato || fornecedorTelefoneContato 
         ? `Contato fornecedor: ${fornecedorEmailContato || '-'} | ${fornecedorTelefoneContato || '-'}` : null;
+      const motivoText = isServico 
+        ? `Tipo: Serviço | Data execução: ${dataExecucaoServico || '-'}${contatoInfo ? ` | ${contatoInfo}` : ''}`
+        : `Tipo: Produto${contatoInfo ? ` | ${contatoInfo}` : ''}`;
 
       await supabase.from('historico_solicitacoes').insert({
         solicitacao_id: aceiteSolicitacao.id, user_id: user.id, acao: 'liberacao_fornecedor',
-        status_anterior: 'aguardando_aceite', status_novo: 'liberado_fornecedor', motivo: contatoInfo,
+        status_anterior: 'aguardando_aceite', status_novo: targetStatus, motivo: motivoText,
       });
 
-      toast({ title: 'OC Liberada para o Fornecedor!', description: 'O Backoffice poderá enviar a OC formalmente ao fornecedor.' });
+      toast({ 
+        title: isServico ? 'Serviço Registrado!' : 'OC Liberada para o Fornecedor!', 
+        description: isServico 
+          ? 'A evidência foi enviada. O Backoffice verificará e enviará a OC.'
+          : 'O Backoffice poderá enviar a OC formalmente ao fornecedor.' 
+      });
       setAceiteOpen(false);
+      setTipoEntrega(null);
+      setDataExecucaoServico('');
+      setEvidenciaFile(null);
       fetchSolicitacoes();
     } catch (error: any) {
       toast({ title: 'Erro ao liberar OC', description: error?.message || 'Tente novamente.', variant: 'destructive' });
@@ -888,6 +924,8 @@ export default function MinhasSolicitacoes() {
           aceiteAjuste, setAceiteAjuste, aceiteLoading,
           fornecedorEmailContato, setFornecedorEmailContato,
           fornecedorTelefoneContato, setFornecedorTelefoneContato,
+          tipoEntrega, setTipoEntrega, dataExecucaoServico, setDataExecucaoServico,
+          evidenciaFile, setEvidenciaFile,
           handleAceitarOC, handleSolicitarAjuste, openOCInNewTab, downloadDocumentoEmitido,
         }}
         nfBoletoOpen={nfBoletoOpen}

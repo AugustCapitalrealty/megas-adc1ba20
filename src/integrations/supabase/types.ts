@@ -811,6 +811,7 @@ export type Database = {
           custo_cliente: boolean | null
           data_conclusao: string | null
           data_enviado_fornecedor: string | null
+          data_execucao_servico: string | null
           data_fim: string | null
           data_inicio: string | null
           data_liberado_fornecedor: string | null
@@ -870,6 +871,7 @@ export type Database = {
           tipo_contratacao:
             | Database["public"]["Enums"]["tipo_contratacao"]
             | null
+          tipo_entrega: string | null
           tipo_garantia: Database["public"]["Enums"]["tipo_garantia"] | null
           tipo_rateio: string | null
           updated_at: string
@@ -886,6 +888,7 @@ export type Database = {
           custo_cliente?: boolean | null
           data_conclusao?: string | null
           data_enviado_fornecedor?: string | null
+          data_execucao_servico?: string | null
           data_fim?: string | null
           data_inicio?: string | null
           data_liberado_fornecedor?: string | null
@@ -945,6 +948,7 @@ export type Database = {
           tipo_contratacao?:
             | Database["public"]["Enums"]["tipo_contratacao"]
             | null
+          tipo_entrega?: string | null
           tipo_garantia?: Database["public"]["Enums"]["tipo_garantia"] | null
           tipo_rateio?: string | null
           updated_at?: string
@@ -961,6 +965,7 @@ export type Database = {
           custo_cliente?: boolean | null
           data_conclusao?: string | null
           data_enviado_fornecedor?: string | null
+          data_execucao_servico?: string | null
           data_fim?: string | null
           data_inicio?: string | null
           data_liberado_fornecedor?: string | null
@@ -1020,6 +1025,7 @@ export type Database = {
           tipo_contratacao?:
             | Database["public"]["Enums"]["tipo_contratacao"]
             | null
+          tipo_entrega?: string | null
           tipo_garantia?: Database["public"]["Enums"]["tipo_garantia"] | null
           tipo_rateio?: string | null
           updated_at?: string
@@ -1316,6 +1322,7 @@ export type Database = {
         | "liberado_fornecedor"
         | "enviado_fornecedor"
         | "cancelado"
+        | "aguardando_execucao"
       request_type: "AC" | "OC"
       tipo_acao_oc:
         | "justificativa_adiamento"
@@ -1504,6 +1511,7 @@ export const Constants = {
         "liberado_fornecedor",
         "enviado_fornecedor",
         "cancelado",
+        "aguardando_execucao",
       ],
       request_type: ["AC", "OC"],
       tipo_acao_oc: [
