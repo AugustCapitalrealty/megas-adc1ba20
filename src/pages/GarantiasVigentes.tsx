@@ -114,15 +114,21 @@ export default function GarantiasVigentes() {
           <p className="text-sm text-muted-foreground">
             {garantias.length} garantia{garantias.length !== 1 ? 's' : ''} encontrada{garantias.length !== 1 ? 's' : ''}
           </p>
-          {garantias.map(g => (
-            <GarantiaCard
-              key={g.id}
-              garantia={g}
-              infraspeakLoading={infraspeakLoading}
-              onToggleInfraspeak={handleToggleInfraspeak}
-              onVerOriginal={handleVerOriginal}
-            />
-          ))}
+          <VirtualizedList
+            items={garantias}
+            getItemKey={(g) => g.id}
+            estimateSize={180}
+            overscan={5}
+            gap={12}
+            renderItem={(g) => (
+              <GarantiaCard
+                garantia={g}
+                infraspeakLoading={infraspeakLoading}
+                onToggleInfraspeak={handleToggleInfraspeak}
+                onVerOriginal={handleVerOriginal}
+              />
+            )}
+          />
         </div>
       )}
 
