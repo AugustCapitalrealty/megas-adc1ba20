@@ -623,8 +623,9 @@ export default function MinhasSolicitacoes() {
 
       const contatoInfo = fornecedorEmailContato || fornecedorTelefoneContato 
         ? `Contato fornecedor: ${fornecedorEmailContato || '-'} | ${fornecedorTelefoneContato || '-'}` : null;
+      const motivoOCAntesPart = motivoOCAntes.trim() ? ` | Motivo OC antecipada: ${motivoOCAntes.trim()}` : '';
       const motivoText = isServico 
-        ? `Tipo: Serviço | Data execução: ${dataExecucaoServico || '-'}${contatoInfo ? ` | ${contatoInfo}` : ''}`
+        ? `Tipo: Serviço | Data execução: ${dataExecucaoServico || '-'}${motivoOCAntesPart}${contatoInfo ? ` | ${contatoInfo}` : ''}`
         : `Tipo: Produto${contatoInfo ? ` | ${contatoInfo}` : ''}`;
 
       await supabase.from('historico_solicitacoes').insert({
