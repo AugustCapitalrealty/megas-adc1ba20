@@ -171,6 +171,9 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
   const devolucaoDetectada = useMemo(() => {
     if (!status || !eventos.length) return null;
     
+    // Se o processo já está fechado/aprovado, devoluções são históricas e irrelevantes
+    if (isFluigFechado(status)) return null;
+    
     // Procurar no histórico de eventos por mudança de localização que DIMINUIU de nível
     for (let i = 0; i < eventos.length; i++) {
       const e = eventos[i];
@@ -291,13 +294,13 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
     if (stage.approvalStatus === 'not_required') {
       return { ...stage, status: 'not_required' as const };
     }
+    // Se aprovado, está done (prioridade sobre devolução histórica)
+    if (stage.aprovado) {
+      return { ...stage, status: 'done' as const };
+    }
     // Se há devolução detectada por este departamento, marcar como rejected
     if (devolucaoDetectada?.departamento.includes(stage.label)) {
       return { ...stage, status: 'rejected' as const };
-    }
-    // Se aprovado, está done
-    if (stage.aprovado) {
-      return { ...stage, status: 'done' as const };
     }
     // Se é a etapa atual (baseado no responsável), está em progresso
     if (index === etapaAtualIndex) {
