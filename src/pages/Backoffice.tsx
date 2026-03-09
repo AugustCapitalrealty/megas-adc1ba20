@@ -1615,8 +1615,10 @@ export default function Backoffice() {
         confirmAction={confirmAction}
         setConfirmAction={setConfirmAction}
         handleDarBaixaConfirmed={handleDarBaixaConfirmed}
-        handleRegistrarEnvioFornecedorConfirmed={handleRegistrarEnvioFornecedorConfirmed}
         handleConcluirLiberadaConfirmed={handleConcluirLiberadaConfirmed}
+        envioFornecedorModal={envioFornecedorModal}
+        setEnvioFornecedorModal={setEnvioFornecedorModal}
+        handleRegistrarEnvioFornecedorConfirmed={handleRegistrarEnvioFornecedorConfirmed}
       />
 
       {/* Transfer Ownership Modal */}
