@@ -1,24 +1,17 @@
-# ✅ Plano Concluído: Unificar métricas Dashboard Eficiência
-
-## Problema Resolvido
-
-O card "Backlog Crítico" e o histograma "Distribuição do Lead Time" usavam datasets diferentes:
-- Card: solicitações **em aberto** >15 dias
-- Histograma "15d+": solicitações **concluídas** com lead time >15 dias
-
-Isso causava confusão: clicar na barra do histograma não atualizava o card.
-
-## Solução Implementada
-
-Unificamos o card para usar o mesmo dataset do histograma (solicitações finalizadas):
-
-| Arquivo | Mudança |
-|---------|---------|
-| `src/hooks/useEficienciaDashboard.ts` | Adicionado `critico15Count` e `critico15Percent` calculados de `entries.filter(e => e.lead_time_dias > 15)` |
-| `src/pages/DashboardEficiencia.tsx` | Card renomeado para "Crítico (>15 dias)", usa `critico15Count`, drilldown unificado, tabela simplificada |
+# ✅ Plano Concluído: Refatorar NovaSolicitacao.tsx
 
 ## Resultado
 
-- Card e histograma agora mostram o mesmo número
-- Clicar no card ou na barra "15d+" filtra a mesma lista na tabela
-- Linhas com >15 dias têm highlight vermelho e ícone de alerta
+| Arquivo | Linhas | Responsabilidade |
+|---------|--------|-----------------|
+| `src/pages/NovaSolicitacao.tsx` | ~280 | Orquestração, submit, navegação |
+| `src/hooks/useNovaSolicitacaoForm.ts` | ~330 | Todo o estado, draft, validações, derived values |
+| `src/components/nova-solicitacao/types.ts` | ~160 | Interfaces + constantes compartilhadas |
+| `src/components/nova-solicitacao/steps/EmpreendimentoStep.tsx` | ~50 | Step 1 - Local |
+| `src/components/nova-solicitacao/steps/DescricaoStep.tsx` | ~130 | Step 2 - Descrição + valor |
+| `src/components/nova-solicitacao/steps/TipoStep.tsx` | ~60 | Step 3 - Tipo contratação |
+| `src/components/nova-solicitacao/steps/DetalhesStep.tsx` | ~220 | Step 4 - Detalhes financeiros |
+| `src/components/nova-solicitacao/steps/FornecedorStep.tsx` | ~130 | Step 5 - Fornecedores |
+| `src/components/nova-solicitacao/steps/AnexosStep.tsx` | ~100 | Step 6 - Anexos |
+| `src/components/nova-solicitacao/steps/RevisaoStep.tsx` | ~180 | Step 7 - Revisão |
+| `src/components/nova-solicitacao/FormNavigation.tsx` | ~35 | Botões navegação |
