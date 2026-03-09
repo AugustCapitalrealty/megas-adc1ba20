@@ -272,6 +272,7 @@ export const STATUS_ACTION_LABELS: Record<RequestStatus, string> = {
   liberado_fornecedor: 'Fornecedor já pode executar o serviço',
   enviado_fornecedor: 'OC foi enviada ao fornecedor',
   cancelado: 'Cancelada pelo solicitante',
+  aguardando_execucao: 'Aguardando a execução do serviço pelo fornecedor',
 };
 
 export const ANEXO_LABELS: Record<string, string> = {

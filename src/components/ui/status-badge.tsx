@@ -30,6 +30,7 @@ const statusConfig: Record<RequestStatus, {
   liberado_fornecedor: { className: 'status-liberado-fornecedor', Icon: Truck },
   enviado_fornecedor: { className: 'status-enviado-fornecedor', Icon: PackageCheck },
   cancelado: { className: 'status-cancelado', Icon: Ban },
+  aguardando_execucao: { className: 'status-aguardando-execucao', Icon: Wrench },
 };
 
 export function StatusBadge({ status, className, showActionHint = false }: StatusBadgeProps) {
