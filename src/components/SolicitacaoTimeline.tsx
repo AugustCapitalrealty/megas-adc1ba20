@@ -32,6 +32,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 interface SolicitacaoTimelineProps {
   solicitacaoId: string;
   showMessages?: boolean;
+  showHistorico?: boolean;
   isBackoffice?: boolean;
 }
 
