@@ -706,7 +706,7 @@ function AceiteModal(props: AceiteModalProps) {
                 {tipoEntrega && (
                   <div className="p-3 bg-muted/50 rounded-lg border">
                     <p className="text-sm flex items-center gap-2">
-                      {tipoEntrega === 'produto' ? <Package className="h-4 w-4" /> : <Wrench className="h-4 w-4" />}
+                    {tipoEntrega === 'produto' ? <Package className="h-4 w-4" /> : <Wrench className="h-4 w-4" />}
                       <span className="font-medium">
                         {tipoEntrega === 'produto' ? 'Produto/Material' : 'Serviço'}
                       </span>
@@ -714,6 +714,11 @@ function AceiteModal(props: AceiteModalProps) {
                         <span className="text-muted-foreground">— Executado em {dataExecucaoServico}</span>
                       )}
                     </p>
+                    {motivoOCAntes.trim() && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        <span className="font-medium text-foreground">Motivo OC antecipada:</span> {motivoOCAntes}
+                      </p>
+                    )}
                   </div>
                 )}
 
