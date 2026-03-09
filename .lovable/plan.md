@@ -1,14 +1,24 @@
+# ✅ Plano Concluído: Unificar métricas Dashboard Eficiência
 
+## Problema Resolvido
 
-## Tornar telefone e e-mail do fornecedor obrigatórios na liberação da OC
+O card "Backlog Crítico" e o histograma "Distribuição do Lead Time" usavam datasets diferentes:
+- Card: solicitações **em aberto** >15 dias
+- Histograma "15d+": solicitações **concluídas** com lead time >15 dias
 
-### Mudanças em `SolicitanteModals.tsx`
+Isso causava confusão: clicar na barra do histograma não atualizava o card.
 
-1. **Label** (linha 730): Trocar "(opcional)" por "*(obrigatório)*"
+## Solução Implementada
 
-2. **Campos** (linhas 732-741): Adicionar `required` nos inputs de e-mail e telefone
+Unificamos o card para usar o mesmo dataset do histograma (solicitações finalizadas):
 
-3. **Botão "Confirmar Liberação"** (linha 794): Adicionar validação — desabilitar se `fornecedorEmailContato` ou `fornecedorTelefoneContato` estiverem vazios
+| Arquivo | Mudança |
+|---------|---------|
+| `src/hooks/useEficienciaDashboard.ts` | Adicionado `critico15Count` e `critico15Percent` calculados de `entries.filter(e => e.lead_time_dias > 15)` |
+| `src/pages/DashboardEficiencia.tsx` | Card renomeado para "Crítico (>15 dias)", usa `critico15Count`, drilldown unificado, tabela simplificada |
 
-4. **Texto de ajuda** (linhas 743-746): Atualizar para indicar obrigatoriedade
+## Resultado
 
+- Card e histograma agora mostram o mesmo número
+- Clicar no card ou na barra "15d+" filtra a mesma lista na tabela
+- Linhas com >15 dias têm highlight vermelho e ícone de alerta
