@@ -240,13 +240,15 @@ export default function DashboardEficiencia() {
           </div>
 
           <div className="flex items-center gap-1.5">
-            <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              type="date"
-              value={filters.dataInicio}
-              onChange={(e) => handleFilterChange('dataInicio', e.target.value)}
-              className="h-8 w-[140px] text-xs"
-            />
+            <div className="flex items-center gap-1">
+              <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+              <Input
+                type="date"
+                value={filters.dataInicio}
+                onChange={(e) => handleFilterChange('dataInicio', e.target.value)}
+                className="h-8 w-[140px] text-xs"
+              />
+            </div>
             <span className="text-muted-foreground text-xs">—</span>
             <Input
               type="date"
@@ -372,13 +374,13 @@ export default function DashboardEficiencia() {
               <div className="flex items-center justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-1.5">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Backlog Crítico</p>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Backlog Crítico (Em aberto)</p>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Info className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-muted-foreground cursor-help shrink-0" />
                       </TooltipTrigger>
                       <TooltipContent side="top" className="max-w-[280px]">
-                        <p className="text-xs">Solicitações abertas há mais de 15 dias úteis sem OC/AC emitida. Clique para ver o detalhamento com os itens reais do backlog.</p>
+                        <p className="text-xs">Solicitações <strong>em aberto</strong> há mais de 15 dias úteis e que ainda <strong>não possuem OC/AC emitida</strong>. Não inclui solicitações já concluídas. Clique para ver os itens.</p>
                       </TooltipContent>
                     </Tooltip>
                   </div>
@@ -730,7 +732,9 @@ export default function DashboardEficiencia() {
                   )}
                 </CardTitle>
                 <CardDescription>
-                  {currentEntries.length} solicitações
+                  {isBacklogView
+                    ? `${currentEntries.length} solicitações em aberto >15 dias úteis (sem OC emitida)`
+                    : `${currentEntries.length} OCs emitidas no período`}
                   {currentEntries.length > TABLE_LIMIT && (
                     <span className="text-warning ml-1">(exibindo primeiras {TABLE_LIMIT})</span>
                   )}
@@ -786,11 +790,11 @@ export default function DashboardEficiencia() {
                       const dias = isBacklogEntry ? entry.dias_em_aberto : entry.lead_time_dias;
 
                       return (
-                        <TableRow
+                         <TableRow
                           key={entry.id}
                           className={cn(
                             !isBacklogEntry && dias === 0 && "bg-success/5",
-                            dias > 10 && "bg-destructive/5"
+                            isBacklogEntry && "bg-destructive/5"
                           )}
                         >
                           <TableCell className="font-mono font-medium">
