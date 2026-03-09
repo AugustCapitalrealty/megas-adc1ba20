@@ -219,6 +219,7 @@ export const STATUS_LABELS: Record<RequestStatus, string> = {
   liberado_fornecedor: 'Liberada para Fornecedor',
   enviado_fornecedor: 'OC Enviada ao Fornecedor',
   cancelado: 'Cancelada pelo Solicitante',
+  aguardando_execucao: 'Aguardando Execução do Serviço',
 };
 
 export interface DocumentoEmitido {
