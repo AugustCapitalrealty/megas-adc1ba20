@@ -732,7 +732,9 @@ export default function DashboardEficiencia() {
                   )}
                 </CardTitle>
                 <CardDescription>
-                  {currentEntries.length} solicitações
+                  {isBacklogView
+                    ? `${currentEntries.length} solicitações em aberto >15 dias úteis (sem OC emitida)`
+                    : `${currentEntries.length} OCs emitidas no período`}
                   {currentEntries.length > TABLE_LIMIT && (
                     <span className="text-warning ml-1">(exibindo primeiras {TABLE_LIMIT})</span>
                   )}
