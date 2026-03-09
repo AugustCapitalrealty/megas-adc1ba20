@@ -18,7 +18,7 @@ const formatDate = (d: Date | string) =>
   format(typeof d === 'string' ? new Date(d) : d, 'dd/MM/yyyy', { locale: ptBR });
 
 // ── Status badge ──────────────────────────────────────────────────────────────
-const GarantiaBadge = React.memo(function GarantiaBadge({ detalhe }: { detalhe: GarantiaDetalhe }) {
+function GarantiaBadge({ detalhe }: { detalhe: GarantiaDetalhe }) {
   if (detalhe.status === 'expirada') {
     return (
       <Badge variant="destructive" className="gap-1">
