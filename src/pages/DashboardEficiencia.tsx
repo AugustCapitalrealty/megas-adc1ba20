@@ -765,57 +765,88 @@ export default function DashboardEficiencia() {
                     <TableRow>
                       <TableHead>Protocolo</TableHead>
                       <TableHead>Data Abertura</TableHead>
-                      <TableHead>Data Upload OC</TableHead>
-                      <TableHead className="text-center">Lead Time (dias úteis)</TableHead>
+                      {isBacklogView ? (
+                        <>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="text-center">Dias em Aberto (dias úteis)</TableHead>
+                        </>
+                      ) : (
+                        <>
+                          <TableHead>Data Upload OC</TableHead>
+                          <TableHead className="text-center">Lead Time (dias úteis)</TableHead>
+                        </>
+                      )}
                       <TableHead>Empreendimento</TableHead>
-                      <TableHead className="text-right">Valor</TableHead>
+                      {!isBacklogView && <TableHead className="text-right">Valor</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {displayEntries.map((entry) => (
-                      <TableRow
-                        key={entry.id}
-                        className={cn(
-                          entry.lead_time_dias === 0 && "bg-success/5",
-                          entry.lead_time_dias > 10 && "bg-destructive/5"
-                        )}
-                      >
-                        <TableCell className="font-mono font-medium">
-                          <button
-                            className="hover:underline text-primary font-mono font-medium flex items-center gap-1"
-                            onClick={(e) => { e.stopPropagation(); navigate(isBackofficeOrAdmin ? `/backoffice?search=${entry.protocolo}` : `/minhas-solicitacoes?search=${entry.protocolo}`); }}
-                          >
-                            {entry.protocolo}
-                            <ExternalLink className="h-3 w-3 opacity-60" />
-                          </button>
-                        </TableCell>
-                        <TableCell>
-                          {formatBR(entry.created_at, 'dd/MM HH:mm')}
-                        </TableCell>
-                        <TableCell>
-                          {formatBR(entry.data_oc, 'dd/MM HH:mm')}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge
-                            variant={entry.lead_time_dias === 0 ? 'default' : entry.lead_time_dias > 10 ? 'destructive' : 'outline'}
-                            className={cn(
-                              entry.lead_time_dias === 0 && "bg-success text-success-foreground",
-                            )}
-                          >
-                            {entry.lead_time_dias === 0 && <Zap className="h-3 w-3 mr-1" />}
-                            {formatDuration(entry.lead_time_dias)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="text-xs">
-                            {EMPREENDIMENTO_LABELS[entry.empreendimento]}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(entry.valor)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {displayEntries.map((entry) => {
+                      const isBacklogEntry = 'dias_em_aberto' in entry;
+                      const dias = isBacklogEntry ? (entry as BacklogEntry).dias_em_aberto : (entry as any).lead_time_dias;
+                      return (
+                        <TableRow
+                          key={entry.id}
+                          className={cn(
+                            !isBacklogEntry && dias === 0 && "bg-success/5",
+                            dias > 10 && "bg-destructive/5"
+                          )}
+                        >
+                          <TableCell className="font-mono font-medium">
+                            <button
+                              className="hover:underline text-primary font-mono font-medium flex items-center gap-1"
+                              onClick={(e) => { e.stopPropagation(); navigate(isBackofficeOrAdmin ? `/backoffice?search=${entry.protocolo}` : `/minhas-solicitacoes?search=${entry.protocolo}`); }}
+                            >
+                              {entry.protocolo}
+                              <ExternalLink className="h-3 w-3 opacity-60" />
+                            </button>
+                          </TableCell>
+                          <TableCell>
+                            {formatBR(entry.created_at, 'dd/MM HH:mm')}
+                          </TableCell>
+                          {isBacklogEntry ? (
+                            <>
+                              <TableCell>
+                                <Badge variant="outline" className="text-xs">
+                                  {STATUS_LABELS[(entry as BacklogEntry).status as keyof typeof STATUS_LABELS] || (entry as BacklogEntry).status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <Badge variant="destructive">
+                                  <AlertTriangle className="h-3 w-3 mr-1" />
+                                  {formatDuration(dias)}
+                                </Badge>
+                              </TableCell>
+                            </>
+                          ) : (
+                            <>
+                              <TableCell>
+                                {formatBR((entry as any).data_oc, 'dd/MM HH:mm')}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <Badge
+                                  variant={dias === 0 ? 'default' : dias > 10 ? 'destructive' : 'outline'}
+                                  className={cn(dias === 0 && "bg-success text-success-foreground")}
+                                >
+                                  {dias === 0 && <Zap className="h-3 w-3 mr-1" />}
+                                  {formatDuration(dias)}
+                                </Badge>
+                              </TableCell>
+                            </>
+                          )}
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs">
+                              {EMPREENDIMENTO_LABELS[entry.empreendimento]}
+                            </Badge>
+                          </TableCell>
+                          {!isBacklogEntry && (
+                            <TableCell className="text-right font-medium">
+                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((entry as any).valor)}
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
