@@ -14,6 +14,7 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { Badge } from '@/components/ui/badge';
 import { KpiSparkline } from '@/components/KpiSparkline';
 import { WelcomeTour, isOnboardingComplete } from '@/components/WelcomeTour';
+import { ProductivityCard } from '@/components/ProductivityCard';
 import { 
   Plus, LayoutDashboard, ClipboardList, 
   CheckCircle2, Clock, ArrowRight, Users, User, AlertTriangle, RefreshCw
@@ -283,6 +284,9 @@ export default function Dashboard() {
                 );
               })}
             </div>
+
+            {/* Layer 2.5: Productivity Card — backoffice only */}
+            {isBackofficeOrAdmin && <ProductivityCard />}
 
             {/* Layer 3: Recent Requests — more discrete header */}
             {metrics.recentSolicitacoes.length > 0 && (
