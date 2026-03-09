@@ -1,24 +1,38 @@
-# ✅ Plano Concluído: Unificar métricas Dashboard Eficiência
 
-## Problema Resolvido
 
-O card "Backlog Crítico" e o histograma "Distribuição do Lead Time" usavam datasets diferentes:
-- Card: solicitações **em aberto** >15 dias
-- Histograma "15d+": solicitações **concluídas** com lead time >15 dias
+## Refatorar DatePickers restantes para Popover + Calendar
 
-Isso causava confusão: clicar na barra do histograma não atualizava o card.
+### Arquivos a refatorar
 
-## Solução Implementada
+| Arquivo | Campos | Status atual |
+|---------|--------|--------------|
+| `src/pages/NovaSolicitacao.tsx` | Data Início, Data Fim | `<Input type="date">` |
+| `src/components/solicitante/SolicitanteModals.tsx` | Data emissão NF, Data vencimento boleto | `<Input type="date">` |
+| `src/components/FluigDashboard.tsx` | Data Início, Data Fim | Já usa Popover+Calendar (ajuste menor) |
 
-Unificamos o card para usar o mesmo dataset do histograma (solicitações finalizadas):
+### Mudanças
 
-| Arquivo | Mudança |
-|---------|---------|
-| `src/hooks/useEficienciaDashboard.ts` | Adicionado `critico15Count` e `critico15Percent` calculados de `entries.filter(e => e.lead_time_dias > 15)` |
-| `src/pages/DashboardEficiencia.tsx` | Card renomeado para "Crítico (>15 dias)", usa `critico15Count`, drilldown unificado, tabela simplificada |
+**1. NovaSolicitacao.tsx**
+- Adicionar imports: `Popover`, `PopoverTrigger`, `PopoverContent`, `Calendar`, `format`, `parseISO`, `ptBR`
+- Substituir os dois `<Input type="date">` por Popover + Calendar
+- Manter estado como string `yyyy-MM-dd`, exibir como `dd/MM/yyyy`
 
-## Resultado
+**2. SolicitanteModals.tsx**
+- Mesma abordagem para Data emissão NF e Data vencimento boleto
+- Adicionar imports necessários
+- Converter para Popover + Calendar
 
-- Card e histograma agora mostram o mesmo número
-- Clicar no card ou na barra "15d+" filtra a mesma lista na tabela
-- Linhas com >15 dias têm highlight vermelho e ícone de alerta
+**3. FluigDashboard.tsx** (ajuste menor)
+- Adicionar `className="pointer-events-auto"` ao Calendar (boas práticas)
+- Usar formato `dd/MM/yyyy` completo em vez de `dd/MM` para consistência
+
+### Layout esperado
+
+```
+┌─────────────────────────┐
+│ 📅  01/01/2025       ▾ │
+└─────────────────────────┘
+```
+
+Ao clicar, abre calendário visual com locale pt-BR.
+
