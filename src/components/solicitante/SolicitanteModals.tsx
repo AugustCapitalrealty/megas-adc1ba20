@@ -25,7 +25,7 @@ import {
 import {
   Loader2, FileText, Edit, Send, AlertTriangle, XCircle, Download,
   FileCheck, CheckCircle, MessageSquare, RotateCcw, Receipt, Upload,
-  Building2, Trash2, Calendar as CalendarIcon,
+  Building2, Trash2, Calendar as CalendarIcon, Package, Wrench,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { SolicitacaoComFornecedor, RejectionInfo, InfoRequest } from './types';
