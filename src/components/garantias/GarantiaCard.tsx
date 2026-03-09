@@ -82,7 +82,7 @@ interface GarantiaCardProps {
   garantia: GarantiaItem;
   infraspeakLoading: string | null;
   onToggleInfraspeak: (id: string, current: boolean) => void;
-  onVerOriginal: (protocolo: string) => void;
+  onVerOriginal: (id: string, protocolo: string) => void;
 }
 
 export const GarantiaCard = React.memo(function GarantiaCard({
