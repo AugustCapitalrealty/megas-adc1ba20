@@ -1316,6 +1316,7 @@ export type Database = {
         | "liberado_fornecedor"
         | "enviado_fornecedor"
         | "cancelado"
+        | "aguardando_execucao"
       request_type: "AC" | "OC"
       tipo_acao_oc:
         | "justificativa_adiamento"
@@ -1504,6 +1505,7 @@ export const Constants = {
         "liberado_fornecedor",
         "enviado_fornecedor",
         "cancelado",
+        "aguardando_execucao",
       ],
       request_type: ["AC", "OC"],
       tipo_acao_oc: [
