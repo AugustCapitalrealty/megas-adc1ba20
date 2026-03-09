@@ -325,11 +325,16 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
         <span className="font-medium text-blue-700 dark:text-blue-300 text-sm">
           Status Fluig #{status.solicitacao_fluig}
         </span>
-        {status.situacao && (
+        {processoConcluido ? (
+          <Badge variant="outline" className="text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 border-green-300 dark:border-green-700">
+            <CheckCircle className="h-3 w-3 mr-1" />
+            Concluída
+          </Badge>
+        ) : status.situacao ? (
           <Badge variant="outline" className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700">
             {status.situacao}
           </Badge>
-        )}
+        ) : null}
         <Link
           to="/painel-fluig"
           className="text-xs text-blue-600 hover:underline flex items-center gap-1 ml-auto"
