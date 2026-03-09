@@ -182,7 +182,7 @@ export function AppLayout() {
 
       {/* Offline Banner */}
       {!isOnline && (
-        <div className="bg-destructive text-destructive-foreground px-4 py-2 flex items-center justify-center gap-2">
+        <div role="alert" className="bg-destructive text-destructive-foreground px-4 py-2 flex items-center justify-center gap-2">
           <WifiOff className="h-4 w-4" />
           <span className="text-sm font-medium">Sem conexão com a internet. Verifique sua rede.</span>
         </div>
