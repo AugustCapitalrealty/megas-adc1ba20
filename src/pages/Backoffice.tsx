@@ -135,7 +135,7 @@ export default function Backoffice() {
 
   // Confirmation modal state (#4 improvement)
   const [confirmAction, setConfirmAction] = useState<{
-    type: 'baixa' | 'concluir_liberada';
+    type: 'baixa';
     sol: SolicitacaoBackoffice;
     title: string;
     description: string;
