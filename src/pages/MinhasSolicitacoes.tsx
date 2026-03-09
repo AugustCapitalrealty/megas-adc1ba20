@@ -116,6 +116,7 @@ export default function MinhasSolicitacoes() {
   const [tipoEntrega, setTipoEntrega] = useState<'produto' | 'servico' | null>(null);
   const [dataExecucaoServico, setDataExecucaoServico] = useState('');
   const [evidenciaFile, setEvidenciaFile] = useState<File | null>(null);
+  const [motivoOCAntes, setMotivoOCAntes] = useState('');
 
   // NF/Boleto modal state
   const [nfBoletoOpen, setNfBoletoOpen] = useState(false);
