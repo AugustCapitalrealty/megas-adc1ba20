@@ -891,6 +891,8 @@ export default function MinhasSolicitacoes() {
           aceiteAjuste, setAceiteAjuste, aceiteLoading,
           fornecedorEmailContato, setFornecedorEmailContato,
           fornecedorTelefoneContato, setFornecedorTelefoneContato,
+          tipoEntrega, setTipoEntrega, dataExecucaoServico, setDataExecucaoServico,
+          evidenciaFile, setEvidenciaFile,
           handleAceitarOC, handleSolicitarAjuste, openOCInNewTab, downloadDocumentoEmitido,
         }}
         nfBoletoOpen={nfBoletoOpen}
