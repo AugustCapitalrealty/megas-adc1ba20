@@ -1200,6 +1200,7 @@ export default function Backoffice() {
     oc_emitidas: filteredSolicitacoes.filter(s => s.status === 'oc_ac_emitida' || s.status === 'aguardando_aceite'),
     liberadas: filteredSolicitacoes.filter(s => 
       s.status === 'liberado_fornecedor' || s.status === 'enviado_fornecedor' ||
+      s.status === 'aguardando_execucao' ||
       s.status === 'aguardando_nf_boleto' || s.status === 'nf_boleto_enviados'
     ),
     pendentes: filteredSolicitacoes.filter(s => s.status === 'pendente_correcao' || s.status === 'aguardando_informacoes'),
