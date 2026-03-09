@@ -114,6 +114,10 @@ export function BackofficeKPIs({ grouped, activeTab, onTabChange }: BackofficeKP
     destructive: 'text-destructive',
     success: 'text-success',
   };
+  const AnimatedValue = ({ value }: { value: number }) => {
+    const animated = useCountUp(value);
+    return <span className="text-2xl font-bold tabular-nums">{animated}</span>;
+  };
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
