@@ -659,6 +659,7 @@ function AceiteModal(props: AceiteModalProps) {
                       </div>
                     )}
 
+                    {(!dataExecucaoServico || dataExecucaoServico <= new Date().toISOString().split('T')[0]) && (
                     <div>
                       <Label className="text-sm">Evidência (foto/documento) *</Label>
                       <div className="mt-1">
@@ -684,6 +685,7 @@ function AceiteModal(props: AceiteModalProps) {
                         )}
                       </div>
                     </div>
+                    )}
                   </div>
                 )}
               </div>
