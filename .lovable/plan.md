@@ -1,28 +1,54 @@
 
-**Exploration & Diagnostics**
-Analisei os arquivos atuais do painel de garantias (`GarantiasVigentes.tsx` e `useGarantiasVigentes.ts`) e observei pontos de atenção e oportunidades de melhoria semelhantes aos que resolvemos no backoffice e na visão de solicitantes. Identifiquei os seguintes problemas:
+## Estado atual
+Confirmado que **nenhum dos arquivos novos foi criado ainda** — `src/components/garantias/` está vazio e o hook/página ainda estão na versão original. Posso implementar tudo do zero com clareza total.
 
-1. **Bug de layout**: O fechamento `</div>` do grid das barras de progresso está fora do lugar, fazendo com que o rodapé (com os botões Infraspeak e Ver OC) fique fora do `CardContent`.
-2. **KPIs Incompletos e Estáticos**: Falta o somatório do valor em garantia e falta um indicador visual (anel de destaque) que mostre qual KPI está filtrando a tela no momento.
-3. **Falta de Ordenação**: Os usuários podem filtrar, mas não conseguem ordenar as garantias por proximidade de expiração ou pelo maior valor envolvido.
-4. **Sem Exportação para Excel**: Em listas importantes como a de garantias, a exportação (XLSX) é essencial para auditoria e acompanhamento, e atualmente não está disponível.
-5. **Componentes Inline Causando Re-renders**: Elementos como `KpiCard`, `GarantiaBadge` e `GarantiaProgressBar` não são componentes desacoplados com `React.memo`, sendo recriados desnecessariamente.
-6. **Alertas de Expiração Fixos**: O sistema só alerta se a garantia vencer em < 30 dias. Um nível extra (como 60 dias) daria maior margem de ação.
+## O que será implementado
 
-**Proposed Implementation Plan**
+### 1. `src/hooks/useGarantiasVigentes.ts` — reescrever completamente
+- Tipo `GarantiaStatus = 'vigente' | 'expirando_breve' | 'expirando' | 'expirada'`
+- `calcularGarantiaDetalhe`: thresholds em 30 e 60 dias
+- `processarGarantias`: `statusGeral` segue pior status das garantias individuais
+- `StatusFiltro` inclui `'expirando_breve'`
+- `OrdemFiltro = 'expiracao_asc' | 'expiracao_desc' | 'valor_desc' | 'recente'`
+- KPIs: adicionar `expirando_breve`, `valorTotal`, `valorExpirando`, `proximaExpiracao` (min diasRestantes entre expirando)
+- Filtro aplica `filtroStatus === 'expirando'` também captura `expirando_breve` (ou filtra exato, segundo select)
+- Ordenação aplicada sobre `garantiasFiltradas`
+- Retorna `ordem` + `setOrdem`
 
-Para resolver esses pontos de forma definitiva e performática, vou dividir a lógica monolítica em componentes dedicados e melhorar o gerenciamento de estado.
+### 2. `src/components/garantias/GarantiaKPIs.tsx` — criar
+4 cards em grid `sm:grid-cols-4`:
+- Vigentes: count + valor total vigente
+- Expirando (<30d): count + "próxima: Xd"  
+- Expirando breve (30–60d): count + valor
+- Expiradas: count + valor
+- Ring highlight `ring-2 ring-primary` quando `filtroStatus === variant`
+- Clique no card define `setFiltroStatus` correspondente; segundo clique em ativo → `'todos'`
+- `React.memo`
 
-**1. Extração de Componentes (`src/components/garantias/`)**:
-- `GarantiaKPIs.tsx`: Exibirá os cards resumidos no topo (Vigentes, Expirando, Expiradas, Valor Total), incluindo o valor monetário formatado e o indicador ativo clicável.
-- `GarantiaCard.tsx`: Extração da renderização do card individual da garantia com `React.memo`. Incluirá a correção estrutural do DOM e as badges.
-- `GarantiaFiltros.tsx`: Uma barra compacta contendo busca, filtros de empreendimento/tipo/status, novo Select de ordenação, e botão de exportação.
+### 3. `src/components/garantias/GarantiaCard.tsx` — criar
+- `React.memo`
+- Layout corrigido: todo conteúdo dentro do mesmo `flex flex-col gap-3`, o footer `border-t` dentro do mesmo `CardContent`
+- `GarantiaBadge` memoizado inline: trata `expirando_breve` com badge âmbar mais claro (`bg-amber-100 text-amber-600`)
+- `GarantiaProgressBar` memoizado: barra âmbar para 30–60d, laranja para <30d, vermelho para expirada
+- Props: `garantia`, `infraspeakLoading`, `onToggleInfraspeak`, `onVerOriginal`
 
-**2. Refatoração do Hook (`useGarantiasVigentes.ts`)**:
-- **Novo Status**: Adicionar o status `expirando_breve` (30–60 dias), exibindo uma cor de alerta mais branda (âmbar), reservando a cor mais intensa para < 30 dias.
-- **Ordenação (`OrdemFiltro`)**: Implementar a lógica para ordenar por `expiracao_asc`, `expiracao_desc`, `valor_desc` ou `recente`.
-- **Valores Totais**: Adicionar no objeto de KPIs os cálculos de `valorTotal` e `valorExpirando` somando os valores em BRL.
+### 4. `src/components/garantias/GarantiaFiltros.tsx` — criar
+- `React.memo`
+- Grid compacto com busca, select empreendimento, select tipo, select status (inclui "Expirando < 30d" e "Expirando 30–60d"), select ordenação, botão Exportar XLSX
+- Exportação: função local que recebe `garantias` e gera XLSX usando padrão de `export-utils.ts` — colunas: Protocolo, Empreendimento, Fornecedor, CNPJ, Tipo Garantia, Dias (Serviço / Produto), Data Conclusão, Expira em (data), Dias Restantes, Valor, Infraspeak
 
-**3. Atualização da Página Principal (`src/pages/GarantiasVigentes.tsx`)**:
-- Simplificar drasticamente o arquivo (reduzindo centenas de linhas), delegando as responsabilidades para os três novos componentes criados.
-- Implementar a função de exportação combinando a biblioteca `xlsx` com a listagem de garantias já filtradas.
+### 5. `src/pages/GarantiasVigentes.tsx` — reescrever
+- Importa os 3 novos componentes
+- Hook expõe `ordem/setOrdem` adicionais
+- Componente principal: cabeçalho + `<GarantiaKPIs>` + `<GarantiaFiltros>` + lista de `<GarantiaCard>` + empty/loading/error states
+- Remove todos os componentes inline (KpiCard, GarantiaBadge, GarantiaProgressBar)
+- `handleToggleInfraspeak` permanece na página (mantém toast)
+
+### Arquivos
+| Arquivo | Ação |
+|---|---|
+| `src/hooks/useGarantiasVigentes.ts` | Reescrever |
+| `src/components/garantias/GarantiaKPIs.tsx` | Criar |
+| `src/components/garantias/GarantiaCard.tsx` | Criar |
+| `src/components/garantias/GarantiaFiltros.tsx` | Criar |
+| `src/pages/GarantiasVigentes.tsx` | Reescrever |
