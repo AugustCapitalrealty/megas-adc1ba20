@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -141,8 +142,12 @@ export interface BackofficeModalsProps {
   confirmAction: { type: string; sol: SolicitacaoBackoffice; title: string; description: string } | null;
   setConfirmAction: (v: any) => void;
   handleDarBaixaConfirmed: () => Promise<void>;
-  handleRegistrarEnvioFornecedorConfirmed: (sol: SolicitacaoBackoffice) => Promise<void>;
   handleConcluirLiberadaConfirmed: (sol: SolicitacaoBackoffice) => Promise<void>;
+
+  // Envio Fornecedor Modal
+  envioFornecedorModal: SolicitacaoBackoffice | null;
+  setEnvioFornecedorModal: (v: SolicitacaoBackoffice | null) => void;
+  handleRegistrarEnvioFornecedorConfirmed: (sol: SolicitacaoBackoffice, meioEnvio: string, observacaoEnvio?: string) => Promise<void>;
 }
 
 // ── Helper ─────────────────────────────────────────────
@@ -177,7 +182,8 @@ export function BackofficeModals(props: BackofficeModalsProps) {
     editFluigOpen, setEditFluigOpen, editFluigValue, setEditFluigValue, editFluigLoading, handleSaveFluig,
     editFluigCadastroOpen, setEditFluigCadastroOpen, editFluigCadastroValue, setEditFluigCadastroValue, editFluigCadastroLoading, handleSaveFluigCadastro,
     editProjurisOpen, setEditProjurisOpen, editProjurisValue, setEditProjurisValue, editProjurisLoading, handleSaveProjuris,
-    confirmAction, setConfirmAction, handleDarBaixaConfirmed, handleRegistrarEnvioFornecedorConfirmed, handleConcluirLiberadaConfirmed,
+    confirmAction, setConfirmAction, handleDarBaixaConfirmed, handleConcluirLiberadaConfirmed,
+    envioFornecedorModal, setEnvioFornecedorModal, handleRegistrarEnvioFornecedorConfirmed,
   } = props;
 
   return (
@@ -1047,10 +1053,125 @@ export function BackofficeModals(props: BackofficeModalsProps) {
           const { type, sol } = confirmAction;
           setConfirmAction(null);
           if (type === 'baixa') await handleDarBaixaConfirmed();
-          else if (type === 'envio_fornecedor') await handleRegistrarEnvioFornecedorConfirmed(sol);
           else if (type === 'concluir_liberada') await handleConcluirLiberadaConfirmed(sol);
         }}
       />
+
+      {/* ═══════════════ Envio Fornecedor Modal ═══════════════ */}
+      <EnvioFornecedorModal
+        sol={envioFornecedorModal}
+        onClose={() => setEnvioFornecedorModal(null)}
+        onConfirm={handleRegistrarEnvioFornecedorConfirmed}
+      />
     </>
+  );
+}
+
+// ── Envio Fornecedor Modal ─────────────────────────────
+
+function EnvioFornecedorModal({
+  sol,
+  onClose,
+  onConfirm,
+}: {
+  sol: SolicitacaoBackoffice | null;
+  onClose: () => void;
+  onConfirm: (sol: SolicitacaoBackoffice, meioEnvio: string, observacaoEnvio?: string) => Promise<void>;
+}) {
+  const [meioEnvio, setMeioEnvio] = React.useState('');
+  const [observacao, setObservacao] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
+
+  // Reset on open
+  React.useEffect(() => {
+    if (sol) {
+      setMeioEnvio('');
+      setObservacao('');
+    }
+  }, [sol]);
+
+  const handleConfirm = async () => {
+    if (!sol || !meioEnvio) return;
+    setLoading(true);
+    try {
+      await onConfirm(sol, meioEnvio, observacao.trim() || undefined);
+      onClose();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={!!sol} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Send className="h-5 w-5 text-primary" />
+            Registrar Envio ao Fornecedor
+          </DialogTitle>
+          {sol && (
+            <DialogDescription>
+              Solicitação #{sol.protocolo}
+            </DialogDescription>
+          )}
+        </DialogHeader>
+
+        {sol && (sol.fornecedor_email_contato || sol.fornecedor_telefone_contato) && (
+          <div className="rounded-lg border bg-muted/50 p-3 space-y-1">
+            <p className="text-xs font-medium text-muted-foreground mb-1.5">Contato do fornecedor</p>
+            {sol.fornecedor_email_contato && (
+              <div className="flex items-center gap-2 text-sm">
+                <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>{sol.fornecedor_email_contato}</span>
+              </div>
+            )}
+            {sol.fornecedor_telefone_contato && (
+              <div className="flex items-center gap-2 text-sm">
+                <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>{sol.fornecedor_telefone_contato}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Por onde a OC foi enviada? <span className="text-destructive">*</span></Label>
+            <Select value={meioEnvio} onValueChange={setMeioEnvio}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o meio de envio" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="E-mail">E-mail</SelectItem>
+                <SelectItem value="WhatsApp">WhatsApp</SelectItem>
+                <SelectItem value="Correios">Correios</SelectItem>
+                <SelectItem value="Entrega presencial">Entrega presencial</SelectItem>
+                <SelectItem value="Outro">Outro</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Observação</Label>
+            <Textarea
+              placeholder="Informações adicionais sobre o envio..."
+              value={observacao}
+              onChange={(e) => setObservacao(e.target.value)}
+              rows={3}
+            />
+          </div>
+        </div>
+
+        <DialogFooter className="flex flex-col sm:flex-row gap-2">
+          <Button variant="outline" onClick={onClose} disabled={loading}>
+            Cancelar
+          </Button>
+          <Button onClick={handleConfirm} disabled={loading || !meioEnvio}>
+            {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+            Confirmar Envio
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

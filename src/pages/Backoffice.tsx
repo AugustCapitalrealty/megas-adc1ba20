@@ -135,11 +135,14 @@ export default function Backoffice() {
 
   // Confirmation modal state (#4 improvement)
   const [confirmAction, setConfirmAction] = useState<{
-    type: 'baixa' | 'envio_fornecedor' | 'concluir_liberada';
+    type: 'baixa' | 'concluir_liberada';
     sol: SolicitacaoBackoffice;
     title: string;
     description: string;
   } | null>(null);
+
+  // Envio Fornecedor modal state
+  const [envioFornecedorModal, setEnvioFornecedorModal] = useState<SolicitacaoBackoffice | null>(null);
 
   // Pagination state (#2 improvement)
   const [currentPage, setCurrentPage] = useState(1);
@@ -544,15 +547,10 @@ export default function Backoffice() {
   };
 
   const handleRegistrarEnvioFornecedor = (sol: SolicitacaoBackoffice) => {
-    setConfirmAction({
-      type: 'envio_fornecedor',
-      sol,
-      title: 'Registrar Envio ao Fornecedor',
-      description: `Confirma que a OC da solicitação #${sol.protocolo} foi enviada ao fornecedor?`,
-    });
+    setEnvioFornecedorModal(sol);
   };
 
-  const handleRegistrarEnvioFornecedorConfirmed = async (sol: SolicitacaoBackoffice) => {
+  const handleRegistrarEnvioFornecedorConfirmed = async (sol: SolicitacaoBackoffice, meioEnvio: string, observacaoEnvio?: string) => {
     if (!user) return;
     
     setActionLoading(true);
@@ -573,7 +571,7 @@ export default function Backoffice() {
         acao: 'oc_enviada_fornecedor',
         status_anterior: statusAnterior,
         status_novo: 'enviado_fornecedor',
-        motivo: 'OC enviada ao fornecedor',
+        motivo: `OC enviada via ${meioEnvio}${observacaoEnvio ? '. Obs: ' + observacaoEnvio : ''}`,
       });
 
       toast({
@@ -1617,8 +1615,10 @@ export default function Backoffice() {
         confirmAction={confirmAction}
         setConfirmAction={setConfirmAction}
         handleDarBaixaConfirmed={handleDarBaixaConfirmed}
-        handleRegistrarEnvioFornecedorConfirmed={handleRegistrarEnvioFornecedorConfirmed}
         handleConcluirLiberadaConfirmed={handleConcluirLiberadaConfirmed}
+        envioFornecedorModal={envioFornecedorModal}
+        setEnvioFornecedorModal={setEnvioFornecedorModal}
+        handleRegistrarEnvioFornecedorConfirmed={handleRegistrarEnvioFornecedorConfirmed}
       />
 
       {/* Transfer Ownership Modal */}
