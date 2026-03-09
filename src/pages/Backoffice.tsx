@@ -1550,7 +1550,7 @@ export default function Backoffice() {
         />
 
         {/* Tab Content */}
-        <div className="space-y-4">
+        <div id="backoffice-list" className="space-y-4">
           {activeTab === 'recebidas' && (
             <TabContent items={groupedSolicitacoes.recebidas} emptyMessage="Nenhuma solicitação recebida" />
           )}
