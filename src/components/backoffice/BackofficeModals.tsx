@@ -711,6 +711,13 @@ export function BackofficeModals(props: BackofficeModalsProps) {
                   </div>
                 )}
 
+                {/* Tempo por Etapa */}
+                <StageDurationTimeline
+                  historico={detalhes.historico}
+                  createdAt={detalhes.solicitacao.created_at}
+                  currentStatus={detalhes.solicitacao.status}
+                />
+
                 {/* Histórico */}
                 <Collapsible defaultOpen={false}>
                   <CollapsibleTrigger asChild>
