@@ -58,6 +58,7 @@ export default function MinhasSolicitacoes() {
   const effectiveUserId = (isImpersonating ? effectiveProfile?.id : user?.id) ?? user?.id;
   
   const { empreendimentos: userEmpreendimentos, hasAllAccess } = useUserEmpreendimentos(effectiveUserId);
+  const { favoriteSet, toggleFavorite, sortWithFavorites } = useFavorites();
 
   const urlSearch = searchParams.get('search') || '';
   const urlFilter = searchParams.get('filter') || '';
