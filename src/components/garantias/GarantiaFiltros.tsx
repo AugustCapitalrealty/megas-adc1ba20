@@ -54,7 +54,7 @@ function exportGarantiasXLSX(garantias: GarantiaItem[]) {
 
   const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
   const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-  saveAs(blob, `garantias_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+  saveAs(blob, `garantias_${formatBR(new Date(), 'yyyy-MM-dd')}.xlsx`);
 }
 
 interface GarantiaFiltrosProps {

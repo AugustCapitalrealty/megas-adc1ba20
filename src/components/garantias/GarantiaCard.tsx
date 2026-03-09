@@ -6,16 +6,14 @@ import {
   ShieldCheck, ShieldAlert, Shield, ShieldX,
   Building2, Calendar, Wrench, ExternalLink, Loader2,
 } from 'lucide-react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { formatBR } from '@/lib/date-utils';
 import { EMPREENDIMENTO_LABELS, TIPO_GARANTIA_LABELS } from '@/types';
 import type { GarantiaItem, GarantiaDetalhe } from '@/hooks/useGarantiasVigentes';
 
 const BRL = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
-const formatDate = (d: Date | string) =>
-  format(typeof d === 'string' ? new Date(d) : d, 'dd/MM/yyyy', { locale: ptBR });
+const formatDate = (d: Date | string) => formatBR(d, 'dd/MM/yyyy');
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 function GarantiaBadge({ detalhe }: { detalhe: GarantiaDetalhe }) {
