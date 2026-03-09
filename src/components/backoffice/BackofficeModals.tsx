@@ -182,7 +182,8 @@ export function BackofficeModals(props: BackofficeModalsProps) {
     editFluigOpen, setEditFluigOpen, editFluigValue, setEditFluigValue, editFluigLoading, handleSaveFluig,
     editFluigCadastroOpen, setEditFluigCadastroOpen, editFluigCadastroValue, setEditFluigCadastroValue, editFluigCadastroLoading, handleSaveFluigCadastro,
     editProjurisOpen, setEditProjurisOpen, editProjurisValue, setEditProjurisValue, editProjurisLoading, handleSaveProjuris,
-    confirmAction, setConfirmAction, handleDarBaixaConfirmed, handleRegistrarEnvioFornecedorConfirmed, handleConcluirLiberadaConfirmed,
+    confirmAction, setConfirmAction, handleDarBaixaConfirmed, handleConcluirLiberadaConfirmed,
+    envioFornecedorModal, setEnvioFornecedorModal, handleRegistrarEnvioFornecedorConfirmed,
   } = props;
 
   return (
