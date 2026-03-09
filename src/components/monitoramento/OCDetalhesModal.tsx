@@ -11,6 +11,7 @@ import { SolicitacaoMessages } from '@/components/SolicitacaoMessages';
 import { EMPREENDIMENTO_LABELS, type Empreendimento } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 import { Loader2, FileText, DollarSign, Building2, User, FileCheck, Receipt, MessageSquare, AlertTriangle } from 'lucide-react';
+import { StageDurationTimeline } from './StageDurationTimeline';
 import { formatBR } from '@/lib/date-utils';
 
 interface OCDetalhesModalProps {
