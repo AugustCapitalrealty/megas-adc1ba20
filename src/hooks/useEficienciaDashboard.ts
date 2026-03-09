@@ -49,6 +49,15 @@ export interface RankingEntry {
   count: number;
 }
 
+export interface BacklogEntry {
+  id: string;
+  protocolo: string;
+  created_at: string;
+  empreendimento: Empreendimento;
+  status: string;
+  dias_em_aberto: number;
+}
+
 export interface EtapaTempo {
   etapa: string;
   avgDias: number;
