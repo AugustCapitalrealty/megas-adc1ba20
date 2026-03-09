@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { subDays } from 'date-fns';
+import { subDays, format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale/pt-BR';
 import { formatBR } from '@/lib/date-utils';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,6 +24,8 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { 
   Timer, 
   CheckCircle2, 
@@ -33,7 +36,7 @@ import {
   Filter,
   RefreshCw,
   Search,
-  Calendar,
+  Calendar as CalendarIcon,
   Building2,
   Info,
   ExternalLink,
