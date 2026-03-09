@@ -41,6 +41,9 @@ interface SolicitanteSolicitacaoCardProps {
   setAnexosViewSolicitacao: (sol: SolicitacaoComFornecedor) => void;
   setTransferSolicitacao: (sol: SolicitacaoComFornecedor) => void;
   setTransferOpen: (open: boolean) => void;
+  // Favorites
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
 }
 
 export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicitacaoCard({
