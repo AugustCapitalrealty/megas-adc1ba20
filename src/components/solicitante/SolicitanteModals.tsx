@@ -772,10 +772,11 @@ function AceiteModal(props: AceiteModalProps) {
               <Button 
                 className="bg-success hover:bg-success/90 text-success-foreground" 
                 onClick={() => setAceiteStep('confirmar')}
-                disabled={!tipoEntrega || (tipoEntrega === 'servico' && (!dataExecucaoServico || !evidenciaFile))}
+                disabled={!tipoEntrega || (tipoEntrega === 'servico' && (!dataExecucaoServico || !evidenciaFile)) || (tipoEntrega === 'servico' && dataExecucaoServico > new Date().toISOString().split('T')[0] && !motivoOCAntes.trim())}
               >
                 <Send className="h-4 w-4 mr-2" />
                 Continuar
+              </Button>
               </Button>
             </>
           )}
