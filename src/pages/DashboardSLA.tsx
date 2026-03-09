@@ -255,26 +255,62 @@ export default function DashboardSLA() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
               <div className="space-y-2">
                 <Label className="flex items-center gap-1.5 text-xs">
-                  <Calendar className="h-3.5 w-3.5" />
+                  <CalendarIcon className="h-3.5 w-3.5" />
                   Data Início
                 </Label>
-                <Input
-                  type="date"
-                  value={filters.dataInicio || ''}
-                  onChange={(e) => handleFilterChange('dataInicio', e.target.value || null)}
-                />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal h-10",
+                        !filters.dataInicio && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {filters.dataInicio ? format(parseISO(filters.dataInicio), 'dd/MM/yyyy') : 'Selecionar'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={filters.dataInicio ? parseISO(filters.dataInicio) : undefined}
+                      onSelect={(date) => handleFilterChange('dataInicio', date ? format(date, 'yyyy-MM-dd') : null)}
+                      locale={ptBR}
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <div className="space-y-2">
                 <Label className="flex items-center gap-1.5 text-xs">
-                  <Calendar className="h-3.5 w-3.5" />
+                  <CalendarIcon className="h-3.5 w-3.5" />
                   Data Fim
                 </Label>
-                <Input
-                  type="date"
-                  value={filters.dataFim || ''}
-                  onChange={(e) => handleFilterChange('dataFim', e.target.value || null)}
-                />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal h-10",
+                        !filters.dataFim && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {filters.dataFim ? format(parseISO(filters.dataFim), 'dd/MM/yyyy') : 'Selecionar'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={filters.dataFim ? parseISO(filters.dataFim) : undefined}
+                      onSelect={(date) => handleFilterChange('dataFim', date ? format(date, 'yyyy-MM-dd') : null)}
+                      locale={ptBR}
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <div className="space-y-2">
