@@ -18,6 +18,7 @@ import {
 } from '@/types';
 import { ChevronDown, ChevronUp, User, Copy, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { FavoriteButton } from '@/components/FavoriteButton';
 
 export interface SolicitacaoWithDetails extends Solicitacao {
   fornecedor?: Fornecedor | null;
@@ -37,6 +38,8 @@ export interface SolicitacaoCardProps {
   expandedContent?: ReactNode;
   infoAlert?: ReactNode;
   className?: string;
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
 }
 
 const formatCurrency = (value: number) => {
@@ -59,6 +62,8 @@ export const SolicitacaoCard = memo(function SolicitacaoCard({
   expandedContent,
   infoAlert,
   className,
+  isFavorite,
+  onToggleFavorite,
 }: SolicitacaoCardProps) {
   const fornecedorNome = getFornecedorNome(sol);
   const [copied, setCopied] = useState(false);
@@ -90,7 +95,10 @@ export const SolicitacaoCard = memo(function SolicitacaoCard({
       
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1 flex-wrap">
+            {onToggleFavorite && (
+              <FavoriteButton isFavorite={!!isFavorite} onToggle={onToggleFavorite} />
+            )}
             <Tooltip>
               <TooltipTrigger asChild>
                 <button

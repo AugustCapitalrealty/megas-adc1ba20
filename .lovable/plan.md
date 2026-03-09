@@ -1,69 +1,24 @@
+# ✅ Plano Concluído: Unificar métricas Dashboard Eficiência
 
+## Problema Resolvido
 
-## Análise PO — Oportunidades de Melhoria
+O card "Backlog Crítico" e o histograma "Distribuição do Lead Time" usavam datasets diferentes:
+- Card: solicitações **em aberto** >15 dias
+- Histograma "15d+": solicitações **concluídas** com lead time >15 dias
 
-Após revisar extensivamente o codebase (Dashboard, MinhasSolicitacoes, Backoffice, NovaSolicitacao, MonitoramentoOC, Notificacoes, DashboardSLA, DashboardEficiencia, GarantiasVigentes), identifiquei as seguintes oportunidades:
+Isso causava confusão: clicar na barra do histograma não atualizava o card.
 
----
+## Solução Implementada
 
-### 1. Favoritar / fixar solicitações (alto impacto, baixo esforço)
+Unificamos o card para usar o mesmo dataset do histograma (solicitações finalizadas):
 
-**Problema**: Solicitantes e backoffice não têm como marcar solicitações importantes para acesso rápido. Quem acompanha 50+ itens perde tempo buscando os mesmos processos repetidamente.
+| Arquivo | Mudança |
+|---------|---------|
+| `src/hooks/useEficienciaDashboard.ts` | Adicionado `critico15Count` e `critico15Percent` calculados de `entries.filter(e => e.lead_time_dias > 15)` |
+| `src/pages/DashboardEficiencia.tsx` | Card renomeado para "Crítico (>15 dias)", usa `critico15Count`, drilldown unificado, tabela simplificada |
 
-**Solução**: Estrela/pin em cada card de solicitação. Favoritos aparecem no topo da lista e opcionalmente no Dashboard como seção "Fixadas". Persistido em tabela `user_favorites(user_id, solicitacao_id)`.
+## Resultado
 
----
-
-### 2. Exportação consolidada com filtros aplicados (médio impacto, baixo esforço)
-
-**Problema**: O Backoffice já tem export Excel, mas MinhasSolicitacoes não. Além disso, nenhuma tela exporta com os filtros ativos — sempre exporta tudo.
-
-**Solução**: Botão "Exportar" nas telas MinhasSolicitacoes e MonitoramentoOC que respeite busca, aba e filtros ativos. Reutilizar `exportToExcel` já existente.
-
----
-
-### 3. Resumo automático de atividade recente por solicitação (alto impacto, médio esforço)
-
-**Problema**: Ao abrir uma solicitação no Backoffice, o analista precisa ler toda a timeline para entender o contexto. Não há um resumo rápido do que aconteceu recentemente.
-
-**Solução**: Card "Últimas atividades" no topo do modal de detalhes, mostrando as 3 últimas ações (status change, mensagem, documento) em formato compacto com timestamp relativo. Dados já existem em `historico_solicitacoes` e `solicitacao_mensagens`.
-
----
-
-### 4. Agrupamento por fornecedor no Backoffice (médio impacto, baixo esforço)
-
-**Problema**: Analistas frequentemente processam várias solicitações do mesmo fornecedor em sequência (ex: gerar OCs em lote). Não há como agrupar ou filtrar por fornecedor.
-
-**Solução**: Adicionar filtro por fornecedor (select com busca) na barra de filtros do Backoffice. Os dados de `fornecedor_razao_social` já são carregados.
-
----
-
-### 5. Indicador de "tempo parado" visível na listagem (alto impacto, baixo esforço)
-
-**Problema**: Na lista de solicitações (tanto solicitante quanto backoffice), não é visível há quanto tempo o item está no status atual. O `TimeInStatusBadge` existe mas aparece só em detalhes expandidos.
-
-**Solução**: Mostrar um badge discreto com "há X dias" no card compacto (não expandido), com cor progressiva (cinza < 2d, amarelo 2-4d, vermelho > 4d). O campo `data_ultimo_status` já existe.
-
----
-
-### 6. Notificações com ações inline (alto impacto, médio esforço)
-
-**Problema**: As notificações no sino são somente informativas — o usuário precisa navegar até a solicitação para tomar ação. Cliques extras reduzem a taxa de resposta.
-
-**Solução**: Para notificações do tipo `action_required`, exibir botão de ação direta no dropdown (ex: "Ver correção", "Aceitar OC") que leva direto à solicitação com o modal/ação aberta.
-
----
-
-### Recomendação de priorização
-
-| # | Melhoria | Impacto | Esforço | ROI |
-|---|----------|---------|---------|-----|
-| 5 | Tempo parado na listagem | Alto | Baixo | Muito alto |
-| 1 | Favoritar solicitações | Alto | Baixo | Alto |
-| 3 | Resumo de atividade recente | Alto | Médio | Alto |
-| 6 | Notificações com ações inline | Alto | Médio | Alto |
-| 2 | Exportação com filtros | Médio | Baixo | Médio |
-| 4 | Filtro por fornecedor | Médio | Baixo | Médio |
-
-Qual dessas melhorias você gostaria de implementar? Pode escolher uma, várias ou todas.
-
+- Card e histograma agora mostram o mesmo número
+- Clicar no card ou na barra "15d+" filtra a mesma lista na tabela
+- Linhas com >15 dias têm highlight vermelho e ícone de alerta

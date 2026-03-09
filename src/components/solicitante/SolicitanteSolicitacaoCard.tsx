@@ -41,6 +41,9 @@ interface SolicitanteSolicitacaoCardProps {
   setAnexosViewSolicitacao: (sol: SolicitacaoComFornecedor) => void;
   setTransferSolicitacao: (sol: SolicitacaoComFornecedor) => void;
   setTransferOpen: (open: boolean) => void;
+  // Favorites
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
 }
 
 export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicitacaoCard({
@@ -49,6 +52,7 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
   openEditModal, openCancelModal, openAceiteModal, openNfBoletoModal, handleDuplicate,
   downloadDocumentoEmitido, downloadDocumentoFiscal, setAnexosViewSolicitacao,
   setTransferSolicitacao, setTransferOpen,
+  isFavorite, onToggleFavorite,
 }: SolicitanteSolicitacaoCardProps) {
 
   const canTakeAction = isOwner;
@@ -360,6 +364,8 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
       infoAlert={renderInfoAlert()}
       expandedContent={renderExpandedContent()}
       className={getCardClassName()}
+      isFavorite={isFavorite}
+      onToggleFavorite={onToggleFavorite}
     />
   );
 });

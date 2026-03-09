@@ -19,11 +19,13 @@ import {
   type DocumentoEmitido,
   type DocumentoFiscal,
 } from '@/types';
-import { Loader2, FileText, AlertTriangle, User, Building2 } from 'lucide-react';
+import { Loader2, FileText, AlertTriangle, User, Building2, Download } from 'lucide-react';
 import { saveAs } from 'file-saver';
 import type { UploadedFile } from '@/components/FileUpload';
 import { useToast } from '@/hooks/use-toast';
 import { TransferOwnershipModal } from '@/components/TransferOwnershipModal';
+import { exportToExcel } from '@/lib/export-utils';
+import { useFavorites } from '@/hooks/useFavorites';
 import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 
 // Design System Components
@@ -56,6 +58,7 @@ export default function MinhasSolicitacoes() {
   const effectiveUserId = (isImpersonating ? effectiveProfile?.id : user?.id) ?? user?.id;
   
   const { empreendimentos: userEmpreendimentos, hasAllAccess } = useUserEmpreendimentos(effectiveUserId);
+  const { favoriteSet, toggleFavorite, sortWithFavorites } = useFavorites();
 
   const urlSearch = searchParams.get('search') || '';
   const urlFilter = searchParams.get('filter') || '';
@@ -307,8 +310,8 @@ export default function MinhasSolicitacoes() {
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
     
-    return filtered;
-  }, [solicitacoes, activeTab, debouncedSearch]);
+    return sortWithFavorites(filtered);
+  }, [solicitacoes, activeTab, debouncedSearch, sortWithFavorites]);
 
   const statusCounts = useMemo(() => ({
     todas: solicitacoes.length,
@@ -853,6 +856,18 @@ export default function MinhasSolicitacoes() {
           tabGroups={filterTabGroups}
           activeTab={activeTab}
           onTabChange={(tab) => setActiveTab(tab as FilterTab)}
+          rightSlot={
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => exportToExcel(sortedAndFilteredSolicitacoes as any, 'minhas_solicitacoes')}
+              disabled={sortedAndFilteredSolicitacoes.length === 0}
+              className="gap-1.5"
+            >
+              <Download className="h-4 w-4" />
+              Exportar
+            </Button>
+          }
         />
 
         {/* Content */}
@@ -880,6 +895,8 @@ export default function MinhasSolicitacoes() {
               <SolicitanteSolicitacaoCard
                 key={sol.id}
                 sol={sol}
+                isFavorite={favoriteSet.has(sol.id)}
+                onToggleFavorite={() => toggleFavorite(sol.id)}
                 isExpanded={expandedId === sol.id}
                 onToggleExpand={() => toggleExpand(sol.id)}
                 isOwner={sol.user_id === effectiveUserId}
