@@ -43,6 +43,7 @@ import { BackofficeKPIs } from '@/components/backoffice/BackofficeKPIs';
 import { BackofficeSolicitacaoCard, type CardCallbacks } from '@/components/backoffice/BackofficeSolicitacaoCard';
 import { BackofficeModals } from '@/components/backoffice/BackofficeModals';
 import { BatchActionBar } from '@/components/backoffice/BatchActionBar';
+import { ContextualEmptyState } from '@/components/ui/ContextualEmptyState';
 
 // PDF validation types
 interface PdfValidationResult {

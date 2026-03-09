@@ -873,23 +873,14 @@ export default function MinhasSolicitacoes() {
 
         {/* Content */}
         {sortedAndFilteredSolicitacoes.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">
-                {activeTab === 'todas' && 'Você ainda não tem solicitações'}
-                {activeTab === 'com_backoffice' && 'Nenhuma solicitação com o backoffice'}
-                {activeTab === 'correcoes' && 'Nenhuma solicitação aguardando correção'}
-                {activeTab === 'oc_emitida' && 'Nenhuma OC aguardando aceite'}
-                {activeTab === 'liberadas' && 'Nenhuma solicitação liberada'}
-                {activeTab === 'reprovadas' && 'Nenhuma solicitação reprovada'}
-                {activeTab === 'concluidas' && 'Nenhuma solicitação concluída'}
-              </p>
-              {activeTab === 'todas' && (
-                <Button className="mt-4" onClick={() => navigate('/nova-solicitacao')}>Criar Solicitação</Button>
-              )}
-            </CardContent>
-          </Card>
+          <ContextualEmptyState
+            tab={activeTab}
+            variant="solicitante"
+            action={activeTab === 'todas' ? {
+              label: 'Criar Solicitação',
+              onClick: () => navigate('/nova-solicitacao'),
+            } : undefined}
+          />
         ) : (
           <div className="space-y-4">
             {sortedAndFilteredSolicitacoes.map((sol) => (
