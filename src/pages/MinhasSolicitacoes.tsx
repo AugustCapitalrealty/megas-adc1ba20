@@ -20,6 +20,7 @@ import {
   type DocumentoFiscal,
 } from '@/types';
 import { Loader2, FileText, AlertTriangle, User, Building2, Download } from 'lucide-react';
+import { ContextualEmptyState } from '@/components/ui/ContextualEmptyState';
 import { saveAs } from 'file-saver';
 import type { UploadedFile } from '@/components/FileUpload';
 import { useToast } from '@/hooks/use-toast';
