@@ -271,6 +271,8 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
     );
   }
 
+  const processoConcluido = isFluigFechado(status);
+
   const dataLancamentoFormatted = status.data_lancamento 
     ? formatBR(status.data_lancamento, "dd/MM/yyyy")
     : null;
@@ -323,11 +325,16 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
         <span className="font-medium text-blue-700 dark:text-blue-300 text-sm">
           Status Fluig #{status.solicitacao_fluig}
         </span>
-        {status.situacao && (
+        {processoConcluido ? (
+          <Badge variant="outline" className="text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 border-green-300 dark:border-green-700">
+            <CheckCircle className="h-3 w-3 mr-1" />
+            Concluída
+          </Badge>
+        ) : status.situacao ? (
           <Badge variant="outline" className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700">
             {status.situacao}
           </Badge>
-        )}
+        ) : null}
         <Link
           to="/painel-fluig"
           className="text-xs text-blue-600 hover:underline flex items-center gap-1 ml-auto"
@@ -338,8 +345,8 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
       </div>
 
       <div className="grid gap-2 text-sm">
-        {/* Current responsible - always show REAL responsible based on responsavel_atual/localizacao */}
-        {(status.responsavel_atual || devolucaoDetectada) && (
+        {/* Current responsible - only show when process is active */}
+        {!processoConcluido && (status.responsavel_atual || devolucaoDetectada) && (
           <div className="flex items-center gap-2 flex-wrap">
             <User className={`h-3.5 w-3.5 ${devolucaoDetectada ? 'text-amber-500' : 'text-blue-500'}`} />
             <span className="text-muted-foreground">Responsável atual:</span>
@@ -364,8 +371,8 @@ export function FluigStatusCard({ numeroChamadoFluig }: FluigStatusCardProps) {
           </div>
         )}
 
-        {/* Next stage */}
-        {status.localizacao && (
+        {/* Next stage - only show when process is active */}
+        {!processoConcluido && status.localizacao && (
           <div className="flex items-center gap-2">
             <MapPin className="h-3.5 w-3.5 text-blue-500" />
             <span className="text-muted-foreground">Próxima etapa:</span>
