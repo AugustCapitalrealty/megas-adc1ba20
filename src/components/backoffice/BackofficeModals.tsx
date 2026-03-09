@@ -27,7 +27,7 @@ import { JuridicoTracker } from '@/components/JuridicoTracker';
 import { RateioCard } from '@/components/RateioCard';
 import { FluigStatusCard } from '@/components/FluigStatusCard';
 import { SolicitacaoTimeline } from '@/components/SolicitacaoTimeline';
-import { SolicitacaoMessages } from '@/components/SolicitacaoMessages';
+
 import { StageDurationTimeline } from '@/components/monitoramento/StageDurationTimeline';
 import type { SolicitacaoBackoffice } from '@/hooks/useBackofficeSolicitacoes';
 import type { RequestStatus, DocumentoEmitido, DocumentoFiscal, Fornecedor, CNAESecundario } from '@/types';
