@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useSolicitacaoDetalhes } from '@/hooks/useSolicitacaoDetalhes';
 import { SolicitacaoTimeline } from '@/components/SolicitacaoTimeline';
-import { SolicitacaoMessages } from '@/components/SolicitacaoMessages';
+
 import { EMPREENDIMENTO_LABELS, type Empreendimento } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 import { Loader2, FileText, DollarSign, Building2, User, FileCheck, Receipt, MessageSquare, AlertTriangle } from 'lucide-react';
