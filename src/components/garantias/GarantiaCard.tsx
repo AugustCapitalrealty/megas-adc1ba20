@@ -157,10 +157,10 @@ export const GarantiaCard = React.memo(function GarantiaCard({
               size="sm"
               variant="ghost"
               className="gap-1.5 text-xs text-muted-foreground hover:text-primary"
-              onClick={() => onVerOriginal(g.protocolo)}
+              onClick={() => onVerOriginal(g.id, g.protocolo)}
             >
-              <ExternalLink className="h-3.5 w-3.5" />
-              Ver OC Original
+              <FileText className="h-3.5 w-3.5" />
+              Ver Detalhes
             </Button>
             <Button
               size="sm"

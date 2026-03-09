@@ -125,6 +125,13 @@ export default function GarantiasVigentes() {
           ))}
         </div>
       )}
+
+      <OCDetalhesModal
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        solicitacaoId={modalSolicitacaoId}
+        protocolo={modalProtocolo}
+      />
     </div>
   );
 }
