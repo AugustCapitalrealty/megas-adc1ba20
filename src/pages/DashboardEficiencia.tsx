@@ -790,11 +790,11 @@ export default function DashboardEficiencia() {
                       const dias = isBacklogEntry ? entry.dias_em_aberto : entry.lead_time_dias;
 
                       return (
-                        <TableRow
+                         <TableRow
                           key={entry.id}
                           className={cn(
                             !isBacklogEntry && dias === 0 && "bg-success/5",
-                            dias > 10 && "bg-destructive/5"
+                            isBacklogEntry && "bg-destructive/5"
                           )}
                         >
                           <TableCell className="font-mono font-medium">
