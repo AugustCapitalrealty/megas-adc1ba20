@@ -115,6 +115,18 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
       );
     }
 
+    if (sol.status === 'aguardando_execucao') {
+      return (
+        <div className="bg-amber-500 text-white px-4 py-2 flex items-center justify-between rounded-t-lg">
+          <div className="flex items-center gap-2">
+            <Wrench className="h-5 w-5" />
+            <span className="font-semibold">AGUARDANDO EXECUÇÃO</span>
+            <span className="text-sm opacity-90">- O serviço está sendo executado pelo fornecedor</span>
+          </div>
+        </div>
+      );
+    }
+
     if (sol.status === 'aguardando_informacoes') {
       return (
         <div className="bg-info text-info-foreground px-4 py-2 flex items-center justify-between rounded-t-lg">
