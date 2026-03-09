@@ -1,24 +1,46 @@
-# ✅ Plano Concluído: Unificar métricas Dashboard Eficiência
 
-## Problema Resolvido
 
-O card "Backlog Crítico" e o histograma "Distribuição do Lead Time" usavam datasets diferentes:
-- Card: solicitações **em aberto** >15 dias
-- Histograma "15d+": solicitações **concluídas** com lead time >15 dias
+## Implementar 2 melhorias: Produtividade Individual + Alerta SLA
 
-Isso causava confusão: clicar na barra do histograma não atualizava o card.
+### Melhoria 1: Dashboard de Produtividade Individual
 
-## Solução Implementada
+**Novo hook** `src/hooks/useProductivityMetrics.ts`
+- Consulta `historico_solicitacoes` dos últimos 7 dias filtrando por `user_id = auth.uid()`
+- Agrupa por tipo de ação: assumidas (`acao = 'Assumido pelo backoffice'`), OCs emitidas (`acao = 'documento_emitido'`), concluídas (`status_novo = 'concluida'`)
+- Retorna `{ assumed, ocsEmitted, completed, isLoading }`
 
-Unificamos o card para usar o mesmo dataset do histograma (solicitações finalizadas):
+**Novo componente** `src/components/ProductivityCard.tsx`
+- Card compacto com 3 mini-métricas lado a lado (ícones + contadores)
+- Título: "Sua semana" com período exibido
+- Visual discreto, usando ícones `UserCheck`, `FileCheck`, `CheckCircle2`
 
-| Arquivo | Mudança |
-|---------|---------|
-| `src/hooks/useEficienciaDashboard.ts` | Adicionado `critico15Count` e `critico15Percent` calculados de `entries.filter(e => e.lead_time_dias > 15)` |
-| `src/pages/DashboardEficiencia.tsx` | Card renomeado para "Crítico (>15 dias)", usa `critico15Count`, drilldown unificado, tabela simplificada |
+**Dashboard.tsx**
+- Importar e renderizar `ProductivityCard` entre os KPIs e a lista de recentes, apenas quando `isBackofficeOrAdmin`
 
-## Resultado
+### Melhoria 2: Alerta Proativo de SLA
 
-- Card e histograma agora mostram o mesmo número
-- Clicar no card ou na barra "15d+" filtra a mesma lista na tabela
-- Linhas com >15 dias têm highlight vermelho e ícone de alerta
+**Nova edge function** `supabase/functions/check-sla-alerts/index.ts`
+- Busca solicitações em status ativo (`recebido`, `em_analise`, `aprovado`, `em_processamento`)
+- Para cada uma, chama `calcular_sla_solicitacao` RPC
+- Quando `dias_uteis_backoffice >= 2.4` (80% de 3 dias) e `< 3`:
+  - Verifica se já existe notificação recente (últimas 24h) com título contendo "SLA" para essa solicitação
+  - Se não, insere notificação `prioridade: 'high'`, `tipo: 'action_required'` para todos os usuários backoffice/admin
+- Usa `SUPABASE_SERVICE_ROLE_KEY` para bypass de RLS
+
+**Config** `supabase/config.toml`
+- Adicionar `[functions.check-sla-alerts]` com `verify_jwt = false`
+
+**Cron** (via insert tool, não migration)
+- Agendar execução a cada 30 minutos usando `pg_cron` + `pg_net`
+
+### Resumo de arquivos
+
+| Arquivo | Ação |
+|---------|------|
+| `src/hooks/useProductivityMetrics.ts` | Criar |
+| `src/components/ProductivityCard.tsx` | Criar |
+| `src/pages/Dashboard.tsx` | Editar — adicionar ProductivityCard |
+| `supabase/functions/check-sla-alerts/index.ts` | Criar |
+| `supabase/config.toml` | Editar — adicionar entry |
+| SQL (insert tool) | Agendar cron job |
+
