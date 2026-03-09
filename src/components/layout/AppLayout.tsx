@@ -402,7 +402,7 @@ export function AppLayout() {
       </header>
 
       {/* Main Content — Outlet replaces {children} for App Shell */}
-      <main className="container max-w-screen-2xl py-6">
+      <main id="main-content" role="main" className="container max-w-screen-2xl py-6">
         <AppBreadcrumbs />
         <Outlet />
       </main>

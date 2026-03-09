@@ -217,7 +217,7 @@ export function NotificationBell() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative">
+        <Button variant="ghost" size="icon" className="relative" aria-label={unreadCount > 0 ? `Notificações (${unreadCount} não lidas)` : 'Notificações'}>
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
             <span className={cn(
