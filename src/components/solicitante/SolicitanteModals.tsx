@@ -727,7 +727,7 @@ function AceiteModal(props: AceiteModalProps) {
                 )}
 
                 <div className="space-y-3">
-                  <Label className="text-sm font-medium">Dados de contato do fornecedor (obrigatório)</Label>
+                  <Label className="text-sm font-medium">Dados de contato do fornecedor (e-mail obrigatório)</Label>
                   <div className="grid gap-3">
                     <div>
                       <Label htmlFor="fornecedor_email" className="text-sm text-muted-foreground">E-mail *</Label>
@@ -735,14 +735,14 @@ function AceiteModal(props: AceiteModalProps) {
                         value={fornecedorEmailContato} onChange={(e) => setFornecedorEmailContato(e.target.value)} />
                     </div>
                     <div>
-                      <Label htmlFor="fornecedor_telefone" className="text-sm text-muted-foreground">Telefone *</Label>
-                      <Input id="fornecedor_telefone" type="tel" placeholder="(XX) XXXXX-XXXX" required
+                      <Label htmlFor="fornecedor_telefone" className="text-sm text-muted-foreground">Telefone (opcional)</Label>
+                      <Input id="fornecedor_telefone" type="tel" placeholder="(XX) XXXXX-XXXX"
                         value={fornecedorTelefoneContato} onChange={(e) => setFornecedorTelefoneContato(e.target.value)} />
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground flex items-center gap-1 mt-2">
                     <AlertTriangle className="h-3 w-3" />
-                    Informe o e-mail e telefone do fornecedor para que o Backoffice consiga entrar em contato
+                    Informe o e-mail do fornecedor para envio da OC. Telefone é opcional para apoio no contato
                   </p>
                 </div>
 
@@ -791,7 +791,7 @@ function AceiteModal(props: AceiteModalProps) {
           {aceiteStep === 'confirmar' && (
             <>
               <Button variant="outline" onClick={() => setAceiteStep('tipo_entrega')} disabled={aceiteLoading}>Voltar</Button>
-              <Button className="bg-success hover:bg-success/90 text-success-foreground" onClick={handleAceitarOC} disabled={aceiteLoading || !fornecedorEmailContato.trim() || !fornecedorTelefoneContato.trim()}>
+              <Button className="bg-success hover:bg-success/90 text-success-foreground" onClick={handleAceitarOC} disabled={aceiteLoading || !fornecedorEmailContato.trim()}>
                 {aceiteLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
                 Confirmar Liberação
               </Button>
