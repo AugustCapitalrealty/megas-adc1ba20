@@ -453,20 +453,20 @@ export const BackofficeSolicitacaoCard = memo(function BackofficeSolicitacaoCard
               <Send className="h-3 w-3" /> Contato para envio
             </p>
             {sol.fornecedor_email_contato && (
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2 flex-wrap">
                 <a href={`mailto:${sol.fornecedor_email_contato}`} className="flex items-center gap-1.5 text-success hover:underline">
                   <Mail className="h-3 w-3" /> {sol.fornecedor_email_contato}
                 </a>
                 <Button
                   type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 text-success"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2 text-success border-success/40 hover:bg-success/10"
                   aria-label="Copiar e-mail do fornecedor"
                   title="Copiar e-mail"
                   onClick={() => navigator.clipboard.writeText(sol.fornecedor_email_contato || '')}
                 >
-                  <Copy className="h-3.5 w-3.5" />
+                  <Copy className="h-3.5 w-3.5 mr-1" /> Copiar e-mail
                 </Button>
               </div>
             )}
