@@ -40,6 +40,7 @@ import {
   Mail,
   Phone,
   MoreVertical,
+  Copy,
 } from 'lucide-react';
 
 // ── Types ──────────────────────────────────────────────
@@ -130,6 +131,7 @@ export const BackofficeSolicitacaoCard = memo(function BackofficeSolicitacaoCard
   };
 
   const showServicoAgendado = sol.status === 'aguardando_execucao' && isFutureExecutionDate(sol.data_execucao_servico);
+  const showServicoExecutado = sol.status === 'aguardando_execucao' && !!sol.data_execucao_servico && !isFutureExecutionDate(sol.data_execucao_servico);
 
   // ── Chips row (condensed banners) ────────────────────
   const chips: React.ReactNode[] = [];
@@ -174,6 +176,14 @@ export const BackofficeSolicitacaoCard = memo(function BackofficeSolicitacaoCard
     chips.push(
       <Badge key="agendado" variant="outline" className="text-[10px] gap-1 bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20">
         <Calendar className="h-3 w-3" /> Serviço agendado para {formatDateOnlyBR(sol.data_execucao_servico)}
+      </Badge>
+    );
+  }
+
+  if (showServicoExecutado && sol.data_execucao_servico) {
+    chips.push(
+      <Badge key="executado" variant="outline" className="text-[10px] gap-1 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20">
+        <CheckCircle className="h-3 w-3" /> Serviço já executado em {formatDateOnlyBR(sol.data_execucao_servico)}
       </Badge>
     );
   }
@@ -443,9 +453,22 @@ export const BackofficeSolicitacaoCard = memo(function BackofficeSolicitacaoCard
               <Send className="h-3 w-3" /> Contato para envio
             </p>
             {sol.fornecedor_email_contato && (
-              <a href={`mailto:${sol.fornecedor_email_contato}`} className="flex items-center gap-1.5 text-success hover:underline">
-                <Mail className="h-3 w-3" /> {sol.fornecedor_email_contato}
-              </a>
+              <div className="flex items-center gap-1.5">
+                <a href={`mailto:${sol.fornecedor_email_contato}`} className="flex items-center gap-1.5 text-success hover:underline">
+                  <Mail className="h-3 w-3" /> {sol.fornecedor_email_contato}
+                </a>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 text-success"
+                  aria-label="Copiar e-mail do fornecedor"
+                  title="Copiar e-mail"
+                  onClick={() => navigator.clipboard.writeText(sol.fornecedor_email_contato || '')}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             )}
             {sol.fornecedor_telefone_contato && (
               <a href={`tel:${sol.fornecedor_telefone_contato}`} className="flex items-center gap-1.5 text-success hover:underline">
