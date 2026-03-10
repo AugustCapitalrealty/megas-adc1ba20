@@ -27,7 +27,7 @@ export interface SolicitacaoBackoffice {
   data_pendente_correcao: string | null;
   fornecedor_email_contato: string | null;
   fornecedor_telefone_contato: string | null;
-  data_execucao_servico: string | null;
+  data_execucao_servico?: string | null;
   // Computed fields
   responsavelId?: string | null;
   responsavelNome?: string | null;
