@@ -1,20 +1,41 @@
-# ✅ Plano Concluído: Varredura Final UI/UX
 
-## Resultado
 
-| Arquivo | Mudança |
-|---------|---------|
-| `src/components/layout/AppLayout.tsx` | Link "Dashboard" adicionado no menu mobile |
-| `src/pages/Dashboard.tsx` | `active:scale-[0.98]` nos KPI cards |
-| `src/components/PendingActionsCard.tsx` | `truncate` nos labels dos botões |
-| `src/components/NotificationBell.tsx` | Contador expandido até 99 (era 9+) |
-| `src/components/ui/FilterBar.tsx` | Gradientes de fade suavizados (w-4, 80% opacidade) |
+## Corrigir SLA: `atualizacao_fluig` e `em_processamento` não param o relógio
 
-## Detalhes
+### Problema Raiz
 
-- **Mobile nav**: Dashboard agora é o primeiro item do menu mobile
-- **KPI feedback tátil**: Cards diminuem levemente ao pressionar
-- **Labels responsivos**: Truncam em telas pequenas sem quebrar layout
-- **Notificações**: Badge mostra contagem real até 99, depois "99+"
-- **FilterBar**: Gradientes laterais mais sutis para não ocultar tabs
-- **Empty states**: Backoffice já utilizava `ContextualEmptyState` — sem mudança necessária
+Na função `calcular_sla_solicitacao`, o filtro para parar o SLA quando o Fluig é registrado usa:
+```sql
+IF rec.acao LIKE 'numero_fluig%' THEN ...
+```
+
+Isso captura `numero_fluig_adicionado` e `numero_fluig_alterado`, mas **não captura** `atualizacao_fluig` — que é a ação usada quando o backoffice atualiza o número Fluig num segundo ciclo (como no protocolo 2026000195).
+
+Além disso, a transição para `em_processamento` (Em Aprovação) não está sendo tratada como "fim" do SLA.
+
+### Caso Concreto: 2026000195
+
+```text
+09/03 12:01 - Solicitante responde     → SLA reinicia do zero ✓
+10/03 12:26 - Backoffice assume        → SLA conta ✓
+10/03 16:22 - atualizacao_fluig        → SLA DEVERIA PARAR mas continua ✗
+```
+
+O SLA mostra 1.5 dias e continua subindo, quando deveria ter parado em ~0.4 dias.
+
+### Correção
+
+**Migration SQL** — Atualizar 2 funções:
+
+#### `calcular_sla_solicitacao`
+- Ampliar filtro de Fluig: `rec.acao LIKE 'numero_fluig%' OR rec.acao = 'atualizacao_fluig'`
+- Adicionar `em_processamento` como status que para a contagem (backup)
+
+#### `get_sla_timeline`
+- Marcar `atualizacao_fluig` como `tipo_evento := 'fim'`
+- Marcar transição para `em_processamento` como `tipo_evento := 'fim'`
+
+### Impacto
+- Corrige o cálculo para todas as solicitações que passaram por segundo ciclo de Fluig
+- O primeiro ciclo (que usa `numero_fluig_adicionado`) permanece inalterado
+
