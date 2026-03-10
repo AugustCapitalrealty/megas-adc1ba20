@@ -117,6 +117,20 @@ export const BackofficeSolicitacaoCard = memo(function BackofficeSolicitacaoCard
   const awaitingOC = (sol.status === 'aprovado' || sol.status === 'em_processamento') && hasFlugNumber;
   const isExpanded = expandedId === sol.id;
 
+  const isFutureExecutionDate = (date: string | null | undefined) => {
+    if (!date) return false;
+    const today = new Date().toISOString().slice(0, 10);
+    return date > today;
+  };
+
+  const formatDateOnlyBR = (date: string) => {
+    const [year, month, day] = date.split('-');
+    if (!year || !month || !day) return date;
+    return `${day}/${month}/${year}`;
+  };
+
+  const showServicoAgendado = sol.status === 'aguardando_execucao' && isFutureExecutionDate(sol.data_execucao_servico);
+
   // ── Chips row (condensed banners) ────────────────────
   const chips: React.ReactNode[] = [];
   if (isMyResponsibility) {
@@ -156,6 +170,14 @@ export const BackofficeSolicitacaoCard = memo(function BackofficeSolicitacaoCard
       </Badge>
     );
   }
+  if (showServicoAgendado && sol.data_execucao_servico) {
+    chips.push(
+      <Badge key="agendado" variant="outline" className="text-[10px] gap-1 bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20">
+        <Calendar className="h-3 w-3" /> Serviço agendado para {formatDateOnlyBR(sol.data_execucao_servico)}
+      </Badge>
+    );
+  }
+
   if (sol.emergencial) {
     chips.push(
       <Badge key="emerg" variant="destructive" className="text-[10px] gap-1">
@@ -197,7 +219,7 @@ export const BackofficeSolicitacaoCard = memo(function BackofficeSolicitacaoCard
     if (sol.status === 'aguardando_execucao') {
       return (
         <Button size="sm" onClick={() => callbacks.handleRegistrarEnvioFornecedor(sol)} disabled={actionLoading}>
-          <Send className="h-4 w-4 mr-1" /> Liberar OC ao Fornecedor
+          <Send className="h-4 w-4 mr-1" /> Registrar Envio
         </Button>
       );
     }
