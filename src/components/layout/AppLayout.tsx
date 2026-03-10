@@ -80,7 +80,7 @@ export function AppLayout() {
     { href: '/backoffice', label: 'Backoffice', icon: LayoutDashboard, show: isBackofficeOrAdmin },
     { href: '/painel-fluig', label: 'Painel Fluig', icon: BarChart3, show: true },
     { href: '/garantias', label: 'Garantias', icon: Shield, show: !isSolicitante },
-    { href: '/monitoramento-oc', label: 'Monitoramento', icon: FileCheck, show: !isSolicitante },
+    { href: '/monitoramento-oc', label: 'Monitoramento', icon: FileCheck, show: true },
     { href: '/notificacoes', label: 'Notificações', icon: Bell, show: isSolicitante },
   ];
 
