@@ -60,12 +60,9 @@ export function useDashboardMetrics(viewMode: ViewMode = 'minhas', effectiveUser
   const { empreendimentos, loading: loadingEmp, hasAllAccess } = useUserEmpreendimentos(targetUserId);
 
   const { data: solicitacoes, isLoading: loadingSol, error } = useQuery({
-    queryKey: ['dashboard-user-solicitacoes', user?.id, viewMode, isBackofficeOrAdmin, empreendimentos],
+    queryKey: ['dashboard-user-solicitacoes', targetUserId, viewMode, isBackofficeOrAdmin, empreendimentos],
     queryFn: async () => {
-      // Compute mode inside queryFn to avoid stale closures
       const isGeralMode = viewMode === 'geral' && (isBackofficeOrAdmin || empreendimentos.length > 0);
-
-      console.log('[DashboardMetrics] Fetching:', { viewMode, isGeralMode, isBackofficeOrAdmin, empreendimentos, userId: user?.id });
 
       let query = supabase
         .from('solicitacoes')
@@ -79,7 +76,7 @@ export function useDashboardMetrics(viewMode: ViewMode = 'minhas', effectiveUser
           query = query.in('empreendimento', empreendimentos);
         }
       } else {
-        query = query.eq('user_id', user!.id);
+        query = query.eq('user_id', targetUserId!);
       }
 
       query = query.limit(1000);
