@@ -127,7 +127,7 @@ export default function Dashboard() {
         <div className="flex items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">
-              Olá, {profile?.full_name?.split(' ')[0] || 'Usuário'}!
+              Olá, {effectiveProfile?.full_name?.split(' ')[0] || 'Usuário'}!
             </h1>
             <p className="text-muted-foreground text-sm mt-0.5">{greetingSuffix}</p>
           </div>
