@@ -86,10 +86,9 @@ export function useDashboardMetrics(viewMode: ViewMode = 'minhas', effectiveUser
         console.error('[DashboardMetrics] Query error:', error);
         throw error;
       }
-      console.log('[DashboardMetrics] Fetched:', data?.length, 'solicitações');
       return data;
     },
-    enabled: !!user?.id && !loadingEmp,
+    enabled: !!targetUserId && !loadingEmp,
     staleTime: 120_000,
   });
 
