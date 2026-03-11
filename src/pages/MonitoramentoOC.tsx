@@ -86,8 +86,9 @@ const KPI_FILTER_MAP: { key: string; status: MonitorStatus }[] = [
 ];
 
 export default function MonitoramentoOC() {
-  const { user } = useAuth();
-  const { empreendimentos: userEmpreendimentos, loading: loadingEmpreendimentos, hasAllAccess } = useUserEmpreendimentos(user?.id);
+  const { user, effectiveProfile, isImpersonating } = useAuth();
+  const effectiveUserId = isImpersonating ? effectiveProfile?.id : user?.id;
+  const { empreendimentos: userEmpreendimentos, loading: loadingEmpreendimentos, hasAllAccess } = useUserEmpreendimentos(effectiveUserId);
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<OCMonitorRow[]>([]);
   const [filterEmpreendimento, setFilterEmpreendimento] = useState<string>('todos');
