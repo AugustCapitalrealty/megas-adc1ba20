@@ -30,11 +30,12 @@ const formatCurrency = (value: number) =>
 type ViewMode = 'minhas' | 'geral';
 
 export default function Dashboard() {
-  const { user, profile, isBackofficeOrAdmin, isAdmin } = useAuth();
+  const { user, effectiveProfile, isBackofficeOrAdmin, isAdmin, isImpersonating } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const track = useTrackEvent();
-  const { empreendimentos } = useUserEmpreendimentos(user?.id);
+  const effectiveUserId = effectiveProfile?.id || user?.id;
+  const { empreendimentos } = useUserEmpreendimentos(effectiveUserId);
   
   const isSolicitante = !isBackofficeOrAdmin && !isAdmin;
   const canToggle = isBackofficeOrAdmin || empreendimentos.length > 0;
@@ -47,7 +48,7 @@ export default function Dashboard() {
     }
   }, [canToggle]);
   
-  const metrics = useDashboardMetrics(viewMode);
+  const metrics = useDashboardMetrics(viewMode, isImpersonating ? effectiveUserId : undefined);
 
   const handleRetry = () => {
     queryClient.invalidateQueries({ queryKey: ['dashboard-user-solicitacoes'] });
@@ -126,7 +127,7 @@ export default function Dashboard() {
         <div className="flex items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">
-              Olá, {profile?.full_name?.split(' ')[0] || 'Usuário'}!
+              Olá, {effectiveProfile?.full_name?.split(' ')[0] || 'Usuário'}!
             </h1>
             <p className="text-muted-foreground text-sm mt-0.5">{greetingSuffix}</p>
           </div>
@@ -207,8 +208,8 @@ export default function Dashboard() {
           <>
             {/* Onboarding Tour */}
             {metrics.total === 0 && !isOnboardingComplete() && (
-              <WelcomeTour
-                userName={profile?.full_name?.split(' ')[0]}
+               <WelcomeTour
+                userName={effectiveProfile?.full_name?.split(' ')[0]}
                 onComplete={() => track('onboarding_completed')}
               />
             )}

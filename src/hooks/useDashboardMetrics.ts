@@ -54,17 +54,15 @@ interface DashboardMetrics {
 
 type ViewMode = 'minhas' | 'geral';
 
-export function useDashboardMetrics(viewMode: ViewMode = 'minhas'): DashboardMetrics {
+export function useDashboardMetrics(viewMode: ViewMode = 'minhas', effectiveUserId?: string): DashboardMetrics {
   const { user, isBackofficeOrAdmin } = useAuth();
-  const { empreendimentos, loading: loadingEmp, hasAllAccess } = useUserEmpreendimentos(user?.id);
+  const targetUserId = effectiveUserId || user?.id;
+  const { empreendimentos, loading: loadingEmp, hasAllAccess } = useUserEmpreendimentos(targetUserId);
 
   const { data: solicitacoes, isLoading: loadingSol, error } = useQuery({
-    queryKey: ['dashboard-user-solicitacoes', user?.id, viewMode, isBackofficeOrAdmin, empreendimentos],
+    queryKey: ['dashboard-user-solicitacoes', targetUserId, viewMode, isBackofficeOrAdmin, empreendimentos],
     queryFn: async () => {
-      // Compute mode inside queryFn to avoid stale closures
       const isGeralMode = viewMode === 'geral' && (isBackofficeOrAdmin || empreendimentos.length > 0);
-
-      console.log('[DashboardMetrics] Fetching:', { viewMode, isGeralMode, isBackofficeOrAdmin, empreendimentos, userId: user?.id });
 
       let query = supabase
         .from('solicitacoes')
@@ -78,7 +76,7 @@ export function useDashboardMetrics(viewMode: ViewMode = 'minhas'): DashboardMet
           query = query.in('empreendimento', empreendimentos);
         }
       } else {
-        query = query.eq('user_id', user!.id);
+        query = query.eq('user_id', targetUserId!);
       }
 
       query = query.limit(1000);
@@ -88,21 +86,16 @@ export function useDashboardMetrics(viewMode: ViewMode = 'minhas'): DashboardMet
         console.error('[DashboardMetrics] Query error:', error);
         throw error;
       }
-      console.log('[DashboardMetrics] Fetched:', data?.length, 'solicitações');
       return data;
     },
-    enabled: !!user?.id && !loadingEmp,
+    enabled: !!targetUserId && !loadingEmp,
     staleTime: 120_000,
   });
 
   // Query for OCs pending justification (day >= 23, no NF, no forecast)
   const { data: justificativasData, isLoading: loadingJust } = useQuery({
-    queryKey: ['dashboard-justificativas-pendentes', user?.id, empreendimentos],
+    queryKey: ['dashboard-justificativas-pendentes', targetUserId, empreendimentos],
     queryFn: async () => {
-      // Business rule: justifications only required from day 23 onwards
-      const dayOfMonth = new Date().getDate();
-      if (dayOfMonth < 23) return { total: 0, own: 0 };
-
       // Fetch OCs with their solicitacoes
       const { data: ocs, error } = await supabase
         .from('documentos_emitidos')
@@ -140,11 +133,11 @@ export function useDashboardMetrics(viewMode: ViewMode = 'minhas'): DashboardMet
       const pendingOcs = validOcs.filter(oc => !solsWithNf.has(oc.solicitacao_id) && !solsWithForecast.has(oc.solicitacao_id));
 
       const total = pendingOcs.length;
-      const own = pendingOcs.filter(oc => (oc.solicitacoes as any)?.user_id === user!.id).length;
+      const own = pendingOcs.filter(oc => (oc.solicitacoes as any)?.user_id === targetUserId).length;
 
       return { total, own };
     },
-    enabled: !!user?.id && !loadingEmp,
+    enabled: !!targetUserId && !loadingEmp,
     staleTime: 30_000,
   });
 
