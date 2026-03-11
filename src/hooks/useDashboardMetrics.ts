@@ -137,7 +137,7 @@ export function useDashboardMetrics(viewMode: ViewMode = 'minhas', effectiveUser
 
       return { total, own };
     },
-    enabled: !!user?.id && !loadingEmp,
+    enabled: !!targetUserId && !loadingEmp,
     staleTime: 30_000,
   });
 

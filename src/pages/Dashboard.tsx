@@ -208,8 +208,8 @@ export default function Dashboard() {
           <>
             {/* Onboarding Tour */}
             {metrics.total === 0 && !isOnboardingComplete() && (
-              <WelcomeTour
-                userName={profile?.full_name?.split(' ')[0]}
+               <WelcomeTour
+                userName={effectiveProfile?.full_name?.split(' ')[0]}
                 onComplete={() => track('onboarding_completed')}
               />
             )}
