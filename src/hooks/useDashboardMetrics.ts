@@ -133,7 +133,7 @@ export function useDashboardMetrics(viewMode: ViewMode = 'minhas', effectiveUser
       const pendingOcs = validOcs.filter(oc => !solsWithNf.has(oc.solicitacao_id) && !solsWithForecast.has(oc.solicitacao_id));
 
       const total = pendingOcs.length;
-      const own = pendingOcs.filter(oc => (oc.solicitacoes as any)?.user_id === user!.id).length;
+      const own = pendingOcs.filter(oc => (oc.solicitacoes as any)?.user_id === targetUserId).length;
 
       return { total, own };
     },
