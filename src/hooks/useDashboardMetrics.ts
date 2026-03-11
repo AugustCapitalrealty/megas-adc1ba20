@@ -54,9 +54,10 @@ interface DashboardMetrics {
 
 type ViewMode = 'minhas' | 'geral';
 
-export function useDashboardMetrics(viewMode: ViewMode = 'minhas'): DashboardMetrics {
+export function useDashboardMetrics(viewMode: ViewMode = 'minhas', effectiveUserId?: string): DashboardMetrics {
   const { user, isBackofficeOrAdmin } = useAuth();
-  const { empreendimentos, loading: loadingEmp, hasAllAccess } = useUserEmpreendimentos(user?.id);
+  const targetUserId = effectiveUserId || user?.id;
+  const { empreendimentos, loading: loadingEmp, hasAllAccess } = useUserEmpreendimentos(targetUserId);
 
   const { data: solicitacoes, isLoading: loadingSol, error } = useQuery({
     queryKey: ['dashboard-user-solicitacoes', user?.id, viewMode, isBackofficeOrAdmin, empreendimentos],
