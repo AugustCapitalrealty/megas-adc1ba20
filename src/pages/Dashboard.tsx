@@ -30,11 +30,12 @@ const formatCurrency = (value: number) =>
 type ViewMode = 'minhas' | 'geral';
 
 export default function Dashboard() {
-  const { user, profile, isBackofficeOrAdmin, isAdmin } = useAuth();
+  const { user, effectiveProfile, isBackofficeOrAdmin, isAdmin, isImpersonating } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const track = useTrackEvent();
-  const { empreendimentos } = useUserEmpreendimentos(user?.id);
+  const effectiveUserId = effectiveProfile?.id || user?.id;
+  const { empreendimentos } = useUserEmpreendimentos(effectiveUserId);
   
   const isSolicitante = !isBackofficeOrAdmin && !isAdmin;
   const canToggle = isBackofficeOrAdmin || empreendimentos.length > 0;
@@ -47,7 +48,7 @@ export default function Dashboard() {
     }
   }, [canToggle]);
   
-  const metrics = useDashboardMetrics(viewMode);
+  const metrics = useDashboardMetrics(viewMode, isImpersonating ? effectiveUserId : undefined);
 
   const handleRetry = () => {
     queryClient.invalidateQueries({ queryKey: ['dashboard-user-solicitacoes'] });
