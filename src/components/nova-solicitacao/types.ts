@@ -147,6 +147,7 @@ export interface FormSetters {
   setTemProcessoProjuris: (v: boolean) => void;
   setTipoRateio: (v: string) => void;
   setRateioValores: (v: RateioValor[]) => void;
+  setRateioEmpreendimentosSelecionados: (v: string[]) => void;
   setAnexos: (v: Record<string, UploadedFile | null>) => void;
   setOutrosAnexos: (v: UploadedFile[]) => void;
 }

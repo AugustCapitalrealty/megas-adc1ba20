@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { EMPREENDIMENTO_LABELS, type Empreendimento } from '@/types';
 import { Loader2, PieChart } from 'lucide-react';
@@ -19,11 +20,13 @@ interface RateioPreviewProps {
   tipoRateio: string;
   onTipoRateioChange: (tipo: string) => void;
   onRateioValoresChange: (valores: RateioValor[]) => void;
+  selectedEmpreendimentos: string[];
+  onSelectedEmpreendimentosChange: (selected: string[]) => void;
 }
 
-const EMPREENDIMENTOS_RATEIO: Empreendimento[] = ['mega_esteio', 'mega_itajai', 'mega_curitiba'];
+const EMPREENDIMENTOS_RATEIO: Empreendimento[] = ['mega_esteio', 'mega_itajai', 'mega_curitiba', 'mega_canoas'];
 
-export function RateioPreview({ valorTotal, tipoRateio, onTipoRateioChange, onRateioValoresChange }: RateioPreviewProps) {
+export function RateioPreview({ valorTotal, tipoRateio, onTipoRateioChange, onRateioValoresChange, selectedEmpreendimentos, onSelectedEmpreendimentosChange }: RateioPreviewProps) {
   const [configs, setConfigs] = useState<{ empreendimento: string; area_m2: number }[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -36,19 +39,27 @@ export function RateioPreview({ valorTotal, tipoRateio, onTipoRateioChange, onRa
 
       if (data) {
         setConfigs(data as unknown as { empreendimento: string; area_m2: number }[]);
+        // Initialize selected if empty
+        if (selectedEmpreendimentos.length === 0) {
+          onSelectedEmpreendimentosChange(data.map((d: any) => d.empreendimento));
+        }
       }
       setLoading(false);
     };
     fetch();
   }, []);
 
+  const filteredConfigs = useMemo(() => {
+    return configs.filter(c => selectedEmpreendimentos.includes(c.empreendimento));
+  }, [configs, selectedEmpreendimentos]);
+
   const rateioValores = useMemo(() => {
-    if (configs.length === 0 || valorTotal <= 0) return [];
+    if (filteredConfigs.length === 0 || valorTotal <= 0) return [];
 
     if (tipoRateio === 'por_unidade') {
-      const valorPorUnidade = valorTotal / EMPREENDIMENTOS_RATEIO.length;
-      const percentual = 100 / EMPREENDIMENTOS_RATEIO.length;
-      return configs.map(c => ({
+      const valorPorUnidade = valorTotal / filteredConfigs.length;
+      const percentual = 100 / filteredConfigs.length;
+      return filteredConfigs.map(c => ({
         empreendimento: c.empreendimento,
         area_m2: c.area_m2,
         percentual: Math.round(percentual * 100) / 100,
@@ -57,8 +68,9 @@ export function RateioPreview({ valorTotal, tipoRateio, onTipoRateioChange, onRa
     }
 
     // por_area
-    const totalArea = configs.reduce((s, c) => s + c.area_m2, 0);
-    return configs.map(c => {
+    const totalArea = filteredConfigs.reduce((s, c) => s + c.area_m2, 0);
+    if (totalArea === 0) return [];
+    return filteredConfigs.map(c => {
       const pct = (c.area_m2 / totalArea) * 100;
       return {
         empreendimento: c.empreendimento,
@@ -67,11 +79,23 @@ export function RateioPreview({ valorTotal, tipoRateio, onTipoRateioChange, onRa
         valor: Math.round((valorTotal * pct / 100) * 100) / 100,
       };
     });
-  }, [configs, valorTotal, tipoRateio]);
+  }, [filteredConfigs, valorTotal, tipoRateio]);
 
   useEffect(() => {
     onRateioValoresChange(rateioValores);
   }, [rateioValores, onRateioValoresChange]);
+
+  const handleToggleEmpreendimento = (emp: string, checked: boolean) => {
+    if (checked) {
+      onSelectedEmpreendimentosChange([...selectedEmpreendimentos, emp]);
+    } else {
+      // Don't allow deselecting all
+      const newSelected = selectedEmpreendimentos.filter(e => e !== emp);
+      if (newSelected.length > 0) {
+        onSelectedEmpreendimentosChange(newSelected);
+      }
+    }
+  };
 
   if (loading) {
     return (
@@ -91,6 +115,28 @@ export function RateioPreview({ valorTotal, tipoRateio, onTipoRateioChange, onRa
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Empreendimento selection */}
+        <div>
+          <Label className="text-sm font-medium mb-2 block">Condomínios participantes do rateio</Label>
+          <div className="grid grid-cols-2 gap-2">
+            {configs.map((c) => (
+              <label
+                key={c.empreendimento}
+                className="flex items-center space-x-2 p-2 rounded-lg border hover:bg-accent cursor-pointer"
+              >
+                <Checkbox
+                  checked={selectedEmpreendimentos.includes(c.empreendimento)}
+                  onCheckedChange={(checked) => handleToggleEmpreendimento(c.empreendimento, !!checked)}
+                />
+                <span className="text-sm">
+                  {EMPREENDIMENTO_LABELS[c.empreendimento as Empreendimento] || c.empreendimento}
+                </span>
+              </label>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">Selecione ao menos 2 condomínios para o rateio</p>
+        </div>
+
         <div>
           <Label className="text-sm font-medium mb-2 block">Tipo de Rateio</Label>
           <RadioGroup value={tipoRateio} onValueChange={onTipoRateioChange} className="flex gap-4">
