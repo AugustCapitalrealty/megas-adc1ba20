@@ -947,33 +947,21 @@ function CancelModal(props: CancelModalProps) {
       variant="destructive"
       loading={cancelLoading}
       onConfirm={handleCancelar}
-      confirmText={cancelSolicitacao && isPostOCStatus(cancelSolicitacao.status) ? 'Solicitar Cancelamento' : 'Confirmar Cancelamento'}
+      confirmText="Solicitar Cancelamento"
+      confirmDisabled={!motivoCancelamento.trim()}
     >
       <div className="space-y-4">
-        {cancelSolicitacao && isPostOCStatus(cancelSolicitacao.status) ? (
-          <>
-            <div className="p-3 rounded-lg bg-warning/10 border border-warning/30">
-              <p className="text-sm font-medium text-warning">⚠️ Esta solicitação já possui OC emitida</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                O cancelamento será enviado para aprovação do Backoffice antes de ser efetivado.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label>Motivo do cancelamento (obrigatório)</Label>
-              <Textarea placeholder="Informe o motivo do cancelamento..." value={motivoCancelamento}
-                onChange={(e) => setMotivoCancelamento(e.target.value)} rows={3} />
-            </div>
-          </>
-        ) : (
-          <>
-            <p className="text-sm text-muted-foreground">Tem certeza que deseja cancelar esta solicitação? Esta ação não pode ser desfeita.</p>
-            <div className="space-y-2">
-              <Label>Motivo do cancelamento (opcional)</Label>
-              <Textarea placeholder="Informe o motivo do cancelamento..." value={motivoCancelamento}
-                onChange={(e) => setMotivoCancelamento(e.target.value)} rows={3} />
-            </div>
-          </>
-        )}
+        <div className="p-3 rounded-lg bg-warning/10 border border-warning/30">
+          <p className="text-sm font-medium text-warning">⚠️ Solicitação de cancelamento</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            O cancelamento será enviado para aprovação do Backoffice antes de ser efetivado.
+          </p>
+        </div>
+        <div className="space-y-2">
+          <Label>Motivo do cancelamento (obrigatório)</Label>
+          <Textarea placeholder="Informe o motivo do cancelamento..." value={motivoCancelamento}
+            onChange={(e) => setMotivoCancelamento(e.target.value)} rows={3} />
+        </div>
       </div>
     </ActionModal>
   );

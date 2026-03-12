@@ -423,27 +423,17 @@ export default function MinhasSolicitacoes() {
     if (!cancelSolicitacao || !user) return;
     setCancelLoading(true);
     try {
-      if (isPostOCStatus(cancelSolicitacao.status)) {
-        await supabase.from('solicitacoes').update({ cancelamento_pendente: true } as any).eq('id', cancelSolicitacao.id);
-        await supabase.from('oc_acompanhamento' as any).insert({
-          solicitacao_id: cancelSolicitacao.id, tipo_acao: 'cancelamento_solicitado',
-          justificativa: motivoCancelamento.trim() || 'Cancelamento solicitado pelo solicitante', user_id: user.id,
-        } as any);
-        await supabase.from('historico_solicitacoes').insert({
-          solicitacao_id: cancelSolicitacao.id, user_id: user.id, acao: 'cancelamento_solicitado',
-          status_anterior: cancelSolicitacao.status, status_novo: cancelSolicitacao.status,
-          motivo: motivoCancelamento.trim() || 'Cancelamento solicitado - aguardando aprovação do backoffice',
-        });
-        toast({ title: 'Cancelamento solicitado', description: 'Sua solicitação de cancelamento foi enviada para aprovação do Backoffice.' });
-      } else {
-        await supabase.from('solicitacoes').update({ status: 'cancelado' as any }).eq('id', cancelSolicitacao.id);
-        await supabase.from('historico_solicitacoes').insert({
-          solicitacao_id: cancelSolicitacao.id, user_id: user.id, acao: 'cancelamento',
-          status_anterior: cancelSolicitacao.status, status_novo: 'cancelado',
-          motivo: motivoCancelamento.trim() || 'Cancelado pelo solicitante',
-        });
-        toast({ title: 'Solicitação cancelada', description: 'A solicitação foi cancelada com sucesso.' });
-      }
+      await supabase.from('solicitacoes').update({ cancelamento_pendente: true } as any).eq('id', cancelSolicitacao.id);
+      await supabase.from('oc_acompanhamento' as any).insert({
+        solicitacao_id: cancelSolicitacao.id, tipo_acao: 'cancelamento_solicitado',
+        justificativa: motivoCancelamento.trim(), user_id: user.id,
+      } as any);
+      await supabase.from('historico_solicitacoes').insert({
+        solicitacao_id: cancelSolicitacao.id, user_id: user.id, acao: 'cancelamento_solicitado',
+        status_anterior: cancelSolicitacao.status, status_novo: cancelSolicitacao.status,
+        motivo: motivoCancelamento.trim(),
+      });
+      toast({ title: 'Cancelamento solicitado', description: 'Sua solicitação de cancelamento foi enviada para aprovação do Backoffice.' });
       setCancelOpen(false);
       fetchSolicitacoes();
     } catch (error: any) {

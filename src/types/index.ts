@@ -170,6 +170,7 @@ export const EMPREENDIMENTO_LABELS: Record<Empreendimento, string> = {
   mega_curitiba: 'Mega Curitiba',
   mega_itajai: 'Mega Itajaí',
   mega_esteio: 'Mega Esteio',
+  mega_canoas: 'Mega Canoas',
   todos: 'Rateio entre Megas',
 };
 
