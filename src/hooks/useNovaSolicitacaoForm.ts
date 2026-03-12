@@ -213,7 +213,7 @@ export function useNovaSolicitacaoForm(effectiveUserId: string | undefined) {
     setNaturezaObraCivil, setNaturezaAlturaRisco, setNaturezaFossaFiltro, setNaturezaPrecoVariavel,
     setNenhumaOpcaoNatureza, setEscopoDetalhadoMinuta,
     setDueDiligenceConfirmada, setDueDiligenceNumeroProjuris, setTemProcessoProjuris,
-    setTipoRateio, setRateioValores,
+    setTipoRateio, setRateioValores, setRateioEmpreendimentosSelecionados,
     setAnexos, setOutrosAnexos,
   };
 
