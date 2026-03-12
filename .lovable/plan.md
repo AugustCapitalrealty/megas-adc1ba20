@@ -1,20 +1,31 @@
-# ✅ Plano Concluído: Varredura Final UI/UX
+# ✅ Plano Concluído: Modificações v2
 
 ## Resultado
 
-| Arquivo | Mudança |
-|---------|---------|
-| `src/components/layout/AppLayout.tsx` | Link "Dashboard" adicionado no menu mobile |
-| `src/pages/Dashboard.tsx` | `active:scale-[0.98]` nos KPI cards |
-| `src/components/PendingActionsCard.tsx` | `truncate` nos labels dos botões |
-| `src/components/NotificationBell.tsx` | Contador expandido até 99 (era 9+) |
-| `src/components/ui/FilterBar.tsx` | Gradientes de fade suavizados (w-4, 80% opacidade) |
+| # | Mudança | Status |
+|---|---------|--------|
+| 1 | Evidência (foto) para serviço no passado → não obrigatória | ✅ |
+| 2 | Cliente "Módulo Vago" adicionado em todos os Megas | ✅ |
+| 3 | Empreendimento "Mega Canoas" criado (enum, rateio, fluig) | ✅ |
+| 4 | Rateio seletivo — solicitante escolhe condomínios | ✅ |
+| 5 | Cancelamento sempre via aprovação do Backoffice | ✅ |
 
-## Detalhes
+## Detalhes Técnicos
 
-- **Mobile nav**: Dashboard agora é o primeiro item do menu mobile
-- **KPI feedback tátil**: Cards diminuem levemente ao pressionar
-- **Labels responsivos**: Truncam em telas pequenas sem quebrar layout
-- **Notificações**: Badge mostra contagem real até 99, depois "99+"
-- **FilterBar**: Gradientes laterais mais sutis para não ocultar tabs
-- **Empty states**: Backoffice já utilizava `ContextualEmptyState` — sem mudança necessária
+### Migrações SQL
+- `ALTER TYPE empreendimento ADD VALUE 'mega_canoas'`
+- `INSERT INTO rateio_configuracao (mega_canoas, area_m2=0)`
+- `user_can_view_fluig_empreendimento` atualizada com `mega_canoas`
+
+### Dados inseridos
+- Cliente "Módulo Vago" (ID: 83739dae) vinculado a mega_curitiba, mega_itajai, mega_esteio, mega_canoas
+
+### Arquivos modificados
+- `src/types/index.ts` — tipo Empreendimento + labels
+- `src/pages/Admin.tsx` — array EMPREENDIMENTOS
+- `src/components/RateioPreview.tsx` — checkboxes seletivos + mega_canoas
+- `src/components/nova-solicitacao/types.ts` — FormState + FormSetters
+- `src/hooks/useNovaSolicitacaoForm.ts` — estado rateioEmpreendimentosSelecionados
+- `src/components/nova-solicitacao/steps/DescricaoStep.tsx` — props do RateioPreview
+- `src/components/solicitante/SolicitanteModals.tsx` — evidência opcional + cancelamento unificado
+- `src/pages/MinhasSolicitacoes.tsx` — handleCancelar sempre via backoffice
