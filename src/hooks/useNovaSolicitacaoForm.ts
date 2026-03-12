@@ -193,7 +193,7 @@ export function useNovaSolicitacaoForm(effectiveUserId: string | undefined) {
     naturezaObraCivil, naturezaAlturaRisco, naturezaFossaFiltro, naturezaPrecoVariavel,
     nenhumaOpcaoNatureza, escopoDetalhadoMinuta,
     dueDiligenceConfirmada, dueDiligenceNumeroProjuris, temProcessoProjuris,
-    tipoRateio, rateioValores,
+    tipoRateio, rateioValores, rateioEmpreendimentosSelecionados,
     anexos, outrosAnexos,
   };
 
