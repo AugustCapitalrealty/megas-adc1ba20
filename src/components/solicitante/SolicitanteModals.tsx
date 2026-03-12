@@ -661,7 +661,7 @@ function AceiteModal(props: AceiteModalProps) {
 
                     {(!dataExecucaoServico || dataExecucaoServico <= new Date().toISOString().split('T')[0]) && (
                     <div>
-                      <Label className="text-sm">Evidência (foto/documento) *</Label>
+                      <Label className="text-sm">Evidência (foto/documento)</Label>
                       <div className="mt-1">
                         {evidenciaFile ? (
                           <div className="flex items-center gap-2 p-2 bg-background rounded border">
@@ -781,7 +781,7 @@ function AceiteModal(props: AceiteModalProps) {
               <Button 
                 className="bg-success hover:bg-success/90 text-success-foreground" 
                 onClick={() => setAceiteStep('confirmar')}
-                disabled={!tipoEntrega || (tipoEntrega === 'servico' && !dataExecucaoServico) || (tipoEntrega === 'servico' && dataExecucaoServico <= new Date().toISOString().split('T')[0] && !evidenciaFile) || (tipoEntrega === 'servico' && dataExecucaoServico > new Date().toISOString().split('T')[0] && !motivoOCAntes.trim())}
+                disabled={!tipoEntrega || (tipoEntrega === 'servico' && !dataExecucaoServico) || (tipoEntrega === 'servico' && dataExecucaoServico > new Date().toISOString().split('T')[0] && !motivoOCAntes.trim())}
               >
                 <Send className="h-4 w-4 mr-2" />
                 Continuar
@@ -947,33 +947,21 @@ function CancelModal(props: CancelModalProps) {
       variant="destructive"
       loading={cancelLoading}
       onConfirm={handleCancelar}
-      confirmText={cancelSolicitacao && isPostOCStatus(cancelSolicitacao.status) ? 'Solicitar Cancelamento' : 'Confirmar Cancelamento'}
+      confirmText="Solicitar Cancelamento"
+      confirmDisabled={!motivoCancelamento.trim()}
     >
       <div className="space-y-4">
-        {cancelSolicitacao && isPostOCStatus(cancelSolicitacao.status) ? (
-          <>
-            <div className="p-3 rounded-lg bg-warning/10 border border-warning/30">
-              <p className="text-sm font-medium text-warning">⚠️ Esta solicitação já possui OC emitida</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                O cancelamento será enviado para aprovação do Backoffice antes de ser efetivado.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label>Motivo do cancelamento (obrigatório)</Label>
-              <Textarea placeholder="Informe o motivo do cancelamento..." value={motivoCancelamento}
-                onChange={(e) => setMotivoCancelamento(e.target.value)} rows={3} />
-            </div>
-          </>
-        ) : (
-          <>
-            <p className="text-sm text-muted-foreground">Tem certeza que deseja cancelar esta solicitação? Esta ação não pode ser desfeita.</p>
-            <div className="space-y-2">
-              <Label>Motivo do cancelamento (opcional)</Label>
-              <Textarea placeholder="Informe o motivo do cancelamento..." value={motivoCancelamento}
-                onChange={(e) => setMotivoCancelamento(e.target.value)} rows={3} />
-            </div>
-          </>
-        )}
+        <div className="p-3 rounded-lg bg-warning/10 border border-warning/30">
+          <p className="text-sm font-medium text-warning">⚠️ Solicitação de cancelamento</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            O cancelamento será enviado para aprovação do Backoffice antes de ser efetivado.
+          </p>
+        </div>
+        <div className="space-y-2">
+          <Label>Motivo do cancelamento (obrigatório)</Label>
+          <Textarea placeholder="Informe o motivo do cancelamento..." value={motivoCancelamento}
+            onChange={(e) => setMotivoCancelamento(e.target.value)} rows={3} />
+        </div>
       </div>
     </ActionModal>
   );

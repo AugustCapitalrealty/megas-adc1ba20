@@ -1312,7 +1312,12 @@ export type Database = {
     }
     Enums: {
       app_role: "solicitante" | "backoffice" | "admin" | "super_admin"
-      empreendimento: "mega_curitiba" | "mega_itajai" | "mega_esteio" | "todos"
+      empreendimento:
+        | "mega_curitiba"
+        | "mega_itajai"
+        | "mega_esteio"
+        | "todos"
+        | "mega_canoas"
       instrumento_juridico:
         | "oc"
         | "termo_contratacao"
@@ -1499,7 +1504,13 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["solicitante", "backoffice", "admin", "super_admin"],
-      empreendimento: ["mega_curitiba", "mega_itajai", "mega_esteio", "todos"],
+      empreendimento: [
+        "mega_curitiba",
+        "mega_itajai",
+        "mega_esteio",
+        "todos",
+        "mega_canoas",
+      ],
       instrumento_juridico: [
         "oc",
         "termo_contratacao",

@@ -118,6 +118,7 @@ export function useNovaSolicitacaoForm(effectiveUserId: string | undefined) {
   // Rateio
   const [tipoRateio, setTipoRateio] = useState('por_area');
   const [rateioValores, setRateioValores] = useState<RateioValor[]>([]);
+  const [rateioEmpreendimentosSelecionados, setRateioEmpreendimentosSelecionados] = useState<string[]>([]);
 
   // Anexos
   const [anexos, setAnexos] = useState<Record<string, UploadedFile | null>>({});
@@ -192,7 +193,7 @@ export function useNovaSolicitacaoForm(effectiveUserId: string | undefined) {
     naturezaObraCivil, naturezaAlturaRisco, naturezaFossaFiltro, naturezaPrecoVariavel,
     nenhumaOpcaoNatureza, escopoDetalhadoMinuta,
     dueDiligenceConfirmada, dueDiligenceNumeroProjuris, temProcessoProjuris,
-    tipoRateio, rateioValores,
+    tipoRateio, rateioValores, rateioEmpreendimentosSelecionados,
     anexos, outrosAnexos,
   };
 
@@ -212,7 +213,7 @@ export function useNovaSolicitacaoForm(effectiveUserId: string | undefined) {
     setNaturezaObraCivil, setNaturezaAlturaRisco, setNaturezaFossaFiltro, setNaturezaPrecoVariavel,
     setNenhumaOpcaoNatureza, setEscopoDetalhadoMinuta,
     setDueDiligenceConfirmada, setDueDiligenceNumeroProjuris, setTemProcessoProjuris,
-    setTipoRateio, setRateioValores,
+    setTipoRateio, setRateioValores, setRateioEmpreendimentosSelecionados,
     setAnexos, setOutrosAnexos,
   };
 
