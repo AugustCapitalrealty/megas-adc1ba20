@@ -28,6 +28,8 @@ export function DescricaoStep({ formState, derived, setters, isValidatingDescrip
           tipoRateio={tipoRateio}
           onTipoRateioChange={setters.setTipoRateio}
           onRateioValoresChange={setters.setRateioValores}
+          selectedEmpreendimentos={formState.rateioEmpreendimentosSelecionados}
+          onSelectedEmpreendimentosChange={setters.setRateioEmpreendimentosSelecionados}
         />
       )}
 
