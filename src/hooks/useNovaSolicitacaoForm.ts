@@ -118,6 +118,7 @@ export function useNovaSolicitacaoForm(effectiveUserId: string | undefined) {
   // Rateio
   const [tipoRateio, setTipoRateio] = useState('por_area');
   const [rateioValores, setRateioValores] = useState<RateioValor[]>([]);
+  const [rateioEmpreendimentosSelecionados, setRateioEmpreendimentosSelecionados] = useState<string[]>([]);
 
   // Anexos
   const [anexos, setAnexos] = useState<Record<string, UploadedFile | null>>({});
