@@ -79,6 +79,7 @@ export interface FormState {
   // Rateio
   tipoRateio: string;
   rateioValores: RateioValor[];
+  rateioEmpreendimentosSelecionados: string[];
 
   // Anexos
   anexos: Record<string, UploadedFile | null>;
