@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import { formatBR } from '@/lib/date-utils';
 import { Button } from '@/components/ui/button';
 import { SolicitacaoCard, type SolicitacaoWithDetails } from '@/components/ui/SolicitacaoCard';
 import { SolicitacaoTimeline } from '@/components/SolicitacaoTimeline';
