@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import { formatBR } from '@/lib/date-utils';
 import { Button } from '@/components/ui/button';
 import { SolicitacaoCard, type SolicitacaoWithDetails } from '@/components/ui/SolicitacaoCard';
 import { SolicitacaoTimeline } from '@/components/SolicitacaoTimeline';
@@ -120,11 +121,28 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
     }
 
     if (sol.status === 'aguardando_execucao') {
+      const dataExec = (sol as any).data_execucao_servico;
+      const hoje = new Date().toISOString().split('T')[0];
+      const servicoExecutado = dataExec && dataExec < hoje;
+
+      if (servicoExecutado) {
+        return (
+          <div className="bg-success text-success-foreground px-4 py-2 flex items-center gap-2 rounded-t-lg">
+            <CheckCircle className="h-5 w-5 shrink-0" />
+            <span className="font-semibold">SERVIÇO EXECUTADO</span>
+            <span className="text-sm opacity-90 hidden sm:inline">- Aguardando validação do backoffice</span>
+          </div>
+        );
+      }
+
+      const dataFormatada = dataExec ? formatBR(dataExec + 'T12:00:00', 'dd/MM/yyyy') : '';
       return (
-        <div className="bg-amber-500 text-white px-4 py-2 flex items-center gap-2 rounded-t-lg">
+        <div className="bg-warning text-warning-foreground px-4 py-2 flex items-center gap-2 rounded-t-lg">
           <Wrench className="h-5 w-5 shrink-0" />
           <span className="font-semibold">AGUARDANDO EXECUÇÃO</span>
-          <span className="text-sm opacity-90 hidden sm:inline">- O serviço está sendo executado pelo fornecedor</span>
+          <span className="text-sm opacity-90 hidden sm:inline">
+            {dataFormatada ? `- Serviço agendado para ${dataFormatada}` : '- O serviço está sendo executado pelo fornecedor'}
+          </span>
         </div>
       );
     }
