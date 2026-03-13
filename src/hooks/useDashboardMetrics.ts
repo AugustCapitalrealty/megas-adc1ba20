@@ -125,12 +125,23 @@ export function useDashboardMetrics(viewMode: ViewMode = 'minhas', effectiveUser
       ]);
 
       const solsWithNf = new Set((nfResult.data || []).map(d => d.solicitacao_id));
-      const today = new Date().toISOString().slice(0, 10);
+      const today = new Date();
+      const todayStr = today.toISOString().slice(0, 10);
+      const dayOfMonth = today.getDate();
       const solsWithForecast = new Set(
-        (acompResult.data || []).filter(a => a.previsao_nf && a.previsao_nf >= today).map(a => a.solicitacao_id)
+        (acompResult.data || []).filter(a => a.previsao_nf && a.previsao_nf >= todayStr).map(a => a.solicitacao_id)
       );
 
-      const pendingOcs = validOcs.filter(oc => !solsWithNf.has(oc.solicitacao_id) && !solsWithForecast.has(oc.solicitacao_id));
+      // Only count as pending justification if business rule requires it:
+      // - OC has no NF AND no valid forecast
+      // - AND (day >= 23 OR OC is from a previous month)
+      const pendingOcs = validOcs.filter(oc => {
+        if (solsWithNf.has(oc.solicitacao_id) || solsWithForecast.has(oc.solicitacao_id)) return false;
+        const ocDate = new Date(oc.created_at || '');
+        const sameMonth = ocDate.getMonth() === today.getMonth() && ocDate.getFullYear() === today.getFullYear();
+        if (sameMonth && dayOfMonth < 23) return false;
+        return true;
+      });
 
       const total = pendingOcs.length;
       const own = pendingOcs.filter(oc => (oc.solicitacoes as any)?.user_id === targetUserId).length;
