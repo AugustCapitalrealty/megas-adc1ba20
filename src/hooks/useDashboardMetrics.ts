@@ -99,7 +99,7 @@ export function useDashboardMetrics(viewMode: ViewMode = 'minhas', effectiveUser
       // Fetch OCs with their solicitacoes
       const { data: ocs, error } = await supabase
         .from('documentos_emitidos')
-        .select('id, solicitacao_id, solicitacoes!documentos_emitidos_solicitacao_id_fkey(user_id, status, natureza_orcamentaria, empreendimento)')
+        .select('id, solicitacao_id, created_at, solicitacoes!documentos_emitidos_solicitacao_id_fkey(user_id, status, natureza_orcamentaria, empreendimento)')
         .eq('tipo_documento', 'OC');
 
       if (error) throw error;
