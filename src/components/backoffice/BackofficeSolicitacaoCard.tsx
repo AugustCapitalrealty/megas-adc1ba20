@@ -119,6 +119,8 @@ export const BackofficeSolicitacaoCard = memo(function BackofficeSolicitacaoCard
   const awaitingOC = (sol.status === 'aprovado' || sol.status === 'em_processamento') && hasFlugNumber;
   const isExpanded = expandedId === sol.id;
 
+  const isUtility = ['agua', 'energia_eletrica', 'telefone', 'taxa_impostos'].includes((sol as any).natureza_orcamentaria ?? '');
+
   const isFutureExecutionDate = (date: string | null | undefined) => {
     if (!date) return false;
     const today = new Date().toISOString().slice(0, 10);
@@ -131,8 +133,8 @@ export const BackofficeSolicitacaoCard = memo(function BackofficeSolicitacaoCard
     return `${day}/${month}/${year}`;
   };
 
-  const showServicoAgendado = sol.status === 'aguardando_execucao' && isFutureExecutionDate(sol.data_execucao_servico);
-  const showServicoExecutado = sol.status === 'aguardando_execucao' && !!sol.data_execucao_servico && !isFutureExecutionDate(sol.data_execucao_servico);
+  const showServicoAgendado = sol.status === 'aguardando_execucao' && !isUtility && isFutureExecutionDate(sol.data_execucao_servico);
+  const showServicoExecutado = sol.status === 'aguardando_execucao' && (isUtility || (!!sol.data_execucao_servico && !isFutureExecutionDate(sol.data_execucao_servico)));
 
   // ── Chips row (condensed banners) ────────────────────
   const chips: React.ReactNode[] = [];
