@@ -1,32 +1,31 @@
+# ✅ Plano Concluído: Modificações v2
 
+## Resultado
 
-## Duas correções pontuais
+| # | Mudança | Status |
+|---|---------|--------|
+| 1 | Evidência (foto) para serviço no passado → não obrigatória | ✅ |
+| 2 | Cliente "Módulo Vago" adicionado em todos os Megas | ✅ |
+| 3 | Empreendimento "Mega Canoas" criado (enum, rateio, fluig) | ✅ |
+| 4 | Rateio seletivo — solicitante escolhe condomínios | ✅ |
+| 5 | Cancelamento sempre via aprovação do Backoffice | ✅ |
 
-### 1. Banner "Aguardando Execução" não deve aparecer para água/energia/telefone/taxas
+## Detalhes Técnicos
 
-Contas de concessionárias (água, energia, telefone, taxas) não têm "execução de serviço" — o serviço já foi prestado pela concessionária. O banner `aguardando_execucao` não faz sentido nesse contexto.
+### Migrações SQL
+- `ALTER TYPE empreendimento ADD VALUE 'mega_canoas'`
+- `INSERT INTO rateio_configuracao (mega_canoas, area_m2=0)`
+- `user_can_view_fluig_empreendimento` atualizada com `mega_canoas`
 
-**Arquivo:** `src/components/solicitante/SolicitanteSolicitacaoCard.tsx` (linhas 123-148)
+### Dados inseridos
+- Cliente "Módulo Vago" (ID: 83739dae) vinculado a mega_curitiba, mega_itajai, mega_esteio, mega_canoas
 
-Mudança: Quando `sol.natureza_orcamentaria` for uma das naturezas de utilidades (`agua`, `energia_eletrica`, `telefone`, `taxa_impostos`), o banner exibe diretamente **"SERVIÇO EXECUTADO"** (verde) com subtexto "Aguardando validação do backoffice" — independentemente da data. Essas naturezas nunca mostram "Aguardando Execução".
-
-A mesma lógica se aplica ao backoffice card se houver banner equivalente.
-
----
-
-### 2. Melhorar botão de copiar e-mail no card do backoffice
-
-**Arquivo:** `src/components/backoffice/BackofficeSolicitacaoCard.tsx` (linhas 460-470)
-
-Mudanças:
-- Trocar o botão por um ícone menor ao lado do e-mail (sem texto "Copiar e-mail")
-- Adicionar feedback visual: ao clicar, o ícone muda de `Copy` para `CheckCircle` por 2 segundos com tooltip "Copiado!"
-- Manter o `mailto:` link como principal interação, com o ícone de copiar como ação secundária compacta
-
-```text
-Antes:  [email@fornecedor.com]  [📋 Copiar e-mail]   ← botão grande, confuso
-Depois: [email@fornecedor.com] 📋                    ← ícone discreto, feedback ✓
-```
-
-O componente precisa de um `useState` local para controlar o estado "copiado".
-
+### Arquivos modificados
+- `src/types/index.ts` — tipo Empreendimento + labels
+- `src/pages/Admin.tsx` — array EMPREENDIMENTOS
+- `src/components/RateioPreview.tsx` — checkboxes seletivos + mega_canoas
+- `src/components/nova-solicitacao/types.ts` — FormState + FormSetters
+- `src/hooks/useNovaSolicitacaoForm.ts` — estado rateioEmpreendimentosSelecionados
+- `src/components/nova-solicitacao/steps/DescricaoStep.tsx` — props do RateioPreview
+- `src/components/solicitante/SolicitanteModals.tsx` — evidência opcional + cancelamento unificado
+- `src/pages/MinhasSolicitacoes.tsx` — handleCancelar sempre via backoffice

@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
@@ -111,12 +111,15 @@ export const BackofficeSolicitacaoCard = memo(function BackofficeSolicitacaoCard
   callbacks,
   isSelected,
 }: BackofficeSolicitacaoCardProps) {
+  const [emailCopied, setEmailCopied] = useState(false);
   const sla = getSLAInfo(sol);
   const isAtrasado = sla.atrasadoAnalise || sla.atrasadoEmissao;
   const isMyResponsibility = sol.responsavelId === userId;
   const hasFlugNumber = !!sol.numero_chamado_fluig;
   const awaitingOC = (sol.status === 'aprovado' || sol.status === 'em_processamento') && hasFlugNumber;
   const isExpanded = expandedId === sol.id;
+
+  const isUtility = ['agua', 'energia_eletrica', 'telefone', 'taxa_impostos'].includes((sol as any).natureza_orcamentaria ?? '');
 
   const isFutureExecutionDate = (date: string | null | undefined) => {
     if (!date) return false;
@@ -130,8 +133,8 @@ export const BackofficeSolicitacaoCard = memo(function BackofficeSolicitacaoCard
     return `${day}/${month}/${year}`;
   };
 
-  const showServicoAgendado = sol.status === 'aguardando_execucao' && isFutureExecutionDate(sol.data_execucao_servico);
-  const showServicoExecutado = sol.status === 'aguardando_execucao' && !!sol.data_execucao_servico && !isFutureExecutionDate(sol.data_execucao_servico);
+  const showServicoAgendado = sol.status === 'aguardando_execucao' && !isUtility && isFutureExecutionDate(sol.data_execucao_servico);
+  const showServicoExecutado = sol.status === 'aguardando_execucao' && (isUtility || (!!sol.data_execucao_servico && !isFutureExecutionDate(sol.data_execucao_servico)));
 
   // ── Chips row (condensed banners) ────────────────────
   const chips: React.ReactNode[] = [];
@@ -453,21 +456,27 @@ export const BackofficeSolicitacaoCard = memo(function BackofficeSolicitacaoCard
               <Send className="h-3 w-3" /> Contato para envio
             </p>
             {sol.fornecedor_email_contato && (
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5">
                 <a href={`mailto:${sol.fornecedor_email_contato}`} className="flex items-center gap-1.5 text-success hover:underline">
                   <Mail className="h-3 w-3" /> {sol.fornecedor_email_contato}
                 </a>
-                <Button
+                <button
                   type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-7 px-2 text-success border-success/40 hover:bg-success/10"
+                  className="p-1 rounded hover:bg-success/10 transition-colors"
                   aria-label="Copiar e-mail do fornecedor"
-                  title="Copiar e-mail"
-                  onClick={() => navigator.clipboard.writeText(sol.fornecedor_email_contato || '')}
+                  title={emailCopied ? 'Copiado!' : 'Copiar e-mail'}
+                  onClick={() => {
+                    navigator.clipboard.writeText(sol.fornecedor_email_contato || '');
+                    setEmailCopied(true);
+                    setTimeout(() => setEmailCopied(false), 2000);
+                  }}
                 >
-                  <Copy className="h-3.5 w-3.5 mr-1" /> Copiar e-mail
-                </Button>
+                  {emailCopied
+                    ? <CheckCircle className="h-3.5 w-3.5 text-success" />
+                    : <Copy className="h-3.5 w-3.5 text-muted-foreground hover:text-success" />
+                  }
+                </button>
+                {emailCopied && <span className="text-[10px] text-success font-medium">Copiado!</span>}
               </div>
             )}
             {sol.fornecedor_telefone_contato && (
