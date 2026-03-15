@@ -111,6 +111,7 @@ export const BackofficeSolicitacaoCard = memo(function BackofficeSolicitacaoCard
   callbacks,
   isSelected,
 }: BackofficeSolicitacaoCardProps) {
+  const [emailCopied, setEmailCopied] = useState(false);
   const sla = getSLAInfo(sol);
   const isAtrasado = sla.atrasadoAnalise || sla.atrasadoEmissao;
   const isMyResponsibility = sol.responsavelId === userId;
