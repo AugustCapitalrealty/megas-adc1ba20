@@ -121,9 +121,10 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
     }
 
     if (sol.status === 'aguardando_execucao') {
+      const isUtility = ['agua', 'energia_eletrica', 'telefone', 'taxa_impostos'].includes(sol.natureza_orcamentaria);
       const dataExec = (sol as any).data_execucao_servico;
       const hoje = new Date().toISOString().split('T')[0];
-      const servicoExecutado = dataExec && dataExec < hoje;
+      const servicoExecutado = isUtility || (dataExec && dataExec < hoje);
 
       if (servicoExecutado) {
         return (
