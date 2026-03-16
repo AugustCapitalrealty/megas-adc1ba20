@@ -284,6 +284,11 @@ export default function MinhasSolicitacoes() {
 
   const sortedAndFilteredSolicitacoes = useMemo(() => {
     let filtered = [...solicitacoes];
+
+    // Empreendimento filter (when in empreendimento view mode)
+    if (viewMode === 'empreendimento' && empreendimentoFilter !== 'todos') {
+      filtered = filtered.filter(s => s.empreendimento === empreendimentoFilter);
+    }
     
     if (debouncedSearch.trim()) {
       const searchLower = debouncedSearch.toLowerCase();
