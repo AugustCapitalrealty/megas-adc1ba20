@@ -330,7 +330,7 @@ export default function MinhasSolicitacoes() {
     });
     
     return sortWithFavorites(filtered);
-  }, [solicitacoes, activeTab, debouncedSearch, sortWithFavorites]);
+  }, [solicitacoes, activeTab, debouncedSearch, sortWithFavorites, viewMode, empreendimentoFilter]);
 
   const statusCounts = useMemo(() => ({
     todas: solicitacoes.length,
