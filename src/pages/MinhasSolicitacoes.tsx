@@ -76,6 +76,17 @@ export default function MinhasSolicitacoes() {
   
   const [searchTerm, setSearchTerm] = useState(urlSearch);
   const debouncedSearch = useDebounce(searchTerm, 300);
+  const [empreendimentoFilter, setEmpreendimentoFilter] = useState('todos');
+  const [showCreatedBanner, setShowCreatedBanner] = useState(!!createdProtocolo);
+
+  // Auto-dismiss success banner
+  useEffect(() => {
+    if (createdProtocolo) {
+      setShowCreatedBanner(true);
+      const timer = setTimeout(() => setShowCreatedBanner(false), 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [createdProtocolo]);
   
   // Edit modal state
   const [editOpen, setEditOpen] = useState(false);

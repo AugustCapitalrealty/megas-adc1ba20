@@ -215,6 +215,20 @@ export default function Dashboard() {
               />
             )}
 
+            {/* Layer 0: Daily Insight */}
+            <DailyInsightCard
+              pendingCorrections={metrics.pendingCorrections}
+              pendingAcceptance={metrics.pendingAcceptance}
+              pendingNfBoleto={metrics.pendingNfBoleto}
+              pendingInfoRequests={metrics.pendingInfoRequests}
+              pendingJustificativas={metrics.pendingJustificativas}
+              concluded={metrics.concluded}
+              total={metrics.total}
+              isBackofficeOrAdmin={isBackofficeOrAdmin}
+              newInQueue={metrics.newInQueue}
+              waitingSolicitor={metrics.waitingSolicitor}
+            />
+
             {/* Layer 1: Pending Actions — FIRST when there are actions */}
             <PendingActionsCard
               pendingCorrections={metrics.pendingCorrections}
