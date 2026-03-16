@@ -815,6 +815,21 @@ export default function MinhasSolicitacoes() {
   return (
     <>
       <div className="space-y-6 animate-fade-in">
+        {/* Success Banner */}
+        {showCreatedBanner && createdProtocolo && (
+          <div className="bg-success/10 border border-success/30 text-success-foreground px-4 py-3 rounded-lg flex items-center justify-between animate-fade-in">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-success" />
+              <span className="text-sm font-medium">
+                Solicitação <strong>#{createdProtocolo}</strong> criada com sucesso! O backoffice foi notificado.
+              </span>
+            </div>
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowCreatedBanner(false)}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+
         {/* Header */}
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
@@ -825,7 +840,7 @@ export default function MinhasSolicitacoes() {
           </div>
           
           {userEmpreendimentos.length > 0 && (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button variant={viewMode === 'minhas' ? 'default' : 'outline'} size="sm"
                 onClick={() => setViewMode('minhas')} className="gap-2">
                 <User className="h-4 w-4" /> Minhas Solicitações
@@ -834,6 +849,22 @@ export default function MinhasSolicitacoes() {
                 onClick={() => setViewMode('empreendimento')} className="gap-2">
                 <Building2 className="h-4 w-4" /> Por Empreendimento
               </Button>
+              {viewMode === 'empreendimento' && (
+                <select
+                  value={empreendimentoFilter}
+                  onChange={(e) => setEmpreendimentoFilter(e.target.value)}
+                  className="h-8 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="todos">Todos os empreendimentos</option>
+                  {userEmpreendimentos
+                    .filter(e => e !== 'todos')
+                    .map(emp => (
+                      <option key={emp} value={emp}>
+                        {EMPREENDIMENTO_LABELS[emp] || emp}
+                      </option>
+                    ))}
+                </select>
+              )}
             </div>
           )}
         </div>
