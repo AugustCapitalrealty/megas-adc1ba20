@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { KpiSparkline } from '@/components/KpiSparkline';
 import { WelcomeTour, isOnboardingComplete } from '@/components/WelcomeTour';
 import { ProductivityCard } from '@/components/ProductivityCard';
+import { DailyInsightCard } from '@/components/DailyInsightCard';
 import { 
   Plus, LayoutDashboard, ClipboardList, 
   CheckCircle2, Clock, ArrowRight, Users, User, AlertTriangle, RefreshCw
