@@ -290,7 +290,7 @@ export default function NovaSolicitacao() {
 
       clearDraft();
       toast({ title: 'Solicitação criada!', description: `Protocolo: ${data.protocolo}` });
-      navigate('/minhas-solicitacoes');
+      navigate(`/minhas-solicitacoes?created=${data.protocolo}`);
     } catch (error: any) {
       const errorMessage = error?.message || 'Erro desconhecido';
       const errorCode = error?.code || 'N/A';

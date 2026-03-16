@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
@@ -414,6 +414,9 @@ export function AppLayout() {
         </div>
       </header>
 
+      {/* Global Keyboard Shortcuts */}
+      <GlobalShortcuts />
+
       {/* Main Content — Outlet replaces {children} for App Shell */}
       <main id="main-content" role="main" className="container max-w-screen-2xl py-6">
         <AppBreadcrumbs />
@@ -421,4 +424,31 @@ export function AppLayout() {
       </main>
     </div>
   );
+}
+
+function GlobalShortcuts() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      switch (e.key.toLowerCase()) {
+        case 'n':
+          e.preventDefault();
+          navigate('/nova-solicitacao');
+          break;
+        case 's':
+          e.preventDefault();
+          navigate('/minhas-solicitacoes');
+          break;
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [navigate]);
+
+  return null;
 }

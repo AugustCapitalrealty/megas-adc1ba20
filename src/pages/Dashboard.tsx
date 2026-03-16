@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { KpiSparkline } from '@/components/KpiSparkline';
 import { WelcomeTour, isOnboardingComplete } from '@/components/WelcomeTour';
 import { ProductivityCard } from '@/components/ProductivityCard';
+import { DailyInsightCard } from '@/components/DailyInsightCard';
 import { 
   Plus, LayoutDashboard, ClipboardList, 
   CheckCircle2, Clock, ArrowRight, Users, User, AlertTriangle, RefreshCw
@@ -213,6 +214,20 @@ export default function Dashboard() {
                 onComplete={() => track('onboarding_completed')}
               />
             )}
+
+            {/* Layer 0: Daily Insight */}
+            <DailyInsightCard
+              pendingCorrections={metrics.pendingCorrections}
+              pendingAcceptance={metrics.pendingAcceptance}
+              pendingNfBoleto={metrics.pendingNfBoleto}
+              pendingInfoRequests={metrics.pendingInfoRequests}
+              pendingJustificativas={metrics.pendingJustificativas}
+              concluded={metrics.concluded}
+              total={metrics.total}
+              isBackofficeOrAdmin={isBackofficeOrAdmin}
+              newInQueue={metrics.newInQueue}
+              waitingSolicitor={metrics.waitingSolicitor}
+            />
 
             {/* Layer 1: Pending Actions — FIRST when there are actions */}
             <PendingActionsCard

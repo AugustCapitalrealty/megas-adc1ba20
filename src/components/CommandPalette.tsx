@@ -143,6 +143,10 @@ export function CommandPalette() {
           })}
         </CommandGroup>
       </CommandList>
+      <div className="border-t px-3 py-2 flex items-center justify-between text-xs text-muted-foreground">
+        <span>Atalhos: <kbd className="px-1 py-0.5 bg-muted rounded text-[10px] font-mono">N</kbd> Nova · <kbd className="px-1 py-0.5 bg-muted rounded text-[10px] font-mono">S</kbd> Solicitações</span>
+        <span><kbd className="px-1 py-0.5 bg-muted rounded text-[10px] font-mono">⌘K</kbd> buscar</span>
+      </div>
     </CommandDialog>
   );
 }

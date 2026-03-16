@@ -14,13 +14,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { 
   NATUREZA_ORCAMENTARIA_LABELS,
   ANEXO_LABELS,
+  EMPREENDIMENTO_LABELS,
   type Solicitacao,
   type NaturezaOrcamentaria,
   type Fornecedor,
   type DocumentoEmitido,
   type DocumentoFiscal,
 } from '@/types';
-import { Loader2, FileText, AlertTriangle, User, Building2, Download } from 'lucide-react';
+import { Loader2, FileText, AlertTriangle, User, Building2, Download, CheckCircle, X } from 'lucide-react';
 import { ContextualEmptyState } from '@/components/ui/ContextualEmptyState';
 import { saveAs } from 'file-saver';
 import type { UploadedFile } from '@/components/FileUpload';
@@ -64,6 +65,7 @@ export default function MinhasSolicitacoes() {
 
   const urlSearch = searchParams.get('search') || '';
   const urlFilter = searchParams.get('filter') || '';
+  const createdProtocolo = searchParams.get('created') || '';
   
   const [solicitacoes, setSolicitacoes] = useState<SolicitacaoComFornecedor[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,6 +77,17 @@ export default function MinhasSolicitacoes() {
   
   const [searchTerm, setSearchTerm] = useState(urlSearch);
   const debouncedSearch = useDebounce(searchTerm, 300);
+  const [empreendimentoFilter, setEmpreendimentoFilter] = useState('todos');
+  const [showCreatedBanner, setShowCreatedBanner] = useState(!!createdProtocolo);
+
+  // Auto-dismiss success banner
+  useEffect(() => {
+    if (createdProtocolo) {
+      setShowCreatedBanner(true);
+      const timer = setTimeout(() => setShowCreatedBanner(false), 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [createdProtocolo]);
   
   // Edit modal state
   const [editOpen, setEditOpen] = useState(false);
@@ -272,6 +285,11 @@ export default function MinhasSolicitacoes() {
 
   const sortedAndFilteredSolicitacoes = useMemo(() => {
     let filtered = [...solicitacoes];
+
+    // Empreendimento filter (when in empreendimento view mode)
+    if (viewMode === 'empreendimento' && empreendimentoFilter !== 'todos') {
+      filtered = filtered.filter(s => s.empreendimento === empreendimentoFilter);
+    }
     
     if (debouncedSearch.trim()) {
       const searchLower = debouncedSearch.toLowerCase();
@@ -313,7 +331,7 @@ export default function MinhasSolicitacoes() {
     });
     
     return sortWithFavorites(filtered);
-  }, [solicitacoes, activeTab, debouncedSearch, sortWithFavorites]);
+  }, [solicitacoes, activeTab, debouncedSearch, sortWithFavorites, viewMode, empreendimentoFilter]);
 
   const statusCounts = useMemo(() => ({
     todas: solicitacoes.length,
@@ -797,6 +815,21 @@ export default function MinhasSolicitacoes() {
   return (
     <>
       <div className="space-y-6 animate-fade-in">
+        {/* Success Banner */}
+        {showCreatedBanner && createdProtocolo && (
+          <div className="bg-success/10 border border-success/30 text-success-foreground px-4 py-3 rounded-lg flex items-center justify-between animate-fade-in">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-success" />
+              <span className="text-sm font-medium">
+                Solicitação <strong>#{createdProtocolo}</strong> criada com sucesso! O backoffice foi notificado.
+              </span>
+            </div>
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowCreatedBanner(false)}>
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+
         {/* Header */}
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
@@ -807,7 +840,7 @@ export default function MinhasSolicitacoes() {
           </div>
           
           {userEmpreendimentos.length > 0 && (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button variant={viewMode === 'minhas' ? 'default' : 'outline'} size="sm"
                 onClick={() => setViewMode('minhas')} className="gap-2">
                 <User className="h-4 w-4" /> Minhas Solicitações
@@ -816,6 +849,22 @@ export default function MinhasSolicitacoes() {
                 onClick={() => setViewMode('empreendimento')} className="gap-2">
                 <Building2 className="h-4 w-4" /> Por Empreendimento
               </Button>
+              {viewMode === 'empreendimento' && (
+                <select
+                  value={empreendimentoFilter}
+                  onChange={(e) => setEmpreendimentoFilter(e.target.value)}
+                  className="h-8 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="todos">Todos os empreendimentos</option>
+                  {userEmpreendimentos
+                    .filter(e => e !== 'todos')
+                    .map(emp => (
+                      <option key={emp} value={emp}>
+                        {EMPREENDIMENTO_LABELS[emp] || emp}
+                      </option>
+                    ))}
+                </select>
+              )}
             </div>
           )}
         </div>
