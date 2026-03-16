@@ -428,11 +428,9 @@ export function AppLayout() {
 
 function GlobalShortcuts() {
   const navigate = useNavigate();
-  const location = useLocation();
 
-  useState(() => {
+  useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      // Don't fire in inputs/textareas or when modifiers are held
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -450,7 +448,7 @@ function GlobalShortcuts() {
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  });
+  }, [navigate]);
 
   return null;
 }
