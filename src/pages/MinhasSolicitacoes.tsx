@@ -14,13 +14,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { 
   NATUREZA_ORCAMENTARIA_LABELS,
   ANEXO_LABELS,
+  EMPREENDIMENTO_LABELS,
   type Solicitacao,
   type NaturezaOrcamentaria,
   type Fornecedor,
   type DocumentoEmitido,
   type DocumentoFiscal,
 } from '@/types';
-import { Loader2, FileText, AlertTriangle, User, Building2, Download } from 'lucide-react';
+import { Loader2, FileText, AlertTriangle, User, Building2, Download, CheckCircle, X } from 'lucide-react';
 import { ContextualEmptyState } from '@/components/ui/ContextualEmptyState';
 import { saveAs } from 'file-saver';
 import type { UploadedFile } from '@/components/FileUpload';
