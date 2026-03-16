@@ -64,6 +64,7 @@ export default function MinhasSolicitacoes() {
 
   const urlSearch = searchParams.get('search') || '';
   const urlFilter = searchParams.get('filter') || '';
+  const createdProtocolo = searchParams.get('created') || '';
   
   const [solicitacoes, setSolicitacoes] = useState<SolicitacaoComFornecedor[]>([]);
   const [loading, setLoading] = useState(true);
