@@ -97,6 +97,7 @@ export default function MinhasSolicitacoes() {
   const [editNaturezaOrcamentaria, setEditNaturezaOrcamentaria] = useState<NaturezaOrcamentaria | ''>('');
   const [editEscopoDetalhado, setEditEscopoDetalhado] = useState('');
   const [editAnexos, setEditAnexos] = useState<Record<string, UploadedFile | null>>({});
+  const [editOutrosAnexos, setEditOutrosAnexos] = useState<UploadedFile[]>([]);
   const [existingAnexos, setExistingAnexos] = useState<Array<{ id: string; tipo: string; nome_arquivo: string; storage_path: string }>>([]);
   const [anexosParaExcluir, setAnexosParaExcluir] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
