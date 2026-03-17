@@ -405,6 +405,7 @@ export default function MinhasSolicitacoes() {
     setEditNaturezaOrcamentaria(sol.natureza_orcamentaria);
     setEditEscopoDetalhado((sol as any).escopo_detalhado_minuta || '');
     setEditAnexos({});
+    setEditOutrosAnexos([]);
     setExistingAnexos([]);
     setAnexosParaExcluir([]);
     setTrocarFornecedor(false);
