@@ -1,21 +1,31 @@
+# ✅ Plano Concluído: Modificações v2
 
+## Resultado
 
-## Adicionar "Outros Anexos" ilimitados no modal de correção
+| # | Mudança | Status |
+|---|---------|--------|
+| 1 | Evidência (foto) para serviço no passado → não obrigatória | ✅ |
+| 2 | Cliente "Módulo Vago" adicionado em todos os Megas | ✅ |
+| 3 | Empreendimento "Mega Canoas" criado (enum, rateio, fluig) | ✅ |
+| 4 | Rateio seletivo — solicitante escolhe condomínios | ✅ |
+| 5 | Cancelamento sempre via aprovação do Backoffice | ✅ |
 
-Atualmente o modal de correção (`EditModal`) só permite subir anexos nos slots tipados (proposta, chamado, etc.) via `MultiFileUpload`. Falta a opção de "Outros Anexos" que já existe no formulário de nova solicitação.
+## Detalhes Técnicos
 
-### Mudanças
+### Migrações SQL
+- `ALTER TYPE empreendimento ADD VALUE 'mega_canoas'`
+- `INSERT INTO rateio_configuracao (mega_canoas, area_m2=0)`
+- `user_can_view_fluig_empreendimento` atualizada com `mega_canoas`
 
-**1. `src/pages/MinhasSolicitacoes.tsx`**
-- Adicionar estado `editOutrosAnexos` (`UploadedFile[]`) ao lado de `editAnexos`
-- Resetar no `openEditModal` (linha ~406)
-- Incluir upload dos "outros anexos" em `uploadNewAnexos` — iterar sobre `editOutrosAnexos` e fazer upload com tipo `outros_*`
-- Passar `editOutrosAnexos` e `setEditOutrosAnexos` nas props do `EditModal`
+### Dados inseridos
+- Cliente "Módulo Vago" (ID: 83739dae) vinculado a mega_curitiba, mega_itajai, mega_esteio, mega_canoas
 
-**2. `src/components/solicitante/SolicitanteModals.tsx`**
-- Adicionar `editOutrosAnexos` e `setEditOutrosAnexos` nas props de `EditModalProps`
-- Abaixo do `MultiFileUpload` (linha ~343), adicionar o componente `OtherFilesUpload` com `maxFiles={99}` (ilimitado na prática)
-- Importar `OtherFilesUpload` do `@/components/FileUpload`
-
-Resultado: o solicitante poderá subir quantos anexos extras quiser na correção, além dos slots obrigatórios.
-
+### Arquivos modificados
+- `src/types/index.ts` — tipo Empreendimento + labels
+- `src/pages/Admin.tsx` — array EMPREENDIMENTOS
+- `src/components/RateioPreview.tsx` — checkboxes seletivos + mega_canoas
+- `src/components/nova-solicitacao/types.ts` — FormState + FormSetters
+- `src/hooks/useNovaSolicitacaoForm.ts` — estado rateioEmpreendimentosSelecionados
+- `src/components/nova-solicitacao/steps/DescricaoStep.tsx` — props do RateioPreview
+- `src/components/solicitante/SolicitanteModals.tsx` — evidência opcional + cancelamento unificado
+- `src/pages/MinhasSolicitacoes.tsx` — handleCancelar sempre via backoffice

@@ -12,7 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { ActionModal } from '@/components/ui/ActionModal';
 import { AnexoCard } from '@/components/AnexoCard';
-import { MultiFileUpload, type UploadedFile } from '@/components/FileUpload';
+import { MultiFileUpload, OtherFilesUpload, type UploadedFile } from '@/components/FileUpload';
 import { SupplierSearch } from '@/components/SupplierSearch';
 import {
   NATUREZA_ORCAMENTARIA_LABELS,
@@ -46,6 +46,8 @@ interface EditModalProps {
   setEditEscopoDetalhado: (v: string) => void;
   editAnexos: Record<string, UploadedFile | null>;
   setEditAnexos: (v: Record<string, UploadedFile | null>) => void;
+  editOutrosAnexos: UploadedFile[];
+  setEditOutrosAnexos: (v: UploadedFile[]) => void;
   existingAnexos: Array<{ id: string; tipo: string; nome_arquivo: string; storage_path: string }>;
   anexosParaExcluir: string[];
   setAnexosParaExcluir: React.Dispatch<React.SetStateAction<string[]>>;
@@ -75,7 +77,7 @@ function EditModal(props: EditModalProps) {
   const {
     open, onOpenChange, editingSolicitacao, editDescricao, setEditDescricao,
     editValor, setEditValor, editNaturezaOrcamentaria, setEditNaturezaOrcamentaria,
-    editEscopoDetalhado, setEditEscopoDetalhado, editAnexos, setEditAnexos,
+    editEscopoDetalhado, setEditEscopoDetalhado, editAnexos, setEditAnexos, editOutrosAnexos, setEditOutrosAnexos,
     existingAnexos, anexosParaExcluir, setAnexosParaExcluir,
     editMensagemCorrecao, setEditMensagemCorrecao, submitting, handleResubmit,
     formatCurrencyInput, getRequiredAttachments, rejectionReasons, infoRequests,
@@ -340,6 +342,11 @@ function EditModal(props: EditModalProps) {
                 requirements={getRequiredAttachments(editingSolicitacao)}
                 files={editAnexos}
                 onFilesChange={setEditAnexos}
+              />
+              <OtherFilesUpload
+                files={editOutrosAnexos}
+                onFilesChange={setEditOutrosAnexos}
+                maxFiles={99}
               />
             </div>
           </div>

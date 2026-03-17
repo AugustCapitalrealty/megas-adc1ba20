@@ -97,6 +97,7 @@ export default function MinhasSolicitacoes() {
   const [editNaturezaOrcamentaria, setEditNaturezaOrcamentaria] = useState<NaturezaOrcamentaria | ''>('');
   const [editEscopoDetalhado, setEditEscopoDetalhado] = useState('');
   const [editAnexos, setEditAnexos] = useState<Record<string, UploadedFile | null>>({});
+  const [editOutrosAnexos, setEditOutrosAnexos] = useState<UploadedFile[]>([]);
   const [existingAnexos, setExistingAnexos] = useState<Array<{ id: string; tipo: string; nome_arquivo: string; storage_path: string }>>([]);
   const [anexosParaExcluir, setAnexosParaExcluir] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -404,6 +405,7 @@ export default function MinhasSolicitacoes() {
     setEditNaturezaOrcamentaria(sol.natureza_orcamentaria);
     setEditEscopoDetalhado((sol as any).escopo_detalhado_minuta || '');
     setEditAnexos({});
+    setEditOutrosAnexos([]);
     setExistingAnexos([]);
     setAnexosParaExcluir([]);
     setTrocarFornecedor(false);
@@ -481,8 +483,7 @@ export default function MinhasSolicitacoes() {
 
   const uploadNewAnexos = async (solicitacaoId: string) => {
     const filesToUpload = Object.entries(editAnexos).filter(([_, file]) => file !== null);
-    if (filesToUpload.length === 0) return;
-    await Promise.all(filesToUpload.map(async ([tipo, uploadedFile]) => {
+    const allUploads = filesToUpload.map(async ([tipo, uploadedFile]) => {
       if (!uploadedFile) return;
       const { file } = uploadedFile;
       const fileExt = file.name.split('.').pop();
@@ -493,7 +494,23 @@ export default function MinhasSolicitacoes() {
         solicitacao_id: solicitacaoId, tipo, nome_arquivo: file.name, storage_path: filePath, mime_type: file.type, tamanho_bytes: file.size,
       });
       if (dbError) throw new Error(`Erro ao salvar registro: ${dbError.message}`);
-    }));
+    });
+
+    // Upload "outros anexos" extras
+    const outrosUploads = editOutrosAnexos.map(async (uploadedFile, index) => {
+      const { file } = uploadedFile;
+      const fileExt = file.name.split('.').pop();
+      const tipo = `outros_${Date.now()}_${index}`;
+      const filePath = `${solicitacaoId}/${tipo}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage.from('anexos').upload(filePath, file);
+      if (uploadError) throw new Error(`Erro no upload de ${file.name}: ${uploadError.message}`);
+      const { error: dbError } = await supabase.from('anexos').insert({
+        solicitacao_id: solicitacaoId, tipo, nome_arquivo: file.name, storage_path: filePath, mime_type: file.type, tamanho_bytes: file.size,
+      });
+      if (dbError) throw new Error(`Erro ao salvar registro: ${dbError.message}`);
+    });
+
+    await Promise.all([...allUploads, ...outrosUploads]);
   };
 
   const handleResubmit = async () => {
@@ -969,7 +986,7 @@ export default function MinhasSolicitacoes() {
         editModalProps={{
           editingSolicitacao, editDescricao, setEditDescricao, editValor, setEditValor,
           editNaturezaOrcamentaria, setEditNaturezaOrcamentaria: (v) => setEditNaturezaOrcamentaria(v),
-          editEscopoDetalhado, setEditEscopoDetalhado, editAnexos, setEditAnexos,
+          editEscopoDetalhado, setEditEscopoDetalhado, editAnexos, setEditAnexos, editOutrosAnexos, setEditOutrosAnexos,
           existingAnexos, anexosParaExcluir, setAnexosParaExcluir,
           editMensagemCorrecao, setEditMensagemCorrecao, submitting, handleResubmit,
           formatCurrencyInput, getRequiredAttachments, rejectionReasons, infoRequests,
