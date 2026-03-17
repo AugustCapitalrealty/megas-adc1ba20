@@ -6,6 +6,18 @@
 
 ## How can I edit this code?
 
+## Package manager padrão
+
+Este projeto usa **npm** como gerenciador de pacotes oficial (não usar Bun neste repositório).
+
+```sh
+npm install
+npm run dev
+npm run lint
+npm run test
+```
+
+
 There are several ways of editing your application.
 
 **Use Lovable**
@@ -49,6 +61,15 @@ npm run dev
 - Select the "Codespaces" tab.
 - Click on "New codespace" to launch a new Codespace environment.
 - Edit files directly within the Codespace and commit and push your changes once you're done.
+
+## Variáveis de ambiente obrigatórias
+
+Crie um arquivo `.env` com:
+
+```sh
+VITE_SUPABASE_URL=...
+VITE_SUPABASE_PUBLISHABLE_KEY=...
+```
 
 ## What technologies are used for this project?
 
