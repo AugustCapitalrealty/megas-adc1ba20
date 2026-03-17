@@ -986,7 +986,7 @@ export default function MinhasSolicitacoes() {
         editModalProps={{
           editingSolicitacao, editDescricao, setEditDescricao, editValor, setEditValor,
           editNaturezaOrcamentaria, setEditNaturezaOrcamentaria: (v) => setEditNaturezaOrcamentaria(v),
-          editEscopoDetalhado, setEditEscopoDetalhado, editAnexos, setEditAnexos,
+          editEscopoDetalhado, setEditEscopoDetalhado, editAnexos, setEditAnexos, editOutrosAnexos, setEditOutrosAnexos,
           existingAnexos, anexosParaExcluir, setAnexosParaExcluir,
           editMensagemCorrecao, setEditMensagemCorrecao, submitting, handleResubmit,
           formatCurrencyInput, getRequiredAttachments, rejectionReasons, infoRequests,

@@ -343,6 +343,11 @@ function EditModal(props: EditModalProps) {
                 files={editAnexos}
                 onFilesChange={setEditAnexos}
               />
+              <OtherFilesUpload
+                files={editOutrosAnexos}
+                onFilesChange={setEditOutrosAnexos}
+                maxFiles={99}
+              />
             </div>
           </div>
         )}
