@@ -12,7 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { ActionModal } from '@/components/ui/ActionModal';
 import { AnexoCard } from '@/components/AnexoCard';
-import { MultiFileUpload, type UploadedFile } from '@/components/FileUpload';
+import { MultiFileUpload, OtherFilesUpload, type UploadedFile } from '@/components/FileUpload';
 import { SupplierSearch } from '@/components/SupplierSearch';
 import {
   NATUREZA_ORCAMENTARIA_LABELS,
