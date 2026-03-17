@@ -106,9 +106,9 @@ export function SolicitanteKPIs({ solicitacoes, activeTab, onTabChange }: Solici
         <Card
           key={kpi.label}
           className={cn(
-            'cursor-pointer hover:shadow-md transition-all',
+            'cursor-pointer hover:shadow-md transition-all duration-200',
             variantClasses[kpi.variant],
-            activeTab === kpi.tab && 'ring-2 ring-primary/30'
+            activeTab === kpi.tab && 'ring-2 ring-primary shadow-md scale-[1.03]'
           )}
           onClick={() => onTabChange(kpi.tab)}
         >

@@ -873,20 +873,21 @@ export default function MinhasSolicitacoes() {
                 <Building2 className="h-4 w-4" /> Por Empreendimento
               </Button>
               {viewMode === 'empreendimento' && (
-                <select
-                  value={empreendimentoFilter}
-                  onChange={(e) => setEmpreendimentoFilter(e.target.value)}
-                  className="h-8 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <option value="todos">Todos os empreendimentos</option>
-                  {userEmpreendimentos
-                    .filter(e => e !== 'todos')
-                    .map(emp => (
-                      <option key={emp} value={emp}>
-                        {EMPREENDIMENTO_LABELS[emp] || emp}
-                      </option>
-                    ))}
-                </select>
+                <Select value={empreendimentoFilter} onValueChange={setEmpreendimentoFilter}>
+                  <SelectTrigger className="h-8 w-[220px] text-sm">
+                    <SelectValue placeholder="Empreendimento" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos os empreendimentos</SelectItem>
+                    {userEmpreendimentos
+                      .filter(e => e !== 'todos')
+                      .map(emp => (
+                        <SelectItem key={emp} value={emp}>
+                          {EMPREENDIMENTO_LABELS[emp] || emp}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
               )}
             </div>
           )}

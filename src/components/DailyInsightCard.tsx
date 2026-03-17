@@ -1,5 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card';
-import { Lightbulb, CheckCircle2, AlertTriangle, Clock } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { CheckCircle2, AlertTriangle, Clock, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface DailyInsightCardProps {
@@ -13,6 +14,7 @@ interface DailyInsightCardProps {
   isBackofficeOrAdmin: boolean;
   newInQueue: number;
   waitingSolicitor: number;
+  onAction?: () => void;
 }
 
 export function DailyInsightCard({
@@ -26,6 +28,7 @@ export function DailyInsightCard({
   isBackofficeOrAdmin,
   newInQueue,
   waitingSolicitor,
+  onAction,
 }: DailyInsightCardProps) {
   const totalPending = pendingCorrections + pendingAcceptance + pendingNfBoleto + pendingInfoRequests + pendingJustificativas;
 
@@ -57,10 +60,15 @@ export function DailyInsightCard({
     <Card className={cn('border', bgColor)}>
       <CardContent className="py-3 px-4 flex items-center gap-3">
         <Icon className={cn('h-5 w-5 shrink-0', iconColor)} />
-        <p className="text-sm text-foreground">
+        <p className={cn('text-sm text-foreground flex-1', !isAllClear && 'font-semibold')}>
           <span className="font-medium">Resumo: </span>
           {message}
         </p>
+        {!isAllClear && onAction && (
+          <Button variant="ghost" size="sm" className="shrink-0 gap-1 text-xs" onClick={onAction}>
+            Ver pendências <ArrowRight className="h-3 w-3" />
+          </Button>
+        )}
       </CardContent>
     </Card>
   );
