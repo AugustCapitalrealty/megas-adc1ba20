@@ -1,8 +1,9 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, ReactNode, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { lovable } from '@/integrations/lovable/index';
 import type { AppRole, Profile } from '@/types';
+import { deriveAuthState } from '@/hooks/auth-state';
 
 interface AuthContextType {
   user: User | null;
@@ -16,7 +17,6 @@ interface AuthContextType {
   hasRole: (role: AppRole) => boolean;
   isBackofficeOrAdmin: boolean;
   isAdmin: boolean;
-  // Impersonation
   isMasterUser: boolean;
   impersonatedProfile: Profile | null;
   impersonatedRoles: AppRole[];
@@ -35,114 +35,122 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  // Impersonation state
   const [impersonatedProfile, setImpersonatedProfile] = useState<Profile | null>(null);
   const [impersonatedRoles, setImpersonatedRoles] = useState<AppRole[]>([]);
 
-  // super_admin role from DB replaces hardcoded email check
-  const isMasterUser = roles.includes('super_admin');
-  const isImpersonating = isMasterUser && impersonatedProfile !== null;
+  const requestRef = useRef(0);
+  const lastAppliedSessionRef = useRef<string | null>(null);
 
-  // super_admin is always approved, others check profile
-  const isApproved = isMasterUser || (profile?.approved ?? false);
-
-  // Effective profile/roles (impersonated or real)
-  const effectiveProfile = isImpersonating ? impersonatedProfile : profile;
-  const effectiveRoles = isImpersonating ? impersonatedRoles : roles;
-
-  useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        // Defer Supabase calls with setTimeout
-        if (session?.user) {
-          setTimeout(() => {
-            fetchUserData(session.user.id);
-          }, 0);
-        } else {
-          setProfile(null);
-          setRoles([]);
-          setImpersonatedProfile(null);
-          setImpersonatedRoles([]);
-          setLoading(false);
-        }
-      }
-    );
-
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchUserData(session.user.id);
-      } else {
-        setLoading(false);
-      }
-    });
-
-    return () => subscription.unsubscribe();
+  const clearUserState = useCallback(() => {
+    setProfile(null);
+    setRoles([]);
+    setImpersonatedProfile(null);
+    setImpersonatedRoles([]);
   }, []);
 
-  const fetchUserData = async (userId: string) => {
+  const fetchUserData = useCallback(async (userId: string) => {
+    const requestId = ++requestRef.current;
+
     try {
-      // Fetch profile
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
+      const [profileResult, rolesResult] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
+        supabase.from('user_roles').select('role').eq('user_id', userId),
+      ]);
 
-      if (profileData) {
-        setProfile(profileData as Profile);
-      }
+      if (requestId !== requestRef.current) return;
 
-      // Fetch roles
-      const { data: rolesData } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId);
-
-      if (rolesData) {
-        setRoles(rolesData.map((r) => r.role as AppRole));
-      }
+      setProfile((profileResult.data as Profile | null) ?? null);
+      setRoles((rolesResult.data?.map((r) => r.role as AppRole)) ?? []);
     } catch (error) {
+      if (requestId !== requestRef.current) return;
       console.error('Error fetching user data:', error);
+      clearUserState();
     } finally {
-      setLoading(false);
+      if (requestId === requestRef.current) {
+        setLoading(false);
+      }
     }
-  };
+  }, [clearUserState]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const getSessionKey = (nextSession: Session | null) => {
+      const userId = nextSession?.user?.id ?? 'anonymous';
+      const token = nextSession?.access_token ?? 'no-token';
+      return `${userId}:${token}`;
+    };
+
+    const applySession = (nextSession: Session | null) => {
+      if (!isMounted) return;
+
+      const nextSessionKey = getSessionKey(nextSession);
+      if (lastAppliedSessionRef.current === nextSessionKey) {
+        if (import.meta.env.DEV) {
+          console.debug('[auth] sessão duplicada ignorada', nextSessionKey);
+        }
+        return;
+      }
+
+      lastAppliedSessionRef.current = nextSessionKey;
+      setSession(nextSession);
+
+      const nextUser = nextSession?.user ?? null;
+      setUser(nextUser);
+
+      if (nextUser) {
+        if (import.meta.env.DEV) {
+          console.debug('[auth] aplicando sessão para usuário', nextUser.id);
+        }
+        setLoading(true);
+        void fetchUserData(nextUser.id);
+      } else {
+        if (import.meta.env.DEV) {
+          console.debug('[auth] sessão ausente, limpando estado');
+        }
+        requestRef.current += 1;
+        clearUserState();
+        setLoading(false);
+      }
+    };
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, changedSession) => {
+      applySession(changedSession);
+    });
+
+    void supabase.auth
+      .getSession()
+      .then(({ data: { session: initialSession } }) => {
+        applySession(initialSession);
+      })
+      .catch((error) => {
+        console.error('Error loading initial session:', error);
+        clearUserState();
+        setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+      requestRef.current += 1;
+      subscription.unsubscribe();
+    };
+  }, [clearUserState, fetchUserData]);
 
   const impersonateUser = async (userId: string) => {
+    const { isMasterUser } = deriveAuthState({ profile, roles, impersonatedProfile, impersonatedRoles });
     if (!isMasterUser) {
       console.error('Only master user can impersonate');
       return;
     }
 
     try {
-      // Fetch target user's profile
-      const { data: targetProfile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
+      const [targetProfileResult, targetRolesResult] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
+        supabase.from('user_roles').select('role').eq('user_id', userId),
+      ]);
 
-      if (targetProfile) {
-        setImpersonatedProfile(targetProfile as Profile);
-      }
-
-      // Fetch target user's roles
-      const { data: targetRoles } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId);
-
-      if (targetRoles) {
-        setImpersonatedRoles(targetRoles.map((r) => r.role as AppRole));
-      }
+      setImpersonatedProfile((targetProfileResult.data as Profile | null) ?? null);
+      setImpersonatedRoles((targetRolesResult.data?.map((r) => r.role as AppRole)) ?? []);
     } catch (error) {
       console.error('Error impersonating user:', error);
     }
@@ -167,15 +175,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    requestRef.current += 1;
+    lastAppliedSessionRef.current = null;
     setUser(null);
     setSession(null);
-    setProfile(null);
-    setRoles([]);
-    setImpersonatedProfile(null);
-    setImpersonatedRoles([]);
+    clearUserState();
   };
 
-  // Role checks should respect impersonation
+  const { isMasterUser, isImpersonating, isApproved, effectiveProfile, effectiveRoles } = deriveAuthState({
+    profile,
+    roles,
+    impersonatedProfile,
+    impersonatedRoles,
+  });
+
   const hasRole = (role: AppRole) => effectiveRoles.includes(role);
   const isBackofficeOrAdmin = hasRole('backoffice') || hasRole('admin');
   const isAdmin = hasRole('admin');
@@ -194,7 +207,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         hasRole,
         isBackofficeOrAdmin,
         isAdmin,
-        // Impersonation
         isMasterUser,
         impersonatedProfile,
         impersonatedRoles,

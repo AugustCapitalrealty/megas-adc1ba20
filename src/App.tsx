@@ -3,14 +3,13 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
-import { AuthProvider, useAuth } from "@/hooks/useAuth";
-import { Loader2 } from "lucide-react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/hooks/useAuth";
 import { ScrollToTop } from "@/components/ScrollToTop";
-import { AppLayout } from "@/components/layout/AppLayout";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { PageLoadingFallback } from "@/components/ui/PageLoadingFallback";
 import { ThemeProvider } from "next-themes";
-import logoMega from "@/assets/logos/logo-mega.png";
+import { ProtectedShell, RequireRole } from "@/routes/guards";
 
 const Login = lazy(() => import("./pages/Login"));
 const AwaitingApproval = lazy(() => import("./pages/AwaitingApproval"));
@@ -37,33 +36,7 @@ const queryClient = new QueryClient({
   },
 });
 
-/** Unified shell: auth check + AppLayout rendered ONCE */
-function ProtectedShell() {
-  const { user, loading, isApproved, isMasterUser } = useAuth();
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  if (!user) return <Navigate to="/login" replace />;
-  if (!isApproved && !isMasterUser) return <Navigate to="/aguardando-aprovacao" replace />;
-
-  return <AppLayout />;
-}
-
-/** Inline role guard — no loading state (auth already verified by shell) */
-function RequireRole({ role, children }: { role: 'backoffice' | 'admin'; children: React.ReactNode }) {
-  const { isBackofficeOrAdmin, isAdmin } = useAuth();
-  const allowed = role === 'admin' ? isAdmin : isBackofficeOrAdmin;
-  if (!allowed) return <Navigate to="/" replace />;
-  return <>{children}</>;
-}
-
-const SuspenseFallback = () => null;
+const SuspenseFallback = () => <PageLoadingFallback />;
 
 function AppRoutes() {
   return (
