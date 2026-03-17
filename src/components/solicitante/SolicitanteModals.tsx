@@ -77,7 +77,7 @@ function EditModal(props: EditModalProps) {
   const {
     open, onOpenChange, editingSolicitacao, editDescricao, setEditDescricao,
     editValor, setEditValor, editNaturezaOrcamentaria, setEditNaturezaOrcamentaria,
-    editEscopoDetalhado, setEditEscopoDetalhado, editAnexos, setEditAnexos,
+    editEscopoDetalhado, setEditEscopoDetalhado, editAnexos, setEditAnexos, editOutrosAnexos, setEditOutrosAnexos,
     existingAnexos, anexosParaExcluir, setAnexosParaExcluir,
     editMensagemCorrecao, setEditMensagemCorrecao, submitting, handleResubmit,
     formatCurrencyInput, getRequiredAttachments, rejectionReasons, infoRequests,
