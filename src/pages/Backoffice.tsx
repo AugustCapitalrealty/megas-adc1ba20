@@ -133,6 +133,7 @@ export default function Backoffice() {
   // Transfer modal state
   const [transferOpen, setTransferOpen] = useState(false);
   const [transferSolicitacao, setTransferSolicitacao] = useState<SolicitacaoBackoffice | null>(null);
+  const [bulkTransferOpen, setBulkTransferOpen] = useState(false);
 
   // Confirmation modal state (#4 improvement)
   const [confirmAction, setConfirmAction] = useState<{
@@ -1297,6 +1298,12 @@ export default function Backoffice() {
     exportToExcel(items, 'backoffice_selecionadas');
   };
 
+  const handleBulkTransfer = () => {
+    if (selectedIds.size === 0) return;
+    setTransferSolicitacao(null);
+    setBulkTransferOpen(true);
+  };
+
   // Card callbacks (stable ref)
   const cardCallbacks = useMemo<CardCallbacks>(() => ({
     openDetails,
@@ -1652,6 +1659,20 @@ export default function Backoffice() {
         handleRegistrarEnvioFornecedorConfirmed={handleRegistrarEnvioFornecedorConfirmed}
       />
 
+      {/* Bulk Transfer Ownership Modal */}
+      {selectedIds.size > 0 && (
+        <TransferOwnershipModal
+          open={bulkTransferOpen}
+          onOpenChange={setBulkTransferOpen}
+          solicitacaoIds={[...selectedIds]}
+          empreendimento='todos'
+          onTransferred={() => {
+            clearSelection();
+            fetchSolicitacoes();
+          }}
+        />
+      )}
+
       {/* Transfer Ownership Modal */}
       {transferSolicitacao && (
         <TransferOwnershipModal
@@ -1672,6 +1693,7 @@ export default function Backoffice() {
         canBulkAssign={canBulkAssign}
         onClear={clearSelection}
         onBulkAssign={handleBulkAssign}
+        onBulkTransfer={handleBulkTransfer}
         onExport={handleBulkExport}
         assignLoading={bulkAssignLoading}
       />

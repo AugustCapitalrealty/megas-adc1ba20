@@ -13,10 +13,11 @@ import type { Empreendimento } from '@/types';
 interface TransferOwnershipModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  solicitacaoId: string;
-  solicitacaoProtocolo: string;
+  solicitacaoId?: string;
+  solicitacaoIds?: string[];
+  solicitacaoProtocolo?: string;
   currentUserId?: string;
-  currentUserName: string;
+  currentUserName?: string;
   empreendimento: Empreendimento;
   onTransferred: () => void;
 }
@@ -31,9 +32,10 @@ export function TransferOwnershipModal({
   open,
   onOpenChange,
   solicitacaoId,
+  solicitacaoIds,
   solicitacaoProtocolo,
   currentUserId: currentUserIdProp,
-  currentUserName,
+  currentUserName = 'Solicitante',
   empreendimento,
   onTransferred,
 }: TransferOwnershipModalProps) {
@@ -47,27 +49,33 @@ export function TransferOwnershipModal({
 
   const [resolvedUserId, setResolvedUserId] = useState(currentUserIdProp || '');
 
+  const targetSolicitacaoIds = solicitacaoIds && solicitacaoIds.length > 0
+    ? solicitacaoIds
+    : (solicitacaoId ? [solicitacaoId] : []);
+  const isBulkTransfer = targetSolicitacaoIds.length > 1;
+
+
   useEffect(() => {
     if (open) {
       setSelectedUserId('');
       setMotivo('');
       // If no currentUserId provided, fetch it
-      if (!currentUserIdProp) {
+      if (!currentUserIdProp && !isBulkTransfer && solicitacaoId) {
         supabase.from('solicitacoes').select('user_id').eq('id', solicitacaoId).single()
           .then(({ data }) => {
             if (data) setResolvedUserId(data.user_id);
           });
       } else {
-        setResolvedUserId(currentUserIdProp);
+        setResolvedUserId(currentUserIdProp || user?.id || '');
       }
     }
-  }, [open, currentUserIdProp, solicitacaoId]);
+  }, [open, currentUserIdProp, solicitacaoId, isBulkTransfer, user?.id]);
 
   useEffect(() => {
-    if (open && resolvedUserId) {
+    if (open && (resolvedUserId || isBackofficeOrAdmin)) {
       fetchAvailableUsers();
     }
-  }, [open, resolvedUserId]);
+  }, [open, resolvedUserId, isBackofficeOrAdmin]);
 
   const fetchAvailableUsers = async () => {
     setLoadingUsers(true);
@@ -78,9 +86,10 @@ export function TransferOwnershipModal({
           .from('profiles')
           .select('id, full_name, email')
           .eq('approved', true)
-          .neq('id', resolvedUserId)
           .order('full_name');
-        setUsers(data || []);
+
+        const filtered = (data || []).filter(profile => profile.id !== resolvedUserId);
+        setUsers(filtered);
       } else {
         // Regular users: only users from the same empreendimento
         const { data: empUsers } = await supabase
@@ -110,44 +119,104 @@ export function TransferOwnershipModal({
   };
 
   const handleTransfer = async () => {
-    if (!selectedUserId || !motivo.trim() || !user) return;
+    if (!selectedUserId || !motivo.trim() || !user || targetSolicitacaoIds.length === 0) return;
 
     setSubmitting(true);
     try {
-      // 1. Insert transfer log
-      const { error: logError } = await supabase
-        .from('solicitacao_transfers')
-        .insert({
-          solicitacao_id: solicitacaoId,
-          from_user_id: resolvedUserId,
+      const { data: selectedUser } = await supabase
+        .from('profiles')
+        .select('full_name, email')
+        .eq('id', selectedUserId)
+        .maybeSingle();
+
+      if (isBulkTransfer) {
+        const { data: solicitacoesToTransfer, error: solicitacoesError } = await supabase
+          .from('solicitacoes')
+          .select('id, user_id, protocolo')
+          .in('id', targetSolicitacaoIds);
+
+        if (solicitacoesError) throw solicitacoesError;
+
+        const validSolicitacoes = (solicitacoesToTransfer || []).filter(s => s.user_id !== selectedUserId);
+        if (validSolicitacoes.length === 0) {
+          toast({
+            title: 'Nada para transferir',
+            description: 'Todas as solicitações selecionadas já pertencem ao usuário destino.',
+          });
+          onOpenChange(false);
+          return;
+        }
+
+        const transferLogs = validSolicitacoes.map((s) => ({
+          solicitacao_id: s.id,
+          from_user_id: s.user_id,
           to_user_id: selectedUserId,
           motivo: motivo.trim(),
           created_by: user.id,
+        }));
+
+        const { error: logError } = await supabase
+          .from('solicitacao_transfers')
+          .insert(transferLogs);
+
+        if (logError) throw logError;
+
+        const { error: updateError } = await supabase
+          .from('solicitacoes')
+          .update({ user_id: selectedUserId })
+          .in('id', validSolicitacoes.map(s => s.id));
+
+        if (updateError) throw updateError;
+
+        const historicoRows = validSolicitacoes.map((s) => ({
+          solicitacao_id: s.id,
+          user_id: user.id,
+          acao: 'transferencia_titularidade',
+          motivo: `Transferida em lote para ${selectedUser?.full_name || selectedUser?.email || 'Usuário'}. Motivo: ${motivo.trim()}`,
+        }));
+
+        await supabase.from('historico_solicitacoes').insert(historicoRows);
+
+        toast({
+          title: 'Solicitações transferidas',
+          description: `${validSolicitacoes.length} solicitações foram transferidas com sucesso.`,
+        });
+      } else {
+        const singleId = targetSolicitacaoIds[0];
+        // 1. Insert transfer log
+        const { error: logError } = await supabase
+          .from('solicitacao_transfers')
+          .insert({
+            solicitacao_id: singleId,
+            from_user_id: resolvedUserId,
+            to_user_id: selectedUserId,
+            motivo: motivo.trim(),
+            created_by: user.id,
+          });
+
+        if (logError) throw logError;
+
+        // 2. Update solicitacao user_id
+        const { error: updateError } = await supabase
+          .from('solicitacoes')
+          .update({ user_id: selectedUserId })
+          .eq('id', singleId);
+
+        if (updateError) throw updateError;
+
+        // 3. Register in historico
+        await supabase.from('historico_solicitacoes').insert({
+          solicitacao_id: singleId,
+          user_id: user.id,
+          acao: 'transferencia_titularidade',
+          motivo: `Transferida de ${currentUserName} para ${selectedUser?.full_name || selectedUser?.email || 'Usuário'}. Motivo: ${motivo.trim()}`,
         });
 
-      if (logError) throw logError;
-
-      // 2. Update solicitacao user_id
-      const { error: updateError } = await supabase
-        .from('solicitacoes')
-        .update({ user_id: selectedUserId })
-        .eq('id', solicitacaoId);
-
-      if (updateError) throw updateError;
-
-      // 3. Register in historico
-      const selectedUser = users.find(u => u.id === selectedUserId);
-      await supabase.from('historico_solicitacoes').insert({
-        solicitacao_id: solicitacaoId,
-        user_id: user.id,
-        acao: 'transferencia_titularidade',
-        motivo: `Transferida de ${currentUserName} para ${selectedUser?.full_name || selectedUser?.email || 'Usuário'}. Motivo: ${motivo.trim()}`,
-      });
-
-      toast({
-        title: 'Solicitação transferida',
-        description: `#${solicitacaoProtocolo} transferida com sucesso.`,
-      });
+        toast({
+          title: 'Solicitação transferida',
+          description: `#${solicitacaoProtocolo} transferida com sucesso.`,
+        });
+      }
 
       onOpenChange(false);
       onTransferred();
@@ -163,29 +232,36 @@ export function TransferOwnershipModal({
     }
   };
 
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserCheck className="h-5 w-5" />
-            Transferir Solicitação
+            {isBulkTransfer ? 'Transferir Solicitações em Lote' : 'Transferir Solicitação'}
           </DialogTitle>
           <DialogDescription>
-            Transfira a titularidade da solicitação #{solicitacaoProtocolo} para outro usuário.
+            {isBulkTransfer
+              ? `Transfira ${targetSolicitacaoIds.length} solicitações selecionadas para outro usuário.`
+              : `Transfira a titularidade da solicitação #${solicitacaoProtocolo} para outro usuário.`}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Current owner */}
-          <div className="p-3 bg-muted/50 rounded-lg">
-            <Label className="text-xs text-muted-foreground">Titular atual</Label>
-            <p className="font-medium mt-0.5">{currentUserName}</p>
-          </div>
+          {!isBulkTransfer && (
+            <>
+              {/* Current owner */}
+              <div className="p-3 bg-muted/50 rounded-lg">
+                <Label className="text-xs text-muted-foreground">Titular atual</Label>
+                <p className="font-medium mt-0.5">{currentUserName}</p>
+              </div>
 
-          <div className="flex items-center justify-center">
-            <ArrowRight className="h-5 w-5 text-muted-foreground" />
-          </div>
+              <div className="flex items-center justify-center">
+                <ArrowRight className="h-5 w-5 text-muted-foreground" />
+              </div>
+            </>
+          )}
 
           {/* Select new owner */}
           <div className="space-y-2">

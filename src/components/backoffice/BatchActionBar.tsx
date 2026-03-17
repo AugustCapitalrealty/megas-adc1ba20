@@ -1,13 +1,13 @@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Download, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { ArrowRightLeft, CheckCircle, Download, X } from 'lucide-react';
 
 interface BatchActionBarProps {
   selectedCount: number;
   canBulkAssign: boolean;
   onClear: () => void;
   onBulkAssign: () => void;
+  onBulkTransfer: () => void;
   onExport: () => void;
   assignLoading?: boolean;
 }
@@ -17,6 +17,7 @@ export function BatchActionBar({
   canBulkAssign,
   onClear,
   onBulkAssign,
+  onBulkTransfer,
   onExport,
   assignLoading,
 }: BatchActionBarProps) {
@@ -37,6 +38,10 @@ export function BatchActionBar({
 
         <Button variant="outline" size="sm" onClick={onExport} className="gap-1.5">
           <Download className="h-4 w-4" /> Exportar
+        </Button>
+
+        <Button variant="outline" size="sm" onClick={onBulkTransfer} className="gap-1.5">
+          <ArrowRightLeft className="h-4 w-4" /> Transferir
         </Button>
 
         {canBulkAssign && (
