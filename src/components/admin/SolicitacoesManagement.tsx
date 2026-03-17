@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { 
   Dialog,
@@ -26,6 +27,23 @@ import {
 import { StatusBadge } from '@/components/ui/status-badge';
 import { formatBR } from '@/lib/date-utils';
 import { RequestStatus } from '@/types';
+import { TransferOwnershipModal } from '@/components/TransferOwnershipModal';
+
+const BACKOFFICE_TRANSFER_STATUSES: RequestStatus[] = [
+  'recebido',
+  'em_analise',
+  'pendente_correcao',
+  'aprovado',
+  'em_processamento',
+  'aguardando_aceite',
+  'aguardando_informacoes',
+  'aguardando_nf_boleto',
+  'nf_boleto_enviados',
+  'enviado_pagamento',
+  'liberado_fornecedor',
+  'enviado_fornecedor',
+  'aguardando_execucao',
+];
 
 interface Solicitacao {
   id: string;
@@ -48,6 +66,8 @@ export function SolicitacoesManagement() {
   const [selectedSolicitacao, setSelectedSolicitacao] = useState<Solicitacao | null>(null);
   const [confirmProtocolo, setConfirmProtocolo] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkTransferOpen, setBulkTransferOpen] = useState(false);
 
   useEffect(() => {
     fetchSolicitacoes();
@@ -108,6 +128,10 @@ export function SolicitacoesManagement() {
       });
 
       setSolicitacoes(formattedData);
+      setSelectedIds((prev) => {
+        const validIds = new Set(formattedData.map((s) => s.id));
+        return new Set([...prev].filter((id) => validIds.has(id)));
+      });
     } catch (error) {
       console.error('Error fetching solicitacoes:', error);
       toast.error('Erro ao carregar solicitações');
@@ -214,6 +238,45 @@ export function SolicitacoesManagement() {
       s.solicitante_email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const transferableFiltered = filteredSolicitacoes.filter((s) => BACKOFFICE_TRANSFER_STATUSES.includes(s.status));
+  const allTransferableSelected =
+    transferableFiltered.length > 0 && transferableFiltered.every((s) => selectedIds.has(s.id));
+
+  const toggleRowSelection = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAllTransferable = (checked: boolean | string) => {
+    const shouldSelect = checked === true;
+    const transferableIds = transferableFiltered.map((s) => s.id);
+
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (shouldSelect) {
+        transferableIds.forEach((id) => next.add(id));
+      } else {
+        transferableIds.forEach((id) => next.delete(id));
+      }
+      return next;
+    });
+  };
+
+  const handleBulkTransfer = () => {
+    if (selectedIds.size === 0) {
+      toast.error('Selecione ao menos uma solicitação para transferir');
+      return;
+    }
+    setBulkTransferOpen(true);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -242,12 +305,35 @@ export function SolicitacoesManagement() {
               className="pl-10"
             />
           </div>
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBulkTransfer}
+              disabled={selectedIds.size === 0}
+            >
+              Transferir selecionadas ({selectedIds.size})
+            </Button>
+            {selectedIds.size > 0 && (
+              <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
+                Limpar seleção
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border overflow-hidden">
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={allTransferableSelected}
+                      onCheckedChange={toggleSelectAllTransferable}
+                      aria-label="Selecionar todas as solicitações transferíveis"
+                      disabled={transferableFiltered.length === 0}
+                    />
+                  </TableHead>
                   <TableHead>Protocolo</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Status</TableHead>
@@ -274,6 +360,14 @@ export function SolicitacoesManagement() {
                   <Table>
                     <TableBody>
                       <TableRow>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedIds.has(solicitacao.id)}
+                            onCheckedChange={() => toggleRowSelection(solicitacao.id)}
+                            disabled={!BACKOFFICE_TRANSFER_STATUSES.includes(solicitacao.status)}
+                            aria-label={`Selecionar solicitação ${solicitacao.protocolo}`}
+                          />
+                        </TableCell>
                         <TableCell className="font-mono font-medium">
                           {solicitacao.protocolo}
                         </TableCell>
@@ -323,6 +417,17 @@ export function SolicitacoesManagement() {
           </div>
         </CardContent>
       </Card>
+
+      <TransferOwnershipModal
+        open={bulkTransferOpen}
+        onOpenChange={setBulkTransferOpen}
+        solicitacaoIds={[...selectedIds]}
+        empreendimento="todos"
+        onTransferred={() => {
+          setSelectedIds(new Set());
+          fetchSolicitacoes();
+        }}
+      />
 
       {/* Dialog de confirmação de exclusão */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
