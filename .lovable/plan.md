@@ -1,31 +1,49 @@
-# ✅ Plano Concluído: Modificações v2
 
-## Resultado
 
-| # | Mudança | Status |
-|---|---------|--------|
-| 1 | Evidência (foto) para serviço no passado → não obrigatória | ✅ |
-| 2 | Cliente "Módulo Vago" adicionado em todos os Megas | ✅ |
-| 3 | Empreendimento "Mega Canoas" criado (enum, rateio, fluig) | ✅ |
-| 4 | Rateio seletivo — solicitante escolhe condomínios | ✅ |
-| 5 | Cancelamento sempre via aprovação do Backoffice | ✅ |
+## Melhorias: Banner de Celebração + Refinamentos Gerais
 
-## Detalhes Técnicos
+### 1. Banner de Celebração — Mais Visível e Polido
 
-### Migrações SQL
-- `ALTER TYPE empreendimento ADD VALUE 'mega_canoas'`
-- `INSERT INTO rateio_configuracao (mega_canoas, area_m2=0)`
-- `user_can_view_fluig_empreendimento` atualizada com `mega_canoas`
+**Problema:** O banner atual usa `bg-success/10` (verde muito claro) com `text-success-foreground` que é praticamente preto — pouca distinção visual. Não chama atenção.
 
-### Dados inseridos
-- Cliente "Módulo Vago" (ID: 83739dae) vinculado a mega_curitiba, mega_itajai, mega_esteio, mega_canoas
+**Arquivo:** `src/pages/MinhasSolicitacoes.tsx` (linhas 836-847)
 
-### Arquivos modificados
-- `src/types/index.ts` — tipo Empreendimento + labels
-- `src/pages/Admin.tsx` — array EMPREENDIMENTOS
-- `src/components/RateioPreview.tsx` — checkboxes seletivos + mega_canoas
-- `src/components/nova-solicitacao/types.ts` — FormState + FormSetters
-- `src/hooks/useNovaSolicitacaoForm.ts` — estado rateioEmpreendimentosSelecionados
-- `src/components/nova-solicitacao/steps/DescricaoStep.tsx` — props do RateioPreview
-- `src/components/solicitante/SolicitanteModals.tsx` — evidência opcional + cancelamento unificado
-- `src/pages/MinhasSolicitacoes.tsx` — handleCancelar sempre via backoffice
+**Mudanças:**
+- Fundo verde sólido mais vibrante: `bg-emerald-500 text-white` em vez de `bg-success/10`
+- Ícone maior e com fundo circular branco semi-transparente
+- Tipografia mais destacada (text-base em vez de text-sm)
+- Animação de entrada slide-down (não apenas fade)
+- Borda esquerda grossa verde-escuro como accent (`border-l-4 border-emerald-700`)
+- Botão de fechar branco com hover visível
+
+### 2. DailyInsightCard — Resumo com Ações Diretas
+
+**Arquivo:** `src/components/DailyInsightCard.tsx`
+
+**Mudanças:**
+- Quando há pendências, adicionar botão "Ver pendências" que navega para a aba relevante
+- Aceitar prop `onAction` opcional para navegação contextual
+- Usar `font-semibold` no resumo quando há alertas para maior destaque
+
+### 3. Filtro por Empreendimento — Melhorar o `<select>` Nativo
+
+**Arquivo:** `src/pages/MinhasSolicitacoes.tsx` (linhas 870-884)
+
+**Mudança:** Trocar o `<select>` nativo por um `Select` do shadcn/ui para consistência visual com o resto da interface.
+
+### 4. KPIs do Solicitante — Indicação de Tab Ativa
+
+**Arquivo:** `src/components/solicitante/SolicitanteKPIs.tsx`
+
+**Mudança:** Adicionar destaque visual mais forte no KPI selecionado (ring + scale) para deixar claro qual filtro está ativo.
+
+---
+
+### Resumo de Arquivos
+
+| Arquivo | Mudança |
+|---------|---------|
+| `src/pages/MinhasSolicitacoes.tsx` | Banner verde vibrante + Select shadcn |
+| `src/components/DailyInsightCard.tsx` | Botão de ação contextual |
+| `src/components/solicitante/SolicitanteKPIs.tsx` | Tab ativa mais visível |
+
