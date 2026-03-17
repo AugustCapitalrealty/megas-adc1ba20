@@ -15,6 +15,16 @@ import { Loader2, Search, Shield, Users, UserCheck, UserCog, X, Building2, Check
 import { AppRole, ROLE_LABELS, Empreendimento, EMPREENDIMENTO_LABELS } from '@/types';
 import { SolicitacoesManagement } from '@/components/admin/SolicitacoesManagement';
 import { RateioConfigTab } from '@/components/RateioConfigTab';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const EMPREENDIMENTOS: Empreendimento[] = ['mega_curitiba', 'mega_itajai', 'mega_esteio', 'mega_canoas', 'todos'];
 
@@ -28,6 +38,23 @@ interface UserWithRoles {
   empreendimentos: Empreendimento[];
   receber_notificacoes_email: boolean;
 }
+
+const ACTIVE_BACKOFFICE_STATUSES = [
+  'recebido',
+  'em_analise',
+  'pendente_correcao',
+  'aprovado',
+  'em_processamento',
+  'oc_ac_emitida',
+  'aguardando_aceite',
+  'aguardando_informacoes',
+  'aguardando_nf_boleto',
+  'nf_boleto_enviados',
+  'enviado_pagamento',
+  'liberado_fornecedor',
+  'enviado_fornecedor',
+  'aguardando_execucao',
+] as const;
 
 export default function Admin() {
   const { 
@@ -49,6 +76,11 @@ export default function Admin() {
   const [impersonatingUserId, setImpersonatingUserId] = useState<string | null>(null);
   const [editingNameUserId, setEditingNameUserId] = useState<string | null>(null);
   const [editingNameValue, setEditingNameValue] = useState('');
+  const [vacationModalOpen, setVacationModalOpen] = useState(false);
+  const [vacationSourceUser, setVacationSourceUser] = useState<UserWithRoles | null>(null);
+  const [vacationTargetUserId, setVacationTargetUserId] = useState('');
+  const [vacationLoading, setVacationLoading] = useState(false);
+  const [removeRoleDuringVacation, setRemoveRoleDuringVacation] = useState(true);
   
   const activeTab = searchParams.get('tab') || 'usuarios';
   const setActiveTab = (tab: string) => setSearchParams({ tab });
@@ -315,6 +347,111 @@ export default function Admin() {
     toast.success('Voltou ao seu perfil original');
   };
 
+  const openVacationTransfer = (sourceUser: UserWithRoles) => {
+    setVacationSourceUser(sourceUser);
+    setVacationTargetUserId('');
+    setRemoveRoleDuringVacation(true);
+    setVacationModalOpen(true);
+  };
+
+  const handleVacationTransfer = async () => {
+    if (!vacationSourceUser || !vacationTargetUserId || !user?.id) {
+      toast.error('Selecione o usuário destino para concluir a transferência');
+      return;
+    }
+
+    setVacationLoading(true);
+    try {
+      const { data: solicitacoesAtivas, error: solicitacoesError } = await supabase
+        .from('solicitacoes')
+        .select('id, protocolo, status')
+        .in('status', [...ACTIVE_BACKOFFICE_STATUSES]);
+
+      if (solicitacoesError) throw solicitacoesError;
+
+      const solIds = (solicitacoesAtivas || []).map((s) => s.id);
+      if (solIds.length === 0) {
+        toast.info('Não há solicitações ativas no backoffice para transferir');
+        setVacationModalOpen(false);
+        return;
+      }
+
+      const { data: historico, error: histError } = await supabase
+        .from('historico_solicitacoes')
+        .select('solicitacao_id, user_id, created_at')
+        .in('solicitacao_id', solIds)
+        .eq('status_novo', 'aprovado')
+        .order('created_at', { ascending: false });
+
+      if (histError) throw histError;
+
+      const ultimoResponsavelMap = new Map<string, string>();
+      (historico || []).forEach((h) => {
+        if (!ultimoResponsavelMap.has(h.solicitacao_id)) {
+          ultimoResponsavelMap.set(h.solicitacao_id, h.user_id);
+        }
+      });
+
+      const solicitacoesDaCarteira = (solicitacoesAtivas || []).filter(
+        (s) => ultimoResponsavelMap.get(s.id) === vacationSourceUser.id
+      );
+
+      if (solicitacoesDaCarteira.length === 0) {
+        toast.info('Este usuário não possui solicitações ativas assumidas no backoffice');
+        setVacationModalOpen(false);
+        return;
+      }
+
+      const historicoTransferencia = solicitacoesDaCarteira.map((sol) => ({
+        solicitacao_id: sol.id,
+        user_id: vacationTargetUserId,
+        acao: 'Assumido pelo backoffice',
+        status_anterior: sol.status,
+        status_novo: 'aprovado' as const,
+        motivo: `Redistribuição por férias (${vacationSourceUser.full_name || vacationSourceUser.email})`,
+      }));
+
+      const { error: insertError } = await supabase
+        .from('historico_solicitacoes')
+        .insert(historicoTransferencia);
+
+      if (insertError) throw insertError;
+
+      if (removeRoleDuringVacation) {
+        const { error: removeRoleError } = await supabase
+          .from('user_roles')
+          .delete()
+          .eq('user_id', vacationSourceUser.id)
+          .eq('role', 'backoffice');
+
+        if (removeRoleError) throw removeRoleError;
+
+        setUsers((prev) =>
+          prev.map((u) =>
+            u.id === vacationSourceUser.id
+              ? { ...u, roles: u.roles.filter((r) => r !== 'backoffice') }
+              : u
+          )
+        );
+      }
+
+      await supabase.from('historico_solicitacoes').insert({
+        solicitacao_id: solicitacoesDaCarteira[0].id,
+        user_id: user.id,
+        acao: 'Admin executou redistribuição de férias',
+        motivo: `${solicitacoesDaCarteira.length} solicitações redistribuídas de ${vacationSourceUser.full_name || vacationSourceUser.email}`,
+      });
+
+      toast.success(`${solicitacoesDaCarteira.length} solicitações transferidas para o novo backoffice`);
+      setVacationModalOpen(false);
+    } catch (error) {
+      console.error('Error transferring vacation workload:', error);
+      toast.error('Não foi possível transferir a carteira de férias');
+    } finally {
+      setVacationLoading(false);
+    }
+  };
+
   const filteredUsers = users.filter(
     (user) =>
       user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -467,13 +604,14 @@ export default function Admin() {
                       </div>
                     </TableHead>
                     <TableHead>Empreendimentos</TableHead>
+                    <TableHead className="text-center">Férias</TableHead>
                     {isMasterUser && <TableHead className="text-center">Ações</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredUsers.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={isMasterUser ? 9 : 8} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={isMasterUser ? 10 : 9} className="text-center py-8 text-muted-foreground">
                         {searchTerm ? 'Nenhum usuário encontrado' : 'Nenhum usuário cadastrado'}
                       </TableCell>
                     </TableRow>
@@ -620,6 +758,20 @@ export default function Admin() {
                               ))}
                             </div>
                           </TableCell>
+                          <TableCell className="text-center">
+                            {targetUser.roles.includes('backoffice') ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                                onClick={() => openVacationTransfer(targetUser)}
+                              >
+                                Modo férias
+                              </Button>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
                           {isMasterUser && (
                             <TableCell className="text-center">
                               {!isCurrentUser && (
@@ -660,6 +812,55 @@ export default function Admin() {
           </TabsContent>
         </Tabs>
       </div>
+
+      <Dialog open={vacationModalOpen} onOpenChange={setVacationModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Redistribuir solicitações por férias</DialogTitle>
+            <DialogDescription>
+              Transfere todas as solicitações ativas assumidas por {vacationSourceUser?.full_name || vacationSourceUser?.email} para outro usuário com permissão de backoffice.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Novo responsável do backoffice</Label>
+              <Select value={vacationTargetUserId} onValueChange={setVacationTargetUserId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o usuário destino" />
+                </SelectTrigger>
+                <SelectContent>
+                  {users
+                    .filter((u) => u.roles.includes('backoffice') && u.approved && u.id !== vacationSourceUser?.id)
+                    .map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.full_name || u.email}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={removeRoleDuringVacation}
+                onCheckedChange={(checked) => setRemoveRoleDuringVacation(checked === true)}
+              />
+              Remover permissão de backoffice do usuário durante as férias
+            </label>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setVacationModalOpen(false)} disabled={vacationLoading}>
+              Cancelar
+            </Button>
+            <Button onClick={handleVacationTransfer} disabled={vacationLoading || !vacationTargetUserId}>
+              {vacationLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Transferir carteira
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
