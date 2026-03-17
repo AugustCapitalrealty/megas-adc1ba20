@@ -46,6 +46,8 @@ interface EditModalProps {
   setEditEscopoDetalhado: (v: string) => void;
   editAnexos: Record<string, UploadedFile | null>;
   setEditAnexos: (v: Record<string, UploadedFile | null>) => void;
+  editOutrosAnexos: UploadedFile[];
+  setEditOutrosAnexos: (v: UploadedFile[]) => void;
   existingAnexos: Array<{ id: string; tipo: string; nome_arquivo: string; storage_path: string }>;
   anexosParaExcluir: string[];
   setAnexosParaExcluir: React.Dispatch<React.SetStateAction<string[]>>;
