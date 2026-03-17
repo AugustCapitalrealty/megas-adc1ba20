@@ -21,7 +21,8 @@ import {
   type DocumentoEmitido,
   type DocumentoFiscal,
 } from '@/types';
-import { Loader2, FileText, AlertTriangle, User, Building2, Download, CheckCircle, X } from 'lucide-react';
+import { Loader2, FileText, AlertTriangle, User, Building2, Download, CheckCircle, X, PartyPopper } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ContextualEmptyState } from '@/components/ui/ContextualEmptyState';
 import { saveAs } from 'file-saver';
 import type { UploadedFile } from '@/components/FileUpload';
