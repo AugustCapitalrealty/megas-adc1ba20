@@ -368,7 +368,7 @@ export default function Admin() {
     setVacationLoading(true);
     try {
       // Fetch all active solicitations (handle >1000 rows with pagination)
-      let allSolicitacoesAtivas: { id: string; protocolo: string | null; status: Database['public']['Enums']['request_status']; user_id: string }[] = [];
+      let allSolicitacoesAtivas: Array<{ id: string; protocolo: string | null; status: any; user_id: string }> = [];
       let offset = 0;
       const pageSize = 1000;
       let hasMore = true;
