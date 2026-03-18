@@ -402,13 +402,16 @@ export default function Admin() {
         return;
       }
 
+      const targetUser = users.find((u) => u.id === vacationTargetUserId);
+      const targetUserName = targetUser?.full_name || targetUser?.email || vacationTargetUserId;
+
       const historicoTransferencia = solicitacoesDaCarteira.map((sol) => ({
         solicitacao_id: sol.id,
-        user_id: vacationTargetUserId,
+        user_id: user.id,
         acao: 'Assumido pelo backoffice',
         status_anterior: sol.status,
-        status_novo: 'aprovado' as const,
-        motivo: `Redistribuição por férias (${vacationSourceUser.full_name || vacationSourceUser.email})`,
+        status_novo: sol.status,
+        motivo: `Redistribuição por férias: de ${vacationSourceUser.full_name || vacationSourceUser.email} para ${targetUserName}`,
       }));
 
       const { error: insertError } = await supabase
