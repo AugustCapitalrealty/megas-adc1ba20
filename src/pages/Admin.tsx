@@ -360,39 +360,69 @@ export default function Admin() {
       return;
     }
 
+    if (vacationTargetUserId === vacationSourceUser.id) {
+      toast.error('O usuário destino não pode ser o mesmo que o usuário de origem');
+      return;
+    }
+
     setVacationLoading(true);
     try {
-      const { data: solicitacoesAtivas, error: solicitacoesError } = await supabase
-        .from('solicitacoes')
-        .select('id, protocolo, status')
-        .in('status', [...ACTIVE_BACKOFFICE_STATUSES]);
+      // Fetch all active solicitations (handle >1000 rows with pagination)
+      let allSolicitacoesAtivas: { id: string; protocolo: string | null; status: string; user_id: string }[] = [];
+      let offset = 0;
+      const pageSize = 1000;
+      let hasMore = true;
 
-      if (solicitacoesError) throw solicitacoesError;
+      while (hasMore) {
+        const { data: page, error: pageError } = await supabase
+          .from('solicitacoes')
+          .select('id, protocolo, status, user_id')
+          .in('status', [...ACTIVE_BACKOFFICE_STATUSES])
+          .range(offset, offset + pageSize - 1);
 
-      const solIds = (solicitacoesAtivas || []).map((s) => s.id);
-      if (solIds.length === 0) {
+        if (pageError) throw pageError;
+        allSolicitacoesAtivas = allSolicitacoesAtivas.concat(page || []);
+        hasMore = (page?.length || 0) === pageSize;
+        offset += pageSize;
+      }
+
+      if (allSolicitacoesAtivas.length === 0) {
         toast.info('Não há solicitações ativas no backoffice para transferir');
         setVacationModalOpen(false);
         return;
       }
 
-      const { data: historico, error: histError } = await supabase
-        .from('historico_solicitacoes')
-        .select('solicitacao_id, user_id, created_at')
-        .in('solicitacao_id', solIds)
-        .eq('status_novo', 'aprovado')
-        .order('created_at', { ascending: false });
+      const solIds = allSolicitacoesAtivas.map((s) => s.id);
 
-      if (histError) throw histError;
+      // Find last backoffice analyst who assumed each solicitation
+      // Use 'Assumido pelo backoffice' action (correct heuristic) instead of status_novo='aprovado'
+      const batchSize = 500;
+      let allHistorico: { solicitacao_id: string; user_id: string; created_at: string }[] = [];
+
+      for (let i = 0; i < solIds.length; i += batchSize) {
+        const batch = solIds.slice(i, i + batchSize);
+        const { data: historico, error: histError } = await supabase
+          .from('historico_solicitacoes')
+          .select('solicitacao_id, user_id, created_at')
+          .in('solicitacao_id', batch)
+          .eq('acao', 'Assumido pelo backoffice')
+          .order('created_at', { ascending: false });
+
+        if (histError) throw histError;
+        allHistorico = allHistorico.concat(historico || []);
+      }
 
       const ultimoResponsavelMap = new Map<string, string>();
-      (historico || []).forEach((h) => {
-        if (!ultimoResponsavelMap.has(h.solicitacao_id)) {
-          ultimoResponsavelMap.set(h.solicitacao_id, h.user_id);
-        }
-      });
+      // Sort descending to pick the most recent assumption per solicitation
+      allHistorico
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .forEach((h) => {
+          if (!ultimoResponsavelMap.has(h.solicitacao_id)) {
+            ultimoResponsavelMap.set(h.solicitacao_id, h.user_id);
+          }
+        });
 
-      const solicitacoesDaCarteira = (solicitacoesAtivas || []).filter(
+      const solicitacoesDaCarteira = allSolicitacoesAtivas.filter(
         (s) => ultimoResponsavelMap.get(s.id) === vacationSourceUser.id
       );
 
@@ -404,14 +434,16 @@ export default function Admin() {
 
       const targetUser = users.find((u) => u.id === vacationTargetUserId);
       const targetUserName = targetUser?.full_name || targetUser?.email || vacationTargetUserId;
+      const sourceUserName = vacationSourceUser.full_name || vacationSourceUser.email;
 
+      // 1. Create historico records marking new assumption
       const historicoTransferencia = solicitacoesDaCarteira.map((sol) => ({
         solicitacao_id: sol.id,
         user_id: user.id,
         acao: 'Assumido pelo backoffice',
         status_anterior: sol.status,
         status_novo: sol.status,
-        motivo: `Redistribuição por férias: de ${vacationSourceUser.full_name || vacationSourceUser.email} para ${targetUserName}`,
+        motivo: `Redistribuição por férias: de ${sourceUserName} para ${targetUserName}`,
       }));
 
       const { error: insertError } = await supabase
@@ -420,6 +452,24 @@ export default function Admin() {
 
       if (insertError) throw insertError;
 
+      // 2. Create solicitacao_transfers audit records
+      const transferRecords = solicitacoesDaCarteira.map((sol) => ({
+        solicitacao_id: sol.id,
+        from_user_id: vacationSourceUser.id,
+        to_user_id: vacationTargetUserId,
+        created_by: user.id,
+        motivo: `Redistribuição por férias: de ${sourceUserName} para ${targetUserName}`,
+      }));
+
+      const { error: transferError } = await supabase
+        .from('solicitacao_transfers')
+        .insert(transferRecords);
+
+      if (transferError) {
+        console.warn('Erro ao registrar transfers (não-bloqueante):', transferError);
+      }
+
+      // 3. Optionally remove backoffice role
       if (removeRoleDuringVacation) {
         const { error: removeRoleError } = await supabase
           .from('user_roles')
@@ -438,18 +488,19 @@ export default function Admin() {
         );
       }
 
+      // 4. Admin audit log
       await supabase.from('historico_solicitacoes').insert({
         solicitacao_id: solicitacoesDaCarteira[0].id,
         user_id: user.id,
-        acao: 'Admin executou redistribuição de férias',
-        motivo: `${solicitacoesDaCarteira.length} solicitações redistribuídas de ${vacationSourceUser.full_name || vacationSourceUser.email}`,
+        acao: 'redistribuicao_ferias',
+        motivo: `${solicitacoesDaCarteira.length} solicitação(ões) redistribuída(s) de ${sourceUserName} para ${targetUserName}`,
       });
 
-      toast.success(`${solicitacoesDaCarteira.length} solicitações transferidas para o novo backoffice`);
+      toast.success(`${solicitacoesDaCarteira.length} solicitação(ões) transferida(s) para ${targetUserName}`);
       setVacationModalOpen(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error transferring vacation workload:', error);
-      toast.error('Não foi possível transferir a carteira de férias');
+      toast.error(error?.message || 'Não foi possível transferir a carteira de férias');
     } finally {
       setVacationLoading(false);
     }
