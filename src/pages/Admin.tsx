@@ -490,13 +490,7 @@ export default function Admin() {
         );
       }
 
-      // 4. Admin audit log
-      await supabase.from('historico_solicitacoes').insert({
-        solicitacao_id: solicitacoesDaCarteira[0].id,
-        user_id: user.id,
-        acao: 'redistribuicao_ferias',
-        motivo: `${solicitacoesDaCarteira.length} solicitação(ões) redistribuída(s) de ${sourceUserName} para ${targetUserName}`,
-      });
+      // 4. Admin audit log (removed — info already in each transfer's motivo)
 
       toast.success(`${solicitacoesDaCarteira.length} solicitação(ões) transferida(s) para ${targetUserName}`);
       setVacationModalOpen(false);
