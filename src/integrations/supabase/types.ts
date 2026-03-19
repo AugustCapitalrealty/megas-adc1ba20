@@ -1289,6 +1289,17 @@ export type Database = {
         }
         Returns: boolean
       }
+      insert_historico_admin: {
+        Args: {
+          p_acao: string
+          p_motivo?: string
+          p_solicitacao_id: string
+          p_status_anterior?: string
+          p_status_novo?: string
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       is_backoffice_or_admin: { Args: { _user_id: string }; Returns: boolean }
       user_can_access_solicitacao: {
         Args: { _solicitacao_id: string }

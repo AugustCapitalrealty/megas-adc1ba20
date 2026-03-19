@@ -436,21 +436,23 @@ export default function Admin() {
       const targetUserName = targetUser?.full_name || targetUser?.email || vacationTargetUserId;
       const sourceUserName = vacationSourceUser.full_name || vacationSourceUser.email;
 
-      // 1. Create historico records marking new assumption
-      const historicoTransferencia = solicitacoesDaCarteira.map((sol) => ({
-        solicitacao_id: sol.id,
-        user_id: user.id,
-        acao: 'Assumido pelo backoffice',
-        status_anterior: sol.status,
-        status_novo: sol.status,
-        motivo: `Redistribuição por férias: de ${sourceUserName} para ${targetUserName}`,
-      }));
-
-      const { error: insertError } = await supabase
-        .from('historico_solicitacoes')
-        .insert(historicoTransferencia);
-
-      if (insertError) throw insertError;
+      // 1. Create historico records via SECURITY DEFINER RPC (bypasses RLS user_id check)
+      const rpcBatchSize = 50;
+      for (let i = 0; i < solicitacoesDaCarteira.length; i += rpcBatchSize) {
+        const batch = solicitacoesDaCarteira.slice(i, i + rpcBatchSize);
+        await Promise.all(
+          batch.map((sol) =>
+            supabase.rpc('insert_historico_admin', {
+              p_solicitacao_id: sol.id,
+              p_user_id: vacationTargetUserId,
+              p_acao: 'Assumido pelo backoffice',
+              p_status_anterior: sol.status,
+              p_status_novo: sol.status,
+              p_motivo: `Redistribuição por férias: de ${sourceUserName} para ${targetUserName}`,
+            })
+          )
+        );
+      }
 
       // 2. Create solicitacao_transfers audit records
       const transferRecords = solicitacoesDaCarteira.map((sol) => ({
@@ -488,13 +490,7 @@ export default function Admin() {
         );
       }
 
-      // 4. Admin audit log
-      await supabase.from('historico_solicitacoes').insert({
-        solicitacao_id: solicitacoesDaCarteira[0].id,
-        user_id: user.id,
-        acao: 'redistribuicao_ferias',
-        motivo: `${solicitacoesDaCarteira.length} solicitação(ões) redistribuída(s) de ${sourceUserName} para ${targetUserName}`,
-      });
+      // 4. Admin audit log (removed — info already in each transfer's motivo)
 
       toast.success(`${solicitacoesDaCarteira.length} solicitação(ões) transferida(s) para ${targetUserName}`);
       setVacationModalOpen(false);

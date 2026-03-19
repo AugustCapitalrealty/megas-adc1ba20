@@ -99,7 +99,7 @@ async function enrichWithResponsavelInfo(
     .from('historico_solicitacoes')
     .select('solicitacao_id, created_at, user_id')
     .in('solicitacao_id', solIds)
-    .eq('status_novo', 'aprovado')
+    .eq('acao', 'Assumido pelo backoffice')
     .order('created_at', { ascending: false });
 
   // Create a map of solicitacao_id to first approval
