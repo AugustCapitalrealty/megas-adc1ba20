@@ -1241,26 +1241,31 @@ export type Database = {
           p_empreendimento?: Database["public"]["Enums"]["empreendimento"]
           p_limit?: number
           p_offset?: number
+          p_responsavel_id?: string
           p_search?: string
           p_status?: Database["public"]["Enums"]["request_status"]
         }
         Returns: {
           cliente_nome: string
           created_at: string
-          data_pendente_correcao: string
+          data_aprovacao: string | null
+          data_execucao_servico: string | null
+          data_pendente_correcao: string | null
           descricao: string
           emergencial: boolean
           empreendimento: Database["public"]["Enums"]["empreendimento"]
-          fornecedor_cnpj: string
-          fornecedor_email_contato: string
-          fornecedor_razao: string
-          fornecedor_telefone_contato: string
+          fornecedor_cnpj: string | null
+          fornecedor_email_contato: string | null
+          fornecedor_razao: string | null
+          fornecedor_telefone_contato: string | null
           id: string
-          numero_chamado_fluig: string
-          numero_projuris: string
-          protocolo: string
-          solicitante_email: string
-          solicitante_nome: string
+          numero_chamado_fluig: string | null
+          numero_projuris: string | null
+          protocolo: string | null
+          responsavel_id: string | null
+          responsavel_nome: string | null
+          solicitante_email: string | null
+          solicitante_nome: string | null
           status: Database["public"]["Enums"]["request_status"]
           tipo: string
           total_anexos: number

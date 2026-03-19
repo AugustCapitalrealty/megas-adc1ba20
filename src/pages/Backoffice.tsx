@@ -78,6 +78,8 @@ export default function Backoffice() {
   const { solicitacoes, loading, refetch: fetchSolicitacoes } = useBackofficeSolicitacoes({
     search: debouncedSearch || undefined,
     empreendimento: selectedEmpreendimento !== 'todos' ? selectedEmpreendimento as any : undefined,
+    responsavelId: showOnlyMine ? user?.id : undefined,
+    limit: 100,
   });
 
   // Use RPC for details
@@ -161,49 +163,6 @@ export default function Backoffice() {
       clearDetalhes();
     }
   }, [detailsOpen, selectedSolicitacao?.id, fetchDetalhes, clearDetalhes]);
-
-  // Load cadastro status for visible solicitações (lazy loading)
-  useEffect(() => {
-    const loadCadastroStatus = async () => {
-      const solsToCheck = solicitacoes.filter(s => 
-        (s.status === 'aprovado' || s.status === 'em_processamento') && 
-        cadastroStatus[s.id] === undefined
-      );
-      
-      if (solsToCheck.length === 0) return;
-      
-      // Fetch all in one query
-      const { data } = await supabase
-        .from('historico_solicitacoes')
-        .select('solicitacao_id, acao')
-        .in('solicitacao_id', solsToCheck.map(s => s.id))
-        .in('acao', ['Cadastro solicitado à Contabilidade', 'Cadastro concluído pela Contabilidade'])
-        .order('created_at', { ascending: false });
-      
-      if (data) {
-        const statusMap: Record<string, 'solicitado' | 'concluido' | null> = {};
-        // Initialize all as null
-        solsToCheck.forEach(s => statusMap[s.id] = null);
-        
-        // Set status based on most recent action for each solicitation
-        const seen = new Set<string>();
-        for (const row of data) {
-          if (seen.has(row.solicitacao_id)) continue;
-          seen.add(row.solicitacao_id);
-          
-          if (row.acao === 'Cadastro concluído pela Contabilidade') {
-            statusMap[row.solicitacao_id] = 'concluido';
-          } else if (row.acao === 'Cadastro solicitado à Contabilidade') {
-            statusMap[row.solicitacao_id] = 'solicitado';
-          }
-        }
-        
-        setCadastroStatus(prev => ({ ...prev, ...statusMap }));
-      }
-    };
-    
-    loadCadastroStatus();
-  }, [solicitacoes, cadastroStatus]);
 
   // Old N+1 fetch removed - now using useBackofficeSolicitacoes hook
 
@@ -1093,11 +1052,6 @@ export default function Backoffice() {
   // Filter solicitacoes - search already handled by RPC, but we can still do local filtering
   const filteredSolicitacoes = useMemo(() => {
     let filtered = solicitacoes;
-    
-    // Additional local filter for "mine only"
-    if (showOnlyMine) {
-      filtered = filtered.filter(sol => sol.responsavelId === user?.id);
-    }
 
     // Filter by vendor
     if (selectedFornecedor !== 'todos') {
@@ -1105,41 +1059,7 @@ export default function Backoffice() {
     }
     
     return filtered;
-  }, [solicitacoes, showOnlyMine, user?.id, selectedFornecedor]);
-
-  // Unread messages for backoffice
-  const backofficeSolIds = useMemo(() => solicitacoes.map(s => s.id), [solicitacoes]);
-  const { unreadMap: backofficeUnreadMap, markAsRead: backofficeMarkAsRead } = useUnreadMessages({
-    solicitacaoIds: backofficeSolIds,
-    userId: user?.id,
-    isBackoffice: true,
-  });
-
-  // Count my responsibilities
-  const myResponsibilityCount = useMemo(() => 
-    solicitacoes.filter(s => 
-      s.responsavelId === user?.id && 
-      !['concluida', 'rejeitado'].includes(s.status)
-    ).length
-  , [solicitacoes, user?.id]);
-
-  // Cancelamento pendente state
-  const [cancelamentoPendenteIds, setCancelamentoPendenteIds] = useState<Set<string>>(new Set());
-  const [cancelamentoActionLoading, setCancelamentoActionLoading] = useState(false);
-
-  // Fetch cancelamento_pendente flags
-  useEffect(() => {
-    const fetchCancelamentoPendente = async () => {
-      const { data } = await supabase
-        .from('solicitacoes')
-        .select('id')
-        .eq('cancelamento_pendente', true);
-      if (data) {
-        setCancelamentoPendenteIds(new Set(data.map((d: any) => d.id)));
-      }
-    };
-    if (solicitacoes.length > 0) fetchCancelamentoPendente();
-  }, [solicitacoes]);
+  }, [solicitacoes, selectedFornecedor]);
 
   const handleAprovarCancelamento = async (sol: SolicitacaoBackoffice) => {
     if (!user) return;
@@ -1211,12 +1131,24 @@ export default function Backoffice() {
     }
   };
 
+  // Count my responsibilities
+  const myResponsibilityCount = useMemo(() =>
+    solicitacoes.filter(s =>
+      s.responsavelId === user?.id &&
+      !['concluida', 'rejeitado'].includes(s.status)
+    ).length
+  , [solicitacoes, user?.id]);
+
+  // Cancelamento pendente state
+  const [cancelamentoPendenteIds, setCancelamentoPendenteIds] = useState<Set<string>>(new Set());
+  const [cancelamentoActionLoading, setCancelamentoActionLoading] = useState(false);
+
   // Group by tab - reordered as requested
   const groupedSolicitacoes = useMemo(() => ({
     recebidas: filteredSolicitacoes.filter(s => s.status === 'recebido' || s.status === 'em_analise'),
     em_processamento: filteredSolicitacoes.filter(s => s.status === 'aprovado' || s.status === 'em_processamento'),
     oc_emitidas: filteredSolicitacoes.filter(s => s.status === 'oc_ac_emitida' || s.status === 'aguardando_aceite'),
-    liberadas: filteredSolicitacoes.filter(s => 
+    liberadas: filteredSolicitacoes.filter(s =>
       s.status === 'liberado_fornecedor' || s.status === 'enviado_fornecedor' ||
       s.status === 'aguardando_execucao' ||
       s.status === 'aguardando_nf_boleto' || s.status === 'nf_boleto_enviados'
@@ -1226,6 +1158,80 @@ export default function Backoffice() {
     rejeitadas: filteredSolicitacoes.filter(s => s.status === 'rejeitado'),
     cancelamento_pendente: filteredSolicitacoes.filter(s => cancelamentoPendenteIds.has(s.id)),
   }), [filteredSolicitacoes, cancelamentoPendenteIds]);
+
+  const activeTabItems = useMemo(() => groupedSolicitacoes[activeTab] || [], [groupedSolicitacoes, activeTab]);
+  const visiblePageItems = useMemo(
+    () => activeTabItems.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE),
+    [activeTabItems, currentPage]
+  );
+
+  // Unread messages for backoffice: query only visible cards
+  const backofficeSolIds = useMemo(() => visiblePageItems.map(s => s.id), [visiblePageItems]);
+  const { unreadMap: backofficeUnreadMap, markAsRead: backofficeMarkAsRead } = useUnreadMessages({
+    solicitacaoIds: backofficeSolIds,
+    userId: user?.id,
+    isBackoffice: true,
+  });
+
+  // Load cadastro status only for visible solicitações
+  useEffect(() => {
+    const loadCadastroStatus = async () => {
+      const solsToCheck = visiblePageItems.filter(s =>
+        (s.status === 'aprovado' || s.status === 'em_processamento') &&
+        cadastroStatus[s.id] === undefined
+      );
+
+      if (solsToCheck.length === 0) return;
+
+      const { data } = await supabase
+        .from('historico_solicitacoes')
+        .select('solicitacao_id, acao')
+        .in('solicitacao_id', solsToCheck.map(s => s.id))
+        .in('acao', ['Cadastro solicitado à Contabilidade', 'Cadastro concluído pela Contabilidade'])
+        .order('created_at', { ascending: false });
+
+      if (data) {
+        const statusMap: Record<string, 'solicitado' | 'concluido' | null> = {};
+        solsToCheck.forEach(s => { statusMap[s.id] = null; });
+
+        const seen = new Set<string>();
+        for (const row of data) {
+          if (seen.has(row.solicitacao_id)) continue;
+          seen.add(row.solicitacao_id);
+
+          if (row.acao === 'Cadastro concluído pela Contabilidade') {
+            statusMap[row.solicitacao_id] = 'concluido';
+          } else if (row.acao === 'Cadastro solicitado à Contabilidade') {
+            statusMap[row.solicitacao_id] = 'solicitado';
+          }
+        }
+
+        setCadastroStatus(prev => ({ ...prev, ...statusMap }));
+      }
+    };
+
+    loadCadastroStatus();
+  }, [visiblePageItems, cadastroStatus]);
+
+  // Fetch cancelamento_pendente flags only for visible cards
+  useEffect(() => {
+    const fetchCancelamentoPendente = async () => {
+      if (visiblePageItems.length === 0) {
+        setCancelamentoPendenteIds(new Set());
+        return;
+      }
+
+      const { data } = await supabase
+        .from('solicitacoes')
+        .select('id')
+        .in('id', visiblePageItems.map((s) => s.id))
+        .eq('cancelamento_pendente', true);
+
+      setCancelamentoPendenteIds(new Set((data || []).map((d: any) => d.id)));
+    };
+
+    fetchCancelamentoPendente();
+  }, [visiblePageItems]);
 
   // SLA calculation (used in details modal)
   const getSLAInfo = (sol: SolicitacaoBackoffice) => {
@@ -1335,10 +1341,10 @@ export default function Backoffice() {
     onToggleSelect: toggleSelect,
   }), [expandedId, backofficeUnreadMap, backofficeMarkAsRead, toggleSelect]);
 
-  // Reset page on tab change
+  // Reset page on tab / filter change
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeTab]);
+  }, [activeTab, selectedFornecedor, debouncedSearch, selectedEmpreendimento, showOnlyMine]);
 
   // Get active tab items for pagination
   const getActiveTabItems = useCallback((): SolicitacaoBackoffice[] => {
