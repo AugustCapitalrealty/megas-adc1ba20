@@ -517,14 +517,38 @@ export default function Backoffice() {
     setActionLoading(true);
     try {
       const statusAnterior = sol.status;
-      await supabase
+      const { data: updatedSolicitacoes, error: updateError } = await supabase
         .from('solicitacoes')
         .update({ 
           status: 'enviado_fornecedor' as any,
           data_enviado_fornecedor: new Date().toISOString(),
           enviado_fornecedor_por: user.id
         })
-        .eq('id', sol.id);
+        .eq('id', sol.id)
+        .select('id');
+
+      const linhasAfetadas = updatedSolicitacoes?.length ?? 0;
+
+      if (updateError) {
+        console.error('[ENVIO_FORNECEDOR] update_failed', {
+          solId: sol.id,
+          protocolo: sol.protocolo,
+          meioEnvio,
+          error: updateError,
+        });
+        throw updateError;
+      }
+
+      if (linhasAfetadas === 0) {
+        const noRowsError = new Error('Nenhuma solicitação foi atualizada ao registrar envio ao fornecedor.');
+        console.error('[ENVIO_FORNECEDOR] update_zero_rows', {
+          solId: sol.id,
+          protocolo: sol.protocolo,
+          meioEnvio,
+          statusAnterior,
+        });
+        throw noRowsError;
+      }
 
       await supabase.from('historico_solicitacoes').insert({
         solicitacao_id: sol.id,
@@ -535,6 +559,13 @@ export default function Backoffice() {
         motivo: `OC enviada via ${meioEnvio}${observacaoEnvio ? '. Obs: ' + observacaoEnvio : ''}`,
       });
 
+      console.info('[ENVIO_FORNECEDOR] update_success', {
+        solId: sol.id,
+        protocolo: sol.protocolo,
+        statusAnterior,
+        meioEnvio,
+      });
+
       toast({
         title: 'Envio Registrado!',
         description: 'OC marcada como enviada ao fornecedor.',
@@ -542,7 +573,12 @@ export default function Backoffice() {
 
       fetchSolicitacoes();
     } catch (error) {
-      console.error('Error registering envio:', error);
+      console.error('[ENVIO_FORNECEDOR] register_failed', {
+        solId: sol.id,
+        protocolo: sol.protocolo,
+        meioEnvio,
+        error,
+      });
       toast({
         variant: 'destructive',
         title: 'Erro',
