@@ -8,6 +8,7 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FilterBar } from '@/components/ui/FilterBar';
 import { type Fornecedor, type CNAESecundario } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -72,14 +73,11 @@ export default function Backoffice() {
   const [activeTab, setActiveTab] = useState<BackofficeTab>('recebidas');
   const [numeroChamadoFluig, setNumeroChamadoFluig] = useState('');
   const [showOnlyMine, setShowOnlyMine] = useState(false);
-  const showEmptyStateDebug = import.meta.env.DEV || import.meta.env.VITE_BACKOFFICE_EMPTY_DEBUG === 'true';
 
   // Use RPC-based hook for fetching with debounced search
   const { solicitacoes, loading, refetch: fetchSolicitacoes } = useBackofficeSolicitacoes({
     search: debouncedSearch || undefined,
     empreendimento: selectedEmpreendimento !== 'todos' ? selectedEmpreendimento as any : undefined,
-    responsavelId: showOnlyMine ? user?.id : undefined,
-    limit: 100,
   });
 
   // Use RPC for details
@@ -163,6 +161,49 @@ export default function Backoffice() {
       clearDetalhes();
     }
   }, [detailsOpen, selectedSolicitacao?.id, fetchDetalhes, clearDetalhes]);
+
+  // Load cadastro status for visible solicitações (lazy loading)
+  useEffect(() => {
+    const loadCadastroStatus = async () => {
+      const solsToCheck = solicitacoes.filter(s => 
+        (s.status === 'aprovado' || s.status === 'em_processamento') && 
+        cadastroStatus[s.id] === undefined
+      );
+      
+      if (solsToCheck.length === 0) return;
+      
+      // Fetch all in one query
+      const { data } = await supabase
+        .from('historico_solicitacoes')
+        .select('solicitacao_id, acao')
+        .in('solicitacao_id', solsToCheck.map(s => s.id))
+        .in('acao', ['Cadastro solicitado à Contabilidade', 'Cadastro concluído pela Contabilidade'])
+        .order('created_at', { ascending: false });
+      
+      if (data) {
+        const statusMap: Record<string, 'solicitado' | 'concluido' | null> = {};
+        // Initialize all as null
+        solsToCheck.forEach(s => statusMap[s.id] = null);
+        
+        // Set status based on most recent action for each solicitation
+        const seen = new Set<string>();
+        for (const row of data) {
+          if (seen.has(row.solicitacao_id)) continue;
+          seen.add(row.solicitacao_id);
+          
+          if (row.acao === 'Cadastro concluído pela Contabilidade') {
+            statusMap[row.solicitacao_id] = 'concluido';
+          } else if (row.acao === 'Cadastro solicitado à Contabilidade') {
+            statusMap[row.solicitacao_id] = 'solicitado';
+          }
+        }
+        
+        setCadastroStatus(prev => ({ ...prev, ...statusMap }));
+      }
+    };
+    
+    loadCadastroStatus();
+  }, [solicitacoes, cadastroStatus]);
 
   // Old N+1 fetch removed - now using useBackofficeSolicitacoes hook
 
@@ -517,38 +558,14 @@ export default function Backoffice() {
     setActionLoading(true);
     try {
       const statusAnterior = sol.status;
-      const { data: updatedSolicitacoes, error: updateError } = await supabase
+      await supabase
         .from('solicitacoes')
         .update({ 
           status: 'enviado_fornecedor' as any,
           data_enviado_fornecedor: new Date().toISOString(),
           enviado_fornecedor_por: user.id
         })
-        .eq('id', sol.id)
-        .select('id');
-
-      const linhasAfetadas = updatedSolicitacoes?.length ?? 0;
-
-      if (updateError) {
-        console.error('[ENVIO_FORNECEDOR] update_failed', {
-          solId: sol.id,
-          protocolo: sol.protocolo,
-          meioEnvio,
-          error: updateError,
-        });
-        throw updateError;
-      }
-
-      if (linhasAfetadas === 0) {
-        const noRowsError = new Error('Nenhuma solicitação foi atualizada ao registrar envio ao fornecedor.');
-        console.error('[ENVIO_FORNECEDOR] update_zero_rows', {
-          solId: sol.id,
-          protocolo: sol.protocolo,
-          meioEnvio,
-          statusAnterior,
-        });
-        throw noRowsError;
-      }
+        .eq('id', sol.id);
 
       await supabase.from('historico_solicitacoes').insert({
         solicitacao_id: sol.id,
@@ -559,13 +576,6 @@ export default function Backoffice() {
         motivo: `OC enviada via ${meioEnvio}${observacaoEnvio ? '. Obs: ' + observacaoEnvio : ''}`,
       });
 
-      console.info('[ENVIO_FORNECEDOR] update_success', {
-        solId: sol.id,
-        protocolo: sol.protocolo,
-        statusAnterior,
-        meioEnvio,
-      });
-
       toast({
         title: 'Envio Registrado!',
         description: 'OC marcada como enviada ao fornecedor.',
@@ -573,12 +583,7 @@ export default function Backoffice() {
 
       fetchSolicitacoes();
     } catch (error) {
-      console.error('[ENVIO_FORNECEDOR] register_failed', {
-        solId: sol.id,
-        protocolo: sol.protocolo,
-        meioEnvio,
-        error,
-      });
+      console.error('Error registering envio:', error);
       toast({
         variant: 'destructive',
         title: 'Erro',
@@ -1088,6 +1093,11 @@ export default function Backoffice() {
   // Filter solicitacoes - search already handled by RPC, but we can still do local filtering
   const filteredSolicitacoes = useMemo(() => {
     let filtered = solicitacoes;
+    
+    // Additional local filter for "mine only"
+    if (showOnlyMine) {
+      filtered = filtered.filter(sol => sol.responsavelId === user?.id);
+    }
 
     // Filter by vendor
     if (selectedFornecedor !== 'todos') {
@@ -1095,16 +1105,41 @@ export default function Backoffice() {
     }
     
     return filtered;
-  }, [solicitacoes, selectedFornecedor]);
+  }, [solicitacoes, showOnlyMine, user?.id, selectedFornecedor]);
 
-  const emptyStateDiagnostics = useMemo(() => ({
-    showOnlyMine,
-    userId: user?.id ?? 'não autenticado',
-    totalBeforeLocalFilter: solicitacoes.length,
-    totalAfterLocalFilter: filteredSolicitacoes.length,
-    empreendimento: selectedEmpreendimento === 'todos' ? 'Todos' : selectedEmpreendimento,
-    fornecedor: selectedFornecedor === 'todos' ? 'Todos' : selectedFornecedor,
-  }), [filteredSolicitacoes.length, selectedEmpreendimento, selectedFornecedor, showOnlyMine, solicitacoes.length, user?.id]);
+  // Unread messages for backoffice
+  const backofficeSolIds = useMemo(() => solicitacoes.map(s => s.id), [solicitacoes]);
+  const { unreadMap: backofficeUnreadMap, markAsRead: backofficeMarkAsRead } = useUnreadMessages({
+    solicitacaoIds: backofficeSolIds,
+    userId: user?.id,
+    isBackoffice: true,
+  });
+
+  // Count my responsibilities
+  const myResponsibilityCount = useMemo(() => 
+    solicitacoes.filter(s => 
+      s.responsavelId === user?.id && 
+      !['concluida', 'rejeitado'].includes(s.status)
+    ).length
+  , [solicitacoes, user?.id]);
+
+  // Cancelamento pendente state
+  const [cancelamentoPendenteIds, setCancelamentoPendenteIds] = useState<Set<string>>(new Set());
+  const [cancelamentoActionLoading, setCancelamentoActionLoading] = useState(false);
+
+  // Fetch cancelamento_pendente flags
+  useEffect(() => {
+    const fetchCancelamentoPendente = async () => {
+      const { data } = await supabase
+        .from('solicitacoes')
+        .select('id')
+        .eq('cancelamento_pendente', true);
+      if (data) {
+        setCancelamentoPendenteIds(new Set(data.map((d: any) => d.id)));
+      }
+    };
+    if (solicitacoes.length > 0) fetchCancelamentoPendente();
+  }, [solicitacoes]);
 
   const handleAprovarCancelamento = async (sol: SolicitacaoBackoffice) => {
     if (!user) return;
@@ -1176,24 +1211,12 @@ export default function Backoffice() {
     }
   };
 
-  // Count my responsibilities
-  const myResponsibilityCount = useMemo(() =>
-    solicitacoes.filter(s =>
-      s.responsavelId === user?.id &&
-      !['concluida', 'rejeitado'].includes(s.status)
-    ).length
-  , [solicitacoes, user?.id]);
-
-  // Cancelamento pendente state
-  const [cancelamentoPendenteIds, setCancelamentoPendenteIds] = useState<Set<string>>(new Set());
-  const [cancelamentoActionLoading, setCancelamentoActionLoading] = useState(false);
-
   // Group by tab - reordered as requested
   const groupedSolicitacoes = useMemo(() => ({
     recebidas: filteredSolicitacoes.filter(s => s.status === 'recebido' || s.status === 'em_analise'),
     em_processamento: filteredSolicitacoes.filter(s => s.status === 'aprovado' || s.status === 'em_processamento'),
     oc_emitidas: filteredSolicitacoes.filter(s => s.status === 'oc_ac_emitida' || s.status === 'aguardando_aceite'),
-    liberadas: filteredSolicitacoes.filter(s =>
+    liberadas: filteredSolicitacoes.filter(s => 
       s.status === 'liberado_fornecedor' || s.status === 'enviado_fornecedor' ||
       s.status === 'aguardando_execucao' ||
       s.status === 'aguardando_nf_boleto' || s.status === 'nf_boleto_enviados'
@@ -1203,80 +1226,6 @@ export default function Backoffice() {
     rejeitadas: filteredSolicitacoes.filter(s => s.status === 'rejeitado'),
     cancelamento_pendente: filteredSolicitacoes.filter(s => cancelamentoPendenteIds.has(s.id)),
   }), [filteredSolicitacoes, cancelamentoPendenteIds]);
-
-  const activeTabItems = useMemo(() => groupedSolicitacoes[activeTab] || [], [groupedSolicitacoes, activeTab]);
-  const visiblePageItems = useMemo(
-    () => activeTabItems.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE),
-    [activeTabItems, currentPage]
-  );
-
-  // Unread messages for backoffice: query only visible cards
-  const backofficeSolIds = useMemo(() => visiblePageItems.map(s => s.id), [visiblePageItems]);
-  const { unreadMap: backofficeUnreadMap, markAsRead: backofficeMarkAsRead } = useUnreadMessages({
-    solicitacaoIds: backofficeSolIds,
-    userId: user?.id,
-    isBackoffice: true,
-  });
-
-  // Load cadastro status only for visible solicitações
-  useEffect(() => {
-    const loadCadastroStatus = async () => {
-      const solsToCheck = visiblePageItems.filter(s =>
-        (s.status === 'aprovado' || s.status === 'em_processamento') &&
-        cadastroStatus[s.id] === undefined
-      );
-
-      if (solsToCheck.length === 0) return;
-
-      const { data } = await supabase
-        .from('historico_solicitacoes')
-        .select('solicitacao_id, acao')
-        .in('solicitacao_id', solsToCheck.map(s => s.id))
-        .in('acao', ['Cadastro solicitado à Contabilidade', 'Cadastro concluído pela Contabilidade'])
-        .order('created_at', { ascending: false });
-
-      if (data) {
-        const statusMap: Record<string, 'solicitado' | 'concluido' | null> = {};
-        solsToCheck.forEach(s => { statusMap[s.id] = null; });
-
-        const seen = new Set<string>();
-        for (const row of data) {
-          if (seen.has(row.solicitacao_id)) continue;
-          seen.add(row.solicitacao_id);
-
-          if (row.acao === 'Cadastro concluído pela Contabilidade') {
-            statusMap[row.solicitacao_id] = 'concluido';
-          } else if (row.acao === 'Cadastro solicitado à Contabilidade') {
-            statusMap[row.solicitacao_id] = 'solicitado';
-          }
-        }
-
-        setCadastroStatus(prev => ({ ...prev, ...statusMap }));
-      }
-    };
-
-    loadCadastroStatus();
-  }, [visiblePageItems, cadastroStatus]);
-
-  // Fetch cancelamento_pendente flags only for visible cards
-  useEffect(() => {
-    const fetchCancelamentoPendente = async () => {
-      if (visiblePageItems.length === 0) {
-        setCancelamentoPendenteIds(new Set());
-        return;
-      }
-
-      const { data } = await supabase
-        .from('solicitacoes')
-        .select('id')
-        .in('id', visiblePageItems.map((s) => s.id))
-        .eq('cancelamento_pendente', true);
-
-      setCancelamentoPendenteIds(new Set((data || []).map((d: any) => d.id)));
-    };
-
-    fetchCancelamentoPendente();
-  }, [visiblePageItems]);
 
   // SLA calculation (used in details modal)
   const getSLAInfo = (sol: SolicitacaoBackoffice) => {
@@ -1386,10 +1335,10 @@ export default function Backoffice() {
     onToggleSelect: toggleSelect,
   }), [expandedId, backofficeUnreadMap, backofficeMarkAsRead, toggleSelect]);
 
-  // Reset page on tab / filter change
+  // Reset page on tab change
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeTab, selectedFornecedor, debouncedSearch, selectedEmpreendimento, showOnlyMine]);
+  }, [activeTab]);
 
   // Get active tab items for pagination
   const getActiveTabItems = useCallback((): SolicitacaoBackoffice[] => {
@@ -1399,64 +1348,11 @@ export default function Backoffice() {
   const TabContent = ({ items, emptyMessage }: { items: SolicitacaoBackoffice[], emptyMessage: string }) => {
     const totalPages = Math.ceil(items.length / ITEMS_PER_PAGE);
     const paginatedItems = items.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
-    const shouldShowMineEmptyMessage = showOnlyMine && myResponsibilityCount === 0;
     
     return (
       <div className="space-y-4">
         {items.length === 0 ? (
-          <div className="space-y-3">
-            <ContextualEmptyState tab={activeTab} variant="backoffice" />
-
-            {shouldShowMineEmptyMessage && (
-              <Card className="border-amber-200 bg-amber-50/70">
-                <CardContent className="pt-6">
-                  <p className="text-sm font-medium text-amber-950">
-                    Você não possui solicitações ativas assumidas no Backoffice neste momento.
-                  </p>
-                  <p className="mt-1 text-sm text-amber-900">
-                    Desative o filtro "Minhas" para visualizar todas as solicitações disponíveis.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-
-            {showEmptyStateDebug && (
-              <Card className="border-dashed">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Diagnóstico da lista vazia</CardTitle>
-                  <CardDescription>Resumo exibido apenas em desenvolvimento/debug para facilitar a análise de filtros.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <dl className="grid gap-2 text-sm sm:grid-cols-2">
-                    <div>
-                      <dt className="text-muted-foreground">Filtro "Minhas"</dt>
-                      <dd className="font-medium">{emptyStateDiagnostics.showOnlyMine ? 'Ativo' : 'Inativo'}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-muted-foreground">Usuário atual</dt>
-                      <dd className="font-medium break-all">{emptyStateDiagnostics.userId}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-muted-foreground">Total retornado pelo RPC</dt>
-                      <dd className="font-medium">{emptyStateDiagnostics.totalBeforeLocalFilter}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-muted-foreground">Após filtro local</dt>
-                      <dd className="font-medium">{emptyStateDiagnostics.totalAfterLocalFilter}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-muted-foreground">Empreendimento</dt>
-                      <dd className="font-medium">{emptyStateDiagnostics.empreendimento}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-muted-foreground">Fornecedor</dt>
-                      <dd className="font-medium">{emptyStateDiagnostics.fornecedor}</dd>
-                    </div>
-                  </dl>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+          <ContextualEmptyState tab={activeTab} variant="backoffice" />
         ) : (
           <>
             {paginatedItems.map((sol) => (
@@ -1577,34 +1473,28 @@ export default function Backoffice() {
                   />
                 </div>
               </div>
-              <div className="relative w-full md:w-[200px]">
-                <select
-                  aria-label="Filtrar por empreendimento"
-                  value={selectedEmpreendimento}
-                  onChange={(e) => setSelectedEmpreendimento(e.target.value)}
-                  className="flex h-10 w-full appearance-none items-center justify-between rounded-md border border-input bg-background px-3 py-2 pr-10 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <option value="todos">Todos</option>
-                  <option value="mega_curitiba">Mega Curitiba</option>
-                  <option value="mega_itajai">Mega Itajaí</option>
-                  <option value="mega_esteio">Mega Esteio</option>
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground opacity-50" />
-              </div>
-              <div className="relative w-full md:w-[200px]">
-                <select
-                  aria-label="Filtrar por fornecedor"
-                  value={selectedFornecedor}
-                  onChange={(e) => setSelectedFornecedor(e.target.value)}
-                  className="flex h-10 w-full appearance-none items-center justify-between rounded-md border border-input bg-background px-3 py-2 pr-10 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <option value="todos">Todos Fornecedores</option>
+              <Select value={selectedEmpreendimento} onValueChange={setSelectedEmpreendimento}>
+                <SelectTrigger className="w-full md:w-[200px]">
+                  <SelectValue placeholder="Empreendimento" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  <SelectItem value="mega_curitiba">Mega Curitiba</SelectItem>
+                  <SelectItem value="mega_itajai">Mega Itajaí</SelectItem>
+                  <SelectItem value="mega_esteio">Mega Esteio</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={selectedFornecedor} onValueChange={setSelectedFornecedor}>
+                <SelectTrigger className="w-full md:w-[200px]">
+                  <SelectValue placeholder="Fornecedor" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos Fornecedores</SelectItem>
                   {uniqueVendors.map((v) => (
-                    <option key={v} value={v}>{v.length > 30 ? v.slice(0, 30) + '…' : v}</option>
+                    <SelectItem key={v} value={v}>{v.length > 30 ? v.slice(0, 30) + '…' : v}</SelectItem>
                   ))}
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground opacity-50" />
-              </div>
+                </SelectContent>
+              </Select>
               <Button 
                 variant={showOnlyMine ? "default" : "outline"} 
                 onClick={() => setShowOnlyMine(!showOnlyMine)}

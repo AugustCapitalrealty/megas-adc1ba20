@@ -3,8 +3,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
@@ -1190,40 +1190,10 @@ function EnvioFornecedorModal({
   // Reset on open
   React.useEffect(() => {
     if (sol) {
-      console.info('[ENVIO_FORNECEDOR] modal_open', {
-        solId: sol.id,
-        protocolo: sol.protocolo,
-        contatosDisponiveis: {
-          email: sol.fornecedor_email_contato || null,
-          telefone: sol.fornecedor_telefone_contato || null,
-        },
-      });
       setMeioEnvio('');
       setObservacao('');
     }
   }, [sol]);
-
-  React.useEffect(() => {
-    if (!sol) return;
-
-    console.info('[ENVIO_FORNECEDOR] meio_envio_changed', {
-      solId: sol.id,
-      protocolo: sol.protocolo,
-      meioEnvio: meioEnvio || null,
-    });
-  }, [meioEnvio, sol]);
-
-  const handleOpenChange = (open: boolean) => {
-    console.info('[ENVIO_FORNECEDOR] modal_open_change', {
-      solId: sol?.id ?? null,
-      protocolo: sol?.protocolo ?? null,
-      open,
-    });
-
-    if (!open) {
-      onClose();
-    }
-  };
 
   const handleConfirm = async () => {
     if (!sol || !meioEnvio) return;
@@ -1237,7 +1207,7 @@ function EnvioFornecedorModal({
   };
 
   return (
-    <Dialog open={!!sol} onOpenChange={handleOpenChange}>
+    <Dialog open={!!sol} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -1270,29 +1240,20 @@ function EnvioFornecedorModal({
         )}
 
         <div className="space-y-4">
-          <div className="space-y-3">
+          <div className="space-y-2">
             <Label>Por onde a OC foi enviada? <span className="text-destructive">*</span></Label>
-            <RadioGroup
-              value={meioEnvio}
-              onValueChange={setMeioEnvio}
-              className="gap-2"
-              aria-label="Por onde a OC foi enviada?"
-            >
-              {['E-mail', 'WhatsApp', 'Correios', 'Entrega presencial', 'Outro'].map((opcao) => {
-                const optionId = `meio-envio-${opcao.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
-
-                return (
-                  <label
-                    key={opcao}
-                    htmlFor={optionId}
-                    className="flex items-center gap-3 rounded-md border p-3 text-sm transition-colors hover:bg-muted/50 cursor-pointer"
-                  >
-                    <RadioGroupItem value={opcao} id={optionId} />
-                    <span className="font-medium">{opcao}</span>
-                  </label>
-                );
-              })}
-            </RadioGroup>
+            <Select value={meioEnvio} onValueChange={setMeioEnvio}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o meio de envio" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="E-mail">E-mail</SelectItem>
+                <SelectItem value="WhatsApp">WhatsApp</SelectItem>
+                <SelectItem value="Correios">Correios</SelectItem>
+                <SelectItem value="Entrega presencial">Entrega presencial</SelectItem>
+                <SelectItem value="Outro">Outro</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">

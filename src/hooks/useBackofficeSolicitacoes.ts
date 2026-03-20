@@ -40,7 +40,6 @@ interface UseBackofficeSolicitacoesOptions {
   search?: string;
   limit?: number;
   offset?: number;
-  responsavelId?: string;
 }
 
 export function useBackofficeSolicitacoes(options: UseBackofficeSolicitacoesOptions = {}) {
@@ -57,26 +56,23 @@ export function useBackofficeSolicitacoes(options: UseBackofficeSolicitacoesOpti
         p_status: options.status || null,
         p_empreendimento: options.empreendimento || null,
         p_search: options.search || null,
-        p_limit: options.limit || 100,
+        p_limit: options.limit || 500,
         p_offset: options.offset || 0,
-        p_responsavel_id: options.responsavelId || null,
       });
 
       if (rpcError) throw rpcError;
 
-      setSolicitacoes((data || []).map((item) => ({
-        ...item,
-        responsavelId: item.responsavel_id,
-        responsavelNome: item.responsavel_nome,
-        dataAprovacao: item.data_aprovacao,
-      })));
+      // Fetch responsavel info for each solicitacao (batch by unique ids)
+      const solicitacoesWithResponsavel = await enrichWithResponsavelInfo(data || []);
+      
+      setSolicitacoes(solicitacoesWithResponsavel);
     } catch (err) {
       console.error('Error fetching solicitacoes:', err);
       setError(err instanceof Error ? err : new Error('Failed to fetch solicitacoes'));
     } finally {
       setLoading(false);
     }
-  }, [options.status, options.empreendimento, options.search, options.limit, options.offset, options.responsavelId]);
+  }, [options.status, options.empreendimento, options.search, options.limit, options.offset]);
 
   useEffect(() => {
     fetchSolicitacoes();
@@ -88,6 +84,58 @@ export function useBackofficeSolicitacoes(options: UseBackofficeSolicitacoesOpti
     error,
     refetch: fetchSolicitacoes,
   };
+}
+
+// Helper to batch fetch responsavel info
+async function enrichWithResponsavelInfo(
+  solicitacoes: SolicitacaoBackoffice[]
+): Promise<SolicitacaoBackoffice[]> {
+  if (solicitacoes.length === 0) return [];
+
+  // Fetch all approval history in one query
+  const solIds = solicitacoes.map(s => s.id);
+  
+  const { data: histData } = await supabase
+    .from('historico_solicitacoes')
+    .select('solicitacao_id, created_at, user_id')
+    .in('solicitacao_id', solIds)
+    .eq('acao', 'Assumido pelo backoffice')
+    .order('created_at', { ascending: false });
+
+  // Create a map of solicitacao_id to first approval
+  const approvalMap = new Map<string, { created_at: string; user_id: string }>();
+  histData?.forEach(h => {
+    if (!approvalMap.has(h.solicitacao_id)) {
+      approvalMap.set(h.solicitacao_id, { created_at: h.created_at, user_id: h.user_id });
+    }
+  });
+
+  // Get unique user ids
+  const userIds = [...new Set(histData?.map(h => h.user_id) || [])];
+  
+  // Fetch all profiles in one query
+  const profileMap = new Map<string, string>();
+  if (userIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, full_name, email')
+      .in('id', userIds);
+    
+    profiles?.forEach(p => {
+      profileMap.set(p.id, p.full_name || p.email || 'Usuário');
+    });
+  }
+
+  // Enrich solicitacoes
+  return solicitacoes.map(sol => {
+    const approval = approvalMap.get(sol.id);
+    return {
+      ...sol,
+      dataAprovacao: approval?.created_at || null,
+      responsavelId: approval?.user_id || null,
+      responsavelNome: approval ? profileMap.get(approval.user_id) || null : null,
+    };
+  });
 }
 
 // Hook for counts by status
