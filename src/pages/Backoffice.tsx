@@ -8,7 +8,6 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FilterBar } from '@/components/ui/FilterBar';
 import { type Fornecedor, type CNAESecundario } from '@/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -1578,28 +1577,34 @@ export default function Backoffice() {
                   />
                 </div>
               </div>
-              <Select value={selectedEmpreendimento} onValueChange={setSelectedEmpreendimento}>
-                <SelectTrigger className="w-full md:w-[200px]">
-                  <SelectValue placeholder="Empreendimento" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos</SelectItem>
-                  <SelectItem value="mega_curitiba">Mega Curitiba</SelectItem>
-                  <SelectItem value="mega_itajai">Mega Itajaí</SelectItem>
-                  <SelectItem value="mega_esteio">Mega Esteio</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={selectedFornecedor} onValueChange={setSelectedFornecedor}>
-                <SelectTrigger className="w-full md:w-[200px]">
-                  <SelectValue placeholder="Fornecedor" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos Fornecedores</SelectItem>
+              <div className="relative w-full md:w-[200px]">
+                <select
+                  aria-label="Filtrar por empreendimento"
+                  value={selectedEmpreendimento}
+                  onChange={(e) => setSelectedEmpreendimento(e.target.value)}
+                  className="flex h-10 w-full appearance-none items-center justify-between rounded-md border border-input bg-background px-3 py-2 pr-10 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="todos">Todos</option>
+                  <option value="mega_curitiba">Mega Curitiba</option>
+                  <option value="mega_itajai">Mega Itajaí</option>
+                  <option value="mega_esteio">Mega Esteio</option>
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground opacity-50" />
+              </div>
+              <div className="relative w-full md:w-[200px]">
+                <select
+                  aria-label="Filtrar por fornecedor"
+                  value={selectedFornecedor}
+                  onChange={(e) => setSelectedFornecedor(e.target.value)}
+                  className="flex h-10 w-full appearance-none items-center justify-between rounded-md border border-input bg-background px-3 py-2 pr-10 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="todos">Todos Fornecedores</option>
                   {uniqueVendors.map((v) => (
-                    <SelectItem key={v} value={v}>{v.length > 30 ? v.slice(0, 30) + '…' : v}</SelectItem>
+                    <option key={v} value={v}>{v.length > 30 ? v.slice(0, 30) + '…' : v}</option>
                   ))}
-                </SelectContent>
-              </Select>
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground opacity-50" />
+              </div>
               <Button 
                 variant={showOnlyMine ? "default" : "outline"} 
                 onClick={() => setShowOnlyMine(!showOnlyMine)}
