@@ -73,6 +73,7 @@ export default function Backoffice() {
   const [activeTab, setActiveTab] = useState<BackofficeTab>('recebidas');
   const [numeroChamadoFluig, setNumeroChamadoFluig] = useState('');
   const [showOnlyMine, setShowOnlyMine] = useState(false);
+  const showEmptyStateDebug = import.meta.env.DEV || import.meta.env.VITE_BACKOFFICE_EMPTY_DEBUG === 'true';
 
   // Use RPC-based hook for fetching with debounced search
   const { solicitacoes, loading, refetch: fetchSolicitacoes } = useBackofficeSolicitacoes({
@@ -1097,6 +1098,15 @@ export default function Backoffice() {
     return filtered;
   }, [solicitacoes, selectedFornecedor]);
 
+  const emptyStateDiagnostics = useMemo(() => ({
+    showOnlyMine,
+    userId: user?.id ?? 'não autenticado',
+    totalBeforeLocalFilter: solicitacoes.length,
+    totalAfterLocalFilter: filteredSolicitacoes.length,
+    empreendimento: selectedEmpreendimento === 'todos' ? 'Todos' : selectedEmpreendimento,
+    fornecedor: selectedFornecedor === 'todos' ? 'Todos' : selectedFornecedor,
+  }), [filteredSolicitacoes.length, selectedEmpreendimento, selectedFornecedor, showOnlyMine, solicitacoes.length, user?.id]);
+
   const handleAprovarCancelamento = async (sol: SolicitacaoBackoffice) => {
     if (!user) return;
     setCancelamentoActionLoading(true);
@@ -1390,11 +1400,64 @@ export default function Backoffice() {
   const TabContent = ({ items, emptyMessage }: { items: SolicitacaoBackoffice[], emptyMessage: string }) => {
     const totalPages = Math.ceil(items.length / ITEMS_PER_PAGE);
     const paginatedItems = items.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+    const shouldShowMineEmptyMessage = showOnlyMine && myResponsibilityCount === 0;
     
     return (
       <div className="space-y-4">
         {items.length === 0 ? (
-          <ContextualEmptyState tab={activeTab} variant="backoffice" />
+          <div className="space-y-3">
+            <ContextualEmptyState tab={activeTab} variant="backoffice" />
+
+            {shouldShowMineEmptyMessage && (
+              <Card className="border-amber-200 bg-amber-50/70">
+                <CardContent className="pt-6">
+                  <p className="text-sm font-medium text-amber-950">
+                    Você não possui solicitações ativas assumidas no Backoffice neste momento.
+                  </p>
+                  <p className="mt-1 text-sm text-amber-900">
+                    Desative o filtro "Minhas" para visualizar todas as solicitações disponíveis.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {showEmptyStateDebug && (
+              <Card className="border-dashed">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">Diagnóstico da lista vazia</CardTitle>
+                  <CardDescription>Resumo exibido apenas em desenvolvimento/debug para facilitar a análise de filtros.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <dl className="grid gap-2 text-sm sm:grid-cols-2">
+                    <div>
+                      <dt className="text-muted-foreground">Filtro "Minhas"</dt>
+                      <dd className="font-medium">{emptyStateDiagnostics.showOnlyMine ? 'Ativo' : 'Inativo'}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">Usuário atual</dt>
+                      <dd className="font-medium break-all">{emptyStateDiagnostics.userId}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">Total retornado pelo RPC</dt>
+                      <dd className="font-medium">{emptyStateDiagnostics.totalBeforeLocalFilter}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">Após filtro local</dt>
+                      <dd className="font-medium">{emptyStateDiagnostics.totalAfterLocalFilter}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">Empreendimento</dt>
+                      <dd className="font-medium">{emptyStateDiagnostics.empreendimento}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">Fornecedor</dt>
+                      <dd className="font-medium">{emptyStateDiagnostics.fornecedor}</dd>
+                    </div>
+                  </dl>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         ) : (
           <>
             {paginatedItems.map((sol) => (
