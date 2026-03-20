@@ -1190,10 +1190,40 @@ function EnvioFornecedorModal({
   // Reset on open
   React.useEffect(() => {
     if (sol) {
+      console.info('[ENVIO_FORNECEDOR] modal_open', {
+        solId: sol.id,
+        protocolo: sol.protocolo,
+        contatosDisponiveis: {
+          email: sol.fornecedor_email_contato || null,
+          telefone: sol.fornecedor_telefone_contato || null,
+        },
+      });
       setMeioEnvio('');
       setObservacao('');
     }
   }, [sol]);
+
+  React.useEffect(() => {
+    if (!sol) return;
+
+    console.info('[ENVIO_FORNECEDOR] meio_envio_changed', {
+      solId: sol.id,
+      protocolo: sol.protocolo,
+      meioEnvio: meioEnvio || null,
+    });
+  }, [meioEnvio, sol]);
+
+  const handleOpenChange = (open: boolean) => {
+    console.info('[ENVIO_FORNECEDOR] modal_open_change', {
+      solId: sol?.id ?? null,
+      protocolo: sol?.protocolo ?? null,
+      open,
+    });
+
+    if (!open) {
+      onClose();
+    }
+  };
 
   const handleConfirm = async () => {
     if (!sol || !meioEnvio) return;
@@ -1207,7 +1237,7 @@ function EnvioFornecedorModal({
   };
 
   return (
-    <Dialog open={!!sol} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={!!sol} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
