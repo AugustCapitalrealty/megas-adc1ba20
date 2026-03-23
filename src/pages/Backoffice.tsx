@@ -1211,37 +1211,6 @@ export default function Backoffice() {
     }
   };
 
-  // Reabrir solicitação rejeitada por prazo expirado
-  const handleReabrir = async (sol: SolicitacaoBackoffice) => {
-    if (!user) return;
-    setActionLoading(true);
-    try {
-      const { error: updateError } = await supabase
-        .from('solicitacoes')
-        .update({ status: 'recebido' })
-        .eq('id', sol.id);
-
-      if (updateError) throw updateError;
-
-      await supabase.from('historico_solicitacoes').insert({
-        solicitacao_id: sol.id,
-        user_id: user.id,
-        acao: 'reabertura',
-        status_anterior: 'rejeitado',
-        status_novo: 'recebido',
-        motivo: 'Solicitação reaberta pelo backoffice após cancelamento por prazo expirado.',
-      });
-
-      toast({ title: 'Solicitação reaberta', description: `#${sol.protocolo} voltou para a fila.` });
-      fetchSolicitacoes();
-    } catch (error) {
-      console.error('Error reopening:', error);
-      toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível reabrir a solicitação.' });
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
   // Group by tab - reordered as requested
   const groupedSolicitacoes = useMemo(() => ({
     recebidas: filteredSolicitacoes.filter(s => s.status === 'recebido' || s.status === 'em_analise'),
@@ -1347,7 +1316,6 @@ export default function Backoffice() {
     handleSolicitarCadastro,
     handleAprovarCancelamento,
     handleRejeitarCancelamento,
-    handleReabrir,
     onToggleExpand: (id: string) => {
       const newExpanded = expandedId === id ? null : id;
       setExpandedId(newExpanded);

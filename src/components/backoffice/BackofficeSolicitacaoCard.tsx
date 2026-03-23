@@ -57,7 +57,6 @@ export interface CardCallbacks {
   handleSolicitarCadastro: (sol: SolicitacaoBackoffice) => void;
   handleAprovarCancelamento: (sol: SolicitacaoBackoffice) => void;
   handleRejeitarCancelamento: (sol: SolicitacaoBackoffice) => void;
-  handleReabrir: (sol: SolicitacaoBackoffice) => void;
   onToggleExpand: (id: string) => void;
   onTransfer: (sol: SolicitacaoBackoffice) => void;
   onViewNfBoleto: (sol: SolicitacaoBackoffice) => void;
@@ -280,13 +279,6 @@ export const BackofficeSolicitacaoCard = memo(function BackofficeSolicitacaoCard
       return (
         <Button size="sm" onClick={() => callbacks.openAction(sol, 'concluir')}>
           <CheckCheck className="h-4 w-4 mr-1" /> Concluir
-        </Button>
-      );
-    }
-    if (sol.status === 'rejeitado' && isPrazoExpirado) {
-      return (
-        <Button size="sm" variant="outline" onClick={() => callbacks.handleReabrir(sol)} disabled={actionLoading}>
-          <CheckCircle className="h-4 w-4 mr-1" /> Reabrir
         </Button>
       );
     }
