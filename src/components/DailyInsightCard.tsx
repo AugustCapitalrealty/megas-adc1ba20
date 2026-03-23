@@ -35,7 +35,7 @@ export function DailyInsightCard({
   const insights: string[] = [];
 
   if (isBackofficeOrAdmin) {
-    if (newInQueue > 0) insights.push(`${newInQueue} solicitação${newInQueue > 1 ? 'ões' : ''} nova${newInQueue > 1 ? 's' : ''} na fila`);
+    if (newInQueue > 0) insights.push(`${newInQueue} solicitaç${newInQueue > 1 ? 'ões' : 'ão'} nova${newInQueue > 1 ? 's' : ''} na fila`);
     if (waitingSolicitor > 0) insights.push(`${waitingSolicitor} aguardando resposta do solicitante`);
   } else {
     if (pendingCorrections > 0) insights.push(`${pendingCorrections} correção${pendingCorrections > 1 ? 'ões' : ''} pendente${pendingCorrections > 1 ? 's' : ''}`);
