@@ -1527,6 +1527,7 @@ export default function Backoffice() {
                 { id: 'em_processamento', label: 'Em Proc.', count: groupedSolicitacoes.em_processamento.length },
                 { id: 'oc_emitidas', label: 'OC Emitida', count: groupedSolicitacoes.oc_emitidas.length, variant: 'success' as const, showCountWhenZero: false },
                 { id: 'liberadas', label: 'Liberadas', count: groupedSolicitacoes.liberadas.length, variant: 'default' as const, showCountWhenZero: false },
+                { id: 'enviadas', label: 'Enviadas', count: groupedSolicitacoes.enviadas.length, variant: 'purple' as const, showCountWhenZero: false },
               ],
             },
             {
