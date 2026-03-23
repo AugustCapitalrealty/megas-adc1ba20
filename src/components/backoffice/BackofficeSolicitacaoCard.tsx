@@ -282,13 +282,6 @@ export const BackofficeSolicitacaoCard = memo(function BackofficeSolicitacaoCard
         </Button>
       );
     }
-    if (sol.status === 'rejeitado' && isPrazoExpirado) {
-      return (
-        <Button size="sm" variant="outline" onClick={() => callbacks.handleReabrir(sol)} disabled={actionLoading}>
-          <CheckCircle className="h-4 w-4 mr-1" /> Reabrir
-        </Button>
-      );
-    }
     return null;
   };
 

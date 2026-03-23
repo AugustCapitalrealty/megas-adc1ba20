@@ -198,7 +198,7 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
               </p>
               <p className="text-sm text-muted-foreground mt-1">
                 {isPrazoExpirado 
-                  ? 'Solicite reabertura ao backoffice caso ainda precise desta solicitação.'
+                  ? 'Caso ainda precise, duplique esta solicitação para abrir uma nova.'
                   : rejectionInfo.motivo}
               </p>
             </div>
