@@ -200,6 +200,17 @@ export const BackofficeSolicitacaoCard = memo(function BackofficeSolicitacaoCard
     );
   }
 
+  // Deadline badge for pendente_correcao / aguardando_informacoes
+  if (['pendente_correcao', 'aguardando_informacoes'].includes(sol.status) && sol.data_pendente_correcao) {
+    chips.push(
+      <CorrectionDeadlineBadge
+        key="deadline"
+        dataPendenteCorrecao={sol.data_pendente_correcao}
+        status={sol.status}
+      />
+    );
+  }
+
   // ── Primary action ───────────────────────────────────
   const renderPrimaryAction = () => {
     if (sol.status === 'recebido' || sol.status === 'em_analise') {
