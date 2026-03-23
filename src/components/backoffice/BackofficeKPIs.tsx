@@ -129,7 +129,7 @@ export function BackofficeKPIs({ grouped, activeTab, onTabChange }: BackofficeKP
   };
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
       {kpis.map((kpi) => (
         <Card
           key={kpi.label}
