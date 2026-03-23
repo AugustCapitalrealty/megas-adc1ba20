@@ -314,7 +314,10 @@ export default function MinhasSolicitacoes() {
         filtered = filtered.filter(s => s.status === 'aguardando_aceite');
         break;
       case 'liberadas':
-        filtered = filtered.filter(s => ['liberado_fornecedor', 'enviado_fornecedor', 'aguardando_nf_boleto', 'nf_boleto_enviados', 'enviado_pagamento'].includes(s.status));
+        filtered = filtered.filter(s => s.status === 'liberado_fornecedor');
+        break;
+      case 'enviadas':
+        filtered = filtered.filter(s => ['enviado_fornecedor', 'aguardando_execucao', 'aguardando_nf_boleto', 'nf_boleto_enviados', 'enviado_pagamento'].includes(s.status));
         break;
       case 'reprovadas':
         filtered = filtered.filter(s => s.status === 'rejeitado');
