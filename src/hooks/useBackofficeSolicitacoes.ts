@@ -127,6 +127,23 @@ async function enrichWithResponsavelInfo(
     });
   }
 
+  // Fetch last action for rejected solicitacoes (to detect prazo expirado)
+  const rejectedIds = solicitacoes.filter(s => s.status === 'rejeitado').map(s => s.id);
+  const lastActionMap = new Map<string, string>();
+  if (rejectedIds.length > 0) {
+    const { data: lastActions } = await supabase
+      .from('historico_solicitacoes')
+      .select('solicitacao_id, acao')
+      .in('solicitacao_id', rejectedIds)
+      .order('created_at', { ascending: false });
+
+    lastActions?.forEach(h => {
+      if (!lastActionMap.has(h.solicitacao_id)) {
+        lastActionMap.set(h.solicitacao_id, h.acao);
+      }
+    });
+  }
+
   // Enrich solicitacoes
   return solicitacoes.map(sol => {
     const approval = approvalMap.get(sol.id);
@@ -135,6 +152,7 @@ async function enrichWithResponsavelInfo(
       dataAprovacao: approval?.created_at || null,
       responsavelId: approval?.user_id || null,
       responsavelNome: approval ? profileMap.get(approval.user_id) || null : null,
+      ultimaAcao: lastActionMap.get(sol.id) || null,
     };
   });
 }
