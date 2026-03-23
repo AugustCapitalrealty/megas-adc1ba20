@@ -53,7 +53,7 @@ interface PdfValidationResult {
   diferenca: number | null;
 }
 
-type BackofficeTab = 'recebidas' | 'pendentes' | 'em_processamento' | 'oc_emitidas' | 'liberadas' | 'concluidas' | 'rejeitadas' | 'cancelamento_pendente';
+type BackofficeTab = 'recebidas' | 'pendentes' | 'em_processamento' | 'oc_emitidas' | 'liberadas' | 'enviadas' | 'concluidas' | 'rejeitadas' | 'cancelamento_pendente';
 
 export default function Backoffice() {
   const { user } = useAuth();
@@ -1216,9 +1216,9 @@ export default function Backoffice() {
     recebidas: filteredSolicitacoes.filter(s => s.status === 'recebido' || s.status === 'em_analise'),
     em_processamento: filteredSolicitacoes.filter(s => s.status === 'aprovado' || s.status === 'em_processamento'),
     oc_emitidas: filteredSolicitacoes.filter(s => s.status === 'oc_ac_emitida' || s.status === 'aguardando_aceite'),
-    liberadas: filteredSolicitacoes.filter(s => 
-      s.status === 'liberado_fornecedor' || s.status === 'enviado_fornecedor' ||
-      s.status === 'aguardando_execucao' ||
+    liberadas: filteredSolicitacoes.filter(s => s.status === 'liberado_fornecedor'),
+    enviadas: filteredSolicitacoes.filter(s => 
+      s.status === 'enviado_fornecedor' || s.status === 'aguardando_execucao' ||
       s.status === 'aguardando_nf_boleto' || s.status === 'nf_boleto_enviados'
     ),
     pendentes: filteredSolicitacoes.filter(s => s.status === 'pendente_correcao' || s.status === 'aguardando_informacoes'),
@@ -1527,6 +1527,7 @@ export default function Backoffice() {
                 { id: 'em_processamento', label: 'Em Proc.', count: groupedSolicitacoes.em_processamento.length },
                 { id: 'oc_emitidas', label: 'OC Emitida', count: groupedSolicitacoes.oc_emitidas.length, variant: 'success' as const, showCountWhenZero: false },
                 { id: 'liberadas', label: 'Liberadas', count: groupedSolicitacoes.liberadas.length, variant: 'default' as const, showCountWhenZero: false },
+                { id: 'enviadas', label: 'Enviadas', count: groupedSolicitacoes.enviadas.length, variant: 'purple' as const, showCountWhenZero: false },
               ],
             },
             {
@@ -1572,6 +1573,9 @@ export default function Backoffice() {
           )}
           {activeTab === 'liberadas' && (
             <TabContent items={groupedSolicitacoes.liberadas} emptyMessage="Nenhuma solicitação liberada" />
+          )}
+          {activeTab === 'enviadas' && (
+            <TabContent items={groupedSolicitacoes.enviadas} emptyMessage="Nenhuma solicitação enviada" />
           )}
           {activeTab === 'concluidas' && (
             <TabContent items={groupedSolicitacoes.concluidas} emptyMessage="Nenhuma solicitação concluída" />

@@ -20,6 +20,7 @@ interface GroupedSolicitacoes {
   em_processamento: SolicitacaoBackoffice[];
   oc_emitidas: SolicitacaoBackoffice[];
   liberadas: SolicitacaoBackoffice[];
+  enviadas: SolicitacaoBackoffice[];
   pendentes: SolicitacaoBackoffice[];
   concluidas: SolicitacaoBackoffice[];
   rejeitadas: SolicitacaoBackoffice[];
@@ -50,7 +51,7 @@ export function BackofficeKPIs({ grouped, activeTab, onTabChange }: BackofficeKP
     ].length;
 
     // Count NF pending (nf_boleto_enviados)
-    const nfPending = grouped.liberadas.filter(s => s.status === 'nf_boleto_enviados').length;
+    const nfPending = grouped.enviadas.filter(s => s.status === 'nf_boleto_enviados').length;
 
     // Today count for recebidas
     const todayRecebidas = grouped.recebidas.filter(s =>
@@ -85,9 +86,17 @@ export function BackofficeKPIs({ grouped, activeTab, onTabChange }: BackofficeKP
       {
         label: 'Liberadas',
         value: grouped.liberadas.length,
-        subtitle: nfPending > 0 ? `${nfPending} NF pendente` : 'Envio/NF',
+        subtitle: 'Aguardando envio',
         icon: <Truck className="h-4 w-4" />,
         tab: 'liberadas',
+        variant: 'default',
+      },
+      {
+        label: 'Enviadas',
+        value: grouped.enviadas.length,
+        subtitle: nfPending > 0 ? `${nfPending} NF pendente` : 'Em execução/NF',
+        icon: <Receipt className="h-4 w-4" />,
+        tab: 'enviadas',
         variant: nfPending > 0 ? 'warning' : 'default',
       },
       {
@@ -120,7 +129,7 @@ export function BackofficeKPIs({ grouped, activeTab, onTabChange }: BackofficeKP
   };
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
       {kpis.map((kpi) => (
         <Card
           key={kpi.label}
