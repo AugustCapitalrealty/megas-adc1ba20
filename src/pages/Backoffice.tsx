@@ -1211,8 +1211,7 @@ export default function Backoffice() {
     }
   };
 
-  // Reabrir solicitação rejeitada por prazo expirado
-  const handleReabrir = async (sol: SolicitacaoBackoffice) => {
+  // Group by tab - reordered as requested
     if (!user) return;
     setActionLoading(true);
     try {
