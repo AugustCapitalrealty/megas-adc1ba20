@@ -10,10 +10,11 @@ import { AnexoCard } from '@/components/AnexoCard';
 import { CNAECompatibilityBadge } from '@/components/CNAECompatibilityBadge';
 import { DescriptionQualityBadge } from '@/components/DescriptionQualityBadge';
 import { UnreadMessageBanner, type UnreadMessageInfo } from '@/components/UnreadMessageBanner';
+import { cn } from '@/lib/utils';
 import type { DocumentoEmitido, DocumentoFiscal } from '@/types';
 import {
   FileText, Edit, AlertTriangle, Copy, XCircle, Download,
-  FileCheck, CheckCircle, MessageSquare, Receipt, Upload, UserCheck, Wrench, Send,
+  FileCheck, CheckCircle, MessageSquare, Receipt, Upload, UserCheck, Wrench, Send, Clock,
 } from 'lucide-react';
 import type { SolicitacaoComFornecedor, RejectionInfo, InfoRequest } from './types';
 
