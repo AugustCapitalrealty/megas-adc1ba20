@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { CorrectionDeadlineBadge } from '@/components/CorrectionDeadlineBadge';
 import { formatBR } from '@/lib/date-utils';
 import { Button } from '@/components/ui/button';
 import { SolicitacaoCard, type SolicitacaoWithDetails } from '@/components/ui/SolicitacaoCard';
