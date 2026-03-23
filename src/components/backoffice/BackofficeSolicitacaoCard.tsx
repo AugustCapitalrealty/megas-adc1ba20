@@ -57,6 +57,7 @@ export interface CardCallbacks {
   handleSolicitarCadastro: (sol: SolicitacaoBackoffice) => void;
   handleAprovarCancelamento: (sol: SolicitacaoBackoffice) => void;
   handleRejeitarCancelamento: (sol: SolicitacaoBackoffice) => void;
+  handleReabrir: (sol: SolicitacaoBackoffice) => void;
   onToggleExpand: (id: string) => void;
   onTransfer: (sol: SolicitacaoBackoffice) => void;
   onViewNfBoleto: (sol: SolicitacaoBackoffice) => void;
@@ -119,6 +120,10 @@ export const BackofficeSolicitacaoCard = memo(function BackofficeSolicitacaoCard
   const hasFlugNumber = !!sol.numero_chamado_fluig;
   const awaitingOC = (sol.status === 'aprovado' || sol.status === 'em_processamento') && hasFlugNumber;
   const isExpanded = expandedId === sol.id;
+
+  // Detect auto-cancelled by deadline (action contains "prazo" and "expirado")
+  const isPrazoExpirado = sol.status === 'rejeitado' && sol.ultimaAcao && 
+    (sol.ultimaAcao === 'prazo_correção_expirado' || sol.ultimaAcao === 'prazo_resposta_expirado');
 
   const isUtility = ['agua', 'energia_eletrica', 'telefone', 'taxa_impostos'].includes((sol as any).natureza_orcamentaria ?? '');
 
@@ -211,6 +216,15 @@ export const BackofficeSolicitacaoCard = memo(function BackofficeSolicitacaoCard
     );
   }
 
+  // Badge for auto-cancelled by deadline
+  if (isPrazoExpirado) {
+    chips.push(
+      <Badge key="prazo" variant="destructive" className="text-[10px] gap-1">
+        <Clock className="h-3 w-3" /> Prazo expirado
+      </Badge>
+    );
+  }
+
   // ── Primary action ───────────────────────────────────
   const renderPrimaryAction = () => {
     if (sol.status === 'recebido' || sol.status === 'em_analise') {
@@ -266,6 +280,13 @@ export const BackofficeSolicitacaoCard = memo(function BackofficeSolicitacaoCard
       return (
         <Button size="sm" onClick={() => callbacks.openAction(sol, 'concluir')}>
           <CheckCheck className="h-4 w-4 mr-1" /> Concluir
+        </Button>
+      );
+    }
+    if (sol.status === 'rejeitado' && isPrazoExpirado) {
+      return (
+        <Button size="sm" variant="outline" onClick={() => callbacks.handleReabrir(sol)} disabled={actionLoading}>
+          <CheckCircle className="h-4 w-4 mr-1" /> Reabrir
         </Button>
       );
     }
