@@ -86,9 +86,17 @@ export function BackofficeKPIs({ grouped, activeTab, onTabChange }: BackofficeKP
       {
         label: 'Liberadas',
         value: grouped.liberadas.length,
-        subtitle: nfPending > 0 ? `${nfPending} NF pendente` : 'Envio/NF',
+        subtitle: 'Aguardando envio',
         icon: <Truck className="h-4 w-4" />,
         tab: 'liberadas',
+        variant: 'default',
+      },
+      {
+        label: 'Enviadas',
+        value: grouped.enviadas.length,
+        subtitle: nfPending > 0 ? `${nfPending} NF pendente` : 'Em execução/NF',
+        icon: <Receipt className="h-4 w-4" />,
+        tab: 'enviadas',
         variant: nfPending > 0 ? 'warning' : 'default',
       },
       {
