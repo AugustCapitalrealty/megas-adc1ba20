@@ -1212,36 +1212,6 @@ export default function Backoffice() {
   };
 
   // Group by tab - reordered as requested
-    if (!user) return;
-    setActionLoading(true);
-    try {
-      const { error: updateError } = await supabase
-        .from('solicitacoes')
-        .update({ status: 'recebido' })
-        .eq('id', sol.id);
-
-      if (updateError) throw updateError;
-
-      await supabase.from('historico_solicitacoes').insert({
-        solicitacao_id: sol.id,
-        user_id: user.id,
-        acao: 'reabertura',
-        status_anterior: 'rejeitado',
-        status_novo: 'recebido',
-        motivo: 'Solicitação reaberta pelo backoffice após cancelamento por prazo expirado.',
-      });
-
-      toast({ title: 'Solicitação reaberta', description: `#${sol.protocolo} voltou para a fila.` });
-      fetchSolicitacoes();
-    } catch (error) {
-      console.error('Error reopening:', error);
-      toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível reabrir a solicitação.' });
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // Group by tab - reordered as requested
   const groupedSolicitacoes = useMemo(() => ({
     recebidas: filteredSolicitacoes.filter(s => s.status === 'recebido' || s.status === 'em_analise'),
     em_processamento: filteredSolicitacoes.filter(s => s.status === 'aprovado' || s.status === 'em_processamento'),
