@@ -1574,6 +1574,9 @@ export default function Backoffice() {
           {activeTab === 'liberadas' && (
             <TabContent items={groupedSolicitacoes.liberadas} emptyMessage="Nenhuma solicitação liberada" />
           )}
+          {activeTab === 'enviadas' && (
+            <TabContent items={groupedSolicitacoes.enviadas} emptyMessage="Nenhuma solicitação enviada" />
+          )}
           {activeTab === 'concluidas' && (
             <TabContent items={groupedSolicitacoes.concluidas} emptyMessage="Nenhuma solicitação concluída" />
           )}
