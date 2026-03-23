@@ -182,13 +182,24 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
     const infoRequest = infoRequests[sol.id];
 
     if (sol.status === 'rejeitado' && rejectionInfo?.motivo) {
+      const isPrazoExpirado = rejectionInfo.motivo.includes('prazo') && rejectionInfo.motivo.includes('expirou');
       return (
-        <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+        <div className={cn("mb-4 p-3 rounded-lg", isPrazoExpirado ? "bg-warning/10 border border-warning/20" : "bg-destructive/10 border border-destructive/20")}>
           <div className="flex items-start gap-2">
-            <XCircle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
+            {isPrazoExpirado ? (
+              <Clock className="h-5 w-5 text-warning mt-0.5 shrink-0" />
+            ) : (
+              <XCircle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
+            )}
             <div>
-              <p className="font-medium text-destructive">Motivo da Reprovação:</p>
-              <p className="text-sm text-muted-foreground mt-1">{rejectionInfo.motivo}</p>
+              <p className={cn("font-medium", isPrazoExpirado ? "text-warning" : "text-destructive")}>
+                {isPrazoExpirado ? 'Cancelada automaticamente — prazo de 30 dias expirado' : 'Motivo da Reprovação:'}
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {isPrazoExpirado 
+                  ? 'Solicite reabertura ao backoffice caso ainda precise desta solicitação.'
+                  : rejectionInfo.motivo}
+              </p>
             </div>
           </div>
         </div>

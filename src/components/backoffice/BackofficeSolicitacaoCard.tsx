@@ -216,6 +216,15 @@ export const BackofficeSolicitacaoCard = memo(function BackofficeSolicitacaoCard
     );
   }
 
+  // Badge for auto-cancelled by deadline
+  if (isPrazoExpirado) {
+    chips.push(
+      <Badge key="prazo" variant="destructive" className="text-[10px] gap-1">
+        <Clock className="h-3 w-3" /> Prazo expirado
+      </Badge>
+    );
+  }
+
   // ── Primary action ───────────────────────────────────
   const renderPrimaryAction = () => {
     if (sol.status === 'recebido' || sol.status === 'em_analise') {
