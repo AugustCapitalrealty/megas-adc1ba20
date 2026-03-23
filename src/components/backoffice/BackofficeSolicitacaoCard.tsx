@@ -121,6 +121,10 @@ export const BackofficeSolicitacaoCard = memo(function BackofficeSolicitacaoCard
   const awaitingOC = (sol.status === 'aprovado' || sol.status === 'em_processamento') && hasFlugNumber;
   const isExpanded = expandedId === sol.id;
 
+  // Detect auto-cancelled by deadline (action contains "prazo" and "expirado")
+  const isPrazoExpirado = sol.status === 'rejeitado' && sol.ultimaAcao && 
+    (sol.ultimaAcao === 'prazo_correção_expirado' || sol.ultimaAcao === 'prazo_resposta_expirado');
+
   const isUtility = ['agua', 'energia_eletrica', 'telefone', 'taxa_impostos'].includes((sol as any).natureza_orcamentaria ?? '');
 
   const isFutureExecutionDate = (date: string | null | undefined) => {
