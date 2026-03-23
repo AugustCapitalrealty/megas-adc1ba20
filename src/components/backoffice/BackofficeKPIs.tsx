@@ -51,7 +51,7 @@ export function BackofficeKPIs({ grouped, activeTab, onTabChange }: BackofficeKP
     ].length;
 
     // Count NF pending (nf_boleto_enviados)
-    const nfPending = grouped.liberadas.filter(s => s.status === 'nf_boleto_enviados').length;
+    const nfPending = grouped.enviadas.filter(s => s.status === 'nf_boleto_enviados').length;
 
     // Today count for recebidas
     const todayRecebidas = grouped.recebidas.filter(s =>
