@@ -51,7 +51,7 @@ const ATTACHMENT_TYPES = {
   orcamento_concorrente_2: 'Orçamento Concorrente 2',
 } as const;
 
-type FilterTab = 'todas' | 'com_backoffice' | 'correcoes' | 'oc_emitida' | 'liberadas' | 'reprovadas' | 'concluidas';
+type FilterTab = 'todas' | 'com_backoffice' | 'correcoes' | 'oc_emitida' | 'liberadas' | 'enviadas' | 'reprovadas' | 'concluidas';
 type ViewMode = 'minhas' | 'empreendimento';
 
 export default function MinhasSolicitacoes() {
@@ -314,7 +314,10 @@ export default function MinhasSolicitacoes() {
         filtered = filtered.filter(s => s.status === 'aguardando_aceite');
         break;
       case 'liberadas':
-        filtered = filtered.filter(s => ['liberado_fornecedor', 'enviado_fornecedor', 'aguardando_nf_boleto', 'nf_boleto_enviados', 'enviado_pagamento'].includes(s.status));
+        filtered = filtered.filter(s => s.status === 'liberado_fornecedor');
+        break;
+      case 'enviadas':
+        filtered = filtered.filter(s => ['enviado_fornecedor', 'aguardando_execucao', 'aguardando_nf_boleto', 'nf_boleto_enviados', 'enviado_pagamento'].includes(s.status));
         break;
       case 'reprovadas':
         filtered = filtered.filter(s => s.status === 'rejeitado');
@@ -340,7 +343,8 @@ export default function MinhasSolicitacoes() {
     com_backoffice: solicitacoes.filter(s => ['recebido', 'em_analise', 'aprovado', 'em_processamento'].includes(s.status)).length,
     correcoes: solicitacoes.filter(s => s.status === 'pendente_correcao' || s.status === 'aguardando_informacoes').length,
     oc_emitida: solicitacoes.filter(s => s.status === 'aguardando_aceite').length,
-    liberadas: solicitacoes.filter(s => ['liberado_fornecedor', 'enviado_fornecedor', 'aguardando_nf_boleto', 'nf_boleto_enviados', 'enviado_pagamento'].includes(s.status)).length,
+    liberadas: solicitacoes.filter(s => s.status === 'liberado_fornecedor').length,
+    enviadas: solicitacoes.filter(s => ['enviado_fornecedor', 'aguardando_execucao', 'aguardando_nf_boleto', 'nf_boleto_enviados', 'enviado_pagamento'].includes(s.status)).length,
     reprovadas: solicitacoes.filter(s => s.status === 'rejeitado').length,
     concluidas: solicitacoes.filter(s => s.status === 'concluida').length,
   }), [solicitacoes]);
@@ -802,6 +806,7 @@ export default function MinhasSolicitacoes() {
         { id: 'correcoes', label: 'Correções', count: statusCounts.correcoes, variant: 'warning' as const, icon: <AlertTriangle className="h-3.5 w-3.5" />, showCountWhenZero: false },
         { id: 'oc_emitida', label: 'OC/AC Emitida', count: statusCounts.oc_emitida, variant: 'success' as const, showCountWhenZero: false },
         { id: 'liberadas', label: 'Liberadas', count: statusCounts.liberadas, variant: 'default' as const, showCountWhenZero: false },
+        { id: 'enviadas', label: 'Enviadas', count: statusCounts.enviadas, variant: 'purple' as const, showCountWhenZero: false },
       ],
     },
     {
