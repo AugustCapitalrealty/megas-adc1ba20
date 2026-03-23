@@ -157,6 +157,7 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
             <MessageSquare className="h-5 w-5 shrink-0" />
             <span className="font-semibold">INFORMAÇÕES SOLICITADAS</span>
             <span className="text-sm opacity-90 hidden sm:inline">- O backoffice precisa de mais informações</span>
+            <CorrectionDeadlineBadge dataPendenteCorrecao={sol.data_pendente_correcao} status={sol.status} />
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <Button size="sm" variant="secondary" onClick={() => openCancelModal(sol)}
