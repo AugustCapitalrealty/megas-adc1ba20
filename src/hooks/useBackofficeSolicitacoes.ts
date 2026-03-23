@@ -32,6 +32,7 @@ export interface SolicitacaoBackoffice {
   responsavelId?: string | null;
   responsavelNome?: string | null;
   dataAprovacao?: string | null;
+  ultimaAcao?: string | null;
 }
 
 interface UseBackofficeSolicitacoesOptions {
