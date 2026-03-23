@@ -8,6 +8,7 @@ import { ExpandableDescription } from '@/components/ExpandableDescription';
 import { SolicitacaoTimeline } from '@/components/SolicitacaoTimeline';
 import { FluigStatusCard } from '@/components/FluigStatusCard';
 import { UnreadMessageBanner } from '@/components/UnreadMessageBanner';
+import { CorrectionDeadlineBadge } from '@/components/CorrectionDeadlineBadge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import type { SolicitacaoBackoffice } from '@/hooks/useBackofficeSolicitacoes';
 import type { RequestStatus } from '@/types';
@@ -196,6 +197,17 @@ export const BackofficeSolicitacaoCard = memo(function BackofficeSolicitacaoCard
       <Badge key="emerg" variant="destructive" className="text-[10px] gap-1">
         <AlertTriangle className="h-3 w-3" /> Emergencial
       </Badge>
+    );
+  }
+
+  // Deadline badge for pendente_correcao / aguardando_informacoes
+  if (['pendente_correcao', 'aguardando_informacoes'].includes(sol.status) && sol.data_pendente_correcao) {
+    chips.push(
+      <CorrectionDeadlineBadge
+        key="deadline"
+        dataPendenteCorrecao={sol.data_pendente_correcao}
+        status={sol.status}
+      />
     );
   }
 
