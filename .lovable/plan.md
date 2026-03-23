@@ -1,43 +1,47 @@
 
 
-## Separar "Liberadas" e "Enviadas" no Backoffice
+## Correções: Typo no Resumo + Visibilidade de Canceladas por Prazo Expirado
 
-### Problema
+### 1. Corrigir typo "solicitaçãoões"
 
-A aba "Liberadas" atualmente agrupa 5 status diferentes numa única lista:
-- `liberado_fornecedor`, `enviado_fornecedor` → OC já enviada ao fornecedor
-- `aguardando_execucao` → em execução
-- `aguardando_nf_boleto`, `nf_boleto_enviados` → aguardando/recebendo documentos fiscais
+**Arquivo:** `src/components/DailyInsightCard.tsx` (linha 38)
 
-Isso mistura solicitações em fases muito distintas do fluxo.
+O problema é a interpolação `solicitação${newInQueue > 1 ? 'ões' : ''}` que produz "solicitaçãoões" no plural. Corrigir para `solicitaç${newInQueue > 1 ? 'ões' : 'ão'}`.
 
-### Solução
+### 2. Onde ficam as canceladas por prazo expirado
 
-Dividir em duas abas:
+Atualmente, quando o prazo de 30 dias expira, a edge function muda o status para `rejeitado`. Essas solicitações aparecem na aba "Reprovadas" — tanto no Backoffice quanto no Solicitante. O problema é que não há distinção visual entre uma rejeição manual do backoffice e um cancelamento automático por prazo, nem existe opção de reabrir.
 
-| Aba | Label | Status incluídos |
-|-----|-------|-----------------|
-| **Liberadas** | Liberadas | `liberado_fornecedor` (OC aceita, ainda não enviada ao fornecedor) |
-| **Enviadas** | Enviadas | `enviado_fornecedor`, `aguardando_execucao`, `aguardando_nf_boleto`, `nf_boleto_enviados` |
+### 3. Permitir reabertura pelo backoffice
 
-### Arquivo: `src/pages/Backoffice.tsx`
+**Migração SQL:**
+- Adicionar transição `rejeitado → recebido` na tabela `status_transitions`
 
-**1. Tipo `BackofficeTab`** (linha 56): adicionar `'enviadas'`
+**Arquivo:** `src/components/backoffice/BackofficeSolicitacaoCard.tsx`
+- Para solicitações com status `rejeitado`, verificar no histórico se a ação foi `prazo_correção_expirado` ou `prazo_resposta_expirado`
+- Exibir badge "Cancelada por prazo" para diferenciá-las visualmente
+- Adicionar botão "Reabrir" que muda o status de volta para `recebido`
 
-**2. `groupedSolicitacoes`** (linhas 1219-1223): separar em dois grupos:
-```
-liberadas: [...].filter(s => s.status === 'liberado_fornecedor')
-enviadas: [...].filter(s => 
-  s.status === 'enviado_fornecedor' || s.status === 'aguardando_execucao' ||
-  s.status === 'aguardando_nf_boleto' || s.status === 'nf_boleto_enviados'
-)
-```
+**Arquivo:** `src/pages/Backoffice.tsx`
+- Adicionar handler `handleReabrir` que:
+  1. Atualiza status para `recebido`
+  2. Insere registro no histórico com ação `reabertura`
+  3. Notifica o solicitante
 
-**3. FilterBar tabs** (linha 1529): adicionar tab "Enviadas" após "Liberadas"
+**Arquivo:** `src/components/solicitante/SolicitanteSolicitacaoCard.tsx`
+- Para solicitações rejeitadas por prazo, mostrar banner informativo: "Cancelada automaticamente — prazo de 30 dias expirado. Solicite reabertura ao backoffice."
 
-**4. Tab content** (linha 1573): adicionar renderização da aba `enviadas`
+### 4. Badge diferenciador no card (ambas as visões)
 
-### Arquivo: `src/components/backoffice/BackofficeKPIs.tsx`
+Criar lógica que consulta o último registro de histórico da solicitação rejeitada. Se a ação contém "prazo" e "expirado", exibir badge vermelho "Prazo expirado" em vez do genérico "Rejeitada".
 
-Atualizar o KPI "Liberadas" se necessário para refletir a nova contagem, ou manter como está (soma de ambas).
+### Arquivos Modificados
+
+| Arquivo | Mudança |
+|---------|---------|
+| `src/components/DailyInsightCard.tsx` | Corrigir typo |
+| Migração SQL | Transição `rejeitado → recebido` |
+| `src/pages/Backoffice.tsx` | Handler `handleReabrir` |
+| `src/components/backoffice/BackofficeSolicitacaoCard.tsx` | Badge "Prazo expirado" + botão "Reabrir" |
+| `src/components/solicitante/SolicitanteSolicitacaoCard.tsx` | Banner informativo |
 
