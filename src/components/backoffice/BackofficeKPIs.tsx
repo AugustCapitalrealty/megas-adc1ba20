@@ -20,6 +20,7 @@ interface GroupedSolicitacoes {
   em_processamento: SolicitacaoBackoffice[];
   oc_emitidas: SolicitacaoBackoffice[];
   liberadas: SolicitacaoBackoffice[];
+  enviadas: SolicitacaoBackoffice[];
   pendentes: SolicitacaoBackoffice[];
   concluidas: SolicitacaoBackoffice[];
   rejeitadas: SolicitacaoBackoffice[];
