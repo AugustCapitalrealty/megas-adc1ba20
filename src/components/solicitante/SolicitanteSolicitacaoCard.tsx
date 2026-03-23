@@ -90,6 +90,7 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
             <AlertTriangle className="h-5 w-5 shrink-0" />
             <span className="font-semibold">AÇÃO NECESSÁRIA</span>
             <span className="text-sm opacity-90 hidden sm:inline">- Esta solicitação precisa de correção</span>
+            <CorrectionDeadlineBadge dataPendenteCorrecao={sol.data_pendente_correcao} status={sol.status} />
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <Button size="sm" variant="secondary" onClick={() => openCancelModal(sol)}
