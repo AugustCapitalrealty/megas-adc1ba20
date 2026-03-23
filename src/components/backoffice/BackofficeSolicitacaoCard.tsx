@@ -57,6 +57,7 @@ export interface CardCallbacks {
   handleSolicitarCadastro: (sol: SolicitacaoBackoffice) => void;
   handleAprovarCancelamento: (sol: SolicitacaoBackoffice) => void;
   handleRejeitarCancelamento: (sol: SolicitacaoBackoffice) => void;
+  handleReabrir: (sol: SolicitacaoBackoffice) => void;
   onToggleExpand: (id: string) => void;
   onTransfer: (sol: SolicitacaoBackoffice) => void;
   onViewNfBoleto: (sol: SolicitacaoBackoffice) => void;
