@@ -1,47 +1,32 @@
 
 
-## Correções: Typo no Resumo + Visibilidade de Canceladas por Prazo Expirado
+## Remover opção "Reabrir" — manter apenas badge informativo
 
-### 1. Corrigir typo "solicitaçãoões"
+O fluxo correto para canceladas por prazo é o solicitante duplicar e abrir nova solicitação (funcionalidade já existente).
 
-**Arquivo:** `src/components/DailyInsightCard.tsx` (linha 38)
+### Mudanças
 
-O problema é a interpolação `solicitação${newInQueue > 1 ? 'ões' : ''}` que produz "solicitaçãoões" no plural. Corrigir para `solicitaç${newInQueue > 1 ? 'ões' : 'ão'}`.
+#### 1. `src/components/backoffice/BackofficeSolicitacaoCard.tsx`
+- **Remover** `handleReabrir` do `CardCallbacks` (linha 60)
+- **Remover** o bloco do botão "Reabrir" (linhas 286-292)
+- Manter o badge "Prazo expirado" como está
 
-### 2. Onde ficam as canceladas por prazo expirado
+#### 2. `src/pages/Backoffice.tsx`
+- **Remover** a função `handleReabrir` inteira (linhas 1214-1243)
+- **Remover** `handleReabrir` do objeto de callbacks passado ao card
 
-Atualmente, quando o prazo de 30 dias expira, a edge function muda o status para `rejeitado`. Essas solicitações aparecem na aba "Reprovadas" — tanto no Backoffice quanto no Solicitante. O problema é que não há distinção visual entre uma rejeição manual do backoffice e um cancelamento automático por prazo, nem existe opção de reabrir.
+#### 3. `src/components/solicitante/SolicitanteSolicitacaoCard.tsx`
+- Alterar o texto de "Solicite reabertura ao backoffice..." para algo como: "Caso ainda precise, duplique esta solicitação para abrir uma nova."
 
-### 3. Permitir reabertura pelo backoffice
-
-**Migração SQL:**
-- Adicionar transição `rejeitado → recebido` na tabela `status_transitions`
-
-**Arquivo:** `src/components/backoffice/BackofficeSolicitacaoCard.tsx`
-- Para solicitações com status `rejeitado`, verificar no histórico se a ação foi `prazo_correção_expirado` ou `prazo_resposta_expirado`
-- Exibir badge "Cancelada por prazo" para diferenciá-las visualmente
-- Adicionar botão "Reabrir" que muda o status de volta para `recebido`
-
-**Arquivo:** `src/pages/Backoffice.tsx`
-- Adicionar handler `handleReabrir` que:
-  1. Atualiza status para `recebido`
-  2. Insere registro no histórico com ação `reabertura`
-  3. Notifica o solicitante
-
-**Arquivo:** `src/components/solicitante/SolicitanteSolicitacaoCard.tsx`
-- Para solicitações rejeitadas por prazo, mostrar banner informativo: "Cancelada automaticamente — prazo de 30 dias expirado. Solicite reabertura ao backoffice."
-
-### 4. Badge diferenciador no card (ambas as visões)
-
-Criar lógica que consulta o último registro de histórico da solicitação rejeitada. Se a ação contém "prazo" e "expirado", exibir badge vermelho "Prazo expirado" em vez do genérico "Rejeitada".
+#### 4. Migração SQL (opcional)
+- Remover a transição `rejeitado → recebido` adicionada anteriormente na `status_transitions`, já que não será mais usada
 
 ### Arquivos Modificados
 
 | Arquivo | Mudança |
 |---------|---------|
-| `src/components/DailyInsightCard.tsx` | Corrigir typo |
-| Migração SQL | Transição `rejeitado → recebido` |
-| `src/pages/Backoffice.tsx` | Handler `handleReabrir` |
-| `src/components/backoffice/BackofficeSolicitacaoCard.tsx` | Badge "Prazo expirado" + botão "Reabrir" |
-| `src/components/solicitante/SolicitanteSolicitacaoCard.tsx` | Banner informativo |
+| `src/components/backoffice/BackofficeSolicitacaoCard.tsx` | Remover botão Reabrir e callback |
+| `src/pages/Backoffice.tsx` | Remover handler `handleReabrir` |
+| `src/components/solicitante/SolicitanteSolicitacaoCard.tsx` | Atualizar texto orientativo |
+| Migração SQL | Remover transição `rejeitado → recebido` |
 
