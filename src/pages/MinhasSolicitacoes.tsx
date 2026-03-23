@@ -51,7 +51,7 @@ const ATTACHMENT_TYPES = {
   orcamento_concorrente_2: 'Orçamento Concorrente 2',
 } as const;
 
-type FilterTab = 'todas' | 'com_backoffice' | 'correcoes' | 'oc_emitida' | 'liberadas' | 'reprovadas' | 'concluidas';
+type FilterTab = 'todas' | 'com_backoffice' | 'correcoes' | 'oc_emitida' | 'liberadas' | 'enviadas' | 'reprovadas' | 'concluidas';
 type ViewMode = 'minhas' | 'empreendimento';
 
 export default function MinhasSolicitacoes() {
