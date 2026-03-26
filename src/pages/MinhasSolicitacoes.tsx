@@ -314,10 +314,10 @@ export default function MinhasSolicitacoes() {
         filtered = filtered.filter(s => s.status === 'aguardando_aceite');
         break;
       case 'liberadas':
-        filtered = filtered.filter(s => s.status === 'liberado_fornecedor');
+        filtered = filtered.filter(s => s.status === 'liberado_fornecedor' || s.status === 'aguardando_execucao');
         break;
       case 'enviadas':
-        filtered = filtered.filter(s => ['enviado_fornecedor', 'aguardando_execucao', 'aguardando_nf_boleto', 'nf_boleto_enviados', 'enviado_pagamento'].includes(s.status));
+        filtered = filtered.filter(s => ['enviado_fornecedor', 'aguardando_nf_boleto', 'nf_boleto_enviados', 'enviado_pagamento'].includes(s.status));
         break;
       case 'reprovadas':
         filtered = filtered.filter(s => s.status === 'rejeitado');
@@ -343,8 +343,8 @@ export default function MinhasSolicitacoes() {
     com_backoffice: solicitacoes.filter(s => ['recebido', 'em_analise', 'aprovado', 'em_processamento'].includes(s.status)).length,
     correcoes: solicitacoes.filter(s => s.status === 'pendente_correcao' || s.status === 'aguardando_informacoes').length,
     oc_emitida: solicitacoes.filter(s => s.status === 'aguardando_aceite').length,
-    liberadas: solicitacoes.filter(s => s.status === 'liberado_fornecedor').length,
-    enviadas: solicitacoes.filter(s => ['enviado_fornecedor', 'aguardando_execucao', 'aguardando_nf_boleto', 'nf_boleto_enviados', 'enviado_pagamento'].includes(s.status)).length,
+    liberadas: solicitacoes.filter(s => s.status === 'liberado_fornecedor' || s.status === 'aguardando_execucao').length,
+    enviadas: solicitacoes.filter(s => ['enviado_fornecedor', 'aguardando_nf_boleto', 'nf_boleto_enviados', 'enviado_pagamento'].includes(s.status)).length,
     reprovadas: solicitacoes.filter(s => s.status === 'rejeitado').length,
     concluidas: solicitacoes.filter(s => s.status === 'concluida').length,
   }), [solicitacoes]);
