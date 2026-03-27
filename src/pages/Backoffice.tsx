@@ -53,7 +53,7 @@ interface PdfValidationResult {
   diferenca: number | null;
 }
 
-type BackofficeTab = 'recebidas' | 'pendentes' | 'em_processamento' | 'oc_emitidas' | 'liberadas' | 'enviadas' | 'concluidas' | 'rejeitadas' | 'cancelamento_pendente';
+type BackofficeTab = 'recebidas' | 'pendentes' | 'em_processamento' | 'oc_emitidas' | 'liberadas' | 'enviadas' | 'concluidas' | 'canceladas' | 'cancelamento_pendente';
 
 export default function Backoffice() {
   const { user } = useAuth();
@@ -1223,7 +1223,7 @@ export default function Backoffice() {
     ),
     pendentes: filteredSolicitacoes.filter(s => s.status === 'pendente_correcao' || s.status === 'aguardando_informacoes'),
     concluidas: filteredSolicitacoes.filter(s => s.status === 'concluida' || s.status === 'enviado_pagamento'),
-    rejeitadas: filteredSolicitacoes.filter(s => s.status === 'rejeitado'),
+    canceladas: filteredSolicitacoes.filter(s => s.status === 'rejeitado' || s.status === 'cancelado'),
     cancelamento_pendente: filteredSolicitacoes.filter(s => cancelamentoPendenteIds.has(s.id)),
   }), [filteredSolicitacoes, cancelamentoPendenteIds]);
 
@@ -1544,7 +1544,7 @@ export default function Backoffice() {
               id: 'finalizadas',
               label: 'Finalizadas',
               tabs: [
-                { id: 'rejeitadas', label: 'Rejeitadas', count: groupedSolicitacoes.rejeitadas.length },
+                { id: 'canceladas', label: 'Canceladas', count: groupedSolicitacoes.canceladas.length },
                 { id: 'concluidas', label: 'Concluídas', count: groupedSolicitacoes.concluidas.length, variant: 'success' as const },
               ],
             },
@@ -1580,8 +1580,8 @@ export default function Backoffice() {
           {activeTab === 'concluidas' && (
             <TabContent items={groupedSolicitacoes.concluidas} emptyMessage="Nenhuma solicitação concluída" />
           )}
-          {activeTab === 'rejeitadas' && (
-            <TabContent items={groupedSolicitacoes.rejeitadas} emptyMessage="Nenhuma solicitação rejeitada" />
+          {activeTab === 'canceladas' && (
+            <TabContent items={groupedSolicitacoes.canceladas} emptyMessage="Nenhuma solicitação cancelada" />
           )}
           {activeTab === 'cancelamento_pendente' && (
             <TabContent items={groupedSolicitacoes.cancelamento_pendente} emptyMessage="Nenhum cancelamento pendente de aprovação" />

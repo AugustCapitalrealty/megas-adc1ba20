@@ -23,7 +23,7 @@ interface GroupedSolicitacoes {
   enviadas: SolicitacaoBackoffice[];
   pendentes: SolicitacaoBackoffice[];
   concluidas: SolicitacaoBackoffice[];
-  rejeitadas: SolicitacaoBackoffice[];
+  canceladas: SolicitacaoBackoffice[];
   cancelamento_pendente: SolicitacaoBackoffice[];
 }
 
