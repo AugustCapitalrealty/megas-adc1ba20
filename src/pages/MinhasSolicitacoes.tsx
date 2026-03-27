@@ -51,7 +51,7 @@ const ATTACHMENT_TYPES = {
   orcamento_concorrente_2: 'Orçamento Concorrente 2',
 } as const;
 
-type FilterTab = 'todas' | 'com_backoffice' | 'correcoes' | 'oc_emitida' | 'liberadas' | 'enviadas' | 'reprovadas' | 'concluidas';
+type FilterTab = 'todas' | 'com_backoffice' | 'correcoes' | 'oc_emitida' | 'liberadas' | 'enviadas' | 'canceladas' | 'concluidas';
 type ViewMode = 'minhas' | 'empreendimento';
 
 export default function MinhasSolicitacoes() {
@@ -319,8 +319,8 @@ export default function MinhasSolicitacoes() {
       case 'enviadas':
         filtered = filtered.filter(s => ['enviado_fornecedor', 'aguardando_nf_boleto', 'nf_boleto_enviados', 'enviado_pagamento'].includes(s.status));
         break;
-      case 'reprovadas':
-        filtered = filtered.filter(s => s.status === 'rejeitado');
+      case 'canceladas':
+        filtered = filtered.filter(s => s.status === 'rejeitado' || s.status === 'cancelado');
         break;
       case 'concluidas':
         filtered = filtered.filter(s => s.status === 'concluida');
@@ -345,7 +345,7 @@ export default function MinhasSolicitacoes() {
     oc_emitida: solicitacoes.filter(s => s.status === 'aguardando_aceite').length,
     liberadas: solicitacoes.filter(s => s.status === 'liberado_fornecedor' || s.status === 'aguardando_execucao').length,
     enviadas: solicitacoes.filter(s => ['enviado_fornecedor', 'aguardando_nf_boleto', 'nf_boleto_enviados', 'enviado_pagamento'].includes(s.status)).length,
-    reprovadas: solicitacoes.filter(s => s.status === 'rejeitado').length,
+    canceladas: solicitacoes.filter(s => s.status === 'rejeitado' || s.status === 'cancelado').length,
     concluidas: solicitacoes.filter(s => s.status === 'concluida').length,
   }), [solicitacoes]);
 
@@ -812,7 +812,7 @@ export default function MinhasSolicitacoes() {
     {
       id: 'finalizadas', label: 'Finalizadas',
       tabs: [
-        { id: 'reprovadas', label: 'Não Aprovadas', count: statusCounts.reprovadas, showCountWhenZero: false },
+        { id: 'canceladas', label: 'Canceladas', count: statusCounts.canceladas, showCountWhenZero: false },
         { id: 'concluidas', label: 'Finalizadas', count: statusCounts.concluidas, variant: 'success' as const, showCountWhenZero: false },
       ],
     },

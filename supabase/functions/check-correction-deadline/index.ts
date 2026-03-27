@@ -20,6 +20,7 @@ interface SolicitacaoPendente {
   data_pendente_correcao: string;
   empreendimento: string;
   status: string;
+  numero_chamado_fluig: string | null;
 }
 
 function getStatusLabel(status: string): { action: string; noun: string } {
@@ -50,7 +51,7 @@ serve(async (req) => {
 
     const { data: pendentes, error: fetchError } = await supabase
       .from("solicitacoes")
-      .select("id, protocolo, user_id, data_pendente_correcao, empreendimento, status")
+      .select("id, protocolo, user_id, data_pendente_correcao, empreendimento, status, numero_chamado_fluig")
       .in("status", TRACKED_STATUSES)
       .not("data_pendente_correcao", "is", null);
 
@@ -60,6 +61,14 @@ serve(async (req) => {
     }
 
     console.log(`[DEADLINE] Found ${pendentes?.length || 0} solicitações pendentes`);
+
+    // Fetch all backoffice/admin user IDs for notifications
+    const { data: backofficeUsers } = await supabase
+      .from("user_roles")
+      .select("user_id")
+      .in("role", ["backoffice", "admin"]);
+
+    const backofficeUserIds = [...new Set((backofficeUsers || []).map(u => u.user_id))];
 
     const now = new Date();
     const results = { expired: [] as string[], alertSent: [] as string[], errors: [] as string[] };
@@ -74,11 +83,11 @@ serve(async (req) => {
 
       try {
         if (diffDays >= PRAZO_DIAS) {
-          console.log(`[DEADLINE] ${sol.protocolo}: Prazo expirado! Encerrando...`);
+          console.log(`[DEADLINE] ${sol.protocolo}: Prazo expirado! Cancelando...`);
 
           const { error: updateError } = await supabase
             .from("solicitacoes")
-            .update({ status: "rejeitado" })
+            .update({ status: "cancelado" })
             .eq("id", sol.id);
 
           if (updateError) {
@@ -93,21 +102,40 @@ serve(async (req) => {
               user_id: sol.user_id,
               acao: `prazo_${action}_expirado`,
               status_anterior: sol.status,
-              status_novo: "rejeitado",
-              motivo: `Solicitação encerrada automaticamente: prazo de ${PRAZO_DIAS} dias para ${action} expirou.`,
+              status_novo: "cancelado",
+              motivo: `Solicitação cancelada automaticamente: prazo de ${PRAZO_DIAS} dias para ${action} expirou.`,
             });
 
           if (histError) {
             console.error(`[DEADLINE] History error for ${sol.protocolo}:`, histError);
           }
 
+          // Notify the solicitante
           await supabase.from("notifications").insert({
             user_id: sol.user_id,
             tipo: "error",
             titulo: `Prazo de ${noun} Expirado`,
-            mensagem: `A solicitação ${sol.protocolo} foi encerrada automaticamente pois o prazo de ${PRAZO_DIAS} dias para ${action} expirou.`,
+            mensagem: `A solicitação ${sol.protocolo} foi cancelada automaticamente pois o prazo de ${PRAZO_DIAS} dias para ${action} expirou. Caso ainda precise, duplique a solicitação para abrir uma nova.`,
             solicitacao_id: sol.id,
           });
+
+          // Notify all backoffice/admin users
+          const fluigInfo = sol.numero_chamado_fluig
+            ? ` (Fluig: ${sol.numero_chamado_fluig} — verifique se há processo no Fluig para cancelar)`
+            : "";
+          
+          const backofficeNotifications = backofficeUserIds.map(uid => ({
+            user_id: uid,
+            tipo: "action_required",
+            titulo: `Solicitação Cancelada por Prazo`,
+            mensagem: `A solicitação ${sol.protocolo} (${sol.empreendimento}) foi cancelada automaticamente por falta de ${action} em ${PRAZO_DIAS} dias.${fluigInfo}`,
+            solicitacao_id: sol.id,
+            prioridade: sol.numero_chamado_fluig ? "high" : "normal",
+          }));
+
+          if (backofficeNotifications.length > 0) {
+            await supabase.from("notifications").insert(backofficeNotifications);
+          }
 
           await sendEmail(supabaseUrl, sol, "prazo_correcao_expirado", supabase, action);
           results.expired.push(sol.protocolo);
@@ -129,7 +157,7 @@ serve(async (req) => {
               user_id: sol.user_id,
               tipo: "action_required",
               titulo: `Prazo de ${noun}: ${diasRestantes} dias restantes`,
-              mensagem: `A solicitação ${sol.protocolo} precisa de ${action} em até ${diasRestantes} dias ou será encerrada automaticamente.`,
+              mensagem: `A solicitação ${sol.protocolo} precisa de ${action} em até ${diasRestantes} dias ou será cancelada automaticamente.`,
               solicitacao_id: sol.id,
             });
 

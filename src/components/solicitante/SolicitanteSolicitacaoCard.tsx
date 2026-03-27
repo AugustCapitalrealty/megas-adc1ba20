@@ -182,7 +182,7 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
     const rejectionInfo = rejectionReasons[sol.id];
     const infoRequest = infoRequests[sol.id];
 
-    if (sol.status === 'rejeitado' && rejectionInfo?.motivo) {
+    if ((sol.status === 'rejeitado' || sol.status === 'cancelado') && rejectionInfo?.motivo) {
       const isPrazoExpirado = rejectionInfo.motivo.includes('prazo') && rejectionInfo.motivo.includes('expirou');
       return (
         <div className={cn("mb-4 p-3 rounded-lg", isPrazoExpirado ? "bg-warning/10 border border-warning/20" : "bg-destructive/10 border border-destructive/20")}>
