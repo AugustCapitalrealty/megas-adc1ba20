@@ -1079,6 +1079,17 @@ export default function Admin() {
           </DialogHeader>
 
           <div className="space-y-4">
+            {vacationPreviewLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Contando solicitações...
+              </div>
+            ) : vacationPreviewCount !== null && (
+              <div className="p-3 rounded-lg bg-muted text-sm">
+                <strong>{vacationPreviewCount}</strong> solicitação(ões) ativa(s) serão transferidas.
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label>Novo responsável do backoffice</Label>
               <Select value={vacationTargetUserId} onValueChange={setVacationTargetUserId}>
@@ -1110,9 +1121,53 @@ export default function Admin() {
             <Button variant="outline" onClick={() => setVacationModalOpen(false)} disabled={vacationLoading}>
               Cancelar
             </Button>
-            <Button onClick={handleVacationTransfer} disabled={vacationLoading || !vacationTargetUserId}>
+            <Button onClick={handleVacationTransfer} disabled={vacationLoading || !vacationTargetUserId || vacationPreviewCount === 0}>
               {vacationLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Transferir carteira
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Return Wallet Dialog */}
+      <Dialog open={returnModalOpen} onOpenChange={setReturnModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Devolver carteira</DialogTitle>
+            <DialogDescription>
+              Devolve as solicitações transferidas por férias para {returnSourceUser?.full_name || returnSourceUser?.email} ao responsável original.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {returnPreviewData === null ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Verificando transferências...
+              </div>
+            ) : returnPreviewData.count === 0 ? (
+              <div className="p-3 rounded-lg bg-muted text-sm">
+                Nenhuma solicitação ativa de férias encontrada para devolver.
+              </div>
+            ) : (
+              <div className="p-3 rounded-lg bg-muted text-sm space-y-1">
+                <p><strong>{returnPreviewData.count}</strong> solicitação(ões) ativa(s) serão devolvidas.</p>
+                <p>Destino: <strong>{returnPreviewData.targetName}</strong></p>
+                <p className="text-xs text-muted-foreground">A role de backoffice será restaurada automaticamente se necessário.</p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReturnModalOpen(false)} disabled={returnLoading}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleReturnWallet} 
+              disabled={returnLoading || !returnPreviewData || returnPreviewData.count === 0}
+            >
+              {returnLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Devolver carteira
             </Button>
           </DialogFooter>
         </DialogContent>
