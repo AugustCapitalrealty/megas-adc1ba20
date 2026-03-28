@@ -81,6 +81,14 @@ export default function Admin() {
   const [vacationTargetUserId, setVacationTargetUserId] = useState('');
   const [vacationLoading, setVacationLoading] = useState(false);
   const [removeRoleDuringVacation, setRemoveRoleDuringVacation] = useState(true);
+  const [vacationPreviewCount, setVacationPreviewCount] = useState<number | null>(null);
+  const [vacationPreviewLoading, setVacationPreviewLoading] = useState(false);
+  
+  // Return wallet state
+  const [returnModalOpen, setReturnModalOpen] = useState(false);
+  const [returnSourceUser, setReturnSourceUser] = useState<UserWithRoles | null>(null);
+  const [returnLoading, setReturnLoading] = useState(false);
+  const [returnPreviewData, setReturnPreviewData] = useState<{ count: number; targetName: string; targetId: string } | null>(null);
   
   const activeTab = searchParams.get('tab') || 'usuarios';
   const setActiveTab = (tab: string) => setSearchParams({ tab });
