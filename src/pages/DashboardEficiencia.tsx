@@ -124,6 +124,8 @@ export default function DashboardEficiencia() {
     etapas,
     topSolicitantes,
     topFornecedores,
+    canceladasPorPrazo,
+    canceladasPorPrazoPercent,
     isLoading,
     refetch,
   } = useEficienciaDashboard(filters);
