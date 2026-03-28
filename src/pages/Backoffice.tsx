@@ -26,7 +26,7 @@ import {
   type DocumentoFiscal
 } from '@/types';
 import { 
-  Loader2, CheckCircle, XCircle, Search, AlertTriangle, Download, Filter,
+  Loader2, CheckCircle, XCircle, Search, AlertTriangle, Download, Filter, ArrowUpDown,
 } from 'lucide-react';
 import { differenceInDays, differenceInHours } from 'date-fns';
 import { formatBR } from '@/lib/date-utils';
@@ -39,7 +39,7 @@ import { saveAs } from 'file-saver';
 import { TransferOwnershipModal } from '@/components/TransferOwnershipModal';
 import { exportToExcel } from '@/lib/export-utils';
 import { useUnreadMessages } from '@/hooks/useUnreadMessages';
-import { BackofficeKPIs } from '@/components/backoffice/BackofficeKPIs';
+
 import { BackofficeSolicitacaoCard, type CardCallbacks } from '@/components/backoffice/BackofficeSolicitacaoCard';
 import { BackofficeModals } from '@/components/backoffice/BackofficeModals';
 import { BatchActionBar } from '@/components/backoffice/BatchActionBar';
@@ -73,6 +73,7 @@ export default function Backoffice() {
   const [activeTab, setActiveTab] = useState<BackofficeTab>('recebidas');
   const [numeroChamadoFluig, setNumeroChamadoFluig] = useState('');
   const [showOnlyMine, setShowOnlyMine] = useState(false);
+  const [sortBy, setSortBy] = useState<'created_at' | 'updated_at'>('created_at');
 
   // Use RPC-based hook for fetching with debounced search
   const { solicitacoes, loading, refetch: fetchSolicitacoes } = useBackofficeSolicitacoes({
@@ -1346,8 +1347,13 @@ export default function Backoffice() {
   }, [groupedSolicitacoes, activeTab]);
 
   const TabContent = ({ items, emptyMessage }: { items: SolicitacaoBackoffice[], emptyMessage: string }) => {
-    const totalPages = Math.ceil(items.length / ITEMS_PER_PAGE);
-    const paginatedItems = items.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+    const sortedItems = [...items].sort((a, b) => {
+      const dateA = new Date(sortBy === 'created_at' ? a.created_at : a.updated_at).getTime();
+      const dateB = new Date(sortBy === 'created_at' ? b.created_at : b.updated_at).getTime();
+      return dateB - dateA;
+    });
+    const totalPages = Math.ceil(sortedItems.length / ITEMS_PER_PAGE);
+    const paginatedItems = sortedItems.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
     
     return (
       <div className="space-y-4">
@@ -1451,12 +1457,6 @@ export default function Backoffice() {
           )}
         </div>
 
-        {/* KPIs Summary */}
-        <BackofficeKPIs
-          grouped={groupedSolicitacoes}
-          activeTab={activeTab}
-          onTabChange={(tab) => setActiveTab(tab as BackofficeTab)}
-        />
 
         {/* Filters */}
         <Card>
@@ -1511,6 +1511,14 @@ export default function Backoffice() {
               >
                 <Download className="h-4 w-4 mr-2" />
                 Exportar
+              </Button>
+              <Button
+                variant={sortBy === 'updated_at' ? 'default' : 'outline'}
+                onClick={() => setSortBy(prev => prev === 'created_at' ? 'updated_at' : 'created_at')}
+                className="w-full md:w-auto"
+              >
+                <ArrowUpDown className="h-4 w-4 mr-2" />
+                {sortBy === 'created_at' ? 'Abertura' : 'Última alteração'}
               </Button>
             </div>
           </CardContent>

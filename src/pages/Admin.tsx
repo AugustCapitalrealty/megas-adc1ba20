@@ -81,6 +81,14 @@ export default function Admin() {
   const [vacationTargetUserId, setVacationTargetUserId] = useState('');
   const [vacationLoading, setVacationLoading] = useState(false);
   const [removeRoleDuringVacation, setRemoveRoleDuringVacation] = useState(true);
+  const [vacationPreviewCount, setVacationPreviewCount] = useState<number | null>(null);
+  const [vacationPreviewLoading, setVacationPreviewLoading] = useState(false);
+  
+  // Return wallet state
+  const [returnModalOpen, setReturnModalOpen] = useState(false);
+  const [returnSourceUser, setReturnSourceUser] = useState<UserWithRoles | null>(null);
+  const [returnLoading, setReturnLoading] = useState(false);
+  const [returnPreviewData, setReturnPreviewData] = useState<{ count: number; targetName: string; targetId: string } | null>(null);
   
   const activeTab = searchParams.get('tab') || 'usuarios';
   const setActiveTab = (tab: string) => setSearchParams({ tab });
@@ -347,11 +355,57 @@ export default function Admin() {
     toast.success('Voltou ao seu perfil original');
   };
 
-  const openVacationTransfer = (sourceUser: UserWithRoles) => {
+  const openVacationTransfer = async (sourceUser: UserWithRoles) => {
     setVacationSourceUser(sourceUser);
     setVacationTargetUserId('');
     setRemoveRoleDuringVacation(true);
+    setVacationPreviewCount(null);
     setVacationModalOpen(true);
+    
+    // Fetch preview count
+    setVacationPreviewLoading(true);
+    try {
+      let allSols: Array<{ id: string; status: any }> = [];
+      let offset = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+      while (hasMore) {
+        const { data: page } = await supabase
+          .from('solicitacoes')
+          .select('id, status')
+          .in('status', [...ACTIVE_BACKOFFICE_STATUSES])
+          .range(offset, offset + pageSize - 1);
+        allSols = allSols.concat(page || []);
+        hasMore = (page?.length || 0) === pageSize;
+        offset += pageSize;
+      }
+      const solIds = allSols.map(s => s.id);
+      if (solIds.length > 0) {
+        const batchSize = 500;
+        let allHist: { solicitacao_id: string; user_id: string; created_at: string }[] = [];
+        for (let i = 0; i < solIds.length; i += batchSize) {
+          const batch = solIds.slice(i, i + batchSize);
+          const { data: hist } = await supabase
+            .from('historico_solicitacoes')
+            .select('solicitacao_id, user_id, created_at')
+            .in('solicitacao_id', batch)
+            .eq('acao', 'Assumido pelo backoffice')
+            .order('created_at', { ascending: false });
+          allHist = allHist.concat(hist || []);
+        }
+        const respMap = new Map<string, string>();
+        allHist.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          .forEach(h => { if (!respMap.has(h.solicitacao_id)) respMap.set(h.solicitacao_id, h.user_id); });
+        const count = allSols.filter(s => respMap.get(s.id) === sourceUser.id).length;
+        setVacationPreviewCount(count);
+      } else {
+        setVacationPreviewCount(0);
+      }
+    } catch (err) {
+      console.error('Error fetching vacation preview:', err);
+    } finally {
+      setVacationPreviewLoading(false);
+    }
   };
 
   const handleVacationTransfer = async () => {
@@ -499,6 +553,148 @@ export default function Admin() {
       toast.error(error?.message || 'Não foi possível transferir a carteira de férias');
     } finally {
       setVacationLoading(false);
+    }
+  };
+
+  const openReturnWallet = async (targetUser: UserWithRoles) => {
+    setReturnSourceUser(targetUser);
+    setReturnPreviewData(null);
+    setReturnModalOpen(true);
+    
+    try {
+      // Find vacation transfers TO this user that haven't been returned
+      const { data: transfers } = await supabase
+        .from('solicitacao_transfers')
+        .select('solicitacao_id, from_user_id, motivo')
+        .eq('to_user_id', targetUser.id)
+        .ilike('motivo', '%férias%')
+        .order('created_at', { ascending: false });
+
+      if (!transfers || transfers.length === 0) {
+        setReturnPreviewData({ count: 0, targetName: '', targetId: '' });
+        return;
+      }
+
+      // Get unique solicitacao ids - check which are still active
+      const solIds = [...new Set(transfers.map(t => t.solicitacao_id))];
+      const batchSize = 500;
+      let activeSols: string[] = [];
+      for (let i = 0; i < solIds.length; i += batchSize) {
+        const batch = solIds.slice(i, i + batchSize);
+        const { data: active } = await supabase
+          .from('solicitacoes')
+          .select('id')
+          .in('id', batch)
+          .in('status', [...ACTIVE_BACKOFFICE_STATUSES]);
+        activeSols = activeSols.concat((active || []).map(s => s.id));
+      }
+
+      // Find original owner from transfers
+      const fromUserId = transfers[0]?.from_user_id;
+      const fromUser = users.find(u => u.id === fromUserId);
+      const fromName = fromUser?.full_name || fromUser?.email || 'Usuário original';
+
+      setReturnPreviewData({
+        count: activeSols.length,
+        targetName: fromName,
+        targetId: fromUserId || '',
+      });
+    } catch (err) {
+      console.error('Error loading return preview:', err);
+    }
+  };
+
+  const handleReturnWallet = async () => {
+    if (!returnSourceUser || !returnPreviewData || !user?.id) return;
+    setReturnLoading(true);
+    try {
+      // Find vacation transfers TO returnSourceUser
+      const { data: transfers } = await supabase
+        .from('solicitacao_transfers')
+        .select('solicitacao_id, from_user_id')
+        .eq('to_user_id', returnSourceUser.id)
+        .ilike('motivo', '%férias%');
+
+      if (!transfers || transfers.length === 0) {
+        toast.info('Nenhuma transferência de férias encontrada');
+        setReturnModalOpen(false);
+        return;
+      }
+
+      const solIds = [...new Set(transfers.map(t => t.solicitacao_id))];
+      const fromUserId = returnPreviewData.targetId;
+      
+      // Filter to only active ones
+      const batchSize = 500;
+      let activeSols: Array<{ id: string; protocolo: string | null; status: any }> = [];
+      for (let i = 0; i < solIds.length; i += batchSize) {
+        const batch = solIds.slice(i, i + batchSize);
+        const { data: active } = await supabase
+          .from('solicitacoes')
+          .select('id, protocolo, status')
+          .in('id', batch)
+          .in('status', [...ACTIVE_BACKOFFICE_STATUSES]);
+        activeSols = activeSols.concat(active || []);
+      }
+
+      if (activeSols.length === 0) {
+        toast.info('Não há solicitações ativas para devolver');
+        setReturnModalOpen(false);
+        return;
+      }
+
+      const returnUserName = returnPreviewData.targetName;
+      const currentHolderName = returnSourceUser.full_name || returnSourceUser.email;
+
+      // 1. Create historico records via RPC
+      const rpcBatchSize = 50;
+      for (let i = 0; i < activeSols.length; i += rpcBatchSize) {
+        const batch = activeSols.slice(i, i + rpcBatchSize);
+        await Promise.all(
+          batch.map(sol =>
+            supabase.rpc('insert_historico_admin', {
+              p_solicitacao_id: sol.id,
+              p_user_id: fromUserId,
+              p_acao: 'Assumido pelo backoffice',
+              p_status_anterior: sol.status,
+              p_status_novo: sol.status,
+              p_motivo: `Devolução de carteira: de ${currentHolderName} para ${returnUserName}`,
+            })
+          )
+        );
+      }
+
+      // 2. Create transfer audit records
+      const transferRecords = activeSols.map(sol => ({
+        solicitacao_id: sol.id,
+        from_user_id: returnSourceUser.id,
+        to_user_id: fromUserId,
+        created_by: user.id,
+        motivo: `Devolução de carteira: de ${currentHolderName} para ${returnUserName}`,
+      }));
+
+      await supabase.from('solicitacao_transfers').insert(transferRecords);
+
+      // 3. Restore backoffice role if missing
+      const originalUser = users.find(u => u.id === fromUserId);
+      if (originalUser && !originalUser.roles.includes('backoffice')) {
+        await supabase.from('user_roles').insert({ user_id: fromUserId, role: 'backoffice' });
+        setUsers(prev =>
+          prev.map(u =>
+            u.id === fromUserId
+              ? { ...u, roles: [...u.roles, 'backoffice' as any] }
+              : u
+          )
+        );
+      }
+
+      toast.success(`${activeSols.length} solicitação(ões) devolvida(s) para ${returnUserName}`);
+      setReturnModalOpen(false);
+    } catch (error: any) {
+      console.error('Error returning wallet:', error);
+      toast.error(error?.message || 'Não foi possível devolver a carteira');
+    } finally {
+      setReturnLoading(false);
     }
   };
 
@@ -810,14 +1006,24 @@ export default function Admin() {
                           </TableCell>
                           <TableCell className="text-center">
                             {targetUser.roles.includes('backoffice') ? (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="text-xs"
-                                onClick={() => openVacationTransfer(targetUser)}
-                              >
-                                Modo férias
-                              </Button>
+                              <div className="flex flex-col gap-1">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-xs"
+                                  onClick={() => openVacationTransfer(targetUser)}
+                                >
+                                  Modo férias
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-xs text-muted-foreground"
+                                  onClick={() => openReturnWallet(targetUser)}
+                                >
+                                  Devolver carteira
+                                </Button>
+                              </div>
                             ) : (
                               <span className="text-xs text-muted-foreground">-</span>
                             )}
@@ -873,6 +1079,17 @@ export default function Admin() {
           </DialogHeader>
 
           <div className="space-y-4">
+            {vacationPreviewLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Contando solicitações...
+              </div>
+            ) : vacationPreviewCount !== null && (
+              <div className="p-3 rounded-lg bg-muted text-sm">
+                <strong>{vacationPreviewCount}</strong> solicitação(ões) ativa(s) serão transferidas.
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label>Novo responsável do backoffice</Label>
               <Select value={vacationTargetUserId} onValueChange={setVacationTargetUserId}>
@@ -904,9 +1121,53 @@ export default function Admin() {
             <Button variant="outline" onClick={() => setVacationModalOpen(false)} disabled={vacationLoading}>
               Cancelar
             </Button>
-            <Button onClick={handleVacationTransfer} disabled={vacationLoading || !vacationTargetUserId}>
+            <Button onClick={handleVacationTransfer} disabled={vacationLoading || !vacationTargetUserId || vacationPreviewCount === 0}>
               {vacationLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               Transferir carteira
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Return Wallet Dialog */}
+      <Dialog open={returnModalOpen} onOpenChange={setReturnModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Devolver carteira</DialogTitle>
+            <DialogDescription>
+              Devolve as solicitações transferidas por férias para {returnSourceUser?.full_name || returnSourceUser?.email} ao responsável original.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {returnPreviewData === null ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Verificando transferências...
+              </div>
+            ) : returnPreviewData.count === 0 ? (
+              <div className="p-3 rounded-lg bg-muted text-sm">
+                Nenhuma solicitação ativa de férias encontrada para devolver.
+              </div>
+            ) : (
+              <div className="p-3 rounded-lg bg-muted text-sm space-y-1">
+                <p><strong>{returnPreviewData.count}</strong> solicitação(ões) ativa(s) serão devolvidas.</p>
+                <p>Destino: <strong>{returnPreviewData.targetName}</strong></p>
+                <p className="text-xs text-muted-foreground">A role de backoffice será restaurada automaticamente se necessário.</p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReturnModalOpen(false)} disabled={returnLoading}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleReturnWallet} 
+              disabled={returnLoading || !returnPreviewData || returnPreviewData.count === 0}
+            >
+              {returnLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Devolver carteira
             </Button>
           </DialogFooter>
         </DialogContent>

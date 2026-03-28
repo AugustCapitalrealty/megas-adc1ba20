@@ -127,8 +127,8 @@ async function enrichWithResponsavelInfo(
     });
   }
 
-  // Fetch last action for rejected solicitacoes (to detect prazo expirado)
-  const rejectedIds = solicitacoes.filter(s => s.status === 'rejeitado').map(s => s.id);
+  // Fetch last action for rejected/cancelled solicitacoes (to detect prazo expirado)
+  const rejectedIds = solicitacoes.filter(s => s.status === 'rejeitado' || s.status === 'cancelado').map(s => s.id);
   const lastActionMap = new Map<string, string>();
   if (rejectedIds.length > 0) {
     const { data: lastActions } = await supabase
