@@ -355,11 +355,57 @@ export default function Admin() {
     toast.success('Voltou ao seu perfil original');
   };
 
-  const openVacationTransfer = (sourceUser: UserWithRoles) => {
+  const openVacationTransfer = async (sourceUser: UserWithRoles) => {
     setVacationSourceUser(sourceUser);
     setVacationTargetUserId('');
     setRemoveRoleDuringVacation(true);
+    setVacationPreviewCount(null);
     setVacationModalOpen(true);
+    
+    // Fetch preview count
+    setVacationPreviewLoading(true);
+    try {
+      let allSols: Array<{ id: string; status: any }> = [];
+      let offset = 0;
+      const pageSize = 1000;
+      let hasMore = true;
+      while (hasMore) {
+        const { data: page } = await supabase
+          .from('solicitacoes')
+          .select('id, status')
+          .in('status', [...ACTIVE_BACKOFFICE_STATUSES])
+          .range(offset, offset + pageSize - 1);
+        allSols = allSols.concat(page || []);
+        hasMore = (page?.length || 0) === pageSize;
+        offset += pageSize;
+      }
+      const solIds = allSols.map(s => s.id);
+      if (solIds.length > 0) {
+        const batchSize = 500;
+        let allHist: { solicitacao_id: string; user_id: string; created_at: string }[] = [];
+        for (let i = 0; i < solIds.length; i += batchSize) {
+          const batch = solIds.slice(i, i + batchSize);
+          const { data: hist } = await supabase
+            .from('historico_solicitacoes')
+            .select('solicitacao_id, user_id, created_at')
+            .in('solicitacao_id', batch)
+            .eq('acao', 'Assumido pelo backoffice')
+            .order('created_at', { ascending: false });
+          allHist = allHist.concat(hist || []);
+        }
+        const respMap = new Map<string, string>();
+        allHist.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          .forEach(h => { if (!respMap.has(h.solicitacao_id)) respMap.set(h.solicitacao_id, h.user_id); });
+        const count = allSols.filter(s => respMap.get(s.id) === sourceUser.id).length;
+        setVacationPreviewCount(count);
+      } else {
+        setVacationPreviewCount(0);
+      }
+    } catch (err) {
+      console.error('Error fetching vacation preview:', err);
+    } finally {
+      setVacationPreviewLoading(false);
+    }
   };
 
   const handleVacationTransfer = async () => {
