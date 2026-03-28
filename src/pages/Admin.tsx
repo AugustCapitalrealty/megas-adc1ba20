@@ -556,6 +556,148 @@ export default function Admin() {
     }
   };
 
+  const openReturnWallet = async (targetUser: UserWithRoles) => {
+    setReturnSourceUser(targetUser);
+    setReturnPreviewData(null);
+    setReturnModalOpen(true);
+    
+    try {
+      // Find vacation transfers TO this user that haven't been returned
+      const { data: transfers } = await supabase
+        .from('solicitacao_transfers')
+        .select('solicitacao_id, from_user_id, motivo')
+        .eq('to_user_id', targetUser.id)
+        .ilike('motivo', '%férias%')
+        .order('created_at', { ascending: false });
+
+      if (!transfers || transfers.length === 0) {
+        setReturnPreviewData({ count: 0, targetName: '', targetId: '' });
+        return;
+      }
+
+      // Get unique solicitacao ids - check which are still active
+      const solIds = [...new Set(transfers.map(t => t.solicitacao_id))];
+      const batchSize = 500;
+      let activeSols: string[] = [];
+      for (let i = 0; i < solIds.length; i += batchSize) {
+        const batch = solIds.slice(i, i + batchSize);
+        const { data: active } = await supabase
+          .from('solicitacoes')
+          .select('id')
+          .in('id', batch)
+          .in('status', [...ACTIVE_BACKOFFICE_STATUSES]);
+        activeSols = activeSols.concat((active || []).map(s => s.id));
+      }
+
+      // Find original owner from transfers
+      const fromUserId = transfers[0]?.from_user_id;
+      const fromUser = users.find(u => u.id === fromUserId);
+      const fromName = fromUser?.full_name || fromUser?.email || 'Usuário original';
+
+      setReturnPreviewData({
+        count: activeSols.length,
+        targetName: fromName,
+        targetId: fromUserId || '',
+      });
+    } catch (err) {
+      console.error('Error loading return preview:', err);
+    }
+  };
+
+  const handleReturnWallet = async () => {
+    if (!returnSourceUser || !returnPreviewData || !user?.id) return;
+    setReturnLoading(true);
+    try {
+      // Find vacation transfers TO returnSourceUser
+      const { data: transfers } = await supabase
+        .from('solicitacao_transfers')
+        .select('solicitacao_id, from_user_id')
+        .eq('to_user_id', returnSourceUser.id)
+        .ilike('motivo', '%férias%');
+
+      if (!transfers || transfers.length === 0) {
+        toast.info('Nenhuma transferência de férias encontrada');
+        setReturnModalOpen(false);
+        return;
+      }
+
+      const solIds = [...new Set(transfers.map(t => t.solicitacao_id))];
+      const fromUserId = returnPreviewData.targetId;
+      
+      // Filter to only active ones
+      const batchSize = 500;
+      let activeSols: Array<{ id: string; protocolo: string | null; status: any }> = [];
+      for (let i = 0; i < solIds.length; i += batchSize) {
+        const batch = solIds.slice(i, i + batchSize);
+        const { data: active } = await supabase
+          .from('solicitacoes')
+          .select('id, protocolo, status')
+          .in('id', batch)
+          .in('status', [...ACTIVE_BACKOFFICE_STATUSES]);
+        activeSols = activeSols.concat(active || []);
+      }
+
+      if (activeSols.length === 0) {
+        toast.info('Não há solicitações ativas para devolver');
+        setReturnModalOpen(false);
+        return;
+      }
+
+      const returnUserName = returnPreviewData.targetName;
+      const currentHolderName = returnSourceUser.full_name || returnSourceUser.email;
+
+      // 1. Create historico records via RPC
+      const rpcBatchSize = 50;
+      for (let i = 0; i < activeSols.length; i += rpcBatchSize) {
+        const batch = activeSols.slice(i, i + rpcBatchSize);
+        await Promise.all(
+          batch.map(sol =>
+            supabase.rpc('insert_historico_admin', {
+              p_solicitacao_id: sol.id,
+              p_user_id: fromUserId,
+              p_acao: 'Assumido pelo backoffice',
+              p_status_anterior: sol.status,
+              p_status_novo: sol.status,
+              p_motivo: `Devolução de carteira: de ${currentHolderName} para ${returnUserName}`,
+            })
+          )
+        );
+      }
+
+      // 2. Create transfer audit records
+      const transferRecords = activeSols.map(sol => ({
+        solicitacao_id: sol.id,
+        from_user_id: returnSourceUser.id,
+        to_user_id: fromUserId,
+        created_by: user.id,
+        motivo: `Devolução de carteira: de ${currentHolderName} para ${returnUserName}`,
+      }));
+
+      await supabase.from('solicitacao_transfers').insert(transferRecords);
+
+      // 3. Restore backoffice role if missing
+      const originalUser = users.find(u => u.id === fromUserId);
+      if (originalUser && !originalUser.roles.includes('backoffice')) {
+        await supabase.from('user_roles').insert({ user_id: fromUserId, role: 'backoffice' });
+        setUsers(prev =>
+          prev.map(u =>
+            u.id === fromUserId
+              ? { ...u, roles: [...u.roles, 'backoffice' as any] }
+              : u
+          )
+        );
+      }
+
+      toast.success(`${activeSols.length} solicitação(ões) devolvida(s) para ${returnUserName}`);
+      setReturnModalOpen(false);
+    } catch (error: any) {
+      console.error('Error returning wallet:', error);
+      toast.error(error?.message || 'Não foi possível devolver a carteira');
+    } finally {
+      setReturnLoading(false);
+    }
+  };
+
   const filteredUsers = users.filter(
     (user) =>
       user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
