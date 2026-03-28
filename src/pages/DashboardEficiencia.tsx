@@ -454,6 +454,28 @@ export default function DashboardEficiencia() {
                 </div>
               </div>
             </CardContent>
+           </Card>
+
+          {/* Canceladas por Falta de Resposta */}
+          <Card className={cn(canceladasPorPrazoPercent > 10 && "border-warning/50 bg-warning/5")}>
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Cancel. por Prazo</p>
+                  {isLoading ? (
+                    <Skeleton className="h-9 w-20 mt-1" />
+                  ) : (
+                    <p className={cn("text-3xl font-bold mt-1", canceladasPorPrazoPercent > 10 && "text-warning")}>
+                      {canceladasPorPrazo}
+                      <span className="text-sm font-normal text-muted-foreground ml-1">({canceladasPorPrazoPercent}%)</span>
+                    </p>
+                  )}
+                </div>
+                <div className={cn("p-3 rounded-xl", canceladasPorPrazoPercent > 10 ? "bg-warning/10" : "bg-muted")}>
+                  <Clock className={cn("h-6 w-6", canceladasPorPrazoPercent > 10 ? "text-warning" : "text-muted-foreground")} />
+                </div>
+              </div>
+            </CardContent>
           </Card>
         </div>
         </TooltipProvider>
