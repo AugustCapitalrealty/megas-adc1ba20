@@ -1,53 +1,39 @@
 
 
-## Renomear aba "Não Aprovadas/Rejeitadas" para "Canceladas" + Corrigir auto-cancelamento
+## Corrigir `data_pendente_correcao` da 2026000155
 
-### Problema 1 — Nome da aba
-A aba no Solicitante chama "Não Aprovadas" e no Backoffice "Rejeitadas". Ambas filtram apenas `rejeitado`. Devem se chamar **"Canceladas"** e incluir tanto `rejeitado` quanto `cancelado`.
+### Problema
+O backfill anterior usou `MAX(h.created_at)` para preencher `data_pendente_correcao`, mas isso pegou o evento de transferência de férias (18/03) onde o status ficou `aguardando_informacoes → aguardando_informacoes`. O correto é usar a **primeira** vez que a solicitação entrou nesse status.
 
-### Problema 2 — Auto-cancelamento não funciona
-A edge function `check-correction-deadline` está configurada e o cron job existe (roda diariamente às 8h). O código muda o status para `rejeitado`, mas o trigger `validate_status_transition` pode estar bloqueando se a transição não existir via service role. **Principal problema**: a function usa service role key que bypassa RLS mas NÃO bypassa triggers. A transição `pendente_correcao → rejeitado` e `aguardando_informacoes → rejeitado` existem, então deveria funcionar. Preciso testar a function manualmente e verificar logs.
+### Histórico da 2026000155:
+1. 24/02 17:42 — Criada (recebido)
+2. 24/02 18:02 — Assumida (aprovado)  
+3. 24/02 18:02 — Solicitação de informações (**aguardando_informacoes** ← esta é a data correta)
+4. 18/03 12:12 — Transferência férias (aguardando_informacoes → aguardando_informacoes) ← a data errada que foi usada
 
-**Decisão**: Trocar o status de destino de `rejeitado` para `cancelado` (faz mais sentido semânticamente — não foi "rejeitada pelo backoffice", foi "cancelada por falta de resposta").
+### Correção
 
-### Problema 3 — Notificar backoffice
-A edge function só notifica o solicitante. Precisa também notificar todos os usuários backoffice/admin para que cancelem processos no Fluig se necessário.
+#### 1. Atualizar `data_pendente_correcao` da 2026000155
+Usar `UPDATE` via insert tool para setar a data correta: `2026-02-24 18:02:53.464355+00` (quando entrou pela primeira vez em `aguardando_informacoes`).
 
-### Mudanças
+#### 2. Corrigir qualquer outro registro com o mesmo problema
+Rodar um UPDATE geral que use a **primeira** transição para o status atual (filtrando por `status_anterior != status_novo` para ignorar transferências same-status):
 
-#### 1. SQL — Adicionar transições para `cancelado` (se não existirem) 
-As transições `pendente_correcao → cancelado` e `aguardando_informacoes → cancelado` já existem. Nenhuma migração necessária.
+```sql
+UPDATE solicitacoes SET data_pendente_correcao = (
+  SELECT MIN(h.created_at)
+  FROM historico_solicitacoes h
+  WHERE h.solicitacao_id = solicitacoes.id
+    AND h.status_novo = solicitacoes.status::text::request_status
+    AND (h.status_anterior IS NULL OR h.status_anterior != h.status_novo)
+)
+WHERE status IN ('aguardando_informacoes', 'pendente_correcao')
+  AND data_pendente_correcao IS NOT NULL;
+```
 
-#### 2. Edge function `check-correction-deadline/index.ts`
-- Mudar status de destino de `"rejeitado"` para `"cancelado"`
-- Mudar ação no histórico para `prazo_correção_expirado` / `prazo_resposta_expirado` (manter)
-- Adicionar notificação para TODOS os backoffice/admin users quando cancelar automaticamente
-- Incluir na notificação do backoffice que precisa verificar se há processo no Fluig para cancelar
-- Redeployar a function
-
-#### 3. `src/pages/Backoffice.tsx`
-- Renomear tab `'rejeitadas'` para `'canceladas'`
-- Filtrar por `s.status === 'rejeitado' || s.status === 'cancelado'`
-- Renomear label para "Canceladas"
-
-#### 4. `src/pages/MinhasSolicitacoes.tsx`
-- Renomear tab `'reprovadas'` para `'canceladas'`
-- Filtrar por `s.status === 'rejeitado' || s.status === 'cancelado'`
-- Renomear label de "Não Aprovadas" para "Canceladas"
-
-#### 5. `src/components/solicitante/SolicitanteSolicitacaoCard.tsx`
-- Manter o banner existente para prazo expirado (já implementado para `rejeitado`)
-- Adicionar tratamento para status `cancelado` com prazo expirado
-
-#### 6. Testar a edge function
-- Invocar manualmente para verificar que funciona
+#### 3. Invocar a edge function para processar
+Após a correção, invocar `check-correction-deadline` para cancelar a 2026000155 (já tem 32 dias pendente).
 
 ### Arquivos Modificados
-
-| Arquivo | Mudança |
-|---------|---------|
-| `supabase/functions/check-correction-deadline/index.ts` | Status → `cancelado`, notificar backoffice |
-| `src/pages/Backoffice.tsx` | Renomear tab, incluir `cancelado` |
-| `src/pages/MinhasSolicitacoes.tsx` | Renomear tab, incluir `cancelado` |
-| `src/components/solicitante/SolicitanteSolicitacaoCard.tsx` | Tratar `cancelado` por prazo |
+Nenhum arquivo de código — apenas dados no banco via insert tool + invocação da edge function.
 
