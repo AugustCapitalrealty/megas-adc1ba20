@@ -467,6 +467,59 @@ export function useEficienciaDashboard(filters: EficienciaFilters) {
   const critico15Count = entries.filter(e => e.lead_time_dias > 15).length;
   const critico15Percent = entries.length > 0 ? (critico15Count / entries.length) * 100 : 0;
 
+  // Canceladas por falta de resposta (prazo expirado)
+  const { data: canceladasPorPrazoData } = useQuery({
+    queryKey: ['eficiencia-canceladas-prazo', filters],
+    queryFn: async () => {
+      // Count solicitações cancelled by deadline in the period
+      const { data: canceladas } = await supabase
+        .from('solicitacoes')
+        .select('id')
+        .eq('status', 'cancelado')
+        .gte('updated_at', filters.dataInicio)
+        .lte('updated_at', filters.dataFim + 'T23:59:59');
+
+      if (!canceladas || canceladas.length === 0) return { count: 0, total: 0 };
+
+      const cancelIds = canceladas.map(c => c.id);
+      
+      // Check historico for prazo_expirado actions
+      const batchSize = 500;
+      let prazoCount = 0;
+      for (let i = 0; i < cancelIds.length; i += batchSize) {
+        const batch = cancelIds.slice(i, i + batchSize);
+        const { data: hist } = await supabase
+          .from('historico_solicitacoes')
+          .select('solicitacao_id')
+          .in('solicitacao_id', batch)
+          .in('acao', ['prazo_correção_expirado', 'prazo_resposta_expirado']);
+        prazoCount += new Set((hist || []).map(h => h.solicitacao_id)).size;
+      }
+
+      // Total de solicitações no período (para %)
+      let countQuery = supabase
+        .from('solicitacoes')
+        .select('id', { count: 'exact', head: true })
+        .gte('created_at', filters.dataInicio)
+        .lte('created_at', filters.dataFim + 'T23:59:59');
+
+      if (filters.empreendimento) {
+        countQuery = countQuery.eq('empreendimento', filters.empreendimento);
+      }
+
+      const { count: totalCount } = await countQuery;
+
+      return { count: prazoCount, total: totalCount || 0 };
+    },
+    enabled: !!user?.id,
+    staleTime: 120_000,
+  });
+
+  const canceladasPorPrazo = canceladasPorPrazoData?.count || 0;
+  const canceladasPorPrazoPercent = canceladasPorPrazoData?.total 
+    ? Math.round((canceladasPorPrazo / canceladasPorPrazoData.total) * 100) 
+    : 0;
+
   return {
     entries,
     avgLeadTime: Math.round(avgLeadTime * 10) / 10,
@@ -484,6 +537,8 @@ export function useEficienciaDashboard(filters: EficienciaFilters) {
     etapas: etapaData || [],
     topSolicitantes: topSolicitantes || [],
     topFornecedores: topFornecedores || [],
+    canceladasPorPrazo,
+    canceladasPorPrazoPercent,
     isLoading,
     error,
     refetch,
