@@ -1006,14 +1006,24 @@ export default function Admin() {
                           </TableCell>
                           <TableCell className="text-center">
                             {targetUser.roles.includes('backoffice') ? (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="text-xs"
-                                onClick={() => openVacationTransfer(targetUser)}
-                              >
-                                Modo férias
-                              </Button>
+                              <div className="flex flex-col gap-1">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="text-xs"
+                                  onClick={() => openVacationTransfer(targetUser)}
+                                >
+                                  Modo férias
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-xs text-muted-foreground"
+                                  onClick={() => openReturnWallet(targetUser)}
+                                >
+                                  Devolver carteira
+                                </Button>
+                              </div>
                             ) : (
                               <span className="text-xs text-muted-foreground">-</span>
                             )}
