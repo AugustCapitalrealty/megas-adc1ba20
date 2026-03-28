@@ -219,7 +219,7 @@ export const BackofficeSolicitacaoCard = memo(function BackofficeSolicitacaoCard
   if (isPrazoExpirado) {
     chips.push(
       <Badge key="prazo" variant="destructive" className="text-[10px] gap-1">
-        <Clock className="h-3 w-3" /> Prazo expirado
+        <Clock className="h-3 w-3" /> Cancelado por falta de resposta
       </Badge>
     );
   }
