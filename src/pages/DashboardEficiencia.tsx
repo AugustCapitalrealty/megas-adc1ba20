@@ -300,9 +300,9 @@ export default function DashboardEficiencia() {
           )}
         </div>
 
-        {/* 4 KPI Cards */}
+        {/* 5 KPI Cards */}
         <TooltipProvider>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
           {/* Lead Time Médio */}
           <Card
             className={cn(
