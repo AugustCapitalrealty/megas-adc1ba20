@@ -4,7 +4,7 @@ import { AlertTriangle, Edit, CheckCircle, Receipt, ChevronRight, CalendarDays, 
 import { cn } from '@/lib/utils';
 
 interface PendingAction {
-  type: 'correcao' | 'aceite_oc' | 'nf_boleto' | 'info_requests' | 'justificativa_oc';
+  type: 'correcao' | 'aceite_oc' | 'nf_boleto' | 'info_requests' | 'justificativa_oc' | 'ciencia_cancelamento';
   count: number;
   label: string;
   description: string;
@@ -18,8 +18,10 @@ interface PendingActionsCardProps {
   pendingInfoRequests?: number;
   pendingJustificativas?: number;
   pendingJustificativasOwn?: number;
+  pendingCiencia?: number;
   isBackofficeOrAdmin?: boolean;
   onViewPending: (filter: string) => void;
+  onDarCiencia?: () => void;
   className?: string;
 }
 

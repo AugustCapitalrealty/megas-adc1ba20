@@ -784,6 +784,33 @@ export default function MinhasSolicitacoes() {
     }
   };
 
+  const handleDarCiencia = async () => {
+    if (!effectiveUserId) return;
+    const ids = pendingCiencia.map(s => s.id);
+    if (ids.length === 0) return;
+    try {
+      // Update all pending ciencia
+      const { error } = await supabase
+        .from('solicitacoes')
+        .update({ cancelamento_ciencia_em: new Date().toISOString() } as any)
+        .in('id', ids);
+      if (error) throw error;
+      // Insert history for each
+      for (const sol of pendingCiencia) {
+        await supabase.from('historico_solicitacoes').insert({
+          solicitacao_id: sol.id,
+          user_id: effectiveUserId,
+          acao: 'ciencia_cancelamento',
+          motivo: 'Solicitante confirmou ciência do cancelamento automático',
+        });
+      }
+      toast({ title: 'Ciência confirmada', description: `${ids.length} solicitação(ões) confirmada(s).` });
+      fetchSolicitacoes();
+    } catch (error: any) {
+      toast({ title: 'Erro', description: error?.message || 'Erro ao confirmar ciência.', variant: 'destructive' });
+    }
+  };
+
   // ==================== UI Config ====================
 
   const pendingCiencia = useMemo(() => {
