@@ -1026,6 +1026,7 @@ export default function MinhasSolicitacoes() {
                 setAnexosViewSolicitacao={setAnexosViewSolicitacao}
                 setTransferSolicitacao={setTransferSolicitacao}
                 setTransferOpen={setTransferOpen}
+                onDarCiencia={handleDarCienciaSingle}
               />
             )}
           />
