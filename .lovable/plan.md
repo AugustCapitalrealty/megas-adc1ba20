@@ -1,71 +1,49 @@
 
 
-## 4 Mudanças no Backoffice
+## Corrigir cancelamento errado #2026000140 + Ciência de cancelamento
 
-### 1. Remover cards KPI do topo (BackofficeKPIs)
+### Problema 1 — #2026000140 cancelada erroneamente
 
-Os 6 cards (Na Fila, Em Processamento, OC Emitida, Liberadas, Enviadas, SLA Crítico) já são redundantes com as abas do FilterBar que mostram contagens. Remover o componente `BackofficeKPIs` e sua renderização em `Backoffice.tsx`.
+A solicitação entrou em `aguardando_informacoes` pela **segunda vez** em 23/03/2026. O backfill anterior usou `MIN(created_at)` e pegou a primeira entrada (12/02/2026), fazendo o sistema pensar que já tinha 44 dias. Na verdade tinha apenas 5 dias.
 
-**Arquivos:**
-- `src/pages/Backoffice.tsx` — remover import e bloco `<BackofficeKPIs ... />`
-- `src/components/backoffice/BackofficeKPIs.tsx` — pode ser deletado ou mantido sem uso
+**Correção:** Reverter o cancelamento via INSERT tool:
+- Atualizar `solicitacoes` SET `status = 'aguardando_informacoes'`, `data_pendente_correcao = '2026-03-23 16:48:41'`
+- Inserir registro no histórico explicando a reversão
+- O trigger `track_pendente_correcao_date` já funciona corretamente para novas transições (ele seta `NOW()` quando o status **entra** em pendente/aguardando), o bug foi exclusivo do backfill manual
 
-### 2. Ordenação por data de abertura vs última alteração
+**Prevenção futura:** O backfill com `MIN` já foi executado e não roda novamente. O trigger no banco usa a lógica correta (só seta quando `OLD.status NOT IN` pendente/aguardando), então para novas transições o problema não se repete.
 
-Hoje as listas de cada aba são ordenadas pela data do `created_at` (vinda da RPC). Adicionar um botão de toggle de ordenação no topo da lista (ao lado do exportar ou dentro do TabContent) com duas opções: "Data de abertura" e "Última alteração".
+### Problema 2 — Ciência de cancelamento automático
 
-- O campo `updated_at` já existe na tabela `solicitacoes` e é retornado pela RPC
-- Se `updated_at` não estiver no retorno do hook, ajustar a RPC ou o `enrichWithResponsavelInfo` para incluí-lo
-- No `TabContent`, antes de paginar, aplicar `sort()` baseado no campo selecionado
+Quando uma solicitação é cancelada por prazo, o solicitante precisa **confirmar ciência** antes que ela saia das ações pendentes.
 
-**Arquivos:**
-- `src/pages/Backoffice.tsx` — adicionar state `sortBy: 'created_at' | 'updated_at'`, botão toggle, aplicar sort nos items antes de paginar
-- Verificar se `updated_at` está disponível nos dados do `SolicitacaoBackoffice` (se não, ajustar `useBackofficeSolicitacoes.ts`)
+#### Mudanças no banco
+- **Migração:** Adicionar coluna `cancelamento_ciencia_em` (timestamp, nullable) na tabela `solicitacoes` — marca quando o usuário deu ciência
 
-### 3. Refatorar Modo Férias
+#### Mudanças no frontend
 
-Problemas atuais: só transfere, sem opção fácil de devolver. Melhorias:
+**`src/hooks/useDashboardMetrics.ts`:**
+- Adicionar contagem de `pendingCiencia`: solicitações com `status = 'cancelado'` que tenham histórico de `prazo_resposta_expirado` ou `prazo_correção_expirado` E `cancelamento_ciencia_em IS NULL`
 
-**A) Adicionar opção "Devolver carteira":** Na tabela de usuários do Admin, além do botão "Modo férias", mostrar um botão "Devolver carteira" que faz o inverso — busca todas as solicitações transferidas de X para Y (via `solicitacao_transfers` com motivo contendo "férias") e registra o histórico reverso com a RPC `insert_historico_admin`.
+**`src/components/PendingActionsCard.tsx`:**
+- Adicionar novo tipo de ação `ciencia_cancelamento` com badge e botão "Dar ciência"
 
-**B) Melhorar a seleção de destino:** Permitir distribuir para múltiplos backoffice (round-robin) ou selecionar um único destino. Adicionar preview de quantas solicitações serão transferidas antes de confirmar.
+**`src/pages/MinhasSolicitacoes.tsx`:**
+- Adicionar handler `handleDarCiencia` que atualiza `cancelamento_ciencia_em = NOW()` e insere registro no histórico com ação `ciencia_cancelamento`
+- Filtrar solicitações canceladas sem ciência para a seção de ações pendentes
 
-**C) Restaurar role automaticamente na devolução:** Se a role foi removida durante férias, restaurá-la ao devolver.
+**`src/components/solicitante/SolicitanteSolicitacaoCard.tsx`:**
+- No banner de cancelamento por prazo, adicionar botão "Confirmar ciência" que chama o handler
+- Após ciência dada, mostrar "Ciência confirmada em DD/MM/YYYY"
 
-**D) Registrar no banco quem está de férias:** Adicionar campos na tabela ou usar `solicitacao_transfers` para detectar transferências pendentes de devolução.
-
-**Arquivos:**
-- `src/pages/Admin.tsx` — refatorar modal de férias, adicionar botão/modal de devolução, preview de contagem, lógica de round-robin opcional
-
-### 4. Badge "Cancelado por falta de resposta" + % no Dashboard Eficiência
-
-**A) Corrigir labels de status:**
-- Em `src/types/index.ts`, o label de `cancelado` é "Cancelada pelo Solicitante" — isso está errado para cancelamentos automáticos. O label genérico deve ficar, mas no card precisa diferenciar.
-- No `BackofficeSolicitacaoCard.tsx`, o `isPrazoExpirado` só checa `status === 'rejeitado'` mas agora o edge function usa `cancelado`. Corrigir para incluir `cancelado`.
-- O badge deve mostrar "Cancelado por falta de resposta" em vez de "Prazo expirado".
-
-**B) No `SolicitanteSolicitacaoCard.tsx`**, já funciona corretamente para `cancelado` com prazo expirado.
-
-**C) Dashboard Eficiência — % canceladas por falta de resposta:**
-- No `useEficienciaDashboard.ts`, adicionar query que conta solicitações com `status = 'cancelado'` que tenham no histórico ação `prazo_correção_expirado` ou `prazo_resposta_expirado` no período filtrado.
-- Retornar novo KPI: `canceladasPorPrazo` (count) e `canceladasPorPrazoPercent` (% do total).
-- No `DashboardEficiencia.tsx`, renderizar card com essa métrica.
-
-**Arquivos:**
-- `src/types/index.ts` — nenhuma mudança (label genérico OK)
-- `src/components/backoffice/BackofficeSolicitacaoCard.tsx` — corrigir `isPrazoExpirado` para incluir `cancelado`, mudar texto do badge
-- `src/hooks/useEficienciaDashboard.ts` — adicionar query de canceladas por prazo
-- `src/pages/DashboardEficiencia.tsx` — adicionar card de % canceladas por prazo
-
-### Resumo de Arquivos
+### Arquivos Modificados
 
 | Arquivo | Mudança |
 |---------|---------|
-| `src/pages/Backoffice.tsx` | Remover KPIs, adicionar ordenação |
-| `src/components/backoffice/BackofficeKPIs.tsx` | Remover/deprecar |
-| `src/components/backoffice/BackofficeSolicitacaoCard.tsx` | Corrigir isPrazoExpirado, texto badge |
-| `src/pages/Admin.tsx` | Refatorar modo férias + devolução |
-| `src/hooks/useEficienciaDashboard.ts` | KPI canceladas por prazo |
-| `src/pages/DashboardEficiencia.tsx` | Card % canceladas por prazo |
-| `src/hooks/useBackofficeSolicitacoes.ts` | Garantir updated_at disponível |
+| INSERT tool | Reverter #2026000140 para `aguardando_informacoes` |
+| Migração SQL | Coluna `cancelamento_ciencia_em` |
+| `src/hooks/useDashboardMetrics.ts` | Contar pendentes de ciência |
+| `src/components/PendingActionsCard.tsx` | Nova ação `ciencia_cancelamento` |
+| `src/pages/MinhasSolicitacoes.tsx` | Handler + filtro ciência |
+| `src/components/solicitante/SolicitanteSolicitacaoCard.tsx` | Botão ciência no card |
 
