@@ -44,6 +44,8 @@ interface SolicitanteSolicitacaoCardProps {
   setAnexosViewSolicitacao: (sol: SolicitacaoComFornecedor) => void;
   setTransferSolicitacao: (sol: SolicitacaoComFornecedor) => void;
   setTransferOpen: (open: boolean) => void;
+  // Ciência
+  onDarCiencia?: (solId: string) => void;
   // Favorites
   isFavorite?: boolean;
   onToggleFavorite?: () => void;
@@ -55,6 +57,7 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
   openEditModal, openCancelModal, openAceiteModal, openNfBoletoModal, handleDuplicate,
   downloadDocumentoEmitido, downloadDocumentoFiscal, setAnexosViewSolicitacao,
   setTransferSolicitacao, setTransferOpen,
+  onDarCiencia,
   isFavorite, onToggleFavorite,
 }: SolicitanteSolicitacaoCardProps) {
 
