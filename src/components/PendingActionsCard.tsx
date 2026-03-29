@@ -1,6 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, Edit, CheckCircle, Receipt, ChevronRight, CalendarDays, PartyPopper } from 'lucide-react';
+import { AlertTriangle, Edit, CheckCircle, Receipt, ChevronRight, CalendarDays, PartyPopper, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface PendingAction {
@@ -72,6 +72,7 @@ export function PendingActionsCard({
     { type: 'nf_boleto', count: pendingNfBoleto, label: 'NF/Boleto', description: 'Aguardando envio de documentos fiscais' },
     { type: 'info_requests', count: pendingInfoRequests, label: 'Informações', description: 'Backoffice solicitou informações adicionais' },
     { type: 'justificativa_oc', count: isBackofficeOrAdmin ? pendingJustificativas : pendingJustificativasOwn, label: 'Justificativas OC', description: 'OCs sem NF que precisam de justificativa', ownCount: isBackofficeOrAdmin ? pendingJustificativasOwn : undefined },
+    { type: 'ciencia_cancelamento', count: pendingCiencia, label: 'Canceladas', description: 'Solicitações canceladas por falta de resposta — confirme ciência' },
   ];
   
   const actions = allActions.filter(a => a.count > 0);
@@ -83,6 +84,7 @@ export function PendingActionsCard({
       case 'nf_boleto': return 'liberadas';
       case 'info_requests': return 'correcoes';
       case 'justificativa_oc': return 'justificativa_oc';
+      case 'ciencia_cancelamento': return 'canceladas';
       default: return 'todas';
     }
   };
@@ -94,6 +96,7 @@ export function PendingActionsCard({
       case 'nf_boleto': return <Receipt className="h-5 w-5" />;
       case 'info_requests': return <AlertTriangle className="h-5 w-5" />;
       case 'justificativa_oc': return <CalendarDays className="h-5 w-5" />;
+      case 'ciencia_cancelamento': return <Eye className="h-5 w-5" />;
       default: return <AlertTriangle className="h-5 w-5" />;
     }
   };
@@ -105,12 +108,15 @@ export function PendingActionsCard({
       case 'nf_boleto': return 'text-[hsl(260,70%,50%)] bg-[hsl(260,70%,50%)]/10 border-[hsl(260,70%,50%)]/20';
       case 'info_requests': return 'text-amber-600 bg-amber-100 border-amber-200 dark:text-amber-400 dark:bg-amber-900/20 dark:border-amber-700';
       case 'justificativa_oc': return 'text-orange-600 bg-orange-100 border-orange-200 dark:text-orange-400 dark:bg-orange-900/20 dark:border-orange-700';
+      case 'ciencia_cancelamento': return 'text-destructive bg-destructive/10 border-destructive/20';
       default: return 'text-warning bg-warning/10 border-warning/20';
     }
   };
 
   const handleClick = (action: PendingAction) => {
-    if (action.type === 'justificativa_oc') {
+    if (action.type === 'ciencia_cancelamento' && onDarCiencia) {
+      onDarCiencia();
+    } else if (action.type === 'justificativa_oc') {
       onViewPending('justificativa_oc');
     } else {
       onViewPending(getFilterForAction(action.type));
