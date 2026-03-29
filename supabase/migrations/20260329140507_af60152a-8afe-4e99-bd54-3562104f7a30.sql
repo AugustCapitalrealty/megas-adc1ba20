@@ -1,0 +1,1 @@
+ALTER TABLE public.solicitacoes ADD COLUMN cancelamento_ciencia_em timestamp with time zone DEFAULT NULL;
