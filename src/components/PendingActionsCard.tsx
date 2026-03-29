@@ -32,13 +32,15 @@ export function PendingActionsCard({
   pendingInfoRequests = 0,
   pendingJustificativas = 0,
   pendingJustificativasOwn = 0,
+  pendingCiencia = 0,
   isBackofficeOrAdmin = false,
   onViewPending,
+  onDarCiencia,
   className,
 }: PendingActionsCardProps) {
   // For solicitantes, only count justificativas if they have their own pending
   const effectiveJustificativas = isBackofficeOrAdmin ? pendingJustificativas : pendingJustificativasOwn;
-  const totalPending = pendingCorrections + pendingAcceptance + pendingNfBoleto + pendingInfoRequests + effectiveJustificativas;
+  const totalPending = pendingCorrections + pendingAcceptance + pendingNfBoleto + pendingInfoRequests + effectiveJustificativas + pendingCiencia;
 
   // Empty state — all clear
   if (totalPending === 0) {
