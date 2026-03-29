@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils';
 import type { DocumentoEmitido, DocumentoFiscal } from '@/types';
 import {
   FileText, Edit, AlertTriangle, Copy, XCircle, Download,
-  FileCheck, CheckCircle, MessageSquare, Receipt, Upload, UserCheck, Wrench, Send, Clock,
+  FileCheck, CheckCircle, MessageSquare, Receipt, Upload, UserCheck, Wrench, Send, Clock, Eye,
 } from 'lucide-react';
 import type { SolicitacaoComFornecedor, RejectionInfo, InfoRequest } from './types';
 
