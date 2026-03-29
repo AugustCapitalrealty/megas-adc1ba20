@@ -187,6 +187,7 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
 
     if ((sol.status === 'rejeitado' || sol.status === 'cancelado') && rejectionInfo?.motivo) {
       const isPrazoExpirado = rejectionInfo.motivo.includes('prazo') && rejectionInfo.motivo.includes('expirou');
+      const cienciaEm = (sol as any).cancelamento_ciencia_em;
       return (
         <div className={cn("mb-4 p-3 rounded-lg", isPrazoExpirado ? "bg-warning/10 border border-warning/20" : "bg-destructive/10 border border-destructive/20")}>
           <div className="flex items-start gap-2">
@@ -195,7 +196,7 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
             ) : (
               <XCircle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
             )}
-            <div>
+            <div className="flex-1">
               <p className={cn("font-medium", isPrazoExpirado ? "text-warning" : "text-destructive")}>
                 {isPrazoExpirado ? 'Cancelada automaticamente — prazo de 30 dias expirado' : 'Motivo da Reprovação:'}
               </p>
@@ -204,6 +205,20 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
                   ? 'Caso ainda precise, duplique esta solicitação para abrir uma nova.'
                   : rejectionInfo.motivo}
               </p>
+              {isPrazoExpirado && sol.status === 'cancelado' && (
+                <div className="mt-2">
+                  {cienciaEm ? (
+                    <p className="text-xs text-muted-foreground">
+                      ✓ Ciência confirmada em {formatBR(cienciaEm, 'dd/MM/yyyy')}
+                    </p>
+                  ) : (
+                    <Button size="sm" variant="outline" onClick={() => onDarCiencia?.(sol.id)}
+                      className="text-warning border-warning/30 hover:bg-warning/10">
+                      <Eye className="h-4 w-4 mr-1" /> Confirmar ciência
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
