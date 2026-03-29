@@ -166,14 +166,16 @@ export function PendingActionsCard({
                   aria-label={`${action.label}: ${action.count} ${action.count === 1 ? 'item' : 'itens'}. ${action.description}`}
                 >
                   {getIconForAction(action.type)}
-                  <span className="truncate max-w-[100px] sm:max-w-none">{action.label}</span>
+                  <span className="truncate max-w-[100px] sm:max-w-none">
+                    {action.type === 'ciencia_cancelamento' ? 'Dar ciência' : action.label}
+                  </span>
                   <span className="font-bold">({action.count})</span>
                   {action.type === 'justificativa_oc' && action.ownCount != null && action.ownCount > 0 && (
                     <span className="ml-0.5 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-orange-600 text-white dark:bg-orange-500">
                       {action.ownCount} {action.ownCount === 1 ? 'sua' : 'suas'}
                     </span>
                   )}
-                  <ChevronRight className="h-4 w-4 ml-1" />
+                  {action.type !== 'ciencia_cancelamento' && <ChevronRight className="h-4 w-4 ml-1" />}
                 </Button>
               ))}
             </div>
