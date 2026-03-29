@@ -257,7 +257,7 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
       </Button>
     );
 
-    if (sol.status === 'rejeitado') {
+    if (sol.status === 'rejeitado' || sol.status === 'cancelado') {
       actions.push(
         <Button key="duplicar" variant="outline" size="sm" onClick={() => handleDuplicate(sol)} className="text-primary">
           <Copy className="h-4 w-4 mr-1" /> Duplicar
