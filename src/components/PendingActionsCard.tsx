@@ -1,10 +1,10 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, Edit, CheckCircle, Receipt, ChevronRight, CalendarDays, PartyPopper } from 'lucide-react';
+import { AlertTriangle, Edit, CheckCircle, Receipt, ChevronRight, CalendarDays, PartyPopper, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface PendingAction {
-  type: 'correcao' | 'aceite_oc' | 'nf_boleto' | 'info_requests' | 'justificativa_oc';
+  type: 'correcao' | 'aceite_oc' | 'nf_boleto' | 'info_requests' | 'justificativa_oc' | 'ciencia_cancelamento';
   count: number;
   label: string;
   description: string;
@@ -18,8 +18,10 @@ interface PendingActionsCardProps {
   pendingInfoRequests?: number;
   pendingJustificativas?: number;
   pendingJustificativasOwn?: number;
+  pendingCiencia?: number;
   isBackofficeOrAdmin?: boolean;
   onViewPending: (filter: string) => void;
+  onDarCiencia?: () => void;
   className?: string;
 }
 
@@ -30,13 +32,15 @@ export function PendingActionsCard({
   pendingInfoRequests = 0,
   pendingJustificativas = 0,
   pendingJustificativasOwn = 0,
+  pendingCiencia = 0,
   isBackofficeOrAdmin = false,
   onViewPending,
+  onDarCiencia,
   className,
 }: PendingActionsCardProps) {
   // For solicitantes, only count justificativas if they have their own pending
   const effectiveJustificativas = isBackofficeOrAdmin ? pendingJustificativas : pendingJustificativasOwn;
-  const totalPending = pendingCorrections + pendingAcceptance + pendingNfBoleto + pendingInfoRequests + effectiveJustificativas;
+  const totalPending = pendingCorrections + pendingAcceptance + pendingNfBoleto + pendingInfoRequests + effectiveJustificativas + pendingCiencia;
 
   // Empty state — all clear
   if (totalPending === 0) {
@@ -68,6 +72,7 @@ export function PendingActionsCard({
     { type: 'nf_boleto', count: pendingNfBoleto, label: 'NF/Boleto', description: 'Aguardando envio de documentos fiscais' },
     { type: 'info_requests', count: pendingInfoRequests, label: 'Informações', description: 'Backoffice solicitou informações adicionais' },
     { type: 'justificativa_oc', count: isBackofficeOrAdmin ? pendingJustificativas : pendingJustificativasOwn, label: 'Justificativas OC', description: 'OCs sem NF que precisam de justificativa', ownCount: isBackofficeOrAdmin ? pendingJustificativasOwn : undefined },
+    { type: 'ciencia_cancelamento', count: pendingCiencia, label: 'Canceladas', description: 'Solicitações canceladas por falta de resposta — confirme ciência' },
   ];
   
   const actions = allActions.filter(a => a.count > 0);
@@ -79,6 +84,7 @@ export function PendingActionsCard({
       case 'nf_boleto': return 'liberadas';
       case 'info_requests': return 'correcoes';
       case 'justificativa_oc': return 'justificativa_oc';
+      case 'ciencia_cancelamento': return 'canceladas';
       default: return 'todas';
     }
   };
@@ -90,6 +96,7 @@ export function PendingActionsCard({
       case 'nf_boleto': return <Receipt className="h-5 w-5" />;
       case 'info_requests': return <AlertTriangle className="h-5 w-5" />;
       case 'justificativa_oc': return <CalendarDays className="h-5 w-5" />;
+      case 'ciencia_cancelamento': return <Eye className="h-5 w-5" />;
       default: return <AlertTriangle className="h-5 w-5" />;
     }
   };
@@ -101,12 +108,15 @@ export function PendingActionsCard({
       case 'nf_boleto': return 'text-[hsl(260,70%,50%)] bg-[hsl(260,70%,50%)]/10 border-[hsl(260,70%,50%)]/20';
       case 'info_requests': return 'text-amber-600 bg-amber-100 border-amber-200 dark:text-amber-400 dark:bg-amber-900/20 dark:border-amber-700';
       case 'justificativa_oc': return 'text-orange-600 bg-orange-100 border-orange-200 dark:text-orange-400 dark:bg-orange-900/20 dark:border-orange-700';
+      case 'ciencia_cancelamento': return 'text-destructive bg-destructive/10 border-destructive/20';
       default: return 'text-warning bg-warning/10 border-warning/20';
     }
   };
 
   const handleClick = (action: PendingAction) => {
-    if (action.type === 'justificativa_oc') {
+    if (action.type === 'ciencia_cancelamento' && onDarCiencia) {
+      onDarCiencia();
+    } else if (action.type === 'justificativa_oc') {
       onViewPending('justificativa_oc');
     } else {
       onViewPending(getFilterForAction(action.type));
@@ -156,14 +166,16 @@ export function PendingActionsCard({
                   aria-label={`${action.label}: ${action.count} ${action.count === 1 ? 'item' : 'itens'}. ${action.description}`}
                 >
                   {getIconForAction(action.type)}
-                  <span className="truncate max-w-[100px] sm:max-w-none">{action.label}</span>
+                  <span className="truncate max-w-[100px] sm:max-w-none">
+                    {action.type === 'ciencia_cancelamento' ? 'Dar ciência' : action.label}
+                  </span>
                   <span className="font-bold">({action.count})</span>
                   {action.type === 'justificativa_oc' && action.ownCount != null && action.ownCount > 0 && (
                     <span className="ml-0.5 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-orange-600 text-white dark:bg-orange-500">
                       {action.ownCount} {action.ownCount === 1 ? 'sua' : 'suas'}
                     </span>
                   )}
-                  <ChevronRight className="h-4 w-4 ml-1" />
+                  {action.type !== 'ciencia_cancelamento' && <ChevronRight className="h-4 w-4 ml-1" />}
                 </Button>
               ))}
             </div>

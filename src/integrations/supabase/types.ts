@@ -807,6 +807,7 @@ export type Database = {
       }
       solicitacoes: {
         Row: {
+          cancelamento_ciencia_em: string | null
           cancelamento_pendente: boolean
           cliente_id: string | null
           contrato_mensal: boolean | null
@@ -884,6 +885,7 @@ export type Database = {
           valor_servico: number | null
         }
         Insert: {
+          cancelamento_ciencia_em?: string | null
           cancelamento_pendente?: boolean
           cliente_id?: string | null
           contrato_mensal?: boolean | null
@@ -961,6 +963,7 @@ export type Database = {
           valor_servico?: number | null
         }
         Update: {
+          cancelamento_ciencia_em?: string | null
           cancelamento_pendente?: boolean
           cliente_id?: string | null
           contrato_mensal?: boolean | null
