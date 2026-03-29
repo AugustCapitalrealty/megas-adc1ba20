@@ -183,6 +183,7 @@ export default function MinhasSolicitacoes() {
         natureza_servico_preco_variavel, due_diligence_confirmada, due_diligence_numero_projuris,
         ia_cnae_status, ia_cnae_justificativa, ia_cnae_avaliado_em,
         ia_descricao_vaga, ia_descricao_sugestao, ia_descricao_avaliado_em,
+        cancelamento_ciencia_em,
         fornecedor:fornecedores!solicitacoes_fornecedor_id_fkey(id, razao_social, nome_fantasia)
       `)
       .order('created_at', { ascending: false })
@@ -253,13 +254,13 @@ export default function MinhasSolicitacoes() {
       
       setSolicitacoes(enrichedData);
       
-      const needsCorrectionIds = data.filter((s: any) => s.status === 'rejeitado' || s.status === 'pendente_correcao').map((s: any) => s.id);
+      const needsCorrectionIds = data.filter((s: any) => s.status === 'rejeitado' || s.status === 'pendente_correcao' || s.status === 'cancelado').map((s: any) => s.id);
       const infoIds = data.filter((s: any) => s.status === 'aguardando_informacoes').map((s: any) => s.id);
 
       const [correctionResult, infoResult] = await Promise.all([
         needsCorrectionIds.length > 0
           ? supabase.from('historico_solicitacoes').select('solicitacao_id, motivo, created_at, anexos_com_problema')
-              .in('solicitacao_id', needsCorrectionIds).in('status_novo', ['rejeitado', 'pendente_correcao'])
+              .in('solicitacao_id', needsCorrectionIds).in('status_novo', ['rejeitado', 'pendente_correcao', 'cancelado'])
               .order('created_at', { ascending: false })
           : Promise.resolve({ data: null }),
         infoIds.length > 0
@@ -785,11 +786,22 @@ export default function MinhasSolicitacoes() {
 
   // ==================== UI Config ====================
 
+  const pendingCiencia = useMemo(() => {
+    return solicitacoes.filter(s => {
+      if (s.status !== 'cancelado') return false;
+      if ((s as any).cancelamento_ciencia_em) return false;
+      const reason = rejectionReasons[s.id];
+      if (!reason?.motivo) return false;
+      return reason.motivo.includes('prazo') && reason.motivo.includes('expirou');
+    });
+  }, [solicitacoes, rejectionReasons]);
+
   const pendingCounts = useMemo(() => ({
     corrections: solicitacoes.filter(s => s.status === 'pendente_correcao' || s.status === 'aguardando_informacoes').length,
     acceptance: solicitacoes.filter(s => s.status === 'aguardando_aceite').length,
     nfBoleto: 0,
-  }), [solicitacoes]);
+    ciencia: pendingCiencia.length,
+  }), [solicitacoes, pendingCiencia]);
 
   const filterTabGroups: TabGroup[] = [
     {
@@ -913,7 +925,9 @@ export default function MinhasSolicitacoes() {
             pendingCorrections={pendingCounts.corrections}
             pendingAcceptance={pendingCounts.acceptance}
             pendingNfBoleto={pendingCounts.nfBoleto}
+            pendingCiencia={pendingCounts.ciencia}
             onViewPending={(filter) => setActiveTab(filter as FilterTab)}
+            onDarCiencia={handleDarCiencia}
           />
         )}
 
