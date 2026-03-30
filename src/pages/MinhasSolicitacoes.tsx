@@ -967,7 +967,7 @@ export default function MinhasSolicitacoes() {
             pendingNfBoleto={pendingCounts.nfBoleto}
             pendingCiencia={pendingCounts.ciencia}
             onViewPending={(filter) => setActiveTab(filter as FilterTab)}
-            onDarCiencia={handleDarCiencia}
+            onDarCiencia={() => setActiveTab('canceladas')}
           />
         )}
 
@@ -984,16 +984,27 @@ export default function MinhasSolicitacoes() {
             document.getElementById('solicitacoes-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }}
           rightSlot={
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => exportToExcel(sortedAndFilteredSolicitacoes as any, 'minhas_solicitacoes')}
-              disabled={sortedAndFilteredSolicitacoes.length === 0}
-              className="gap-1.5"
-            >
-              <Download className="h-4 w-4" />
-              Exportar
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSortBy(prev => prev === 'created_at' ? 'updated_at' : 'created_at')}
+                className="gap-1.5 text-xs"
+              >
+                <ArrowUpDown className="h-3.5 w-3.5" />
+                {sortBy === 'updated_at' ? 'Última alteração' : 'Abertura'}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => exportToExcel(sortedAndFilteredSolicitacoes as any, 'minhas_solicitacoes')}
+                disabled={sortedAndFilteredSolicitacoes.length === 0}
+                className="gap-1.5"
+              >
+                <Download className="h-4 w-4" />
+                Exportar
+              </Button>
+            </div>
           }
         />
 
