@@ -334,11 +334,11 @@ export default function MinhasSolicitacoes() {
       const aPriority = priorityStatuses.includes(a.status) ? 0 : 1;
       const bPriority = priorityStatuses.includes(b.status) ? 0 : 1;
       if (aPriority !== bPriority) return aPriority - bPriority;
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      return new Date(b[sortBy]).getTime() - new Date(a[sortBy]).getTime();
     });
     
     return sortWithFavorites(filtered);
-  }, [solicitacoes, activeTab, debouncedSearch, sortWithFavorites, viewMode, empreendimentoFilter]);
+  }, [solicitacoes, activeTab, debouncedSearch, sortWithFavorites, viewMode, empreendimentoFilter, sortBy]);
 
   const statusCounts = useMemo(() => ({
     todas: solicitacoes.length,
