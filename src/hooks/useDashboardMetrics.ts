@@ -38,6 +38,7 @@ interface DashboardMetrics {
   pendingInfoRequests: number;
   pendingJustificativas: number;
   pendingJustificativasOwn: number;
+  pendingCiencia: number;
   inProgress: number;
   concluded: number;
   // Backoffice-specific KPIs
@@ -66,7 +67,7 @@ export function useDashboardMetrics(viewMode: ViewMode = 'minhas', effectiveUser
 
       let query = supabase
         .from('solicitacoes')
-        .select('id, protocolo, descricao, valor, status, tipo, empreendimento, created_at, fornecedor:fornecedores!solicitacoes_fornecedor_id_fkey(razao_social, nome_fantasia)')
+        .select('id, protocolo, descricao, valor, status, tipo, empreendimento, created_at, cancelamento_ciencia_em, fornecedor:fornecedores!solicitacoes_fornecedor_id_fkey(razao_social, nome_fantasia)')
         .order('created_at', { ascending: false });
 
       if (isGeralMode) {
@@ -201,6 +202,11 @@ export function useDashboardMetrics(viewMode: ViewMode = 'minhas', effectiveUser
   const pendingJustificativas = justificativasData?.total ?? 0;
   const pendingJustificativasOwn = justificativasData?.own ?? 0;
 
+  // Count cancelled solicitações pending acknowledgment (auto-cancelled without ciência)
+  const pendingCiencia = allSol.filter(s => 
+    s.status === 'cancelado' && !s.cancelamento_ciencia_em
+  ).length;
+
   // 7-day trend calculation
   const pendingStatuses: RequestStatus[] = ['pendente_correcao', 'aguardando_aceite', 'aguardando_nf_boleto', 'aguardando_informacoes'];
   const trend: TrendData = (() => {
@@ -221,13 +227,14 @@ export function useDashboardMetrics(viewMode: ViewMode = 'minhas', effectiveUser
 
   return {
     total: allSol.length,
-    pendingActions: pendingCorrections + pendingAcceptance + pendingNfBoleto + pendingInfoRequests + pendingJustificativas,
+    pendingActions: pendingCorrections + pendingAcceptance + pendingNfBoleto + pendingInfoRequests + pendingJustificativas + pendingCiencia,
     pendingCorrections,
     pendingAcceptance,
     pendingNfBoleto,
     pendingInfoRequests,
     pendingJustificativas,
     pendingJustificativasOwn,
+    pendingCiencia,
     inProgress,
     concluded,
     newInQueue,
