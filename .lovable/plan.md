@@ -1,49 +1,51 @@
 
 
-## Corrigir cancelamento errado #2026000140 + Ciência de cancelamento
+## Melhorias: UI Ciência, Reverter dados, Remover KPIs, Ordenação
 
-### Problema 1 — #2026000140 cancelada erroneamente
+### 1. Reverter ciência da 2026000125
 
-A solicitação entrou em `aguardando_informacoes` pela **segunda vez** em 23/03/2026. O backfill anterior usou `MIN(created_at)` e pegou a primeira entrada (12/02/2026), fazendo o sistema pensar que já tinha 44 dias. Na verdade tinha apenas 5 dias.
+A solicitação 2026000125 teve ciência confirmada durante impersonação. Reverter via SQL:
+- `UPDATE solicitacoes SET cancelamento_ciencia_em = NULL WHERE protocolo = '2026000125'`
+- Remover o registro de histórico com `acao = 'ciencia_cancelamento'` dessa solicitação
 
-**Correção:** Reverter o cancelamento via INSERT tool:
-- Atualizar `solicitacoes` SET `status = 'aguardando_informacoes'`, `data_pendente_correcao = '2026-03-23 16:48:41'`
-- Inserir registro no histórico explicando a reversão
-- O trigger `track_pendente_correcao_date` já funciona corretamente para novas transições (ele seta `NOW()` quando o status **entra** em pendente/aguardando), o bug foi exclusivo do backfill manual
+### 2. Corrigir histórico de ciência — não aparece na timeline
 
-**Prevenção futura:** O backfill com `MIN` já foi executado e não roda novamente. O trigger no banco usa a lógica correta (só seta quando `OLD.status NOT IN` pendente/aguardando), então para novas transições o problema não se repete.
+O `SolicitacaoTimeline.tsx` na função `getActionDetails` não reconhece a ação `ciencia_cancelamento`. Adicionar:
+```typescript
+case 'ciencia_cancelamento':
+  return { icon: <Eye />, label: 'Ciência de cancelamento confirmada', color: 'text-muted-foreground' };
+```
 
-### Problema 2 — Ciência de cancelamento automático
+### 3. Melhorar UI do "Confirmar ciência"
 
-Quando uma solicitação é cancelada por prazo, o solicitante precisa **confirmar ciência** antes que ela saia das ações pendentes.
+No `SolicitanteSolicitacaoCard.tsx`, melhorar o botão de ciência com:
+- Ícone mais visível, texto mais claro
+- Usar `variant="default"` com cor warning para chamar atenção
+- Adicionar um texto explicativo mais destacado
 
-#### Mudanças no banco
-- **Migração:** Adicionar coluna `cancelamento_ciencia_em` (timestamp, nullable) na tabela `solicitacoes` — marca quando o usuário deu ciência
+No `PendingActionsCard.tsx`, o botão "Dar ciência" já funciona bem — manter como está, mas ao clicar ele deve navegar para a aba "Canceladas" em vez de executar ciência em massa (mais seguro — o solicitante vê quais foram canceladas e confirma individualmente).
 
-#### Mudanças no frontend
+### 4. Remover KPIs cards do Solicitante
 
-**`src/hooks/useDashboardMetrics.ts`:**
-- Adicionar contagem de `pendingCiencia`: solicitações com `status = 'cancelado'` que tenham histórico de `prazo_resposta_expirado` ou `prazo_correção_expirado` E `cancelamento_ciencia_em IS NULL`
+Remover o componente `SolicitanteKPIs` da página `MinhasSolicitacoes.tsx` (linhas 960-967). As abas do FilterBar já mostram as contagens.
 
-**`src/components/PendingActionsCard.tsx`:**
-- Adicionar novo tipo de ação `ciencia_cancelamento` com badge e botão "Dar ciência"
+### 5. Ordenação por "Abertura" / "Última alteração"
 
-**`src/pages/MinhasSolicitacoes.tsx`:**
-- Adicionar handler `handleDarCiencia` que atualiza `cancelamento_ciencia_em = NOW()` e insere registro no histórico com ação `ciencia_cancelamento`
-- Filtrar solicitações canceladas sem ciência para a seção de ações pendentes
-
-**`src/components/solicitante/SolicitanteSolicitacaoCard.tsx`:**
-- No banner de cancelamento por prazo, adicionar botão "Confirmar ciência" que chama o handler
-- Após ciência dada, mostrar "Ciência confirmada em DD/MM/YYYY"
+Adicionar ao `MinhasSolicitacoes.tsx`:
+- State `sortBy: 'created_at' | 'updated_at'` com default `'updated_at'`
+- Botão toggle no `rightSlot` do FilterBar (ao lado do Exportar)
+- No `sortedAndFilteredSolicitacoes`, após o sort por prioridade, usar `sortBy` para desempate:
+  ```typescript
+  return new Date(b[sortBy]).getTime() - new Date(a[sortBy]).getTime();
+  ```
 
 ### Arquivos Modificados
 
 | Arquivo | Mudança |
 |---------|---------|
-| INSERT tool | Reverter #2026000140 para `aguardando_informacoes` |
-| Migração SQL | Coluna `cancelamento_ciencia_em` |
-| `src/hooks/useDashboardMetrics.ts` | Contar pendentes de ciência |
-| `src/components/PendingActionsCard.tsx` | Nova ação `ciencia_cancelamento` |
-| `src/pages/MinhasSolicitacoes.tsx` | Handler + filtro ciência |
-| `src/components/solicitante/SolicitanteSolicitacaoCard.tsx` | Botão ciência no card |
+| SQL (via tool) | Reverter ciência da 2026000125 |
+| `src/components/SolicitacaoTimeline.tsx` | Adicionar `ciencia_cancelamento` ao `getActionDetails` |
+| `src/components/solicitante/SolicitanteSolicitacaoCard.tsx` | Melhorar UI do botão ciência |
+| `src/components/PendingActionsCard.tsx` | Ciência navega para aba canceladas |
+| `src/pages/MinhasSolicitacoes.tsx` | Remover KPIs, adicionar ordenação com default `updated_at` |
 
