@@ -21,7 +21,7 @@ import {
   type DocumentoEmitido,
   type DocumentoFiscal,
 } from '@/types';
-import { Loader2, FileText, AlertTriangle, User, Building2, Download, CheckCircle, X, PartyPopper } from 'lucide-react';
+import { Loader2, FileText, AlertTriangle, User, Building2, Download, CheckCircle, X, PartyPopper, ArrowUpDown } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ContextualEmptyState } from '@/components/ui/ContextualEmptyState';
 import { saveAs } from 'file-saver';
@@ -37,7 +37,7 @@ import { FilterBar, type TabGroup } from '@/components/ui/FilterBar';
 import { PendingActionsCard } from '@/components/PendingActionsCard';
 
 // Extracted components
-import { SolicitanteKPIs } from '@/components/solicitante/SolicitanteKPIs';
+// SolicitanteKPIs removed — FilterBar tabs provide the same info
 import { SolicitanteModals } from '@/components/solicitante/SolicitanteModals';
 import { SolicitanteSolicitacaoCard } from '@/components/solicitante/SolicitanteSolicitacaoCard';
 import type { SolicitacaoComFornecedor, RejectionInfo, InfoRequest } from '@/components/solicitante/types';
@@ -957,14 +957,6 @@ export default function MinhasSolicitacoes() {
           )}
         </div>
 
-        {/* KPIs */}
-        {viewMode === 'minhas' && (
-          <SolicitanteKPIs
-            solicitacoes={solicitacoes}
-            activeTab={activeTab}
-            onTabChange={(tab) => setActiveTab(tab as FilterTab)}
-          />
-        )}
 
         {/* Pending Actions Card */}
         {viewMode === 'minhas' && (

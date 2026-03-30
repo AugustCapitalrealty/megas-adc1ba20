@@ -206,16 +206,22 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
                   : rejectionInfo.motivo}
               </p>
               {isPrazoExpirado && sol.status === 'cancelado' && (
-                <div className="mt-2">
+                <div className="mt-3">
                   {cienciaEm ? (
-                    <p className="text-xs text-muted-foreground">
-                      ✓ Ciência confirmada em {formatBR(cienciaEm, 'dd/MM/yyyy')}
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <CheckCircle className="h-3.5 w-3.5 text-success" />
+                      Ciência confirmada em {formatBR(cienciaEm, 'dd/MM/yyyy HH:mm')}
                     </p>
                   ) : (
-                    <Button size="sm" variant="outline" onClick={() => onDarCiencia?.(sol.id)}
-                      className="text-warning border-warning/30 hover:bg-warning/10">
-                      <Eye className="h-4 w-4 mr-1" /> Confirmar ciência
-                    </Button>
+                    <div className="flex flex-col gap-2">
+                      <p className="text-xs font-medium text-warning">
+                        ⚠ Confirme que está ciente do cancelamento para remover esta pendência.
+                      </p>
+                      <Button size="sm" onClick={() => onDarCiencia?.(sol.id)}
+                        className="w-fit gap-1.5 bg-warning text-warning-foreground hover:bg-warning/90">
+                        <Eye className="h-4 w-4" /> Confirmar ciência
+                      </Button>
+                    </div>
                   )}
                 </div>
               )}
