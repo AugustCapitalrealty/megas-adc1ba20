@@ -21,7 +21,7 @@ import {
   type DocumentoEmitido,
   type DocumentoFiscal,
 } from '@/types';
-import { Loader2, FileText, AlertTriangle, User, Building2, Download, CheckCircle, X, PartyPopper } from 'lucide-react';
+import { Loader2, FileText, AlertTriangle, User, Building2, Download, CheckCircle, X, PartyPopper, ArrowUpDown } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ContextualEmptyState } from '@/components/ui/ContextualEmptyState';
 import { saveAs } from 'file-saver';
@@ -37,7 +37,7 @@ import { FilterBar, type TabGroup } from '@/components/ui/FilterBar';
 import { PendingActionsCard } from '@/components/PendingActionsCard';
 
 // Extracted components
-import { SolicitanteKPIs } from '@/components/solicitante/SolicitanteKPIs';
+// SolicitanteKPIs removed — FilterBar tabs provide the same info
 import { SolicitanteModals } from '@/components/solicitante/SolicitanteModals';
 import { SolicitanteSolicitacaoCard } from '@/components/solicitante/SolicitanteSolicitacaoCard';
 import type { SolicitacaoComFornecedor, RejectionInfo, InfoRequest } from '@/components/solicitante/types';
@@ -80,6 +80,7 @@ export default function MinhasSolicitacoes() {
   const debouncedSearch = useDebounce(searchTerm, 300);
   const [empreendimentoFilter, setEmpreendimentoFilter] = useState('todos');
   const [showCreatedBanner, setShowCreatedBanner] = useState(!!createdProtocolo);
+  const [sortBy, setSortBy] = useState<'created_at' | 'updated_at'>('updated_at');
 
   // Auto-dismiss success banner
   useEffect(() => {
@@ -333,11 +334,11 @@ export default function MinhasSolicitacoes() {
       const aPriority = priorityStatuses.includes(a.status) ? 0 : 1;
       const bPriority = priorityStatuses.includes(b.status) ? 0 : 1;
       if (aPriority !== bPriority) return aPriority - bPriority;
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      return new Date(b[sortBy]).getTime() - new Date(a[sortBy]).getTime();
     });
     
     return sortWithFavorites(filtered);
-  }, [solicitacoes, activeTab, debouncedSearch, sortWithFavorites, viewMode, empreendimentoFilter]);
+  }, [solicitacoes, activeTab, debouncedSearch, sortWithFavorites, viewMode, empreendimentoFilter, sortBy]);
 
   const statusCounts = useMemo(() => ({
     todas: solicitacoes.length,
@@ -957,14 +958,6 @@ export default function MinhasSolicitacoes() {
           )}
         </div>
 
-        {/* KPIs */}
-        {viewMode === 'minhas' && (
-          <SolicitanteKPIs
-            solicitacoes={solicitacoes}
-            activeTab={activeTab}
-            onTabChange={(tab) => setActiveTab(tab as FilterTab)}
-          />
-        )}
 
         {/* Pending Actions Card */}
         {viewMode === 'minhas' && (
@@ -974,7 +967,7 @@ export default function MinhasSolicitacoes() {
             pendingNfBoleto={pendingCounts.nfBoleto}
             pendingCiencia={pendingCounts.ciencia}
             onViewPending={(filter) => setActiveTab(filter as FilterTab)}
-            onDarCiencia={handleDarCiencia}
+            onDarCiencia={() => setActiveTab('canceladas')}
           />
         )}
 
@@ -991,16 +984,27 @@ export default function MinhasSolicitacoes() {
             document.getElementById('solicitacoes-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }}
           rightSlot={
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => exportToExcel(sortedAndFilteredSolicitacoes as any, 'minhas_solicitacoes')}
-              disabled={sortedAndFilteredSolicitacoes.length === 0}
-              className="gap-1.5"
-            >
-              <Download className="h-4 w-4" />
-              Exportar
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSortBy(prev => prev === 'created_at' ? 'updated_at' : 'created_at')}
+                className="gap-1.5 text-xs"
+              >
+                <ArrowUpDown className="h-3.5 w-3.5" />
+                {sortBy === 'updated_at' ? 'Última alteração' : 'Abertura'}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => exportToExcel(sortedAndFilteredSolicitacoes as any, 'minhas_solicitacoes')}
+                disabled={sortedAndFilteredSolicitacoes.length === 0}
+                className="gap-1.5"
+              >
+                <Download className="h-4 w-4" />
+                Exportar
+              </Button>
+            </div>
           }
         />
 

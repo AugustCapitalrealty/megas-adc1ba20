@@ -19,7 +19,8 @@ import {
   RefreshCw,
   Loader2,
   Package,
-  Lock
+  Lock,
+  Eye
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -162,6 +163,16 @@ const getActionDetails = (acao: string, statusNovo: string | null, isBackoffice?
     icon: <AlertCircle className="h-4 w-4" />, 
     label: 'Solicitação devolvida para correção', 
     color: 'bg-warning text-warning-foreground' 
+  };
+  if (acao === 'ciencia_cancelamento') return { 
+    icon: <Eye className="h-4 w-4" />, 
+    label: 'Ciência de cancelamento confirmada', 
+    color: 'bg-muted text-muted-foreground' 
+  };
+  if (acao === 'prazo_resposta_expirado' || acao === 'prazo_correcao_expirado') return { 
+    icon: <XCircle className="h-4 w-4" />, 
+    label: 'Cancelado automaticamente — prazo de resposta expirado', 
+    color: 'bg-destructive text-destructive-foreground' 
   };
   
   // Fall back to status-based display
