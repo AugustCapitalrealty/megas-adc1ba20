@@ -80,6 +80,7 @@ export default function MinhasSolicitacoes() {
   const debouncedSearch = useDebounce(searchTerm, 300);
   const [empreendimentoFilter, setEmpreendimentoFilter] = useState('todos');
   const [showCreatedBanner, setShowCreatedBanner] = useState(!!createdProtocolo);
+  const [sortBy, setSortBy] = useState<'created_at' | 'updated_at'>('updated_at');
 
   // Auto-dismiss success banner
   useEffect(() => {
