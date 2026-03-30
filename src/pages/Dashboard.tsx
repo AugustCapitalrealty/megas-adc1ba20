@@ -237,6 +237,7 @@ export default function Dashboard() {
               pendingInfoRequests={metrics.pendingInfoRequests}
               pendingJustificativas={metrics.pendingJustificativas}
               pendingJustificativasOwn={metrics.pendingJustificativasOwn}
+              pendingCiencia={metrics.pendingCiencia}
               isBackofficeOrAdmin={isBackofficeOrAdmin}
               onViewPending={(filter) => {
                 if (filter === 'justificativa_oc') {
@@ -245,6 +246,7 @@ export default function Dashboard() {
                   navigate(`/minhas-solicitacoes?filter=${filter}`);
                 }
               }}
+              onDarCiencia={() => navigate('/minhas-solicitacoes?filter=canceladas')}
             />
 
             {/* Layer 2: KPI Cards */}
