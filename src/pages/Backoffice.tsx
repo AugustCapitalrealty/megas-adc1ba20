@@ -336,6 +336,17 @@ export default function Backoffice() {
         documento_numero: numerosStr,
       });
 
+      // Send WhatsApp notification for OC issued
+      supabase.functions.invoke('whatsapp-notify-oc', {
+        body: {
+          protocolo: selectedSolicitacao.protocolo,
+          numeros_oc: numerosStr,
+          valor: selectedSolicitacao.valor,
+          empreendimento: selectedSolicitacao.empreendimento,
+          fornecedor_razao: selectedSolicitacao.fornecedor_razao || null,
+        },
+      }).catch(err => console.error('WhatsApp OC notify error:', err));
+
       toast({
         title: numeros.length > 1 ? `${numeros.length} OCs Registradas!` : 'OC Registrada!',
         description: `Número(s): ${numerosStr}`,

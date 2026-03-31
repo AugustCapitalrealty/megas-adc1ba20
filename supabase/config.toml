@@ -29,3 +29,9 @@ verify_jwt = false
 
 [functions.whatsapp-daily-digest]
 verify_jwt = false
+
+[functions.whatsapp-notify-oc]
+verify_jwt = false
+
+[functions.whatsapp-webhook]
+verify_jwt = false
