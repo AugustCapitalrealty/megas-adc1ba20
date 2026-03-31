@@ -23,3 +23,9 @@ verify_jwt = false
 
 [functions.check-service-execution]
 verify_jwt = false
+
+[functions.whatsmiau-setup]
+verify_jwt = false
+
+[functions.whatsapp-daily-digest]
+verify_jwt = false
