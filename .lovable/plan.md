@@ -1,51 +1,69 @@
 
 
-## Melhorias: UI Ciência, Reverter dados, Remover KPIs, Ordenação
+## Integração WhatsApp via Whatsmiau — Resumo Diário
 
-### 1. Reverter ciência da 2026000125
+### Objetivo
+Criar uma edge function que envia um resumo diário das solicitações via WhatsApp usando a API Whatsmiau, para o número `5541998749629` vinculado ao usuário `guilherme.marques@capitalrealty.com.br`.
 
-A solicitação 2026000125 teve ciência confirmada durante impersonação. Reverter via SQL:
-- `UPDATE solicitacoes SET cancelamento_ciencia_em = NULL WHERE protocolo = '2026000125'`
-- Remover o registro de histórico com `acao = 'ciencia_cancelamento'` dessa solicitação
+### Passo 1 — Armazenar a API Key como secret
+Salvar `WHATSMIAU_API_KEY` com valor `15755252-923c-45c9-aaa7-85bb5c6af233` como secret do projeto.
 
-### 2. Corrigir histórico de ciência — não aparece na timeline
+### Passo 2 — Criar/Conectar instância Whatsmiau
+Antes de enviar mensagens, precisamos de uma instância conectada. A edge function vai:
+1. Listar instâncias existentes via `GET /evolution/instances`
+2. Se não houver, criar uma via `POST /evolution/instance/create` com `instanceName: "BAChamados"` e `qrcode: true`
+3. Retornar o QR code para o usuário escanear com o WhatsApp
 
-O `SolicitacaoTimeline.tsx` na função `getActionDetails` não reconhece a ação `ciencia_cancelamento`. Adicionar:
-```typescript
-case 'ciencia_cancelamento':
-  return { icon: <Eye />, label: 'Ciência de cancelamento confirmada', color: 'text-muted-foreground' };
+Isso será feito numa edge function auxiliar `whatsmiau-setup` que o admin pode chamar para configurar.
+
+### Passo 3 — Edge function `whatsapp-daily-digest`
+Nova edge function que:
+1. Busca o `user_id` do `guilherme.marques@capitalrealty.com.br` na tabela `profiles`
+2. Consulta as solicitações do dia (novas, atualizadas, canceladas, concluídas) com contagens por status
+3. Monta uma mensagem formatada com emojis e resumo
+4. Envia via `POST https://api.whatsmiau.dev/message/sendText/BAChamados` para `5541998749629`
+
+**Formato da mensagem:**
+```
+📋 *Resumo do Dia — BA Chamados*
+📅 31/03/2026
+
+📥 Novas: 3
+🔄 Em andamento: 12
+✅ Concluídas: 2
+❌ Canceladas: 1
+⚠️ Pendentes correção: 4
+📬 Aguardando informações: 2
+
+🔔 Destaques:
+• #2026000280 — Nova solicitação (Mega Curitiba)
+• #2026000275 — Concluída
+• #2026000155 — Cancelada por prazo
+
+Acesse: https://megas.lovable.app
 ```
 
-### 3. Melhorar UI do "Confirmar ciência"
+### Passo 4 — Agendar via pg_cron
+Configurar cron job para disparar diariamente às 18h (horário de Brasília = 21:00 UTC):
+```sql
+SELECT cron.schedule(
+  'whatsapp-daily-digest',
+  '0 21 * * 1-5',  -- seg-sex às 18h BRT
+  $$ SELECT net.http_post(...) $$
+);
+```
 
-No `SolicitanteSolicitacaoCard.tsx`, melhorar o botão de ciência com:
-- Ícone mais visível, texto mais claro
-- Usar `variant="default"` com cor warning para chamar atenção
-- Adicionar um texto explicativo mais destacado
+### Arquivos
 
-No `PendingActionsCard.tsx`, o botão "Dar ciência" já funciona bem — manter como está, mas ao clicar ele deve navegar para a aba "Canceladas" em vez de executar ciência em massa (mais seguro — o solicitante vê quais foram canceladas e confirma individualmente).
+| Arquivo | Descrição |
+|---------|-----------|
+| Secret `WHATSMIAU_API_KEY` | API key do Whatsmiau |
+| `supabase/functions/whatsmiau-setup/index.ts` | Listar/criar instância + QR code |
+| `supabase/functions/whatsapp-daily-digest/index.ts` | Resumo diário via WhatsApp |
+| SQL (via insert tool) | Cron job diário |
 
-### 4. Remover KPIs cards do Solicitante
-
-Remover o componente `SolicitanteKPIs` da página `MinhasSolicitacoes.tsx` (linhas 960-967). As abas do FilterBar já mostram as contagens.
-
-### 5. Ordenação por "Abertura" / "Última alteração"
-
-Adicionar ao `MinhasSolicitacoes.tsx`:
-- State `sortBy: 'created_at' | 'updated_at'` com default `'updated_at'`
-- Botão toggle no `rightSlot` do FilterBar (ao lado do Exportar)
-- No `sortedAndFilteredSolicitacoes`, após o sort por prioridade, usar `sortBy` para desempate:
-  ```typescript
-  return new Date(b[sortBy]).getTime() - new Date(a[sortBy]).getTime();
-  ```
-
-### Arquivos Modificados
-
-| Arquivo | Mudança |
-|---------|---------|
-| SQL (via tool) | Reverter ciência da 2026000125 |
-| `src/components/SolicitacaoTimeline.tsx` | Adicionar `ciencia_cancelamento` ao `getActionDetails` |
-| `src/components/solicitante/SolicitanteSolicitacaoCard.tsx` | Melhorar UI do botão ciência |
-| `src/components/PendingActionsCard.tsx` | Ciência navega para aba canceladas |
-| `src/pages/MinhasSolicitacoes.tsx` | Remover KPIs, adicionar ordenação com default `updated_at` |
+### Considerações
+- A instância precisa ser conectada (QR code escaneado) antes de enviar mensagens
+- A primeira execução será do `whatsmiau-setup` para configurar a instância
+- O número de destino (`5541998749629`) e o email serão configuráveis no futuro, mas inicialmente hardcoded para este usuário
 
