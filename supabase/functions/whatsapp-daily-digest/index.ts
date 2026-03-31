@@ -6,7 +6,7 @@ const corsHeaders = {
 }
 
 const WHATSMIAU_BASE = 'https://api.whatsmiau.dev'
-const INSTANCE_NAME = 'BAChamados'
+const INSTANCE_NAME = 'WhatsmiauTest_4cca4bbe'
 const DEST_NUMBER = '5541998749629'
 
 Deno.serve(async (req) => {
