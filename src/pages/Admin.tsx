@@ -15,6 +15,7 @@ import { Loader2, Search, Shield, Users, UserCheck, UserCog, X, Building2, Check
 import { AppRole, ROLE_LABELS, Empreendimento, EMPREENDIMENTO_LABELS } from '@/types';
 import { SolicitacoesManagement } from '@/components/admin/SolicitacoesManagement';
 import { RateioConfigTab } from '@/components/RateioConfigTab';
+import { WhatsAppAdminTab } from '@/components/admin/WhatsAppAdminTab';
 import {
   Dialog,
   DialogContent,
