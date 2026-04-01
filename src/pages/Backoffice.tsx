@@ -342,6 +342,7 @@ export default function Backoffice() {
           protocolo: selectedSolicitacao.protocolo,
           numeros_oc: numerosStr,
           valor: selectedSolicitacao.valor,
+          descricao: selectedSolicitacao.descricao,
           empreendimento: selectedSolicitacao.empreendimento,
           fornecedor_razao: selectedSolicitacao.fornecedor_razao || null,
           solicitacao_id: selectedSolicitacao.id,

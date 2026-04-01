@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
       })
     }
 
-    const { protocolo, numeros_oc, valor, empreendimento, fornecedor_razao, solicitacao_id } = await req.json()
+    const { protocolo, numeros_oc, valor, descricao, empreendimento, fornecedor_razao, solicitacao_id } = await req.json()
 
     if (!protocolo || !numeros_oc) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
@@ -55,6 +55,8 @@ Deno.serve(async (req) => {
     message += `📋 Número(s): ${numeros_oc}\n`
     message += `🏢 Empreendimento: ${empLabels[empreendimento] || empreendimento || 'N/A'}\n`
     message += `💰 Valor: ${valorFormatted}\n`
+    const descricaoResumo = descricao && descricao.length > 200 ? `${descricao.substring(0, 200)}...` : (descricao || 'N/A')
+    message += `📝 Descrição: ${descricaoResumo}\n`
     if (fornecedor_razao) {
       message += `🏭 Fornecedor: ${fornecedor_razao}\n`
     }
