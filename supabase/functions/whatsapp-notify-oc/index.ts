@@ -76,14 +76,23 @@ Deno.serve(async (req) => {
       })
     }
 
+    let mediaSent = false
+    let mediaError: string | null = null
+
     // Try to send PDF if solicitacao_id is provided
     if (solicitacao_id) {
       try {
         const supabase = createClient(supabaseUrl, supabaseKey)
+        const numerosList = String(numeros_oc)
+          .split(',')
+          .map((n: string) => n.trim())
+          .filter(Boolean)
+
         const { data: docs } = await supabase
           .from('documentos_emitidos')
-          .select('storage_path, nome_arquivo')
+          .select('storage_path, nome_arquivo, numero_documento, created_at')
           .eq('solicitacao_id', solicitacao_id)
+          .in('numero_documento', numerosList)
           .order('created_at', { ascending: false })
           .limit(1)
 
@@ -93,8 +102,10 @@ Deno.serve(async (req) => {
             .createSignedUrl(docs[0].storage_path, 3600) // 1 hour
 
           if (signedUrlData?.signedUrl) {
+            let mediaFailures = 0
+
             for (const dest of DEST_NUMBERS) {
-              await fetch(`${WHATSMIAU_BASE}/message/sendMedia/${INSTANCE_NAME}`, {
+              const response = await fetch(`${WHATSMIAU_BASE}/message/sendMedia/${INSTANCE_NAME}`, {
                 method: 'POST',
                 headers: {
                   apikey: apiKey,
@@ -108,16 +119,40 @@ Deno.serve(async (req) => {
                   delay: 2000,
                 }),
               })
+
+              if (!response.ok) {
+                mediaFailures += 1
+                const responseBody = await response.text()
+                console.error('Failed to send WhatsApp media', {
+                  status: response.status,
+                  body: responseBody,
+                  destino: dest.number,
+                  solicitacao_id,
+                  numero_documento: docs[0].numero_documento,
+                })
+                mediaError = `Whatsmiau sendMedia falhou (${response.status})`
+              }
             }
-            console.log('PDF sent to all recipients')
+
+            mediaSent = mediaFailures === 0
+            if (mediaSent) {
+              console.log('PDF sent to all recipients')
+            }
           }
+        } else {
+          mediaError = 'Documento da OC recém-emitida não encontrado para envio'
+          console.warn('No matching documentos_emitidos found for provided OC numbers', {
+            solicitacao_id,
+            numeros_oc: numerosList,
+          })
         }
       } catch (pdfErr) {
         console.error('PDF send error (non-fatal):', pdfErr)
+        mediaError = pdfErr instanceof Error ? pdfErr.message : 'Erro inesperado ao enviar anexo'
       }
     }
 
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({ success: true, mediaSent, mediaError }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (error) {
