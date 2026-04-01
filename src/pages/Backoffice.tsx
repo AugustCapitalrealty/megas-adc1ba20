@@ -346,6 +346,21 @@ export default function Backoffice() {
           fornecedor_razao: selectedSolicitacao.fornecedor_razao || null,
           solicitacao_id: selectedSolicitacao.id,
         },
+      }).then(({ data, error }) => {
+        if (error) {
+          console.error('WhatsApp OC notify error:', error);
+          return;
+        }
+
+        if (data?.success && data?.mediaSent === false) {
+          const mediaErrorMsg = data?.mediaError || 'Falha ao enviar anexo da OC via WhatsApp.';
+          console.warn('WhatsApp text sent, but media failed:', data);
+          toast({
+            variant: 'destructive',
+            title: 'OC notificada sem anexo',
+            description: mediaErrorMsg,
+          });
+        }
       }).catch(err => console.error('WhatsApp OC notify error:', err));
 
       toast({
