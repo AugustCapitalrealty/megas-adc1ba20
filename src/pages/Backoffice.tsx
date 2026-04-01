@@ -344,6 +344,7 @@ export default function Backoffice() {
           valor: selectedSolicitacao.valor,
           empreendimento: selectedSolicitacao.empreendimento,
           fornecedor_razao: selectedSolicitacao.fornecedor_razao || null,
+          solicitacao_id: selectedSolicitacao.id,
         },
       }).catch(err => console.error('WhatsApp OC notify error:', err));
 

@@ -7,7 +7,11 @@ const corsHeaders = {
 
 const WHATSMIAU_BASE = 'https://api.whatsmiau.dev'
 const INSTANCE_NAME = 'WhatsmiauTest_4cca4bbe'
-const DEST_NUMBER = '5541998749629'
+
+const DEST_NUMBERS = [
+  { number: '5541998749629', name: 'Guilherme Marques' },
+  { number: '5541991684980', name: 'Jonatas Ferreira' },
+]
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -16,6 +20,9 @@ Deno.serve(async (req) => {
 
   try {
     const apiKey = Deno.env.get('WHATSMIAU_API_KEY')
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+
     if (!apiKey) {
       return new Response(JSON.stringify({ error: 'WHATSMIAU_API_KEY not configured' }), {
         status: 500,
@@ -23,7 +30,7 @@ Deno.serve(async (req) => {
       })
     }
 
-    const { protocolo, numeros_oc, valor, empreendimento, fornecedor_razao } = await req.json()
+    const { protocolo, numeros_oc, valor, empreendimento, fornecedor_razao, solicitacao_id } = await req.json()
 
     if (!protocolo || !numeros_oc) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
@@ -53,27 +60,61 @@ Deno.serve(async (req) => {
     }
     message += `\n🔗 Acesse: https://megas.lovable.app`
 
-    const sendRes = await fetch(`${WHATSMIAU_BASE}/message/sendText/${INSTANCE_NAME}`, {
-      method: 'POST',
-      headers: {
-        apikey: apiKey,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        number: DEST_NUMBER,
-        text: message,
-        delay: 1200,
-      }),
-    })
-
-    const sendData = await sendRes.json()
-
-    if (!sendRes.ok) {
-      console.error('WhatsApp send error:', sendData)
-      return new Response(JSON.stringify({ error: 'Failed to send', details: sendData }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    // Send text message to all recipients
+    for (const dest of DEST_NUMBERS) {
+      await fetch(`${WHATSMIAU_BASE}/message/sendText/${INSTANCE_NAME}`, {
+        method: 'POST',
+        headers: {
+          apikey: apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          number: dest.number,
+          text: message,
+          delay: 1200,
+        }),
       })
+    }
+
+    // Try to send PDF if solicitacao_id is provided
+    if (solicitacao_id) {
+      try {
+        const supabase = createClient(supabaseUrl, supabaseKey)
+        const { data: docs } = await supabase
+          .from('documentos_emitidos')
+          .select('storage_path, nome_arquivo')
+          .eq('solicitacao_id', solicitacao_id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+
+        if (docs && docs.length > 0) {
+          const { data: signedUrlData } = await supabase.storage
+            .from('documentos-emitidos')
+            .createSignedUrl(docs[0].storage_path, 3600) // 1 hour
+
+          if (signedUrlData?.signedUrl) {
+            for (const dest of DEST_NUMBERS) {
+              await fetch(`${WHATSMIAU_BASE}/message/sendMedia/${INSTANCE_NAME}`, {
+                method: 'POST',
+                headers: {
+                  apikey: apiKey,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  number: dest.number,
+                  mediatype: 'document',
+                  media: signedUrlData.signedUrl,
+                  fileName: docs[0].nome_arquivo || `OC_${protocolo}.pdf`,
+                  delay: 2000,
+                }),
+              })
+            }
+            console.log('PDF sent to all recipients')
+          }
+        }
+      } catch (pdfErr) {
+        console.error('PDF send error (non-fatal):', pdfErr)
+      }
     }
 
     return new Response(JSON.stringify({ success: true }), {

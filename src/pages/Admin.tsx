@@ -11,10 +11,11 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Loader2, Search, Shield, Users, UserCheck, UserCog, X, Building2, CheckCircle, XCircle, Clock, FileText, Mail, Pencil, Check } from 'lucide-react';
+import { Loader2, Search, Shield, Users, UserCheck, UserCog, X, Building2, CheckCircle, XCircle, Clock, FileText, Mail, Pencil, Check, MessageSquare, Send, Wifi, WifiOff } from 'lucide-react';
 import { AppRole, ROLE_LABELS, Empreendimento, EMPREENDIMENTO_LABELS } from '@/types';
 import { SolicitacoesManagement } from '@/components/admin/SolicitacoesManagement';
 import { RateioConfigTab } from '@/components/RateioConfigTab';
+import { WhatsAppAdminTab } from '@/components/admin/WhatsAppAdminTab';
 import {
   Dialog,
   DialogContent,
@@ -772,6 +773,10 @@ export default function Admin() {
               <Building2 className="h-4 w-4" />
               Rateio
             </TabsTrigger>
+            <TabsTrigger value="whatsapp" className="gap-2">
+              <MessageSquare className="h-4 w-4" />
+              WhatsApp
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="usuarios" className="space-y-6 mt-6">
@@ -1065,6 +1070,10 @@ export default function Admin() {
 
           <TabsContent value="rateio" className="mt-6">
             <RateioConfigTab />
+          </TabsContent>
+
+          <TabsContent value="whatsapp" className="mt-6">
+            <WhatsAppAdminTab />
           </TabsContent>
         </Tabs>
       </div>
