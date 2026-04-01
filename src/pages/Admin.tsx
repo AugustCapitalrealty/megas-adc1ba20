@@ -1070,6 +1070,10 @@ export default function Admin() {
           <TabsContent value="rateio" className="mt-6">
             <RateioConfigTab />
           </TabsContent>
+
+          <TabsContent value="whatsapp" className="mt-6">
+            <WhatsAppAdminTab />
+          </TabsContent>
         </Tabs>
       </div>
 
