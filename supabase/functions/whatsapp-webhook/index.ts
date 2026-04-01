@@ -75,6 +75,8 @@ Deno.serve(async (req) => {
       || ''
     const senderNumber = data.key?.remoteJid?.replace('@s.whatsapp.net', '') || ''
 
+    console.log('Message from:', senderNumber, 'Text:', messageText)
+
     if (!messageText.trim()) {
       return new Response(JSON.stringify({ ok: true, ignored: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -88,17 +90,17 @@ Deno.serve(async (req) => {
 
     if (protocolMatch) {
       const protocolo = protocolMatch[1]
+      console.log('Looking up protocolo:', protocolo)
       const supabase = createClient(supabaseUrl, supabaseKey)
 
+      // Simple query without FK joins to avoid PostgREST issues
       const { data: sol, error } = await supabase
         .from('solicitacoes')
-        .select(`
-          protocolo, status, empreendimento, valor, created_at, updated_at,
-          descricao, emergencial,
-          fornecedor:fornecedores!solicitacoes_fornecedor_id_fkey(razao_social, nome_fantasia)
-        `)
+        .select('protocolo, status, empreendimento, valor, created_at, updated_at, descricao, emergencial, fornecedor_id')
         .eq('protocolo', protocolo)
         .maybeSingle()
+
+      console.log('DB result:', JSON.stringify({ sol, error }))
 
       if (error) {
         console.error('DB error:', error)
@@ -106,14 +108,24 @@ Deno.serve(async (req) => {
       } else if (!sol) {
         replyText = `🔍 Solicitação *#${protocolo}* não encontrada.\n\nVerifique o número e tente novamente.`
       } else {
+        // Fetch fornecedor separately if needed
+        let fornecedor = 'N/A'
+        if (sol.fornecedor_id) {
+          const { data: forn } = await supabase
+            .from('fornecedores')
+            .select('razao_social, nome_fantasia')
+            .eq('id', sol.fornecedor_id)
+            .maybeSingle()
+          if (forn) {
+            fornecedor = forn.nome_fantasia || forn.razao_social || 'N/A'
+          }
+        }
+
         const statusLabel = STATUS_LABELS[sol.status] || sol.status
         const empLabel = EMP_LABELS[sol.empreendimento] || sol.empreendimento
         const valor = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(sol.valor)
         const createdAt = new Date(sol.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
         const updatedAt = new Date(sol.updated_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-        const fornecedor = sol.fornecedor
-          ? ((sol.fornecedor as any).nome_fantasia || (sol.fornecedor as any).razao_social || 'N/A')
-          : 'N/A'
         const descricaoShort = sol.descricao?.substring(0, 100) || 'N/A'
 
         replyText = `📋 *Solicitação #${protocolo}*\n\n`
@@ -136,7 +148,8 @@ Deno.serve(async (req) => {
     }
 
     // Send reply
-    await fetch(`${WHATSMIAU_BASE}/message/sendText/${INSTANCE_NAME}`, {
+    console.log('Sending reply to:', senderNumber, 'Text length:', replyText.length)
+    const sendRes = await fetch(`${WHATSMIAU_BASE}/message/sendText/${INSTANCE_NAME}`, {
       method: 'POST',
       headers: {
         apikey: apiKey,
@@ -148,6 +161,9 @@ Deno.serve(async (req) => {
         delay: 1200,
       }),
     })
+
+    const sendData = await sendRes.json()
+    console.log('WhatsApp send response:', JSON.stringify(sendData).substring(0, 300))
 
     return new Response(JSON.stringify({ ok: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
