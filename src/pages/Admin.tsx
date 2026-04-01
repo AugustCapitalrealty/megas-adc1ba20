@@ -772,6 +772,10 @@ export default function Admin() {
               <Building2 className="h-4 w-4" />
               Rateio
             </TabsTrigger>
+            <TabsTrigger value="whatsapp" className="gap-2">
+              <MessageSquare className="h-4 w-4" />
+              WhatsApp
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="usuarios" className="space-y-6 mt-6">
