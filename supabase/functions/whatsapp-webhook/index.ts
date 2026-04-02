@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
     }
 
     const payload = await req.json()
-    console.log('Webhook received:', JSON.stringify(payload).substring(0, 500))
+    console.log('Webhook received:', JSON.stringify(payload).substring(0, 800))
 
     // Handle messages.upsert event
     if (payload.event !== 'messages.upsert') {
@@ -63,17 +63,22 @@ Deno.serve(async (req) => {
       })
     }
 
-    const data = payload.data
-    if (!data || data.key?.fromMe) {
+    // Support both payload formats:
+    // Format A (direct): data.key, data.message
+    // Format B (array):  data.messages[0].key, data.messages[0].message
+    const rawData = payload.data
+    const msg = rawData?.messages?.[0] || rawData
+    
+    if (!msg || msg.key?.fromMe) {
       return new Response(JSON.stringify({ ok: true, ignored: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    const messageText = data.message?.conversation
-      || data.message?.extendedTextMessage?.text
+    const messageText = msg.message?.conversation
+      || msg.message?.extendedTextMessage?.text
       || ''
-    const senderNumber = data.key?.remoteJid?.replace('@s.whatsapp.net', '') || ''
+    const senderNumber = msg.key?.remoteJid?.replace('@s.whatsapp.net', '') || ''
 
     console.log('Message from:', senderNumber, 'Text:', messageText)
 
