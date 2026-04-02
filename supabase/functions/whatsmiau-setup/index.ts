@@ -4,6 +4,7 @@ const corsHeaders = {
 }
 
 const WHATSMIAU_BASE = 'https://api.whatsmiau.dev'
+const INSTANCE_NAME = 'WhatsmiauTest_4cca4bbe'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -29,7 +30,7 @@ Deno.serve(async (req) => {
 
     if (action === 'status') {
       const bachamados = Array.isArray(instances)
-        ? instances.find((i: any) => i.instanceName === 'BAChamados' || i.name === 'BAChamados')
+        ? instances.find((i: any) => i.instanceName === INSTANCE_NAME || i.name === INSTANCE_NAME)
         : null
 
       return new Response(JSON.stringify({
@@ -41,14 +42,42 @@ Deno.serve(async (req) => {
       })
     }
 
+    if (action === 'configure_webhook') {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+      const webhookUrl = `${supabaseUrl}/functions/v1/whatsapp-webhook`
+
+      const webhookRes = await fetch(`${WHATSMIAU_BASE}/webhook/set/${INSTANCE_NAME}`, {
+        method: 'POST',
+        headers: {
+          apikey: apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          webhook: {
+            enabled: true,
+            url: webhookUrl,
+            events: ['messages.upsert'],
+            webhookByEvents: false,
+          },
+        }),
+      })
+      const webhookData = await webhookRes.json()
+
+      return new Response(JSON.stringify({
+        message: 'Webhook configurado com sucesso!',
+        webhookUrl,
+        response: webhookData,
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     if (action === 'create') {
-      // Check if already exists
       const existing = Array.isArray(instances)
-        ? instances.find((i: any) => i.instanceName === 'BAChamados' || i.name === 'BAChamados')
+        ? instances.find((i: any) => i.instanceName === INSTANCE_NAME || i.name === INSTANCE_NAME)
         : null
 
       if (existing) {
-        // Try to get QR code for connection
         const connectRes = await fetch(`${WHATSMIAU_BASE}/evolution/instance/connect/${existing._id || existing.id}`, {
           headers: { apikey: apiKey },
         })
@@ -63,7 +92,6 @@ Deno.serve(async (req) => {
         })
       }
 
-      // Create new instance
       const createRes = await fetch(`${WHATSMIAU_BASE}/evolution/instance/create`, {
         method: 'POST',
         headers: {
@@ -71,7 +99,7 @@ Deno.serve(async (req) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          instanceName: 'BAChamados',
+          instanceName: INSTANCE_NAME,
           qrcode: true,
         }),
       })
@@ -85,13 +113,13 @@ Deno.serve(async (req) => {
       })
     }
 
-    return new Response(JSON.stringify({ error: 'Ação inválida. Use "status" ou "create".' }), {
+    return new Response(JSON.stringify({ error: 'Ação inválida. Use "status", "create" ou "configure_webhook".' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (error) {
     console.error('Whatsmiau setup error:', error)
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: (error as Error).message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })

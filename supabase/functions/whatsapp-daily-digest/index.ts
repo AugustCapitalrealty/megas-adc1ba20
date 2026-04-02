@@ -45,7 +45,7 @@ function getGreeting(): string {
   const now = new Date()
   const brtHour = (now.getUTCHours() - 3 + 24) % 24
   if (brtHour < 12) return '☀️ Bom dia'
-  if (brtHour < 17) return '🌤️ Boa tarde'
+  if (brtHour < 17) return '🌤️ Atualização da tarde'
   return '🌙 Fechamento do dia'
 }
 
@@ -105,32 +105,17 @@ Deno.serve(async (req) => {
     const finishedStatuses = ['concluida', 'cancelado', 'rejeitado']
     const totalActive = allSol?.filter(s => !finishedStatuses.includes(s.status)).length || 0
 
-    // Status changes today
-    const { data: historico } = await supabase
-      .from('historico_solicitacoes')
-      .select('solicitacao_id, status_novo, created_at')
-      .gte('created_at', startOfDay)
-      .lte('created_at', endOfDay)
-      .not('status_novo', 'is', null)
-      .order('created_at', { ascending: false })
-      .limit(20)
-
-    // Build highlights
-    const highlights: string[] = []
-    const seenIds = new Set<string>()
-
-    newToday.slice(0, 5).forEach(s => {
-      seenIds.add(s.id)
-      highlights.push(`🆕 #${s.protocolo} — Nova (${EMP_LABELS[s.empreendimento] || s.empreendimento})`)
+    // Group movement by empreendimento
+    const movByEmp: Record<string, { novas: number; atualizadas: number }> = {}
+    newToday.forEach(s => {
+      const emp = EMP_LABELS[s.empreendimento] || s.empreendimento || 'Outros'
+      if (!movByEmp[emp]) movByEmp[emp] = { novas: 0, atualizadas: 0 }
+      movByEmp[emp].novas++
     })
-
-    historico?.forEach(h => {
-      if (highlights.length >= 10 || seenIds.has(h.solicitacao_id)) return
-      seenIds.add(h.solicitacao_id)
-      const sol = allSol?.find(s => s.id === h.solicitacao_id)
-      if (sol) {
-        highlights.push(`🔄 #${sol.protocolo} → ${STATUS_LABELS[h.status_novo] || h.status_novo}`)
-      }
+    updatedToday.forEach(s => {
+      const emp = EMP_LABELS[s.empreendimento] || s.empreendimento || 'Outros'
+      if (!movByEmp[emp]) movByEmp[emp] = { novas: 0, atualizadas: 0 }
+      movByEmp[emp].atualizadas++
     })
 
     // Counts
@@ -162,8 +147,8 @@ Deno.serve(async (req) => {
       msg += `\n`
     }
 
-    // Pipeline
-    msg += `📊 *Pipeline (${totalActive} ativas)*\n`
+    // Active (replacing "Pipeline")
+    msg += `📊 *Ativas (${totalActive})*\n`
     if (emAnalise > 0) msg += `   🔍 Em Análise: ${emAnalise}\n`
     if (emProcessamento > 0) msg += `   🔄 Em Aprovação: ${emProcessamento}\n`
     if (ocEmitida > 0) msg += `   📄 OC Emitida: ${ocEmitida}\n`
@@ -173,16 +158,18 @@ Deno.serve(async (req) => {
     if (aguardNf > 0) msg += `   🧾 Aguard. NF/Boleto: ${aguardNf}\n`
     msg += `\n`
 
-    // Today's activity
-    msg += `📈 *Movimento Hoje*\n`
-    msg += `   🆕 Novas: ${newToday.length}\n`
-    msg += `   🔄 Atualizadas: ${updatedToday.length}\n`
-
-    if (highlights.length > 0) {
-      msg += `\n━━━━━━━━━━━━━━━━━━━━\n`
-      msg += `🔔 *Destaques*\n`
-      msg += highlights.join('\n')
-      msg += '\n'
+    // Today's activity grouped by empreendimento
+    const totalMovement = newToday.length + updatedToday.length
+    msg += `📈 *Movimento Hoje (${totalMovement})*\n`
+    if (Object.keys(movByEmp).length > 0) {
+      for (const [emp, counts] of Object.entries(movByEmp)) {
+        const parts: string[] = []
+        if (counts.novas > 0) parts.push(`${counts.novas} nova${counts.novas > 1 ? 's' : ''}`)
+        if (counts.atualizadas > 0) parts.push(`${counts.atualizadas} atualizada${counts.atualizadas > 1 ? 's' : ''}`)
+        msg += `   🏢 ${emp}: ${parts.join(', ')}\n`
+      }
+    } else {
+      msg += `   Sem movimentação hoje\n`
     }
 
     msg += `\n🔗 megas.lovable.app`
@@ -218,7 +205,7 @@ Deno.serve(async (req) => {
     })
   } catch (error) {
     console.error('Daily digest error:', error)
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: (error as Error).message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
