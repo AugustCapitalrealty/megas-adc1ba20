@@ -344,11 +344,11 @@ export default function MinhasSolicitacoes() {
     todas: solicitacoes.length,
     com_backoffice: solicitacoes.filter(s => ['recebido', 'em_analise', 'aprovado', 'em_processamento'].includes(s.status)).length,
     correcoes: solicitacoes.filter(s => s.status === 'pendente_correcao' || s.status === 'aguardando_informacoes').length,
-    oc_emitida: solicitacoes.filter(s => s.status === 'aguardando_aceite').length,
+    oc_emitida: solicitacoes.filter(s => s.status === 'aguardando_aceite' || s.status === 'oc_ac_emitida').length,
     liberadas: solicitacoes.filter(s => s.status === 'liberado_fornecedor' || s.status === 'aguardando_execucao').length,
-    enviadas: solicitacoes.filter(s => ['enviado_fornecedor', 'aguardando_nf_boleto', 'nf_boleto_enviados', 'enviado_pagamento'].includes(s.status)).length,
+    enviadas: solicitacoes.filter(s => ['enviado_fornecedor', 'aguardando_nf_boleto', 'nf_boleto_enviados'].includes(s.status)).length,
     canceladas: solicitacoes.filter(s => s.status === 'rejeitado' || s.status === 'cancelado').length,
-    concluidas: solicitacoes.filter(s => s.status === 'concluida').length,
+    concluidas: solicitacoes.filter(s => s.status === 'concluida' || s.status === 'enviado_pagamento').length,
   }), [solicitacoes]);
 
   // ==================== Unread Messages ====================

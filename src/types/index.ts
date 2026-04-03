@@ -272,7 +272,7 @@ export const STATUS_ACTION_LABELS: Record<RequestStatus, string> = {
   enviado_pagamento: 'O pagamento está sendo processado',
   liberado_fornecedor: 'Fornecedor já pode executar o serviço',
   enviado_fornecedor: 'OC foi enviada ao fornecedor',
-  cancelado: 'Cancelada pelo solicitante',
+  cancelado: 'Esta solicitação foi cancelada',
   aguardando_execucao: 'Aguardando a execução do serviço pelo fornecedor',
 };
 

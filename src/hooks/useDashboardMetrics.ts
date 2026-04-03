@@ -172,7 +172,7 @@ export function useDashboardMetrics(viewMode: ViewMode = 'minhas', effectiveUser
   const pendingInfoRequests = allSol.filter(s => s.status === 'aguardando_informacoes').length;
 
   // In progress statuses
-  const inProgressStatuses: RequestStatus[] = ['recebido', 'em_analise', 'em_processamento', 'aprovado', 'liberado_fornecedor', 'enviado_fornecedor'];
+  const inProgressStatuses: RequestStatus[] = ['recebido', 'em_analise', 'em_processamento', 'aprovado', 'liberado_fornecedor', 'enviado_fornecedor', 'aguardando_aceite', 'oc_ac_emitida', 'aguardando_nf_boleto', 'nf_boleto_enviados', 'enviado_pagamento', 'aguardando_execucao'];
   const inProgress = allSol.filter(s => inProgressStatuses.includes(s.status as RequestStatus)).length;
 
   const concluded = allSol.filter(s => s.status === 'concluida').length;
