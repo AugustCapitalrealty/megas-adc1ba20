@@ -145,9 +145,12 @@ export default function NovaSolicitacao() {
   const isSubmittingRef = useRef(false);
 
   const handleSubmit = async () => {
-    if (isSubmittingRef.current) return;
+    if (isSubmittingRef.current || submitting) return;
     if (!user || !formState.empreendimento || !formState.naturezaOrcamentaria || !formState.fornecedor) return;
+    
+    // Lock immediately — both ref and state
     isSubmittingRef.current = true;
+    setSubmitting(true);
 
     // FD validation
     if (formState.faturamentoDireto) {
@@ -155,6 +158,7 @@ export default function NovaSolicitacao() {
       if (Math.abs(sum - derived.valorNumerico) > 0.01) {
         toast({ title: 'Valores inválidos', description: 'A soma de Serviço + Material deve ser igual ao valor total.', variant: 'destructive' });
         isSubmittingRef.current = false;
+        setSubmitting(false);
         return;
       }
     }
@@ -162,6 +166,7 @@ export default function NovaSolicitacao() {
     if (formState.fornecimentoExclusivo && !formState.justificativaExclusividade.trim()) {
       toast({ title: 'Justificativa obrigatória', description: 'Informe a justificativa para fornecimento exclusivo.', variant: 'destructive' });
       isSubmittingRef.current = false;
+      setSubmitting(false);
       return;
     }
 
@@ -169,11 +174,13 @@ export default function NovaSolicitacao() {
       if (formState.excecaoFornecedores && !formState.justificativaFornecedores.trim()) {
         toast({ title: 'Justificativa obrigatória', description: 'Informe a justificativa para não apresentar 3 fornecedores.', variant: 'destructive' });
         isSubmittingRef.current = false;
+        setSubmitting(false);
         return;
       }
       if (!formState.excecaoFornecedores && (!formState.fornecedorConcorrente1 || !formState.fornecedorConcorrente2)) {
         toast({ title: 'Fornecedores obrigatórios', description: 'Informe os 3 fornecedores ou selecione a opção de exceção.', variant: 'destructive' });
         isSubmittingRef.current = false;
+        setSubmitting(false);
         return;
       }
     }
@@ -183,10 +190,10 @@ export default function NovaSolicitacao() {
     if (missingAttachments.length > 0) {
       toast({ title: 'Anexos obrigatórios', description: `Faltando: ${missingAttachments.join(', ')}`, variant: 'destructive' });
       isSubmittingRef.current = false;
+      setSubmitting(false);
       return;
     }
 
-    setSubmitting(true);
     try {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       if (sessionError || !session) {
@@ -269,7 +276,29 @@ export default function NovaSolicitacao() {
 
       if (!data) throw lastError || new Error('Não foi possível criar a solicitação. Tente novamente.');
 
-      await uploadAnexos(data.id);
+      // Upload attachments with retry
+      try {
+        await uploadAnexos(data.id);
+      } catch (anexoError: any) {
+        console.error('[SUBMIT] Erro ao enviar anexos, retentando...', anexoError);
+        // Retry once
+        try {
+          await uploadAnexos(data.id);
+        } catch (retryError) {
+          console.error('[SUBMIT] Falha no retry de anexos:', retryError);
+          // Solicitação criada mas anexos falharam — notificar o usuário
+          toast({
+            title: 'Solicitação criada com pendência',
+            description: `Protocolo: ${data.protocolo}. Alguns anexos podem não ter sido enviados. Entre em contato com o backoffice.`,
+            variant: 'destructive',
+            duration: 10000,
+          });
+          clearDraft();
+          navigate(`/minhas-solicitacoes?created=${data.protocolo}`);
+          return;
+        }
+      }
+
       await supabase.from('historico_solicitacoes').insert({ solicitacao_id: data.id, user_id: user.id, acao: 'criacao', status_novo: 'recebido' });
 
       const { data: userProfile } = await supabase.from('profiles').select('full_name, email').eq('id', user.id).single();
