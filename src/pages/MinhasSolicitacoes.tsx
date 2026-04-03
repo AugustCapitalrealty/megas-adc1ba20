@@ -325,7 +325,7 @@ export default function MinhasSolicitacoes() {
         filtered = filtered.filter(s => s.status === 'rejeitado' || s.status === 'cancelado');
         break;
       case 'concluidas':
-        filtered = filtered.filter(s => s.status === 'concluida');
+        filtered = filtered.filter(s => s.status === 'concluida' || s.status === 'enviado_pagamento');
         break;
     }
     
