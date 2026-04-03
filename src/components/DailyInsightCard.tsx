@@ -24,6 +24,7 @@ export function DailyInsightCard({
   pendingNfBoleto,
   pendingInfoRequests,
   pendingJustificativas,
+  pendingCiencia,
   concluded,
   total,
   isBackofficeOrAdmin,
