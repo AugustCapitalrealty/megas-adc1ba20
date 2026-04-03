@@ -219,7 +219,7 @@ export const STATUS_LABELS: Record<RequestStatus, string> = {
   enviado_pagamento: 'Enviado para Pagamento (legado)',
   liberado_fornecedor: 'Liberada para Fornecedor',
   enviado_fornecedor: 'OC Enviada ao Fornecedor',
-  cancelado: 'Cancelada pelo Solicitante',
+  cancelado: 'Cancelada',
   aguardando_execucao: 'Aguardando Execução do Serviço',
 };
 
