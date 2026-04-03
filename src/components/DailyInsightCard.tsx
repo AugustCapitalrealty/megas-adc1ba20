@@ -9,6 +9,7 @@ interface DailyInsightCardProps {
   pendingNfBoleto: number;
   pendingInfoRequests: number;
   pendingJustificativas: number;
+  pendingCiencia: number;
   concluded: number;
   total: number;
   isBackofficeOrAdmin: boolean;
@@ -23,6 +24,7 @@ export function DailyInsightCard({
   pendingNfBoleto,
   pendingInfoRequests,
   pendingJustificativas,
+  pendingCiencia,
   concluded,
   total,
   isBackofficeOrAdmin,
@@ -30,7 +32,7 @@ export function DailyInsightCard({
   waitingSolicitor,
   onAction,
 }: DailyInsightCardProps) {
-  const totalPending = pendingCorrections + pendingAcceptance + pendingNfBoleto + pendingInfoRequests + pendingJustificativas;
+  const totalPending = pendingCorrections + pendingAcceptance + pendingNfBoleto + pendingInfoRequests + pendingJustificativas + pendingCiencia;
 
   const insights: string[] = [];
 
@@ -43,6 +45,7 @@ export function DailyInsightCard({
     if (pendingNfBoleto > 0) insights.push(`${pendingNfBoleto} NF/Boleto${pendingNfBoleto > 1 ? 's' : ''} para enviar`);
     if (pendingInfoRequests > 0) insights.push(`${pendingInfoRequests} pedido${pendingInfoRequests > 1 ? 's' : ''} de informação`);
     if (pendingJustificativas > 0) insights.push(`${pendingJustificativas} justificativa${pendingJustificativas > 1 ? 's' : ''} de OC pendente${pendingJustificativas > 1 ? 's' : ''}`);
+    if (pendingCiencia > 0) insights.push(`${pendingCiencia} cancelamento${pendingCiencia > 1 ? 's' : ''} para confirmar ciência`);
   }
 
   const isAllClear = totalPending === 0;

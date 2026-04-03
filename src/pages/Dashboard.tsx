@@ -222,6 +222,7 @@ export default function Dashboard() {
               pendingNfBoleto={metrics.pendingNfBoleto}
               pendingInfoRequests={metrics.pendingInfoRequests}
               pendingJustificativas={metrics.pendingJustificativas}
+              pendingCiencia={metrics.pendingCiencia}
               concluded={metrics.concluded}
               total={metrics.total}
               isBackofficeOrAdmin={isBackofficeOrAdmin}
