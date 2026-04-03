@@ -319,7 +319,7 @@ export default function MinhasSolicitacoes() {
         filtered = filtered.filter(s => s.status === 'liberado_fornecedor' || s.status === 'aguardando_execucao');
         break;
       case 'enviadas':
-        filtered = filtered.filter(s => ['enviado_fornecedor', 'aguardando_nf_boleto', 'nf_boleto_enviados', 'enviado_pagamento'].includes(s.status));
+        filtered = filtered.filter(s => ['enviado_fornecedor', 'aguardando_nf_boleto', 'nf_boleto_enviados'].includes(s.status));
         break;
       case 'canceladas':
         filtered = filtered.filter(s => s.status === 'rejeitado' || s.status === 'cancelado');
