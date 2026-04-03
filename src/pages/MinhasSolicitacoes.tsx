@@ -313,7 +313,7 @@ export default function MinhasSolicitacoes() {
         filtered = filtered.filter(s => s.status === 'pendente_correcao' || s.status === 'aguardando_informacoes');
         break;
       case 'oc_emitida':
-        filtered = filtered.filter(s => s.status === 'aguardando_aceite');
+        filtered = filtered.filter(s => s.status === 'aguardando_aceite' || s.status === 'oc_ac_emitida');
         break;
       case 'liberadas':
         filtered = filtered.filter(s => s.status === 'liberado_fornecedor' || s.status === 'aguardando_execucao');
