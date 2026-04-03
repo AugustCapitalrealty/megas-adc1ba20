@@ -9,6 +9,7 @@ interface DailyInsightCardProps {
   pendingNfBoleto: number;
   pendingInfoRequests: number;
   pendingJustificativas: number;
+  pendingCiencia: number;
   concluded: number;
   total: number;
   isBackofficeOrAdmin: boolean;
