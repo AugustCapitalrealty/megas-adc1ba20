@@ -32,7 +32,7 @@ export function DailyInsightCard({
   waitingSolicitor,
   onAction,
 }: DailyInsightCardProps) {
-  const totalPending = pendingCorrections + pendingAcceptance + pendingNfBoleto + pendingInfoRequests + pendingJustificativas;
+  const totalPending = pendingCorrections + pendingAcceptance + pendingNfBoleto + pendingInfoRequests + pendingJustificativas + pendingCiencia;
 
   const insights: string[] = [];
 
