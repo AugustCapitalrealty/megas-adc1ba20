@@ -1,12 +1,34 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import {
+  buildCard,
+  createButtonWidget,
+  createFooterSummary,
+  createStatGrid,
+  sendGChatMessage,
+} from '../_shared/gchat-helpers.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const CARD_VERSION = 'gchat-daily-digest-v2-compat-2026-04-04'
+const CARD_VERSION = 'gchat-daily-digest-v3-radar-2026-04-04'
 const APP_URL = 'https://megas.lovable.app'
+
+const COLORS = {
+  critical: '#D32F2F',
+  warning: '#F57C00',
+  alert: '#FBC02D',
+  info: '#1E88E5',
+  success: '#43A047',
+  accent: '#00897B',
+  purple: '#6A1B9A',
+  indigo: '#3949AB',
+  violet: '#5E35B1',
+  muted: '#999999',
+}
+
+const FINISHED_STATUSES = ['concluida', 'cancelado', 'rejeitado']
 
 const EMP_LABELS: Record<string, string> = {
   mega_curitiba: 'Mega Curitiba',
@@ -16,25 +38,117 @@ const EMP_LABELS: Record<string, string> = {
   todos: 'Todos',
 }
 
-function getGreeting(): { text: string; emoji: string } {
+type Greeting = {
+  title: string
+  salute: string
+}
+
+type CountMetric = {
+  label: string
+  count: number
+  color: string
+}
+
+type MovementMetric = {
+  label: string
+  novas: number
+  atualizadas: number
+}
+
+function getGreeting(): Greeting {
   const now = new Date()
   const brtHour = (now.getUTCHours() - 3 + 24) % 24
 
-  if (brtHour < 12) return { text: 'Bom dia', emoji: 'Sol' }
-  if (brtHour < 17) return { text: 'Atualizacao da tarde', emoji: 'Atualizacao' }
-  return { text: 'Fechamento do dia', emoji: 'Noite' }
+  if (brtHour < 12) {
+    return { title: 'Radar da manha', salute: 'Bom dia' }
+  }
+
+  if (brtHour < 17) {
+    return { title: 'Pulso da tarde', salute: 'Boa tarde' }
+  }
+
+  return { title: 'Fechamento operacional', salute: 'Boa noite' }
 }
 
-function createCountWidget(
-  topLabel: string,
-  count: number,
-  color: string,
-  detail: string
+function pluralize(
+  value: number,
+  singular: string,
+  plural: string = `${singular}s`
 ) {
+  return `${value} ${value === 1 ? singular : plural}`
+}
+
+function sectionHeader(title: string, subtitle: string, color: string) {
+  return (
+    `<b><font color="${color}">${title}</font></b>` +
+    `<br/><font size=1 color="${COLORS.muted}">${subtitle}</font>`
+  )
+}
+
+function buildOverviewMessage(
+  urgentCount: number,
+  totalActive: number,
+  totalMovement: number
+) {
+  if (totalActive === 0) {
+    return 'Nao ha solicitacoes ativas neste momento.'
+  }
+
+  if (urgentCount === 0 && totalMovement === 0) {
+    return 'Operacao estavel, sem gargalos criticos no momento.'
+  }
+
+  if (urgentCount === 0) {
+    return `Sem prioridades imediatas. ${pluralize(totalMovement, 'movimento registrado')} hoje.`
+  }
+
+  if (urgentCount <= 3) {
+    return `${pluralize(urgentCount, 'prioridade aberta')} pedindo uma passada rapida na fila.`
+  }
+
+  return `${pluralize(urgentCount, 'item critico')} concentrados em fila, correcoes e retorno de informacoes.`
+}
+
+function buildStatusSummary(items: CountMetric[]) {
+  return items
+    .map((item) => `${item.label.toLowerCase()}: ${item.count}`)
+    .join(' | ')
+}
+
+function createEmptyStateWidget(title: string, detail: string) {
   return {
     decoratedText: {
-      topLabel,
-      text: `<font color="${color}"><b>${count}</b></font><br><font color="#999999">${detail}</font>`,
+      topLabel: title,
+      text: `<font color="${COLORS.success}"><b>Tudo sob controle</b></font>`,
+      bottomLabel: detail,
+      startIcon: { knownIcon: 'CHECK_CIRCLE' },
+      wrapText: true,
+    },
+  }
+}
+
+function createMovementWidget(item: MovementMetric, isTopVolume: boolean) {
+  const parts: string[] = []
+
+  if (item.novas > 0) {
+    parts.push(
+      `<font color="${COLORS.success}"><b>${item.novas}</b> nova${item.novas === 1 ? '' : 's'}</font>`
+    )
+  }
+
+  if (item.atualizadas > 0) {
+    parts.push(
+      `<font color="${COLORS.info}"><b>${item.atualizadas}</b> atualizada${item.atualizadas === 1 ? '' : 's'}</font>`
+    )
+  }
+
+  return {
+    decoratedText: {
+      topLabel: isTopVolume ? `${item.label} | maior volume` : item.label,
+      text: parts.join(' | '),
+      bottomLabel: `Total no dia: ${item.novas + item.atualizadas}`,
+      startIcon: { knownIcon: 'HOTEL_ROOM_TYPE' },
+      wrapText: true,
     },
   }
 }
@@ -70,7 +184,7 @@ Deno.serve(async (req) => {
 
     const { data: allSol, error: solErr } = await supabase
       .from('solicitacoes')
-      .select('id, protocolo, status, empreendimento, created_at, updated_at')
+      .select('id, status, empreendimento, created_at, updated_at')
 
     if (solErr) throw solErr
 
@@ -93,8 +207,8 @@ Deno.serve(async (req) => {
       statusCounts[item.status] = (statusCounts[item.status] || 0) + 1
     })
 
-    const finishedStatuses = ['concluida', 'cancelado', 'rejeitado']
-    const totalActive = allSol?.filter((item) => !finishedStatuses.includes(item.status)).length || 0
+    const totalActive =
+      allSol?.filter((item) => !FINISHED_STATUSES.includes(item.status)).length || 0
 
     const movementByEmp: Record<string, { novas: number; atualizadas: number }> = {}
 
@@ -130,156 +244,177 @@ Deno.serve(async (req) => {
       timeZone: 'America/Sao_Paulo',
     })
 
-    const sections: any[] = [
+    const priorityMetrics: CountMetric[] = [
+      { label: 'Na fila', count: naFila, color: COLORS.critical },
+      { label: 'Correcao', count: pendCorrecao, color: COLORS.warning },
+      { label: 'Info pend.', count: aguardInfo, color: COLORS.alert },
+    ].filter((item) => item.count > 0)
+
+    const activeMetrics: CountMetric[] = [
+      { label: 'Analise', count: emAnalise, color: COLORS.info },
+      { label: 'Aprovacao', count: emProcessamento, color: COLORS.success },
+      { label: 'OC emitida', count: ocEmitida, color: COLORS.indigo },
+      { label: 'Liberadas', count: liberadas, color: COLORS.accent },
+      { label: 'Enviadas', count: enviadas, color: COLORS.purple },
+      { label: 'Execucao', count: aguardExec, color: COLORS.warning },
+      { label: 'NF/Boleto', count: aguardNf, color: COLORS.violet },
+    ].filter((item) => item.count > 0)
+
+    const movementEntries: MovementMetric[] = Object.entries(movementByEmp)
+      .map(([label, counts]) => ({
+        label,
+        novas: counts.novas,
+        atualizadas: counts.atualizadas,
+      }))
+      .sort(
+        (a, b) =>
+          b.novas + b.atualizadas - (a.novas + a.atualizadas) ||
+          b.novas - a.novas ||
+          a.label.localeCompare(b.label)
+      )
+
+    const visibleMovementEntries = movementEntries.slice(0, 4)
+    const hiddenMovementCount = Math.max(movementEntries.length - visibleMovementEntries.length, 0)
+
+    const overviewWidgets: any[] = [
       {
-        widgets: [
-          {
-            textParagraph: {
-              text:
-                `<b>Resumo operacional</b><br>` +
-                `<font color="#D32F2F">Pendentes: <b>${urgentCount}</b></font> ` +
-                `| <font color="#1E88E5">Ativas: <b>${totalActive}</b></font> ` +
-                `| <font color="#43A047">Movimento hoje: <b>${totalMovement}</b></font>`,
+        textParagraph: {
+          text:
+            `<b>${greeting.salute}.</b> ${buildOverviewMessage(urgentCount, totalActive, totalMovement)}`,
+        },
+      },
+      ...createStatGrid([
+        {
+          value: urgentCount,
+          label: urgentCount === 1 ? 'Prioridade' : 'Prioridades',
+          color: urgentCount > 0 ? COLORS.critical : COLORS.success,
+        },
+        {
+          value: totalActive,
+          label: 'Ativas',
+          color: COLORS.info,
+        },
+        {
+          value: totalMovement,
+          label: 'Mov. hoje',
+          color: totalMovement > 0 ? COLORS.warning : COLORS.muted,
+        },
+      ]),
+      createFooterSummary(
+        `Atualizado as ${generatedAt} | ${pluralize(newToday.length, 'nova', 'novas')} | ${pluralize(updatedToday.length, 'atualizacao', 'atualizacoes')}`
+      ),
+    ]
+
+    const priorityWidgets: any[] =
+      priorityMetrics.length > 0
+        ? [
+            ...createStatGrid(
+              priorityMetrics.map((item) => ({
+                value: item.count,
+                label: item.label,
+                color: item.color,
+              }))
+            ),
+            createFooterSummary(`Foco agora: ${buildStatusSummary(priorityMetrics)}`),
+          ]
+        : [
+            createEmptyStateWidget(
+              'Sem prioridades imediatas',
+              'Fila, correcoes e pedidos de informacao estao zerados.'
+            ),
+          ]
+
+    const activeWidgets: any[] =
+      activeMetrics.length > 0
+        ? [
+            ...createStatGrid(
+              activeMetrics.map((item) => ({
+                value: item.count,
+                label: item.label,
+                color: item.color,
+              }))
+            ),
+            createFooterSummary(`Total na operacao: ${totalActive} solicitacoes ativas`),
+          ]
+        : [
+            {
+              textParagraph: {
+                text: `<font color="${COLORS.muted}">Sem etapas ativas no pipeline agora.</font>`,
+              },
             },
-          },
-          {
-            textParagraph: {
-              text: `<font color="#999999">Card version: ${CARD_VERSION} | trigger: ${triggerType}</font>`,
+          ]
+
+    const movementWidgets: any[] =
+      visibleMovementEntries.length > 0
+        ? [
+            ...visibleMovementEntries.map((item, index) =>
+              createMovementWidget(item, index === 0)
+            ),
+            ...(hiddenMovementCount > 0
+              ? [
+                  createFooterSummary(
+                    `Mais ${hiddenMovementCount} empreendimento${hiddenMovementCount === 1 ? '' : 's'} com movimentacao hoje`
+                  ),
+                ]
+              : []),
+          ]
+        : [
+            {
+              textParagraph: {
+                text: `<font color="${COLORS.muted}">Nenhuma nova entrada ou atualizacao registrada hoje.</font>`,
+              },
             },
-          },
-        ],
+          ]
+
+    movementWidgets.push(
+      createFooterSummary(
+        `Hoje no total: ${pluralize(newToday.length, 'nova', 'novas')} | ${pluralize(updatedToday.length, 'atualizacao', 'atualizacoes')}`
+      )
+    )
+    movementWidgets.push(createButtonWidget([{ text: 'Abrir BA Chamados', url: APP_URL }]))
+
+    const sections: Array<{ header?: string; widgets: any[] }> = [
+      {
+        widgets: overviewWidgets,
+      },
+      {
+        header: sectionHeader(
+          'PRIORIDADES IMEDIATAS',
+          urgentCount > 0
+            ? `${pluralize(urgentCount, 'item pedindo atencao', 'itens pedindo atencao')} agora`
+            : 'Nenhum gargalo critico para destravar',
+          urgentCount > 0 ? COLORS.critical : COLORS.success
+        ),
+        widgets: priorityWidgets,
+      },
+      {
+        header: sectionHeader(
+          'FLUXO ATIVO',
+          activeMetrics.length > 0
+            ? `${pluralize(activeMetrics.length, 'frente ativa', 'frentes ativas')} no pipeline`
+            : 'Sem solicitacoes em andamento',
+          COLORS.info
+        ),
+        widgets: activeWidgets,
+      },
+      {
+        header: sectionHeader(
+          'MOVIMENTO DE HOJE',
+          totalMovement > 0
+            ? `${pluralize(totalMovement, 'mudanca registrada', 'mudancas registradas')} no dia`
+            : 'Sem movimentacao registrada ate agora',
+          totalMovement > 0 ? COLORS.warning : COLORS.muted
+        ),
+        widgets: movementWidgets,
       },
     ]
 
-    if (urgentCount > 0) {
-      const urgentWidgets = [
-        createCountWidget('Na fila', naFila, '#D32F2F', 'Solicitacoes aguardando triagem'),
-        createCountWidget('Correcao pendente', pendCorrecao, '#F57C00', 'Itens que voltaram para ajuste'),
-        createCountWidget('Aguardando informacoes', aguardInfo, '#FBC02D', 'Dependem de complemento para seguir'),
-      ].filter((widget) => !widget.decoratedText.text.includes('<b>0</b>'))
-
-      sections.push({
-        header: 'Acoes que pedem atencao',
-        widgets: urgentWidgets,
-      })
-    }
-
-    const activeItems = [
-      { label: 'Em analise', count: emAnalise, color: '#1E88E5' },
-      { label: 'Em aprovacao', count: emProcessamento, color: '#43A047' },
-      { label: 'OC emitida', count: ocEmitida, color: '#3949AB' },
-      { label: 'Liberadas', count: liberadas, color: '#00897B' },
-      { label: 'Enviadas', count: enviadas, color: '#6A1B9A' },
-      { label: 'Aguardando execucao', count: aguardExec, color: '#F57C00' },
-      { label: 'Aguardando NF/Boleto', count: aguardNf, color: '#5E35B1' },
-    ].filter((item) => item.count > 0)
-
-    if (activeItems.length > 0) {
-      sections.push({
-        header: 'Fluxo ativo',
-        widgets: [
-          ...activeItems.map((item) => ({
-            decoratedText: {
-              topLabel: item.label,
-              text: `<font color="${item.color}"><b>${item.count}</b></font>`,
-            },
-          })),
-          {
-            textParagraph: {
-              text: `<font color="#999999">Total de solicitacoes ativas: <b>${totalActive}</b></font>`,
-            },
-          },
-        ],
-      })
-    }
-
-    const movementWidgets: any[] = []
-
-    if (Object.keys(movementByEmp).length > 0) {
-      const empEntries = Object.entries(movementByEmp).sort(
-        (a, b) => (b[1].novas + b[1].atualizadas) - (a[1].novas + a[1].atualizadas)
-      )
-
-      for (const [emp, counts] of empEntries) {
-        const parts = []
-        if (counts.novas > 0) parts.push(`<font color="#43A047">Novas: <b>${counts.novas}</b></font>`)
-        if (counts.atualizadas > 0) {
-          parts.push(`<font color="#1E88E5">Atualizadas: <b>${counts.atualizadas}</b></font>`)
-        }
-
-        movementWidgets.push({
-          decoratedText: {
-            topLabel: emp,
-            text: `${parts.join(' | ')}<br><font color="#999999">Total no dia: <b>${counts.novas + counts.atualizadas}</b></font>`,
-            startIcon: { knownIcon: 'HOTEL_ROOM_TYPE' },
-          },
-        })
-      }
-    } else {
-      movementWidgets.push({
-        textParagraph: {
-          text: '<i><font color="#999999">Sem movimentacao hoje</font></i>',
-        },
-      })
-    }
-
-    movementWidgets.push({
-      textParagraph: {
-        text:
-          `<font color="#999999">Fechamento do dia: <b>${newToday.length}</b> novas ` +
-          `| <b>${updatedToday.length}</b> atualizadas</font>`,
-      },
-    })
-
-    sections.push({
-      header: 'Resumo do dia',
-      collapsible: totalMovement > 8,
-      widgets: movementWidgets,
-    })
-
-    sections.push({
-      widgets: [
-        {
-          buttonList: {
-            buttons: [
-              {
-                text: 'Abrir BA Chamados',
-                onClick: { openLink: { url: APP_URL } },
-              },
-            ],
-          },
-        },
-      ],
-    })
-
-    sections.push({
-      widgets: [
-        {
-          textParagraph: {
-            text:
-              `<font color="#999999">Resumo rapido: ${urgentCount} pendentes ` +
-              `| ${totalActive} ativas | ${totalMovement} mudancas hoje</font>`,
-          },
-        },
-      ],
-    })
-
     const cardHeader = {
-      title: `${greeting.emoji} ${greeting.text}!`,
-      subtitle: `BA Chamados - ${dayFormatted} | ${generatedAt}`,
+      title: greeting.title,
+      subtitle: `BA Chamados | ${dayFormatted} | ${generatedAt}`,
     }
 
-    const cardPayload = {
-      cardsV2: [
-        {
-          cardId: 'daily-digest',
-          card: {
-            header: cardHeader,
-            sections,
-          },
-        },
-      ],
-    }
+    const cardPayload = buildCard(cardHeader.title, cardHeader.subtitle, sections)
 
     console.log(
       'GCHAT_DAILY_DIGEST_PAYLOAD',
@@ -294,17 +429,7 @@ Deno.serve(async (req) => {
       })
     )
 
-    const gchatRes = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(cardPayload),
-    })
-
-    if (!gchatRes.ok) {
-      const errBody = await gchatRes.text()
-      throw new Error(`Google Chat webhook failed [${gchatRes.status}]: ${errBody}`)
-    }
-
+    const gchatRes = await sendGChatMessage(webhookUrl, cardPayload)
     await gchatRes.text()
 
     console.log(
