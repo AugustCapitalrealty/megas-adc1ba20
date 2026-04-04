@@ -17,7 +17,7 @@ export function WhatsAppAdminTab() {
       });
       if (error) throw error;
       toast.success('Resumo enviado no Google Chat!', {
-        description: `Novas: ${data?.stats?.newToday || 0} | Atualizadas: ${data?.stats?.updatedToday || 0}`,
+        description: `Novas: ${data?.stats?.newToday || 0} | Atualizadas: ${data?.stats?.updatedToday || 0} | Versao: ${data?.cardVersion || 'desconhecida'}`,
       });
     } catch (err: any) {
       toast.error('Erro ao enviar resumo', { description: err.message });

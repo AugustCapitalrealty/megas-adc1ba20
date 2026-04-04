@@ -5,9 +5,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+const CARD_VERSION = 'gchat-daily-digest-v2-compat-2026-04-04'
+const APP_URL = 'https://megas.lovable.app'
+
 const EMP_LABELS: Record<string, string> = {
   mega_curitiba: 'Mega Curitiba',
-  mega_itajai: 'Mega Itajaí',
+  mega_itajai: 'Mega Itajai',
   mega_esteio: 'Mega Esteio',
   mega_canoas: 'Mega Canoas',
   todos: 'Todos',
@@ -16,9 +19,24 @@ const EMP_LABELS: Record<string, string> = {
 function getGreeting(): { text: string; emoji: string } {
   const now = new Date()
   const brtHour = (now.getUTCHours() - 3 + 24) % 24
-  if (brtHour < 12) return { text: 'Bom dia', emoji: '☀️' }
-  if (brtHour < 17) return { text: 'Atualização da tarde', emoji: '🌤️' }
-  return { text: 'Fechamento do dia', emoji: '🌙' }
+
+  if (brtHour < 12) return { text: 'Bom dia', emoji: 'Sol' }
+  if (brtHour < 17) return { text: 'Atualizacao da tarde', emoji: 'Atualizacao' }
+  return { text: 'Fechamento do dia', emoji: 'Noite' }
+}
+
+function createCountWidget(
+  topLabel: string,
+  count: number,
+  color: string,
+  detail: string
+) {
+  return {
+    decoratedText: {
+      topLabel,
+      text: `<font color="${color}"><b>${count}</b></font><br><font color="#999999">${detail}</font>`,
+    },
+  }
 }
 
 Deno.serve(async (req) => {
@@ -30,6 +48,8 @@ Deno.serve(async (req) => {
     const webhookUrl = Deno.env.get('GCHAT_WEBHOOK_URL')
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const requestBody = await req.json().catch(() => ({}))
+    const triggerType = typeof requestBody?.time === 'string' ? requestBody.time : 'scheduled'
 
     if (!webhookUrl) {
       return new Response(JSON.stringify({ error: 'GCHAT_WEBHOOK_URL not configured' }), {
@@ -45,7 +65,8 @@ Deno.serve(async (req) => {
     const todayStr = brt.toISOString().split('T')[0]
     const startOfDay = `${todayStr}T00:00:00-03:00`
     const endOfDay = `${todayStr}T23:59:59-03:00`
-    const dayFormatted = `${todayStr.split('-')[2]}/${todayStr.split('-')[1]}/${todayStr.split('-')[0]}`
+    const [year, month, day] = todayStr.split('-')
+    const dayFormatted = `${day}/${month}/${year}`
 
     const { data: allSol, error: solErr } = await supabase
       .from('solicitacoes')
@@ -53,34 +74,40 @@ Deno.serve(async (req) => {
 
     if (solErr) throw solErr
 
-    const newToday = allSol?.filter(s =>
-      new Date(s.created_at) >= new Date(startOfDay) && new Date(s.created_at) <= new Date(endOfDay)
-    ) || []
+    const newToday = allSol?.filter((item) => {
+      const createdAt = new Date(item.created_at)
+      return createdAt >= new Date(startOfDay) && createdAt <= new Date(endOfDay)
+    }) || []
 
-    const updatedToday = allSol?.filter(s =>
-      new Date(s.updated_at) >= new Date(startOfDay) &&
-      new Date(s.updated_at) <= new Date(endOfDay) &&
-      !newToday.find(n => n.id === s.id)
-    ) || []
+    const updatedToday = allSol?.filter((item) => {
+      const updatedAt = new Date(item.updated_at)
+      return (
+        updatedAt >= new Date(startOfDay) &&
+        updatedAt <= new Date(endOfDay) &&
+        !newToday.find((newItem) => newItem.id === item.id)
+      )
+    }) || []
 
     const statusCounts: Record<string, number> = {}
-    allSol?.forEach(s => {
-      statusCounts[s.status] = (statusCounts[s.status] || 0) + 1
+    allSol?.forEach((item) => {
+      statusCounts[item.status] = (statusCounts[item.status] || 0) + 1
     })
 
     const finishedStatuses = ['concluida', 'cancelado', 'rejeitado']
-    const totalActive = allSol?.filter(s => !finishedStatuses.includes(s.status)).length || 0
+    const totalActive = allSol?.filter((item) => !finishedStatuses.includes(item.status)).length || 0
 
-    const movByEmp: Record<string, { novas: number; atualizadas: number }> = {}
-    newToday.forEach(s => {
-      const emp = EMP_LABELS[s.empreendimento] || s.empreendimento || 'Outros'
-      if (!movByEmp[emp]) movByEmp[emp] = { novas: 0, atualizadas: 0 }
-      movByEmp[emp].novas++
+    const movementByEmp: Record<string, { novas: number; atualizadas: number }> = {}
+
+    newToday.forEach((item) => {
+      const emp = EMP_LABELS[item.empreendimento] || item.empreendimento || 'Outros'
+      if (!movementByEmp[emp]) movementByEmp[emp] = { novas: 0, atualizadas: 0 }
+      movementByEmp[emp].novas += 1
     })
-    updatedToday.forEach(s => {
-      const emp = EMP_LABELS[s.empreendimento] || s.empreendimento || 'Outros'
-      if (!movByEmp[emp]) movByEmp[emp] = { novas: 0, atualizadas: 0 }
-      movByEmp[emp].atualizadas++
+
+    updatedToday.forEach((item) => {
+      const emp = EMP_LABELS[item.empreendimento] || item.empreendimento || 'Outros'
+      if (!movementByEmp[emp]) movementByEmp[emp] = { novas: 0, atualizadas: 0 }
+      movementByEmp[emp].atualizadas += 1
     })
 
     const naFila = statusCounts['recebido'] || 0
@@ -96,211 +123,176 @@ Deno.serve(async (req) => {
 
     const greeting = getGreeting()
     const urgentCount = naFila + pendCorrecao + aguardInfo
+    const totalMovement = newToday.length + updatedToday.length
+    const generatedAt = new Date().toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'America/Sao_Paulo',
+    })
 
-    // Build Google Chat Card v2 with improved UI
     const sections: any[] = [
       {
-        header: `<b><font color="#D32F2F">⚠️ AÇÕES CRÍTICAS</font></b>`,
         widgets: [
           {
-            columns: {
-              columnItems: [
-                {
-                  horizontalSizeStyle: 'FILL_AVAILABLE_SPACE',
-                  horizontalAlignment: 'CENTER',
-                  verticalAlignment: 'CENTER',
-                  widgets: [
-                    { textParagraph: { text: `<b><font size=5 color="#D32F2F">${naFila}</font></b>` } },
-                    { textParagraph: { text: `<font size=2>Na Fila</font>` } },
-                  ],
-                },
-                {
-                  horizontalSizeStyle: 'FILL_AVAILABLE_SPACE',
-                  horizontalAlignment: 'CENTER',
-                  verticalAlignment: 'CENTER',
-                  widgets: [
-                    { textParagraph: { text: `<b><font size=5 color="#F57C00">${pendCorrecao}</font></b>` } },
-                    { textParagraph: { text: `<font size=2>Correção</font>` } },
-                  ],
-                },
-                {
-                  horizontalSizeStyle: 'FILL_AVAILABLE_SPACE',
-                  horizontalAlignment: 'CENTER',
-                  verticalAlignment: 'CENTER',
-                  widgets: [
-                    { textParagraph: { text: `<b><font size=5 color="#FBC02D">${aguardInfo}</font></b>` } },
-                    { textParagraph: { text: `<font size=2>Info</font>` } },
-                  ],
-                },
-              ],
+            textParagraph: {
+              text:
+                `<b>Resumo operacional</b><br>` +
+                `<font color="#D32F2F">Pendentes: <b>${urgentCount}</b></font> ` +
+                `| <font color="#1E88E5">Ativas: <b>${totalActive}</b></font> ` +
+                `| <font color="#43A047">Movimento hoje: <b>${totalMovement}</b></font>`,
             },
           },
           {
             textParagraph: {
-              text: `<font color="#999" size=1>Total de ${urgentCount} itens requerem ação imediata</font>`,
+              text: `<font color="#999999">Card version: ${CARD_VERSION} | trigger: ${triggerType}</font>`,
             },
           },
         ],
       },
-      { divider: { topSpacing: 'SPACING_MEDIUM' } },
     ]
 
-    // Active section
-    const activeWidgets: any[] = []
-    const activeItems = [
-      { label: 'Em Análise', count: emAnalise, color: '#1E88E5' },
-      { label: 'Em Aprovação', count: emProcessamento, color: '#43A047' },
-      { label: 'OC Emitida', count: ocEmitida, color: '#3949AB' },
-      { label: 'Liberadas', count: liberadas, color: '#00897B' },
-      { label: 'Enviadas', count: enviadas, color: '#6A1B9A' },
-      { label: 'Aguard. Execução', count: aguardExec, color: '#F57C00' },
-      { label: 'Aguard. NF/Boleto', count: aguardNf, color: '#5E35B1' },
-    ].filter(i => i.count > 0)
-
-    if (activeItems.length > 0) {
-      // Row 1: 3 items
-      if (activeItems.length >= 1) {
-        activeWidgets.push({
-          columns: {
-            columnItems: activeItems.slice(0, 3).map(item => ({
-              horizontalSizeStyle: 'FILL_AVAILABLE_SPACE',
-              horizontalAlignment: 'CENTER',
-              verticalAlignment: 'CENTER',
-              widgets: [
-                { textParagraph: { text: `<b><font size=4 color="${item.color}">${item.count}</font></b>` } },
-                { textParagraph: { text: `<font size=1 color="#666">${item.label}</font>` } },
-              ],
-            })),
-          },
-        })
-      }
-      // Row 2: next 3 items
-      if (activeItems.length > 3) {
-        activeWidgets.push({
-          columns: {
-            columnItems: activeItems.slice(3, 6).map(item => ({
-              horizontalSizeStyle: 'FILL_AVAILABLE_SPACE',
-              horizontalAlignment: 'CENTER',
-              verticalAlignment: 'CENTER',
-              widgets: [
-                { textParagraph: { text: `<b><font size=4 color="${item.color}">${item.count}</font></b>` } },
-                { textParagraph: { text: `<font size=1 color="#666">${item.label}</font>` } },
-              ],
-            })),
-          },
-        })
-      }
-      // Row 3: remaining
-      if (activeItems.length > 6) {
-        activeWidgets.push({
-          columns: {
-            columnItems: activeItems.slice(6).map(item => ({
-              horizontalSizeStyle: 'FILL_AVAILABLE_SPACE',
-              horizontalAlignment: 'CENTER',
-              verticalAlignment: 'CENTER',
-              widgets: [
-                { textParagraph: { text: `<b><font size=4 color="${item.color}">${item.count}</font></b>` } },
-                { textParagraph: { text: `<font size=1 color="#666">${item.label}</font>` } },
-              ],
-            })),
-          },
-        })
-      }
-
-      activeWidgets.push({
-        textParagraph: {
-          text: `<font color="#999" size=1>📊 Total: <b>${totalActive}</b> solicitações ativas</font>`,
-        },
-      })
+    if (urgentCount > 0) {
+      const urgentWidgets = [
+        createCountWidget('Na fila', naFila, '#D32F2F', 'Solicitacoes aguardando triagem'),
+        createCountWidget('Correcao pendente', pendCorrecao, '#F57C00', 'Itens que voltaram para ajuste'),
+        createCountWidget('Aguardando informacoes', aguardInfo, '#FBC02D', 'Dependem de complemento para seguir'),
+      ].filter((widget) => !widget.decoratedText.text.includes('<b>0</b>'))
 
       sections.push({
-        header: `<b><font color="#1E88E5">📈 EM MOVIMENTO</font></b>`,
-        collapsible: false,
-        widgets: activeWidgets,
+        header: 'Acoes que pedem atencao',
+        widgets: urgentWidgets,
       })
-
-      sections.push({ divider: { topSpacing: 'SPACING_MEDIUM' } })
     }
 
-    // Movement section
-    const totalMovement = newToday.length + updatedToday.length
-    const movWidgets: any[] = []
+    const activeItems = [
+      { label: 'Em analise', count: emAnalise, color: '#1E88E5' },
+      { label: 'Em aprovacao', count: emProcessamento, color: '#43A047' },
+      { label: 'OC emitida', count: ocEmitida, color: '#3949AB' },
+      { label: 'Liberadas', count: liberadas, color: '#00897B' },
+      { label: 'Enviadas', count: enviadas, color: '#6A1B9A' },
+      { label: 'Aguardando execucao', count: aguardExec, color: '#F57C00' },
+      { label: 'Aguardando NF/Boleto', count: aguardNf, color: '#5E35B1' },
+    ].filter((item) => item.count > 0)
 
-    if (Object.keys(movByEmp).length > 0) {
-      const empEntries = Object.entries(movByEmp).sort((a, b) => 
-        (b[1].novas + b[1].atualizadas) - (a[1].novas + a[1].atualizadas)
+    if (activeItems.length > 0) {
+      sections.push({
+        header: 'Fluxo ativo',
+        widgets: [
+          ...activeItems.map((item) => ({
+            decoratedText: {
+              topLabel: item.label,
+              text: `<font color="${item.color}"><b>${item.count}</b></font>`,
+            },
+          })),
+          {
+            textParagraph: {
+              text: `<font color="#999999">Total de solicitacoes ativas: <b>${totalActive}</b></font>`,
+            },
+          },
+        ],
+      })
+    }
+
+    const movementWidgets: any[] = []
+
+    if (Object.keys(movementByEmp).length > 0) {
+      const empEntries = Object.entries(movementByEmp).sort(
+        (a, b) => (b[1].novas + b[1].atualizadas) - (a[1].novas + a[1].atualizadas)
       )
 
       for (const [emp, counts] of empEntries) {
-        const total = counts.novas + counts.atualizadas
-        const novasEmoji = counts.novas > 0 ? '🆕' : '·'
-        const atualizadasEmoji = counts.atualizadas > 0 ? '🔄' : '·'
-        
-        movWidgets.push({
+        const parts = []
+        if (counts.novas > 0) parts.push(`<font color="#43A047">Novas: <b>${counts.novas}</b></font>`)
+        if (counts.atualizadas > 0) {
+          parts.push(`<font color="#1E88E5">Atualizadas: <b>${counts.atualizadas}</b></font>`)
+        }
+
+        movementWidgets.push({
           decoratedText: {
-            topLabel: `${novasEmoji} Novas | ${atualizadasEmoji} Atualizadas`,
-            text: `<b>${emp}</b>: ${counts.novas} + ${counts.atualizadas} = <font color="#1E88E5"><b>${total}</b></font>`,
+            topLabel: emp,
+            text: `${parts.join(' | ')}<br><font color="#999999">Total no dia: <b>${counts.novas + counts.atualizadas}</b></font>`,
             startIcon: { knownIcon: 'HOTEL_ROOM_TYPE' },
           },
         })
       }
     } else {
-      movWidgets.push({ 
-        textParagraph: { 
-          text: '<i><font color="#999">📭 Sem movimentação hoje</font></i>' 
-        } 
+      movementWidgets.push({
+        textParagraph: {
+          text: '<i><font color="#999999">Sem movimentacao hoje</font></i>',
+        },
       })
     }
 
-    movWidgets.push({
+    movementWidgets.push({
       textParagraph: {
-        text: `<font color="#999" size=1>Total: <b>${newToday.length}</b> novas | <b>${updatedToday.length}</b> atualizadas</font>`,
+        text:
+          `<font color="#999999">Fechamento do dia: <b>${newToday.length}</b> novas ` +
+          `| <b>${updatedToday.length}</b> atualizadas</font>`,
       },
     })
 
     sections.push({
-      header: `<b><font color="#43A047">🔄 RESUMO DO DIA</font></b>`,
+      header: 'Resumo do dia',
       collapsible: totalMovement > 8,
-      widgets: movWidgets,
+      widgets: movementWidgets,
     })
 
-    sections.push({ divider: { topSpacing: 'SPACING_MEDIUM' } })
-
-    // Link button
     sections.push({
-      widgets: [{
-        buttonList: {
-          buttons: [{
-            text: '� Abrir BA Chamados',
-            onClick: { openLink: { url: 'https://megas.lovable.app' } },
-          }],
+      widgets: [
+        {
+          buttonList: {
+            buttons: [
+              {
+                text: 'Abrir BA Chamados',
+                onClick: { openLink: { url: APP_URL } },
+              },
+            ],
+          },
         },
-      }],
+      ],
     })
 
-    // Summary footer
-    const criticalSummary = `🔴 ${urgentCount} crítico${urgentCount !== 1 ? 's' : ''} · 📊 ${totalActive} ativo${totalActive !== 1 ? 's' : ''} · 🔄 ${totalMovement} mudança${totalMovement !== 1 ? 's' : ''}`
-    
     sections.push({
-      widgets: [{
-        textParagraph: {
-          text: `<font size=1 color="#999">${criticalSummary}</font>`,
+      widgets: [
+        {
+          textParagraph: {
+            text:
+              `<font color="#999999">Resumo rapido: ${urgentCount} pendentes ` +
+              `| ${totalActive} ativas | ${totalMovement} mudancas hoje</font>`,
+          },
         },
-      }],
+      ],
     })
+
+    const cardHeader = {
+      title: `${greeting.emoji} ${greeting.text}!`,
+      subtitle: `BA Chamados - ${dayFormatted} | ${generatedAt}`,
+    }
 
     const cardPayload = {
-      cardsV2: [{
-        cardId: 'daily-digest',
-        card: {
-          header: {
-            title: `${greeting.emoji} ${greeting.text}!`,
-            subtitle: `BA Chamados — ${dayFormatted} | ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`,
+      cardsV2: [
+        {
+          cardId: 'daily-digest',
+          card: {
+            header: cardHeader,
+            sections,
           },
-          sections,
         },
-      }],
+      ],
     }
+
+    console.log(
+      'GCHAT_DAILY_DIGEST_PAYLOAD',
+      JSON.stringify({
+        cardVersion: CARD_VERSION,
+        triggerType,
+        header: cardHeader,
+        sectionHeaders: sections.map((section) => section.header || '[widgets-only]'),
+        urgentCount,
+        totalActive,
+        totalMovement,
+      })
+    )
 
     const gchatRes = await fetch(webhookUrl, {
       method: 'POST',
@@ -315,13 +307,26 @@ Deno.serve(async (req) => {
 
     await gchatRes.text()
 
-    return new Response(JSON.stringify({
-      success: true,
-      message: 'Resumo enviado via Google Chat',
-      stats: { newToday: newToday.length, updatedToday: updatedToday.length, totalActive },
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    console.log(
+      'GCHAT_DAILY_DIGEST_SENT',
+      JSON.stringify({
+        cardVersion: CARD_VERSION,
+        triggerType,
+        status: gchatRes.status,
+      })
+    )
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: 'Resumo enviado via Google Chat',
+        cardVersion: CARD_VERSION,
+        stats: { newToday: newToday.length, updatedToday: updatedToday.length, totalActive },
+      }),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    )
   } catch (error) {
     console.error('GChat daily digest error:', error)
     return new Response(JSON.stringify({ error: (error as Error).message }), {

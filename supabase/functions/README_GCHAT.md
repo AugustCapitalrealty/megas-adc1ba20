@@ -135,6 +135,47 @@ curl -X POST http://localhost:54321/functions/v1/gchat-daily-digest \
   -d '{"time": "manual"}'
 ```
 
+## Deploy e diagnostico
+
+### 1. Ver a versao do card nos logs
+
+Depois de disparar `gchat-daily-digest`, procure por estas entradas:
+
+- `GCHAT_DAILY_DIGEST_PAYLOAD`
+- `GCHAT_DAILY_DIGEST_SENT`
+
+Elas incluem:
+
+- `cardVersion`
+- `triggerType`
+- `header`
+- `sectionHeaders`
+
+Se os logs nao mostrarem `gchat-daily-digest-v2-compat-2026-04-04`, a funcao em producao ainda nao recebeu esta versao.
+
+### 2. Ver logs da Edge Function
+
+```bash
+supabase functions logs gchat-daily-digest --project-ref wcxybuietfmaaqzmcmnq
+```
+
+### 3. Deploy manual das funcoes de Google Chat
+
+O repositorio nao tem automacao visivel para `supabase functions deploy`, entao trate o deploy como manual.
+
+```bash
+supabase functions deploy gchat-daily-digest --project-ref wcxybuietfmaaqzmcmnq
+supabase functions deploy gchat-notify-oc --project-ref wcxybuietfmaaqzmcmnq
+```
+
+### 4. Fluxo recomendado para validar drift
+
+1. Fazer deploy de `gchat-daily-digest`.
+2. Disparar manualmente pelo painel Admin.
+3. Conferir no Google Chat se o subtitulo tem data e hora.
+4. Conferir nos logs se `cardVersion` bate com a versao do repositorio.
+5. Se necessario, repetir o mesmo fluxo para `gchat-notify-oc`.
+
 ## 📚 Referências
 
 - [Google Chat Webhooks API](https://developers.google.com/chat/api/guides/webhooks)
@@ -147,7 +188,7 @@ curl -X POST http://localhost:54321/functions/v1/gchat-daily-digest \
 **Mensagem não chegou?**
 1. Verifique se `GCHAT_WEBHOOK_URL` está configurado
 2. Confirme se o webhook é valido (testar com curl)
-3. Veja logs: `supabase functions logs gchat-daily-digest`
+3. Veja logs: `supabase functions logs gchat-daily-digest --project-ref wcxybuietfmaaqzmcmnq`
 
 **Cron job não rodou?**
 1. Verifique se pg_cron está habilitado
@@ -157,4 +198,5 @@ curl -X POST http://localhost:54321/functions/v1/gchat-daily-digest \
 **Card não está bem formatado?**
 1. Use o Google Chat Card Builder: https://developers.google.com/chat/api/guides/message-formats/cards
 2. Valide o JSON da mensagem
-3. Verifique versão da API (v2 tem sintaxe diferente de v1)
+3. Verifique a `cardVersion` registrada nos logs para confirmar que o deploy certo esta rodando
+4. Prefira hierarquia visual em `textParagraph`, `decoratedText` e `buttonList`; nao dependa de `font size` como parte critica do layout
