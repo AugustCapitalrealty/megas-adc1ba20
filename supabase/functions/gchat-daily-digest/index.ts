@@ -97,85 +97,129 @@ Deno.serve(async (req) => {
     const greeting = getGreeting()
     const urgentCount = naFila + pendCorrecao + aguardInfo
 
-    // Build Google Chat Card v2
-    const sections: any[] = []
-
-    // Urgent actions section
-    if (urgentCount > 0) {
-      const urgentWidgets: any[] = []
-      if (naFila > 0) urgentWidgets.push({ decoratedText: { topLabel: 'Na Fila', text: `<b>${naFila}</b>`, startIcon: { knownIcon: 'INVITE' } } })
-      if (pendCorrecao > 0) urgentWidgets.push({ decoratedText: { topLabel: 'Correção Necessária', text: `<b>${pendCorrecao}</b>`, startIcon: { knownIcon: 'BOOKMARK' } } })
-      if (aguardInfo > 0) urgentWidgets.push({ decoratedText: { topLabel: 'Aguardando Informações', text: `<b>${aguardInfo}</b>`, startIcon: { knownIcon: 'EMAIL' } } })
-
-      sections.push({
-        header: `🔴 Ações Pendentes (${urgentCount})`,
-        collapsible: false,
-        widgets: urgentWidgets,
-      })
-    }
+    // Build Google Chat Card v2 with improved UI
+    const sections: any[] = [
+      {
+        header: `<b><font color="#D32F2F">⚠️ AÇÕES CRÍTICAS</font></b>`,
+        widgets: [
+          {
+            columns: {
+              columnItems: [
+                {
+                  horizontalSizeStyle: 'FILL_AVAILABLE_SPACE',
+                  horizontalAlignment: 'CENTER',
+                  verticalAlignment: 'CENTER',
+                  widgets: [
+                    { textParagraph: { text: `<b><font size=5 color="#D32F2F">${naFila}</font></b>` } },
+                    { textParagraph: { text: `<font size=2>Na Fila</font>` } },
+                  ],
+                },
+                {
+                  horizontalSizeStyle: 'FILL_AVAILABLE_SPACE',
+                  horizontalAlignment: 'CENTER',
+                  verticalAlignment: 'CENTER',
+                  widgets: [
+                    { textParagraph: { text: `<b><font size=5 color="#F57C00">${pendCorrecao}</font></b>` } },
+                    { textParagraph: { text: `<font size=2>Correção</font>` } },
+                  ],
+                },
+                {
+                  horizontalSizeStyle: 'FILL_AVAILABLE_SPACE',
+                  horizontalAlignment: 'CENTER',
+                  verticalAlignment: 'CENTER',
+                  widgets: [
+                    { textParagraph: { text: `<b><font size=5 color="#FBC02D">${aguardInfo}</font></b>` } },
+                    { textParagraph: { text: `<font size=2>Info</font>` } },
+                  ],
+                },
+              ],
+            },
+          },
+          {
+            textParagraph: {
+              text: `<font color="#999" size=1>Total de ${urgentCount} itens requerem ação imediata</font>`,
+            },
+          },
+        ],
+      },
+      { divider: { topSpacing: 'SPACING_MEDIUM' } },
+    ]
 
     // Active section
     const activeWidgets: any[] = []
     const activeItems = [
-      { label: 'Em Análise', count: emAnalise },
-      { label: 'Em Aprovação', count: emProcessamento },
-      { label: 'OC Emitida', count: ocEmitida },
-      { label: 'Liberadas', count: liberadas },
-      { label: 'Enviadas', count: enviadas },
-      { label: 'Aguard. Execução', count: aguardExec },
-      { label: 'Aguard. NF/Boleto', count: aguardNf },
+      { label: 'Em Análise', count: emAnalise, color: '#1E88E5' },
+      { label: 'Em Aprovação', count: emProcessamento, color: '#43A047' },
+      { label: 'OC Emitida', count: ocEmitida, color: '#3949AB' },
+      { label: 'Liberadas', count: liberadas, color: '#00897B' },
+      { label: 'Enviadas', count: enviadas, color: '#6A1B9A' },
+      { label: 'Aguard. Execução', count: aguardExec, color: '#F57C00' },
+      { label: 'Aguard. NF/Boleto', count: aguardNf, color: '#5E35B1' },
     ].filter(i => i.count > 0)
 
     if (activeItems.length > 0) {
-      activeWidgets.push({
-        columns: {
-          columnItems: activeItems.slice(0, 2).map(item => ({
-            horizontalSizeStyle: 'FILL_AVAILABLE_SPACE',
-            horizontalAlignment: 'CENTER',
-            verticalAlignment: 'CENTER',
-            widgets: [
-              { textParagraph: { text: `<b>${item.count}</b>` } },
-              { textParagraph: { text: `<font color="#666666">${item.label}</font>` } },
-            ],
-          })),
-        },
-      })
-      if (activeItems.length > 2) {
+      // Row 1: 3 items
+      if (activeItems.length >= 1) {
         activeWidgets.push({
           columns: {
-            columnItems: activeItems.slice(2, 4).map(item => ({
+            columnItems: activeItems.slice(0, 3).map(item => ({
               horizontalSizeStyle: 'FILL_AVAILABLE_SPACE',
               horizontalAlignment: 'CENTER',
               verticalAlignment: 'CENTER',
               widgets: [
-                { textParagraph: { text: `<b>${item.count}</b>` } },
-                { textParagraph: { text: `<font color="#666666">${item.label}</font>` } },
+                { textParagraph: { text: `<b><font size=4 color="${item.color}">${item.count}</font></b>` } },
+                { textParagraph: { text: `<font size=1 color="#666">${item.label}</font>` } },
               ],
             })),
           },
         })
       }
-      if (activeItems.length > 4) {
+      // Row 2: next 3 items
+      if (activeItems.length > 3) {
         activeWidgets.push({
           columns: {
-            columnItems: activeItems.slice(4, 6).map(item => ({
+            columnItems: activeItems.slice(3, 6).map(item => ({
               horizontalSizeStyle: 'FILL_AVAILABLE_SPACE',
               horizontalAlignment: 'CENTER',
               verticalAlignment: 'CENTER',
               widgets: [
-                { textParagraph: { text: `<b>${item.count}</b>` } },
-                { textParagraph: { text: `<font color="#666666">${item.label}</font>` } },
+                { textParagraph: { text: `<b><font size=4 color="${item.color}">${item.count}</font></b>` } },
+                { textParagraph: { text: `<font size=1 color="#666">${item.label}</font>` } },
+              ],
+            })),
+          },
+        })
+      }
+      // Row 3: remaining
+      if (activeItems.length > 6) {
+        activeWidgets.push({
+          columns: {
+            columnItems: activeItems.slice(6).map(item => ({
+              horizontalSizeStyle: 'FILL_AVAILABLE_SPACE',
+              horizontalAlignment: 'CENTER',
+              verticalAlignment: 'CENTER',
+              widgets: [
+                { textParagraph: { text: `<b><font size=4 color="${item.color}">${item.count}</font></b>` } },
+                { textParagraph: { text: `<font size=1 color="#666">${item.label}</font>` } },
               ],
             })),
           },
         })
       }
 
+      activeWidgets.push({
+        textParagraph: {
+          text: `<font color="#999" size=1>📊 Total: <b>${totalActive}</b> solicitações ativas</font>`,
+        },
+      })
+
       sections.push({
-        header: `📊 Ativas (${totalActive})`,
+        header: `<b><font color="#1E88E5">📈 EM MOVIMENTO</font></b>`,
         collapsible: false,
         widgets: activeWidgets,
       })
+
+      sections.push({ divider: { topSpacing: 'SPACING_MEDIUM' } })
     }
 
     // Movement section
@@ -183,36 +227,64 @@ Deno.serve(async (req) => {
     const movWidgets: any[] = []
 
     if (Object.keys(movByEmp).length > 0) {
-      for (const [emp, counts] of Object.entries(movByEmp)) {
-        const parts: string[] = []
-        if (counts.novas > 0) parts.push(`${counts.novas} nova${counts.novas > 1 ? 's' : ''}`)
-        if (counts.atualizadas > 0) parts.push(`${counts.atualizadas} atualizada${counts.atualizadas > 1 ? 's' : ''}`)
+      const empEntries = Object.entries(movByEmp).sort((a, b) => 
+        (b[1].novas + b[1].atualizadas) - (a[1].novas + a[1].atualizadas)
+      )
+
+      for (const [emp, counts] of empEntries) {
+        const total = counts.novas + counts.atualizadas
+        const novasEmoji = counts.novas > 0 ? '🆕' : '·'
+        const atualizadasEmoji = counts.atualizadas > 0 ? '🔄' : '·'
+        
         movWidgets.push({
           decoratedText: {
-            topLabel: emp,
-            text: parts.join(', '),
+            topLabel: `${novasEmoji} Novas | ${atualizadasEmoji} Atualizadas`,
+            text: `<b>${emp}</b>: ${counts.novas} + ${counts.atualizadas} = <font color="#1E88E5"><b>${total}</b></font>`,
             startIcon: { knownIcon: 'HOTEL_ROOM_TYPE' },
           },
         })
       }
     } else {
-      movWidgets.push({ textParagraph: { text: '<i>Sem movimentação hoje</i>' } })
+      movWidgets.push({ 
+        textParagraph: { 
+          text: '<i><font color="#999">📭 Sem movimentação hoje</font></i>' 
+        } 
+      })
     }
 
+    movWidgets.push({
+      textParagraph: {
+        text: `<font color="#999" size=1>Total: <b>${newToday.length}</b> novas | <b>${updatedToday.length}</b> atualizadas</font>`,
+      },
+    })
+
     sections.push({
-      header: `📈 Movimento Hoje (${totalMovement})`,
-      collapsible: totalMovement > 5,
+      header: `<b><font color="#43A047">🔄 RESUMO DO DIA</font></b>`,
+      collapsible: totalMovement > 8,
       widgets: movWidgets,
     })
+
+    sections.push({ divider: { topSpacing: 'SPACING_MEDIUM' } })
 
     // Link button
     sections.push({
       widgets: [{
         buttonList: {
           buttons: [{
-            text: '🔗 Abrir BA Chamados',
+            text: '� Abrir BA Chamados',
             onClick: { openLink: { url: 'https://megas.lovable.app' } },
           }],
+        },
+      }],
+    })
+
+    // Summary footer
+    const criticalSummary = `🔴 ${urgentCount} crítico${urgentCount !== 1 ? 's' : ''} · 📊 ${totalActive} ativo${totalActive !== 1 ? 's' : ''} · 🔄 ${totalMovement} mudança${totalMovement !== 1 ? 's' : ''}`
+    
+    sections.push({
+      widgets: [{
+        textParagraph: {
+          text: `<font size=1 color="#999">${criticalSummary}</font>`,
         },
       }],
     })
@@ -223,7 +295,7 @@ Deno.serve(async (req) => {
         card: {
           header: {
             title: `${greeting.emoji} ${greeting.text}!`,
-            subtitle: `BA Chamados — ${dayFormatted}`,
+            subtitle: `BA Chamados — ${dayFormatted} | ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`,
           },
           sections,
         },

@@ -1,0 +1,160 @@
+# Google Chat Integration
+
+Este diretório contém as funções e helpers para integração com Google Chat.
+
+## 📁 Estrutura
+
+- `gchat-daily-digest/` - Função que envia resumo diário (09:00, 13:00, 18:00)
+- `_shared/gchat-helpers.ts` - Helpers para construir mensagens
+- `_shared/gchat-notifications.ts` - Exemplos de notificações em tempo real
+- `_shared/types.ts` - Tipos TypeScript para Google Chat API
+
+## 🚀 Como Usar
+
+### 1. Enviar Resumo Diário
+
+A função `gchat-daily-digest` é agendada automaticamente 3x ao dia via cron jobs PostgreSQL.
+
+Para disparar manualmente:
+
+```typescript
+import { supabase } from '@/integrations/supabase/client'
+
+const { data, error } = await supabase.functions.invoke('gchat-daily-digest', {
+  body: { time: 'manual' }
+})
+```
+
+### 2. Enviar Notificação Customizada
+
+Use os helpers para criar notificações personalizadas:
+
+```typescript
+import { sendGChatMessage, buildCard, createDecoratedTextWidget } from './_shared/gchat-helpers.ts'
+
+const webhookUrl = Deno.env.get('GCHAT_WEBHOOK_URL')
+
+const widgets = [
+  createDecoratedTextWidget({
+    topLabel: 'Status',
+    text: '<b>Aprovado</b>',
+    icon: 'CHECK_CIRCLE'
+  })
+]
+
+const message = buildCard(
+  'Título da Mensagem',
+  'Subtítulo',
+  [{ widgets }]
+)
+
+await sendGChatMessage(webhookUrl, message)
+```
+
+### 3. Usar Notificações PRÉ-CONSTRUÍDAS
+
+```typescript
+import { 
+  notifyOCIssued,
+  notifyCorrectionsRequested,
+  notifySLAAlert
+} from './_shared/gchat-notifications.ts'
+
+// Notificar quando OC é emitida
+await notifyOCIssued({
+  protocolo: 'SO-2026-001',
+  cliente: 'Cliente X',
+  fornecedor: 'Fornecedor Y',
+  valor: 10000,
+  status: 'oc_ac_emitida',
+  empreendimento: 'Mega Curitiba'
+}, webhookUrl)
+```
+
+## 📊 Tipos Disponíveis
+
+Todos os tipos TypeScript para Google Chat API estão em `_shared/types.ts`:
+
+- `GChatMessage` - Estrutura completa da mensagem
+- `GChatCard` - Estrutura de card v2
+- `GChatWidget` - Componentes da interface
+- `GChatSection` - Seções do card
+- `GChatStats` - Estatísticas
+- `GChatResponse` - Respostas da API
+
+## 🔧 Configuração
+
+### Variáveis de Ambiente
+
+```env
+GCHAT_WEBHOOK_URL=https://chat.googleapis.com/v1/spaces/SPACE_ID/messages?key=KEY&token=TOKEN
+```
+
+### Supabase Config
+
+A função deve estar configurada em `supabase/config.toml`:
+
+```toml
+[functions.gchat-daily-digest]
+verify_jwt = false
+```
+
+### Agendamento CRON
+
+Os jobs estão definidos em uma migration:
+
+```sql
+-- 09:00 BRT
+SELECT cron.schedule('gchat-daily-digest-morning', '0 6 * * 1-5', ...)
+
+-- 13:00 BRT
+SELECT cron.schedule('gchat-daily-digest-afternoon', '0 10 * * 1-5', ...)
+
+-- 18:00 BRT
+SELECT cron.schedule('gchat-daily-digest-evening', '0 15 * * 1-5', ...)
+```
+
+## ✅ Teste Local
+
+### Bash
+```bash
+export GCHAT_WEBHOOK_URL="your_webhook_url"
+./test-gchat.sh
+```
+
+### PowerShell
+```powershell
+$env:GCHAT_WEBHOOK_URL = "your_webhook_url"
+.\test-gchat.ps1
+```
+
+### Curl
+```bash
+curl -X POST http://localhost:54321/functions/v1/gchat-daily-digest \
+  -H "Content-Type: application/json" \
+  -d '{"time": "manual"}'
+```
+
+## 📚 Referências
+
+- [Google Chat Webhooks API](https://developers.google.com/chat/api/guides/webhooks)
+- [Google Chat Cards v2](https://developers.google.com/chat/api/reference/rest/v1/cards)
+- [PostgreSQL pg_cron](https://www.postgresql.org/docs/current/contrib-postgres-contrib.html)
+- [Supabase Edge Functions](https://supabase.com/docs/guides/functions)
+
+## 🐛 Troubleshooting
+
+**Mensagem não chegou?**
+1. Verifique se `GCHAT_WEBHOOK_URL` está configurado
+2. Confirme se o webhook é valido (testar com curl)
+3. Veja logs: `supabase functions logs gchat-daily-digest`
+
+**Cron job não rodou?**
+1. Verifique se pg_cron está habilitado
+2. Confirme o timezone configurado no database
+3. Valide a expressão CRON
+
+**Card não está bem formatado?**
+1. Use o Google Chat Card Builder: https://developers.google.com/chat/api/guides/message-formats/cards
+2. Valide o JSON da mensagem
+3. Verifique versão da API (v2 tem sintaxe diferente de v1)
