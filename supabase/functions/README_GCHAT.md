@@ -200,3 +200,34 @@ supabase functions deploy gchat-notify-oc --project-ref wcxybuietfmaaqzmcmnq
 2. Valide o JSON da mensagem
 3. Verifique a `cardVersion` registrada nos logs para confirmar que o deploy certo esta rodando
 4. Prefira hierarquia visual em `textParagraph`, `decoratedText` e `buttonList`; nao dependa de `font size` como parte critica do layout
+
+## ✅ Checklist de validação em produção (2026-04-04)
+
+Use este procedimento para validar os 4 pontos do `gchat-daily-digest`:
+
+1. **Cron aponta para a mesma função e projeto de produção**
+   - Base: `supabase/migrations/20260404120000_gchat-daily-digest-schedule.sql`
+   - Recriação idempotente: `supabase/migrations/20260404131500_gchat-daily-digest-reschedule-idempotent.sql`
+   - Esperado:
+     - URL: `https://wcxybuietfmaaqzmcmnq.supabase.co/functions/v1/gchat-daily-digest`
+     - Triggers: `scheduled-morning`, `scheduled-afternoon`, `scheduled-evening`
+
+2. **Webhook de produção (`GCHAT_WEBHOOK_URL`) usa o Space esperado**
+   - Conferir no painel: **Project Settings → Edge Functions → Secrets**.
+   - O formato esperado é `https://chat.googleapis.com/v1/spaces/<SPACE_ID>/messages?...`.
+
+3. **Comparar logs por `triggerType`**
+   - Validar estes caminhos:
+     - `manual`
+     - `scheduled-morning`
+     - `scheduled-afternoon`
+     - `scheduled-evening`
+   - Todos devem reportar a mesma `cardVersion`.
+
+4. **Se houver trigger em versão antiga**
+   - Reaplicar/recriar os jobs com a migration idempotente acima.
+   - Fazer redeploy:
+     ```bash
+     supabase functions deploy gchat-daily-digest --project-ref wcxybuietfmaaqzmcmnq
+     ```
+   - Reexecutar os 4 gatilhos e confirmar unificação da `cardVersion`.
