@@ -1,0 +1,260 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+const EMP_LABELS: Record<string, string> = {
+  mega_curitiba: 'Mega Curitiba',
+  mega_itajai: 'Mega Itajaí',
+  mega_esteio: 'Mega Esteio',
+  mega_canoas: 'Mega Canoas',
+  todos: 'Todos',
+}
+
+function getGreeting(): { text: string; emoji: string } {
+  const now = new Date()
+  const brtHour = (now.getUTCHours() - 3 + 24) % 24
+  if (brtHour < 12) return { text: 'Bom dia', emoji: '☀️' }
+  if (brtHour < 17) return { text: 'Atualização da tarde', emoji: '🌤️' }
+  return { text: 'Fechamento do dia', emoji: '🌙' }
+}
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
+  try {
+    const webhookUrl = Deno.env.get('GCHAT_WEBHOOK_URL')
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+
+    if (!webhookUrl) {
+      return new Response(JSON.stringify({ error: 'GCHAT_WEBHOOK_URL not configured' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey)
+
+    const now = new Date()
+    const brt = new Date(now.getTime() - 3 * 60 * 60 * 1000)
+    const todayStr = brt.toISOString().split('T')[0]
+    const startOfDay = `${todayStr}T00:00:00-03:00`
+    const endOfDay = `${todayStr}T23:59:59-03:00`
+    const dayFormatted = `${todayStr.split('-')[2]}/${todayStr.split('-')[1]}/${todayStr.split('-')[0]}`
+
+    const { data: allSol, error: solErr } = await supabase
+      .from('solicitacoes')
+      .select('id, protocolo, status, empreendimento, created_at, updated_at')
+
+    if (solErr) throw solErr
+
+    const newToday = allSol?.filter(s =>
+      new Date(s.created_at) >= new Date(startOfDay) && new Date(s.created_at) <= new Date(endOfDay)
+    ) || []
+
+    const updatedToday = allSol?.filter(s =>
+      new Date(s.updated_at) >= new Date(startOfDay) &&
+      new Date(s.updated_at) <= new Date(endOfDay) &&
+      !newToday.find(n => n.id === s.id)
+    ) || []
+
+    const statusCounts: Record<string, number> = {}
+    allSol?.forEach(s => {
+      statusCounts[s.status] = (statusCounts[s.status] || 0) + 1
+    })
+
+    const finishedStatuses = ['concluida', 'cancelado', 'rejeitado']
+    const totalActive = allSol?.filter(s => !finishedStatuses.includes(s.status)).length || 0
+
+    const movByEmp: Record<string, { novas: number; atualizadas: number }> = {}
+    newToday.forEach(s => {
+      const emp = EMP_LABELS[s.empreendimento] || s.empreendimento || 'Outros'
+      if (!movByEmp[emp]) movByEmp[emp] = { novas: 0, atualizadas: 0 }
+      movByEmp[emp].novas++
+    })
+    updatedToday.forEach(s => {
+      const emp = EMP_LABELS[s.empreendimento] || s.empreendimento || 'Outros'
+      if (!movByEmp[emp]) movByEmp[emp] = { novas: 0, atualizadas: 0 }
+      movByEmp[emp].atualizadas++
+    })
+
+    const naFila = statusCounts['recebido'] || 0
+    const emAnalise = statusCounts['em_analise'] || 0
+    const pendCorrecao = statusCounts['pendente_correcao'] || 0
+    const aguardInfo = statusCounts['aguardando_informacoes'] || 0
+    const emProcessamento = statusCounts['em_processamento'] || 0
+    const ocEmitida = statusCounts['oc_ac_emitida'] || 0
+    const liberadas = statusCounts['liberado_fornecedor'] || 0
+    const enviadas = statusCounts['enviado_fornecedor'] || 0
+    const aguardExec = statusCounts['aguardando_execucao'] || 0
+    const aguardNf = statusCounts['aguardando_nf_boleto'] || 0
+
+    const greeting = getGreeting()
+    const urgentCount = naFila + pendCorrecao + aguardInfo
+
+    // Build Google Chat Card v2
+    const sections: any[] = []
+
+    // Urgent actions section
+    if (urgentCount > 0) {
+      const urgentWidgets: any[] = []
+      if (naFila > 0) urgentWidgets.push({ decoratedText: { topLabel: 'Na Fila', text: `<b>${naFila}</b>`, startIcon: { knownIcon: 'INVITE' } } })
+      if (pendCorrecao > 0) urgentWidgets.push({ decoratedText: { topLabel: 'Correção Necessária', text: `<b>${pendCorrecao}</b>`, startIcon: { knownIcon: 'BOOKMARK' } } })
+      if (aguardInfo > 0) urgentWidgets.push({ decoratedText: { topLabel: 'Aguardando Informações', text: `<b>${aguardInfo}</b>`, startIcon: { knownIcon: 'EMAIL' } } })
+
+      sections.push({
+        header: `🔴 Ações Pendentes (${urgentCount})`,
+        collapsible: false,
+        widgets: urgentWidgets,
+      })
+    }
+
+    // Active section
+    const activeWidgets: any[] = []
+    const activeItems = [
+      { label: 'Em Análise', count: emAnalise },
+      { label: 'Em Aprovação', count: emProcessamento },
+      { label: 'OC Emitida', count: ocEmitida },
+      { label: 'Liberadas', count: liberadas },
+      { label: 'Enviadas', count: enviadas },
+      { label: 'Aguard. Execução', count: aguardExec },
+      { label: 'Aguard. NF/Boleto', count: aguardNf },
+    ].filter(i => i.count > 0)
+
+    if (activeItems.length > 0) {
+      activeWidgets.push({
+        columns: {
+          columnItems: activeItems.slice(0, 2).map(item => ({
+            horizontalSizeStyle: 'FILL_AVAILABLE_SPACE',
+            horizontalAlignment: 'CENTER',
+            verticalAlignment: 'CENTER',
+            widgets: [
+              { textParagraph: { text: `<b>${item.count}</b>` } },
+              { textParagraph: { text: `<font color="#666666">${item.label}</font>` } },
+            ],
+          })),
+        },
+      })
+      if (activeItems.length > 2) {
+        activeWidgets.push({
+          columns: {
+            columnItems: activeItems.slice(2, 4).map(item => ({
+              horizontalSizeStyle: 'FILL_AVAILABLE_SPACE',
+              horizontalAlignment: 'CENTER',
+              verticalAlignment: 'CENTER',
+              widgets: [
+                { textParagraph: { text: `<b>${item.count}</b>` } },
+                { textParagraph: { text: `<font color="#666666">${item.label}</font>` } },
+              ],
+            })),
+          },
+        })
+      }
+      if (activeItems.length > 4) {
+        activeWidgets.push({
+          columns: {
+            columnItems: activeItems.slice(4, 6).map(item => ({
+              horizontalSizeStyle: 'FILL_AVAILABLE_SPACE',
+              horizontalAlignment: 'CENTER',
+              verticalAlignment: 'CENTER',
+              widgets: [
+                { textParagraph: { text: `<b>${item.count}</b>` } },
+                { textParagraph: { text: `<font color="#666666">${item.label}</font>` } },
+              ],
+            })),
+          },
+        })
+      }
+
+      sections.push({
+        header: `📊 Ativas (${totalActive})`,
+        collapsible: false,
+        widgets: activeWidgets,
+      })
+    }
+
+    // Movement section
+    const totalMovement = newToday.length + updatedToday.length
+    const movWidgets: any[] = []
+
+    if (Object.keys(movByEmp).length > 0) {
+      for (const [emp, counts] of Object.entries(movByEmp)) {
+        const parts: string[] = []
+        if (counts.novas > 0) parts.push(`${counts.novas} nova${counts.novas > 1 ? 's' : ''}`)
+        if (counts.atualizadas > 0) parts.push(`${counts.atualizadas} atualizada${counts.atualizadas > 1 ? 's' : ''}`)
+        movWidgets.push({
+          decoratedText: {
+            topLabel: emp,
+            text: parts.join(', '),
+            startIcon: { knownIcon: 'HOTEL_ROOM_TYPE' },
+          },
+        })
+      }
+    } else {
+      movWidgets.push({ textParagraph: { text: '<i>Sem movimentação hoje</i>' } })
+    }
+
+    sections.push({
+      header: `📈 Movimento Hoje (${totalMovement})`,
+      collapsible: totalMovement > 5,
+      widgets: movWidgets,
+    })
+
+    // Link button
+    sections.push({
+      widgets: [{
+        buttonList: {
+          buttons: [{
+            text: '🔗 Abrir BA Chamados',
+            onClick: { openLink: { url: 'https://megas.lovable.app' } },
+          }],
+        },
+      }],
+    })
+
+    const cardPayload = {
+      cardsV2: [{
+        cardId: 'daily-digest',
+        card: {
+          header: {
+            title: `${greeting.emoji} ${greeting.text}!`,
+            subtitle: `BA Chamados — ${dayFormatted}`,
+          },
+          sections,
+        },
+      }],
+    }
+
+    const gchatRes = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cardPayload),
+    })
+
+    if (!gchatRes.ok) {
+      const errBody = await gchatRes.text()
+      throw new Error(`Google Chat webhook failed [${gchatRes.status}]: ${errBody}`)
+    }
+
+    await gchatRes.text()
+
+    return new Response(JSON.stringify({
+      success: true,
+      message: 'Resumo enviado via Google Chat',
+      stats: { newToday: newToday.length, updatedToday: updatedToday.length, totalActive },
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  } catch (error) {
+    console.error('GChat daily digest error:', error)
+    return new Response(JSON.stringify({ error: (error as Error).message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+})
