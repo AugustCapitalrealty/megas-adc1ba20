@@ -336,8 +336,8 @@ export default function Backoffice() {
         documento_numero: numerosStr,
       });
 
-      // Send WhatsApp notification for OC issued
-      supabase.functions.invoke('whatsapp-notify-oc', {
+      // Send Google Chat notification for OC issued
+      supabase.functions.invoke('gchat-notify-oc', {
         body: {
           protocolo: selectedSolicitacao.protocolo,
           numeros_oc: numerosStr,
