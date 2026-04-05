@@ -241,6 +241,31 @@ export default function Backoffice() {
 
       await supabase.from('historico_solicitacoes').insert(historyInsert as any);
 
+      // Google Chat notification for corrections
+      if (newStatus === 'pendente_correcao' || newStatus === 'aguardando_informacoes') {
+        try {
+          const EMP_LABELS: Record<string, string> = {
+            mega_curitiba: 'Mega Curitiba',
+            mega_itajai: 'Mega Itajaí',
+            mega_esteio: 'Mega Esteio',
+            mega_canoas: 'Mega Canoas',
+            todos: 'Todos',
+          };
+          await supabase.functions.invoke('gchat-notify-oc', {
+            body: {
+              tipo: 'correcao',
+              protocolo: sol?.protocolo || '',
+              empreendimento: EMP_LABELS[sol?.empreendimento || ''] || sol?.empreendimento || '',
+              descricao: sol?.descricao || '',
+              motivo: motivoText || 'Correção necessária',
+              status: newStatus === 'pendente_correcao' ? 'Correção Necessária' : 'Aguardando Informações',
+            },
+          });
+        } catch (e) {
+          console.warn('GChat correction notification failed:', e);
+        }
+      }
+
       // Email notifications removed - only send for OC emission
 
       toast({ 
