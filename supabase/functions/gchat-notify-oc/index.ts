@@ -30,8 +30,65 @@ Deno.serve(async (req) => {
       })
     }
 
-    const { protocolo, numeros_oc, valor, descricao, empreendimento, fornecedor_razao, solicitacao_id } = await req.json()
+    const body = await req.json()
+    const { tipo, protocolo, numeros_oc, valor, descricao, empreendimento, fornecedor_razao, solicitacao_id, motivo, status } = body
 
+    // === CORRECTION NOTIFICATION ===
+    if (tipo === 'correcao') {
+      if (!protocolo) {
+        return new Response(JSON.stringify({ error: 'Missing protocolo' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      const descResumo = descricao && descricao.length > 200 ? `${descricao.substring(0, 200)}...` : (descricao || '')
+
+      const correctionCard = {
+        cardsV2: [{
+          cardId: `correcao-${protocolo}`,
+          card: {
+            header: {
+              title: `🔴 Correção Solicitada — #${protocolo}`,
+              subtitle: empreendimento || '',
+            },
+            sections: [
+              {
+                widgets: [
+                  { decoratedText: { topLabel: 'Status', text: `<b><font color="#D32F2F">${status || 'Correção Necessária'}</font></b>`, startIcon: { knownIcon: 'TICKET' } } },
+                  { decoratedText: { topLabel: 'Motivo', text: motivo || 'Sem motivo informado', startIcon: { knownIcon: 'EDIT' }, wrapText: true } },
+                  ...(descResumo ? [{ textParagraph: { text: `<font size=1 color="#666">📝 ${descResumo}</font>` } }] : []),
+                ],
+              },
+              {
+                widgets: [{
+                  buttonList: {
+                    buttons: [{ text: '🔗 Abrir no Sistema', onClick: { openLink: { url: 'https://megas.lovable.app' } } }],
+                  },
+                }],
+              },
+            ],
+          },
+        }],
+      }
+
+      const gchatRes = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(correctionCard),
+      })
+
+      if (!gchatRes.ok) {
+        const errBody = await gchatRes.text()
+        throw new Error(`Google Chat webhook failed [${gchatRes.status}]: ${errBody}`)
+      }
+      await gchatRes.text()
+
+      return new Response(JSON.stringify({ success: true, tipo: 'correcao' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // === OC NOTIFICATION (default) ===
     if (!protocolo || !numeros_oc) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
         status: 400,
