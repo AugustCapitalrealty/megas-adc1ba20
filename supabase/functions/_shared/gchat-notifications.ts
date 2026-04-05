@@ -76,7 +76,7 @@ export async function notifyOCIssued(
         }),
         widgets,
       },
-      createDivider(),
+      { widgets: [createDivider()] },
       {
         widgets: [
           createButtonWidget([
