@@ -1,69 +1,42 @@
 
 
-## Correção de Informações Inconsistentes
+## Verificação das PRs — Status e Correções Necessárias
 
-### Bugs Identificados
+### Status de cada feature
 
-**1. STATUS_LABELS e STATUS_ACTION_LABELS mostram "Cancelada pelo Solicitante" para status `cancelado`**
-- `src/types/index.ts` linha 222: `cancelado: 'Cancelada pelo Solicitante'`
-- Isso aparece no StatusBadge para TODAS as solicitações canceladas, inclusive as canceladas automaticamente por prazo
-- O correto seria um label genérico "Cancelada", e a diferenciação ser feita via badge contextual (que já existe no BackofficeSolicitacaoCard)
+| Feature | Status | Detalhes |
+|---------|--------|----------|
+| Nova UI para mensagem Google Chat (daily digest) | **Aplicada** | `gchat-daily-digest` com Cards v2, stat grids, seções por prioridade/ativas/movimento por empreendimento |
+| Mensagem em 3 horários (09h, 13h, 18h) | **Parcialmente** | Cron jobs foram criados via SQL insert, mas não é possível verificar se persistiram — precisam ser revalidados |
+| Mensagem quando subir OC com anexo (PDF) | **Aplicada** | `gchat-notify-oc` envia card com descrição, PDF signed URL, e botões. Backoffice.tsx invoca a function |
+| Mensagem quando solicitar correção | **NÃO aplicada** | `gchat-notifications.ts` tem `notifyCorrectionsRequested()` mas **nunca é chamada** em nenhum lugar do código. Nenhum trigger no Backoffice |
 
-**2. `inProgress` no Dashboard não inclui `aguardando_aceite`, `aguardando_nf_boleto`, `nf_boleto_enviados`, `enviado_pagamento`, `aguardando_execucao`, `oc_ac_emitida`**
-- `useDashboardMetrics.ts` linha 175-176: `inProgressStatuses` inclui apenas `['recebido', 'em_analise', 'em_processamento', 'aprovado', 'liberado_fornecedor', 'enviado_fornecedor']`
-- Faltam: `aguardando_aceite`, `aguardando_nf_boleto`, `nf_boleto_enviados`, `enviado_pagamento`, `oc_ac_emitida`, `aguardando_execucao`
-- O KPI "Em Andamento" do solicitante mostra um número menor que o real — solicitações que estão aguardando aceite ou NF/boleto não contam como "em andamento"
+### Build errors atuais (4 erros em `gchat-notifications.ts`)
 
-**3. `enviado_pagamento` está no grupo `concluidas` no Backoffice mas no grupo `enviadas` no Solicitante**
-- Backoffice (`Backoffice.tsx` linha 1254): `concluidas: [...'enviado_pagamento']`
-- Solicitante (`MinhasSolicitacoes.tsx` linha 322/349): `enviadas: [...'enviado_pagamento']`
-- Inconsistência entre as duas views
+O arquivo `_shared/gchat-notifications.ts` tem erros de tipo que impedem o deploy de TODAS as edge functions:
 
-**4. `oc_ac_emitida` não aparece em nenhum filtro do Solicitante**
-- No `MinhasSolicitacoes.tsx`, o status `oc_ac_emitida` não é incluído em nenhum case do switch (linhas 308-330)
-- Solicitações com este status só aparecem na aba "Todas" mas não em nenhuma aba específica
-- Deveria estar junto com `aguardando_aceite` na aba "OC Emitida"
+1. **`createDivider()` usado como section** — `buildCard` espera sections com `widgets: any[]`, mas `createDivider()` retorna `{ divider: {...} }` sem `widgets`. Ocorre 3 vezes (linhas 79, 150, 217).
+2. **Widget sem `topLabel`/`startIcon`** — Na linha 131, um `decoratedText` tem apenas `text` mas o tipo retornado por `createDecoratedTextWidget` exige `topLabel` e `startIcon`.
 
-**5. Label `aprovado` diz "Em Aprovação" mas label `em_processamento` diz "Em Lançamento" — invertido**
-- `STATUS_LABELS`: `aprovado: 'Em Aprovação'`, `em_processamento: 'Em Lançamento'`
-- Na realidade do fluxo: `aprovado` é quando o backoffice assumiu e está lançando no Fluig, `em_processamento` é quando está em aprovação no Fluig
-- Mas isso parece ser intencional baseado no uso — **não alterar**, apenas documentar
+### Plano de correção
 
-**6. `DailyInsightCard` não conta `pendingCiencia` no `totalPending`**
-- Linha 33: `const totalPending = pendingCorrections + pendingAcceptance + pendingNfBoleto + pendingInfoRequests + pendingJustificativas`
-- Falta `pendingCiencia` — o card mostra "Tudo em dia" mesmo quando há solicitações canceladas pendentes de ciência
+**Passo 1 — Corrigir `gchat-notifications.ts`** (fix build)
+- Substituir os 3 `createDivider()` usados como section por `{ widgets: [createDivider()] }`
+- Corrigir o widget da linha 131 adicionando `topLabel` e ajustando para usar `textParagraph` em vez de `decoratedText`
 
-### Mudanças
+**Passo 2 — Implementar notificação de correção no Backoffice**
+- No `Backoffice.tsx`, onde o status muda para `pendente_correcao` ou `aguardando_informacoes`, adicionar chamada a uma edge function (ou diretamente ao webhook) para notificar no Google Chat
+- Reutilizar o template `notifyCorrectionsRequested` do `gchat-notifications.ts` ou criar inline no Backoffice similar ao `gchat-notify-oc`
 
-#### Arquivo: `src/types/index.ts`
-- Alterar `STATUS_LABELS.cancelado` de `'Cancelada pelo Solicitante'` para `'Cancelada'`
-- Alterar `STATUS_ACTION_LABELS.cancelado` de `'Cancelada pelo solicitante'` para `'Esta solicitação foi cancelada'`
+**Passo 3 — Verificar cron jobs dos 3 horários**
+- Executar query `SELECT * FROM cron.job WHERE jobname LIKE 'gchat%'` para confirmar se os 3 schedules existem
+- Se não existirem, recriar via SQL insert
 
-#### Arquivo: `src/hooks/useDashboardMetrics.ts`
-- Incluir `aguardando_aceite`, `oc_ac_emitida`, `aguardando_nf_boleto`, `nf_boleto_enviados`, `enviado_pagamento`, `aguardando_execucao` no array `inProgressStatuses`
-
-#### Arquivo: `src/pages/MinhasSolicitacoes.tsx`
-- Adicionar `oc_ac_emitida` ao filtro `oc_emitida` (junto com `aguardando_aceite`)
-- Mover `enviado_pagamento` de `enviadas` para `concluidas` para consistência com Backoffice
-- Atualizar `statusCounts` para refletir as mesmas mudanças
-
-#### Arquivo: `src/pages/Backoffice.tsx`
-- Nenhuma mudança necessária — já está consistente internamente
-
-#### Arquivo: `src/components/DailyInsightCard.tsx`
-- Adicionar `pendingCiencia` como prop e incluir no cálculo de `totalPending`
-- Adicionar insight text para ciência pendente
-
-#### Arquivo: `src/pages/Dashboard.tsx`
-- Passar `pendingCiencia` para `DailyInsightCard`
-
-### Arquivos Modificados
+### Arquivos a modificar
 
 | Arquivo | Mudança |
 |---------|---------|
-| `src/types/index.ts` | Label `cancelado` → "Cancelada" |
-| `src/hooks/useDashboardMetrics.ts` | `inProgressStatuses` completo |
-| `src/pages/MinhasSolicitacoes.tsx` | Adicionar `oc_ac_emitida`, mover `enviado_pagamento` |
-| `src/components/DailyInsightCard.tsx` | Incluir `pendingCiencia` |
-| `src/pages/Dashboard.tsx` | Passar `pendingCiencia` ao DailyInsightCard |
+| `supabase/functions/_shared/gchat-notifications.ts` | Fix 4 erros de tipo |
+| `src/pages/Backoffice.tsx` | Adicionar chamada GChat quando solicitar correção |
+| SQL (query + insert) | Verificar/recriar cron jobs |
 
