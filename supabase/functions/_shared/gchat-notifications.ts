@@ -76,7 +76,7 @@ export async function notifyOCIssued(
         }),
         widgets,
       },
-      createDivider(),
+      { widgets: [createDivider()] },
       {
         widgets: [
           createButtonWidget([
@@ -128,7 +128,7 @@ export async function notifyCorrectionsRequested(
 
   if (data.detalhes) {
     widgets.push({
-      decoratedText: {
+      textParagraph: {
         text: `<font color="#666" size=1>${data.detalhes}</font>`,
       },
     })
@@ -147,7 +147,7 @@ export async function notifyCorrectionsRequested(
         }),
         widgets,
       },
-      createDivider(),
+      { widgets: [createDivider()] },
       {
         widgets: [
           createButtonWidget([
@@ -214,7 +214,7 @@ export async function notifySLAAlert(
         }),
         widgets,
       },
-      createDivider(),
+      { widgets: [createDivider()] },
       {
         widgets: [
           createButtonWidget([
