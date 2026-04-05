@@ -128,7 +128,7 @@ export async function notifyCorrectionsRequested(
 
   if (data.detalhes) {
     widgets.push({
-      decoratedText: {
+      textParagraph: {
         text: `<font color="#666" size=1>${data.detalhes}</font>`,
       },
     })
