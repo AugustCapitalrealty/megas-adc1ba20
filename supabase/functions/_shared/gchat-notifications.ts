@@ -214,7 +214,7 @@ export async function notifySLAAlert(
         }),
         widgets,
       },
-      createDivider(),
+      { widgets: [createDivider()] },
       {
         widgets: [
           createButtonWidget([
