@@ -147,7 +147,7 @@ export async function notifyCorrectionsRequested(
         }),
         widgets,
       },
-      createDivider(),
+      { widgets: [createDivider()] },
       {
         widgets: [
           createButtonWidget([
