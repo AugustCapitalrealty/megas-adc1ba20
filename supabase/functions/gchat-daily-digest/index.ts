@@ -1,155 +1,49 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import {
-  buildCard,
-  createButtonWidget,
-  createFooterSummary,
-  createStatGrid,
-  sendGChatMessage,
-} from '../_shared/gchat-helpers.ts'
+import { sendGChatMessage } from '../_shared/gchat-helpers.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const CARD_VERSION = 'gchat-daily-digest-v3-radar-2026-04-04'
 const APP_URL = 'https://megas.lovable.app'
 
 const COLORS = {
   critical: '#D32F2F',
   warning: '#F57C00',
-  alert: '#FBC02D',
   info: '#1E88E5',
   success: '#43A047',
-  accent: '#00897B',
-  purple: '#6A1B9A',
-  indigo: '#3949AB',
-  violet: '#5E35B1',
-  muted: '#999999',
+  muted: '#757575',
+  text: '#202124',
 }
 
 const FINISHED_STATUSES = ['concluida', 'cancelado', 'rejeitado']
 
 const EMP_LABELS: Record<string, string> = {
   mega_curitiba: 'Mega Curitiba',
-  mega_itajai: 'Mega Itajai',
+  mega_itajai: 'Mega Itajaí',
   mega_esteio: 'Mega Esteio',
   mega_canoas: 'Mega Canoas',
   todos: 'Todos',
 }
 
-type Greeting = {
-  title: string
-  salute: string
-}
-
-type CountMetric = {
-  label: string
-  count: number
-  color: string
-}
-
-type MovementMetric = {
-  label: string
-  novas: number
-  atualizadas: number
-}
-
-function getGreeting(): Greeting {
+function getGreeting(): { title: string; salute: string } {
   const now = new Date()
   const brtHour = (now.getUTCHours() - 3 + 24) % 24
-
-  if (brtHour < 12) {
-    return { title: 'Radar da manha', salute: 'Bom dia' }
-  }
-
-  if (brtHour < 17) {
-    return { title: 'Pulso da tarde', salute: 'Boa tarde' }
-  }
-
-  return { title: 'Fechamento operacional', salute: 'Boa noite' }
+  if (brtHour < 12) return { title: 'Radar da Manhã', salute: 'Bom dia' }
+  if (brtHour < 17) return { title: 'Pulso da Tarde', salute: 'Boa tarde' }
+  return { title: 'Fechamento Operacional', salute: 'Boa noite' }
 }
 
-function pluralize(
-  value: number,
-  singular: string,
-  plural: string = `${singular}s`
-) {
-  return `${value} ${value === 1 ? singular : plural}`
-}
-
-function sectionHeader(title: string, subtitle: string, color: string) {
-  return (
-    `<b><font color="${color}">${title}</font></b>` +
-    `<br/><font size=1 color="${COLORS.muted}">${subtitle}</font>`
-  )
-}
-
-function buildOverviewMessage(
-  urgentCount: number,
-  totalActive: number,
-  totalMovement: number
-) {
-  if (totalActive === 0) {
-    return 'Nao ha solicitacoes ativas neste momento.'
-  }
-
-  if (urgentCount === 0 && totalMovement === 0) {
-    return 'Operacao estavel, sem gargalos criticos no momento.'
-  }
-
-  if (urgentCount === 0) {
-    return `Sem prioridades imediatas. ${pluralize(totalMovement, 'movimento registrado')} hoje.`
-  }
-
-  if (urgentCount <= 3) {
-    return `${pluralize(urgentCount, 'prioridade aberta')} pedindo uma passada rapida na fila.`
-  }
-
-  return `${pluralize(urgentCount, 'item critico')} concentrados em fila, correcoes e retorno de informacoes.`
-}
-
-function buildStatusSummary(items: CountMetric[]) {
-  return items
-    .map((item) => `${item.label.toLowerCase()}: ${item.count}`)
-    .join(' | ')
-}
-
-function createEmptyStateWidget(title: string, detail: string) {
+function statColumn(value: number, label: string, color: string) {
   return {
-    decoratedText: {
-      topLabel: title,
-      text: `<font color="${COLORS.success}"><b>Tudo sob controle</b></font>`,
-      bottomLabel: detail,
-      startIcon: { knownIcon: 'CHECK_CIRCLE' },
-      wrapText: true,
-    },
-  }
-}
-
-function createMovementWidget(item: MovementMetric, isTopVolume: boolean) {
-  const parts: string[] = []
-
-  if (item.novas > 0) {
-    parts.push(
-      `<font color="${COLORS.success}"><b>${item.novas}</b> nova${item.novas === 1 ? '' : 's'}</font>`
-    )
-  }
-
-  if (item.atualizadas > 0) {
-    parts.push(
-      `<font color="${COLORS.info}"><b>${item.atualizadas}</b> atualizada${item.atualizadas === 1 ? '' : 's'}</font>`
-    )
-  }
-
-  return {
-    decoratedText: {
-      topLabel: isTopVolume ? `${item.label} | maior volume` : item.label,
-      text: parts.join(' | '),
-      bottomLabel: `Total no dia: ${item.novas + item.atualizadas}`,
-      startIcon: { knownIcon: 'HOTEL_ROOM_TYPE' },
-      wrapText: true,
-    },
+    horizontalSizeStyle: 'FILL_AVAILABLE_SPACE',
+    horizontalAlignment: 'CENTER',
+    verticalAlignment: 'CENTER',
+    widgets: [
+      { textParagraph: { text: `<b><font size=4 color="${color}">${value}</font></b>` } },
+      { textParagraph: { text: `<font size=1 color="${COLORS.text}">${label}</font>` } },
+    ],
   }
 }
 
@@ -162,13 +56,10 @@ Deno.serve(async (req) => {
     const webhookUrl = Deno.env.get('GCHAT_WEBHOOK_URL')
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const requestBody = await req.json().catch(() => ({}))
-    const triggerType = typeof requestBody?.time === 'string' ? requestBody.time : 'scheduled'
 
     if (!webhookUrl) {
       return new Response(JSON.stringify({ error: 'GCHAT_WEBHOOK_URL not configured' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
@@ -188,275 +79,194 @@ Deno.serve(async (req) => {
 
     if (solErr) throw solErr
 
-    const newToday = allSol?.filter((item) => {
-      const createdAt = new Date(item.created_at)
-      return createdAt >= new Date(startOfDay) && createdAt <= new Date(endOfDay)
+    const newToday = allSol?.filter((s) => {
+      const d = new Date(s.created_at)
+      return d >= new Date(startOfDay) && d <= new Date(endOfDay)
     }) || []
 
-    const updatedToday = allSol?.filter((item) => {
-      const updatedAt = new Date(item.updated_at)
-      return (
-        updatedAt >= new Date(startOfDay) &&
-        updatedAt <= new Date(endOfDay) &&
-        !newToday.find((newItem) => newItem.id === item.id)
-      )
+    const updatedToday = allSol?.filter((s) => {
+      const d = new Date(s.updated_at)
+      return d >= new Date(startOfDay) && d <= new Date(endOfDay) && !newToday.find((n) => n.id === s.id)
     }) || []
 
-    const statusCounts: Record<string, number> = {}
-    allSol?.forEach((item) => {
-      statusCounts[item.status] = (statusCounts[item.status] || 0) + 1
-    })
+    // Status counts
+    const sc: Record<string, number> = {}
+    allSol?.forEach((s) => { sc[s.status] = (sc[s.status] || 0) + 1 })
 
-    const totalActive =
-      allSol?.filter((item) => !FINISHED_STATUSES.includes(item.status)).length || 0
+    const totalActive = allSol?.filter((s) => !FINISHED_STATUSES.includes(s.status)).length || 0
+    const naFila = sc['recebido'] || 0
+    const pendCorrecao = sc['pendente_correcao'] || 0
+    const aguardInfo = sc['aguardando_informacoes'] || 0
+    const emAnalise = sc['em_analise'] || 0
+    const emProcessamento = sc['em_processamento'] || 0
+    const ocEmitida = sc['oc_ac_emitida'] || 0
+    const liberadas = sc['liberado_fornecedor'] || 0
+    const enviadas = sc['enviado_fornecedor'] || 0
+    const aguardExec = sc['aguardando_execucao'] || 0
+    const aguardNf = sc['aguardando_nf_boleto'] || 0
 
-    const movementByEmp: Record<string, { novas: number; atualizadas: number }> = {}
-
-    newToday.forEach((item) => {
-      const emp = EMP_LABELS[item.empreendimento] || item.empreendimento || 'Outros'
-      if (!movementByEmp[emp]) movementByEmp[emp] = { novas: 0, atualizadas: 0 }
-      movementByEmp[emp].novas += 1
-    })
-
-    updatedToday.forEach((item) => {
-      const emp = EMP_LABELS[item.empreendimento] || item.empreendimento || 'Outros'
-      if (!movementByEmp[emp]) movementByEmp[emp] = { novas: 0, atualizadas: 0 }
-      movementByEmp[emp].atualizadas += 1
-    })
-
-    const naFila = statusCounts['recebido'] || 0
-    const emAnalise = statusCounts['em_analise'] || 0
-    const pendCorrecao = statusCounts['pendente_correcao'] || 0
-    const aguardInfo = statusCounts['aguardando_informacoes'] || 0
-    const emProcessamento = statusCounts['em_processamento'] || 0
-    const ocEmitida = statusCounts['oc_ac_emitida'] || 0
-    const liberadas = statusCounts['liberado_fornecedor'] || 0
-    const enviadas = statusCounts['enviado_fornecedor'] || 0
-    const aguardExec = statusCounts['aguardando_execucao'] || 0
-    const aguardNf = statusCounts['aguardando_nf_boleto'] || 0
-
-    const greeting = getGreeting()
     const urgentCount = naFila + pendCorrecao + aguardInfo
     const totalMovement = newToday.length + updatedToday.length
-    const generatedAt = new Date().toLocaleTimeString('pt-BR', {
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZone: 'America/Sao_Paulo',
+
+    // Movement by empreendimento
+    const movByEmp: Record<string, { novas: number; atualizadas: number }> = {}
+    newToday.forEach((s) => {
+      const emp = EMP_LABELS[s.empreendimento] || s.empreendimento || 'Outros'
+      if (!movByEmp[emp]) movByEmp[emp] = { novas: 0, atualizadas: 0 }
+      movByEmp[emp].novas += 1
+    })
+    updatedToday.forEach((s) => {
+      const emp = EMP_LABELS[s.empreendimento] || s.empreendimento || 'Outros'
+      if (!movByEmp[emp]) movByEmp[emp] = { novas: 0, atualizadas: 0 }
+      movByEmp[emp].atualizadas += 1
     })
 
-    const priorityMetrics: CountMetric[] = [
-      { label: 'Na fila', count: naFila, color: COLORS.critical },
-      { label: 'Correcao', count: pendCorrecao, color: COLORS.warning },
-      { label: 'Info pend.', count: aguardInfo, color: COLORS.alert },
-    ].filter((item) => item.count > 0)
+    const greeting = getGreeting()
+    const generatedAt = new Date().toLocaleTimeString('pt-BR', {
+      hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo',
+    })
 
-    const activeMetrics: CountMetric[] = [
-      { label: 'Analise', count: emAnalise, color: COLORS.info },
-      { label: 'Aprovacao', count: emProcessamento, color: COLORS.success },
-      { label: 'OC emitida', count: ocEmitida, color: COLORS.indigo },
-      { label: 'Liberadas', count: liberadas, color: COLORS.accent },
-      { label: 'Enviadas', count: enviadas, color: COLORS.purple },
-      { label: 'Execucao', count: aguardExec, color: COLORS.warning },
-      { label: 'NF/Boleto', count: aguardNf, color: COLORS.violet },
-    ].filter((item) => item.count > 0)
-
-    const movementEntries: MovementMetric[] = Object.entries(movementByEmp)
-      .map(([label, counts]) => ({
-        label,
-        novas: counts.novas,
-        atualizadas: counts.atualizadas,
-      }))
-      .sort(
-        (a, b) =>
-          b.novas + b.atualizadas - (a.novas + a.atualizadas) ||
-          b.novas - a.novas ||
-          a.label.localeCompare(b.label)
-      )
-
-    const visibleMovementEntries = movementEntries.slice(0, 4)
-    const hiddenMovementCount = Math.max(movementEntries.length - visibleMovementEntries.length, 0)
-
-    const overviewWidgets: any[] = [
-      {
-        textParagraph: {
-          text:
-            `<b>${greeting.salute}.</b> ${buildOverviewMessage(urgentCount, totalActive, totalMovement)}`,
-        },
-      },
-      ...createStatGrid([
-        {
-          value: urgentCount,
-          label: urgentCount === 1 ? 'Prioridade' : 'Prioridades',
-          color: urgentCount > 0 ? COLORS.critical : COLORS.success,
-        },
-        {
-          value: totalActive,
-          label: 'Ativas',
-          color: COLORS.info,
-        },
-        {
-          value: totalMovement,
-          label: 'Mov. hoje',
-          color: totalMovement > 0 ? COLORS.warning : COLORS.muted,
-        },
-      ]),
-      createFooterSummary(
-        `Atualizado as ${generatedAt} | ${pluralize(newToday.length, 'nova', 'novas')} | ${pluralize(updatedToday.length, 'atualizacao', 'atualizacoes')}`
-      ),
-    ]
-
-    const priorityWidgets: any[] =
-      priorityMetrics.length > 0
-        ? [
-            ...createStatGrid(
-              priorityMetrics.map((item) => ({
-                value: item.count,
-                label: item.label,
-                color: item.color,
-              }))
-            ),
-            createFooterSummary(`Foco agora: ${buildStatusSummary(priorityMetrics)}`),
-          ]
-        : [
-            createEmptyStateWidget(
-              'Sem prioridades imediatas',
-              'Fila, correcoes e pedidos de informacao estao zerados.'
-            ),
-          ]
-
-    const activeWidgets: any[] =
-      activeMetrics.length > 0
-        ? [
-            ...createStatGrid(
-              activeMetrics.map((item) => ({
-                value: item.count,
-                label: item.label,
-                color: item.color,
-              }))
-            ),
-            createFooterSummary(`Total na operacao: ${totalActive} solicitacoes ativas`),
-          ]
-        : [
-            {
-              textParagraph: {
-                text: `<font color="${COLORS.muted}">Sem etapas ativas no pipeline agora.</font>`,
-              },
-            },
-          ]
-
-    const movementWidgets: any[] =
-      visibleMovementEntries.length > 0
-        ? [
-            ...visibleMovementEntries.map((item, index) =>
-              createMovementWidget(item, index === 0)
-            ),
-            ...(hiddenMovementCount > 0
-              ? [
-                  createFooterSummary(
-                    `Mais ${hiddenMovementCount} empreendimento${hiddenMovementCount === 1 ? '' : 's'} com movimentacao hoje`
-                  ),
-                ]
-              : []),
-          ]
-        : [
-            {
-              textParagraph: {
-                text: `<font color="${COLORS.muted}">Nenhuma nova entrada ou atualizacao registrada hoje.</font>`,
-              },
-            },
-          ]
-
-    movementWidgets.push(
-      createFooterSummary(
-        `Hoje no total: ${pluralize(newToday.length, 'nova', 'novas')} | ${pluralize(updatedToday.length, 'atualizacao', 'atualizacoes')}`
-      )
-    )
-    movementWidgets.push(createButtonWidget([{ text: 'Abrir BA Chamados', url: APP_URL }]))
-
-    const sections: Array<{ header?: string; widgets: any[] }> = [
-      {
-        widgets: overviewWidgets,
-      },
-      {
-        header: sectionHeader(
-          'PRIORIDADES IMEDIATAS',
-          urgentCount > 0
-            ? `${pluralize(urgentCount, 'item pedindo atencao', 'itens pedindo atencao')} agora`
-            : 'Nenhum gargalo critico para destravar',
-          urgentCount > 0 ? COLORS.critical : COLORS.success
-        ),
-        widgets: priorityWidgets,
-      },
-      {
-        header: sectionHeader(
-          'FLUXO ATIVO',
-          activeMetrics.length > 0
-            ? `${pluralize(activeMetrics.length, 'frente ativa', 'frentes ativas')} no pipeline`
-            : 'Sem solicitacoes em andamento',
-          COLORS.info
-        ),
-        widgets: activeWidgets,
-      },
-      {
-        header: sectionHeader(
-          'MOVIMENTO DE HOJE',
-          totalMovement > 0
-            ? `${pluralize(totalMovement, 'mudanca registrada', 'mudancas registradas')} no dia`
-            : 'Sem movimentacao registrada ate agora',
-          totalMovement > 0 ? COLORS.warning : COLORS.muted
-        ),
-        widgets: movementWidgets,
-      },
-    ]
-
-    const cardHeader = {
-      title: greeting.title,
-      subtitle: `BA Chamados | ${dayFormatted} | ${generatedAt}`,
+    // --- Build intro text ---
+    let introText: string
+    if (totalActive === 0) {
+      introText = `${greeting.salute}! Não há solicitações ativas no momento.`
+    } else if (urgentCount === 0) {
+      introText = `${greeting.salute}! O dia segue com <b>${totalActive} solicitações ativas</b>, sem prioridades imediatas.`
+    } else {
+      introText = `${greeting.salute}! O dia encerra com <b>${totalActive} solicitações ativas</b>, das quais <b>${urgentCount}</b> ${urgentCount === 1 ? 'exige' : 'exigem'} atenção imediata.`
     }
 
-    const cardPayload = buildCard(cardHeader.title, cardHeader.subtitle, sections)
+    // --- SECTION 1: Intro ---
+    const introSection = {
+      widgets: [
+        { textParagraph: { text: introText } },
+      ],
+    }
 
-    console.log(
-      'GCHAT_DAILY_DIGEST_PAYLOAD',
-      JSON.stringify({
-        cardVersion: CARD_VERSION,
-        triggerType,
-        header: cardHeader,
-        sectionHeaders: sections.map((section) => section.header || '[widgets-only]'),
-        urgentCount,
-        totalActive,
-        totalMovement,
+    // --- SECTION 2: Prioridades Imediatas ---
+    const priorityWidgets: any[] = []
+
+    if (urgentCount > 0) {
+      const priorityCols: any[] = []
+      if (naFila > 0) priorityCols.push(statColumn(naFila, 'Na fila', COLORS.critical))
+      if (pendCorrecao > 0) priorityCols.push(statColumn(pendCorrecao, 'Correção', COLORS.warning))
+      if (aguardInfo > 0) priorityCols.push(statColumn(aguardInfo, 'Info pendente', COLORS.warning))
+
+      priorityWidgets.push({ columns: { columnItems: priorityCols } })
+    } else {
+      priorityWidgets.push({
+        decoratedText: {
+          topLabel: 'Status',
+          text: `<font color="${COLORS.success}"><b>Tudo limpo</b></font>`,
+          bottomLabel: 'Fila, correções e informações pendentes zeradas',
+          startIcon: { knownIcon: 'INVITE' },
+        },
       })
+    }
+
+    // --- SECTION 3: Ativas ---
+    const activeWidgets: any[] = []
+
+    const activeItems = [
+      { label: 'Análise', count: emAnalise, color: COLORS.info },
+      { label: 'Aprovação', count: emProcessamento, color: COLORS.info },
+      { label: 'OC emitida', count: ocEmitida, color: COLORS.info },
+      { label: 'Liberadas', count: liberadas, color: COLORS.success },
+      { label: 'Enviadas', count: enviadas, color: COLORS.success },
+      { label: 'Execução', count: aguardExec, color: COLORS.warning },
+      { label: 'NF/Boleto', count: aguardNf, color: COLORS.warning },
+    ].filter((i) => i.count > 0)
+
+    if (activeItems.length > 0) {
+      // Render in rows of 3
+      for (let i = 0; i < activeItems.length; i += 3) {
+        const row = activeItems.slice(i, i + 3)
+        activeWidgets.push({
+          columns: {
+            columnItems: row.map((item) => statColumn(item.count, item.label, item.color)),
+          },
+        })
+      }
+    } else {
+      activeWidgets.push({
+        textParagraph: { text: `<font color="${COLORS.muted}">Sem solicitações em andamento.</font>` },
+      })
+    }
+
+    // --- SECTION 4: Movimento do dia ---
+    const movementWidgets: any[] = []
+    const movEntries = Object.entries(movByEmp).sort((a, b) =>
+      (b[1].novas + b[1].atualizadas) - (a[1].novas + a[1].atualizadas)
     )
+
+    if (movEntries.length > 0) {
+      for (const [emp, counts] of movEntries) {
+        const parts: string[] = []
+        if (counts.novas > 0) parts.push(`${counts.novas} nova${counts.novas === 1 ? '' : 's'}`)
+        if (counts.atualizadas > 0) parts.push(`${counts.atualizadas} atualiz.`)
+        movementWidgets.push({
+          decoratedText: {
+            topLabel: emp,
+            text: parts.join(' · '),
+            startIcon: { knownIcon: 'MAP_PIN' },
+          },
+        })
+      }
+    } else {
+      movementWidgets.push({
+        textParagraph: {
+          text: `<font color="${COLORS.muted}">Nenhuma nova entrada ou atualização registrada hoje.</font>`,
+        },
+      })
+    }
+
+    // --- Build final card ---
+    const sections = [
+      introSection,
+      { header: `🔴 PRIORIDADES IMEDIATAS (${urgentCount})`, widgets: priorityWidgets },
+      { widgets: [{ divider: {} }] },
+      { header: `📊 ATIVAS (${totalActive})`, widgets: activeWidgets },
+      { widgets: [{ divider: {} }] },
+      { header: `📉 MOVIMENTO DO DIA`, widgets: movementWidgets },
+      {
+        widgets: [
+          {
+            buttonList: {
+              buttons: [{
+                text: 'Abrir BA Chamados',
+                onClick: { openLink: { url: APP_URL } },
+                color: { red: 0.12, green: 0.53, blue: 0.9, alpha: 1 },
+              }],
+            },
+          },
+        ],
+      },
+    ]
+
+    const cardPayload = {
+      cardsV2: [{
+        cardId: `digest-${Date.now()}`,
+        card: {
+          header: {
+            title: greeting.title,
+            subtitle: `BA Chamados • ${dayFormatted} às ${generatedAt}`,
+          },
+          sections,
+        },
+      }],
+    }
 
     const gchatRes = await sendGChatMessage(webhookUrl, cardPayload)
     await gchatRes.text()
 
-    console.log(
-      'GCHAT_DAILY_DIGEST_SENT',
-      JSON.stringify({
-        cardVersion: CARD_VERSION,
-        triggerType,
-        status: gchatRes.status,
-      })
-    )
-
     return new Response(
-      JSON.stringify({
-        success: true,
-        message: 'Resumo enviado via Google Chat',
-        cardVersion: CARD_VERSION,
-        stats: { newToday: newToday.length, updatedToday: updatedToday.length, totalActive },
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
+      JSON.stringify({ success: true, stats: { newToday: newToday.length, updatedToday: updatedToday.length, totalActive, urgentCount } }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {
     console.error('GChat daily digest error:', error)
     return new Response(JSON.stringify({ error: (error as Error).message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
 })
