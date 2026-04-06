@@ -252,8 +252,9 @@ Deno.serve(async (req) => {
       }],
     }
 
-    const gchatRes = await sendGChatMessage(webhookUrl, cardPayload)
+    const { method, response: gchatRes } = await sendGChatMessageAuth(cardPayload)
     await gchatRes.text()
+    console.log(`Digest sent via ${method}`)
 
     return new Response(
       JSON.stringify({ success: true, stats: { newToday: newToday.length, updatedToday: updatedToday.length, totalActive, urgentCount } }),
