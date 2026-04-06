@@ -197,17 +197,7 @@ Deno.serve(async (req) => {
       }],
     }
 
-    const gchatRes = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(cardPayload),
-    })
-
-    if (!gchatRes.ok) {
-      const errBody = await gchatRes.text()
-      throw new Error(`Google Chat webhook failed [${gchatRes.status}]: ${errBody}`)
-    }
-
+    const { response: gchatRes } = await sendGChatMessageAuth(cardPayload)
     await gchatRes.text()
 
     return new Response(JSON.stringify({ success: true, pdfIncluded: !!pdfUrl }), {
