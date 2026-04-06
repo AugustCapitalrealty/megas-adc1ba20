@@ -20,16 +20,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const webhookUrl = Deno.env.get('GCHAT_WEBHOOK_URL')
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-
-    if (!webhookUrl) {
-      return new Response(JSON.stringify({ error: 'GCHAT_WEBHOOK_URL not configured' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
 
     const body = await req.json()
     const { tipo, protocolo, numeros_oc, valor, descricao, empreendimento, fornecedor_razao, solicitacao_id, motivo, status } = body
