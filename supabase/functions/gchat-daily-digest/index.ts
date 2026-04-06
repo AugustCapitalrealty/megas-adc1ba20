@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { sendGChatMessage } from '../_shared/gchat-helpers.ts'
+import { sendGChatMessageAuth } from '../_shared/gchat-auth.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -57,11 +57,7 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
-    if (!webhookUrl) {
-      return new Response(JSON.stringify({ error: 'GCHAT_WEBHOOK_URL not configured' }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
+    // webhookUrl is now optional (fallback), auth API is preferred
 
     const supabase = createClient(supabaseUrl, supabaseKey)
 
@@ -256,8 +252,9 @@ Deno.serve(async (req) => {
       }],
     }
 
-    const gchatRes = await sendGChatMessage(webhookUrl, cardPayload)
+    const { method, response: gchatRes } = await sendGChatMessageAuth(cardPayload)
     await gchatRes.text()
+    console.log(`Digest sent via ${method}`)
 
     return new Response(
       JSON.stringify({ success: true, stats: { newToday: newToday.length, updatedToday: updatedToday.length, totalActive, urgentCount } }),

@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { sendGChatMessageAuth } from '../_shared/gchat-auth.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -19,16 +20,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const webhookUrl = Deno.env.get('GCHAT_WEBHOOK_URL')
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-
-    if (!webhookUrl) {
-      return new Response(JSON.stringify({ error: 'GCHAT_WEBHOOK_URL not configured' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
 
     const body = await req.json()
     const { tipo, protocolo, numeros_oc, valor, descricao, empreendimento, fornecedor_razao, solicitacao_id, motivo, status } = body
@@ -71,16 +64,7 @@ Deno.serve(async (req) => {
         }],
       }
 
-      const gchatRes = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(correctionCard),
-      })
-
-      if (!gchatRes.ok) {
-        const errBody = await gchatRes.text()
-        throw new Error(`Google Chat webhook failed [${gchatRes.status}]: ${errBody}`)
-      }
+      const { response: gchatRes } = await sendGChatMessageAuth(correctionCard)
       await gchatRes.text()
 
       return new Response(JSON.stringify({ success: true, tipo: 'correcao' }), {
@@ -213,17 +197,7 @@ Deno.serve(async (req) => {
       }],
     }
 
-    const gchatRes = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(cardPayload),
-    })
-
-    if (!gchatRes.ok) {
-      const errBody = await gchatRes.text()
-      throw new Error(`Google Chat webhook failed [${gchatRes.status}]: ${errBody}`)
-    }
-
+    const { response: gchatRes } = await sendGChatMessageAuth(cardPayload)
     await gchatRes.text()
 
     return new Response(JSON.stringify({ success: true, pdfIncluded: !!pdfUrl }), {
