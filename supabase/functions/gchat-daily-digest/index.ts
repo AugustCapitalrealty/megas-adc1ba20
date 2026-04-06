@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { sendGChatMessage } from '../_shared/gchat-helpers.ts'
+import { sendGChatMessageAuth } from '../_shared/gchat-auth.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
