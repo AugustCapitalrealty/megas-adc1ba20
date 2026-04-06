@@ -57,11 +57,7 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
-    if (!webhookUrl) {
-      return new Response(JSON.stringify({ error: 'GCHAT_WEBHOOK_URL not configured' }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
+    // webhookUrl is now optional (fallback), auth API is preferred
 
     const supabase = createClient(supabaseUrl, supabaseKey)
 
