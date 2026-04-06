@@ -1,42 +1,77 @@
 
 
-## Verificação das PRs — Status e Correções Necessárias
+## Migração Google Chat: Webhook → API Autenticada (Service Account)
 
-### Status de cada feature
+### O que muda
 
-| Feature | Status | Detalhes |
-|---------|--------|----------|
-| Nova UI para mensagem Google Chat (daily digest) | **Aplicada** | `gchat-daily-digest` com Cards v2, stat grids, seções por prioridade/ativas/movimento por empreendimento |
-| Mensagem em 3 horários (09h, 13h, 18h) | **Parcialmente** | Cron jobs foram criados via SQL insert, mas não é possível verificar se persistiram — precisam ser revalidados |
-| Mensagem quando subir OC com anexo (PDF) | **Aplicada** | `gchat-notify-oc` envia card com descrição, PDF signed URL, e botões. Backoffice.tsx invoca a function |
-| Mensagem quando solicitar correção | **NÃO aplicada** | `gchat-notifications.ts` tem `notifyCorrectionsRequested()` mas **nunca é chamada** em nenhum lugar do código. Nenhum trigger no Backoffice |
+Atualmente todas as mensagens são enviadas via webhook URL. Vamos migrar para a **Google Chat API autenticada** usando a Service Account que você já criou, permitindo envio programático para qualquer Space e futuramente interatividade (bot).
 
-### Build errors atuais (4 erros em `gchat-notifications.ts`)
+### Passo 1 — Armazenar credenciais como secrets
 
-O arquivo `_shared/gchat-notifications.ts` tem erros de tipo que impedem o deploy de TODAS as edge functions:
+Dois novos secrets no projeto:
+- **`GCHAT_SERVICE_ACCOUNT_JSON`** — JSON completo da chave da service account (contém `client_email`, `private_key`, `project_id`)
+- **`GCHAT_SPACE_NAME`** — nome do Space (ex: `spaces/AAQAdpI7TfI`)
 
-1. **`createDivider()` usado como section** — `buildCard` espera sections com `widgets: any[]`, mas `createDivider()` retorna `{ divider: {...} }` sem `widgets`. Ocorre 3 vezes (linhas 79, 150, 217).
-2. **Widget sem `topLabel`/`startIcon`** — Na linha 131, um `decoratedText` tem apenas `text` mas o tipo retornado por `createDecoratedTextWidget` exige `topLabel` e `startIcon`.
+O `GCHAT_WEBHOOK_URL` existente será mantido temporariamente como fallback.
 
-### Plano de correção
+### Passo 2 — Criar helper de autenticação
 
-**Passo 1 — Corrigir `gchat-notifications.ts`** (fix build)
-- Substituir os 3 `createDivider()` usados como section por `{ widgets: [createDivider()] }`
-- Corrigir o widget da linha 131 adicionando `topLabel` e ajustando para usar `textParagraph` em vez de `decoratedText`
+Novo arquivo **`supabase/functions/_shared/gchat-auth.ts`**:
+- Gera JWT assinado com RS256 usando a `private_key` da service account
+- Scope: `https://www.googleapis.com/auth/chat.bot`
+- Troca JWT por access token via `https://oauth2.googleapis.com/token`
+- Função `sendAuthenticatedGChatMessage(spaceName, message)` que usa o token para `POST https://chat.googleapis.com/v1/{space}/messages`
+- Cache do token em memória (válido ~1h)
 
-**Passo 2 — Implementar notificação de correção no Backoffice**
-- No `Backoffice.tsx`, onde o status muda para `pendente_correcao` ou `aguardando_informacoes`, adicionar chamada a uma edge function (ou diretamente ao webhook) para notificar no Google Chat
-- Reutilizar o template `notifyCorrectionsRequested` do `gchat-notifications.ts` ou criar inline no Backoffice similar ao `gchat-notify-oc`
+### Passo 3 — Criar função de teste `gchat-send-test`
 
-**Passo 3 — Verificar cron jobs dos 3 horários**
-- Executar query `SELECT * FROM cron.job WHERE jobname LIKE 'gchat%'` para confirmar se os 3 schedules existem
-- Se não existirem, recriar via SQL insert
+Nova edge function **`supabase/functions/gchat-send-test/index.ts`**:
+- Envia mensagem simples: `"✅ Teste API autenticada — BA Chamados"`
+- Depois envia um card v2 de teste
+- Retorna resultado detalhado (success/error, response status)
+- Botão no Admin para disparar
 
-### Arquivos a modificar
+### Passo 4 — Migrar `gchat-daily-digest`
 
-| Arquivo | Mudança |
-|---------|---------|
-| `supabase/functions/_shared/gchat-notifications.ts` | Fix 4 erros de tipo |
-| `src/pages/Backoffice.tsx` | Adicionar chamada GChat quando solicitar correção |
-| SQL (query + insert) | Verificar/recriar cron jobs |
+Alterar para usar `sendAuthenticatedGChatMessage` em vez de `sendGChatMessage` (webhook):
+- Importar de `gchat-auth.ts`
+- Usar `GCHAT_SPACE_NAME` + `GCHAT_SERVICE_ACCOUNT_JSON`
+- Fallback para webhook se service account não configurada
+
+### Passo 5 — Migrar `gchat-notify-oc`
+
+Mesma migração:
+- Substituir `fetch(webhookUrl, ...)` por `sendAuthenticatedGChatMessage`
+- Manter fallback para webhook
+
+### Passo 6 — Atualizar Admin UI
+
+Em `WhatsAppAdminTab.tsx`:
+- Adicionar botão "Testar API" que invoca `gchat-send-test`
+- Mostrar modo atual (Webhook vs API Autenticada)
+- Indicar se `GCHAT_SERVICE_ACCOUNT_JSON` está configurado
+
+### Arquivos
+
+| Arquivo | Ação |
+|---------|------|
+| `supabase/functions/_shared/gchat-auth.ts` | **Novo** — JWT signing + token exchange + send |
+| `supabase/functions/gchat-send-test/index.ts` | **Novo** — função de teste |
+| `supabase/functions/_shared/gchat-helpers.ts` | Manter (cards builders reutilizados) |
+| `supabase/functions/gchat-daily-digest/index.ts` | Migrar para API autenticada |
+| `supabase/functions/gchat-notify-oc/index.ts` | Migrar para API autenticada |
+| `src/components/admin/WhatsAppAdminTab.tsx` | Botão teste + status API |
+
+### Detalhes técnicos — JWT com Service Account (Deno)
+
+```text
+1. Parse GCHAT_SERVICE_ACCOUNT_JSON
+2. Criar JWT header: {"alg":"RS256","typ":"JWT"}
+3. Payload: {iss: client_email, scope: "chat.bot", aud: "oauth2.googleapis.com/token", iat, exp: iat+3600}
+4. Assinar com crypto.subtle.sign("RSASSA-PKCS1-v1_5", privateKey, data)
+5. POST oauth2.googleapis.com/token → access_token
+6. POST chat.googleapis.com/v1/{space}/messages com Bearer token
+```
+
+A assinatura RS256 no Deno usa `crypto.subtle` nativo (importKey PEM → sign). Não precisa de dependência externa.
 
