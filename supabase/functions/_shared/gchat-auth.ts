@@ -36,7 +36,15 @@ async function getAccessToken(serviceAccountJson: string): Promise<string> {
     return cachedToken.token
   }
 
-  const sa = JSON.parse(serviceAccountJson)
+  // Handle multiple storage formats: raw JSON, double-escaped, or base64
+  let parsed: string = serviceAccountJson.trim()
+  
+  // If it starts with a quote, it might be double-JSON-encoded
+  if (parsed.startsWith('"') || parsed.startsWith("'")) {
+    try { parsed = JSON.parse(parsed) } catch { /* use as-is */ }
+  }
+  
+  const sa = JSON.parse(parsed)
   const { client_email, private_key } = sa
 
   if (!client_email || !private_key) {
