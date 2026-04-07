@@ -173,7 +173,7 @@ Deno.serve(async (req) => {
 
     if (pdfUrl) {
       buttons.push({
-        text: '📄 Baixar PDF da OC',
+        text: '📄 Baixar PDF (válido 24h)',
         onClick: { openLink: { url: pdfUrl } },
       })
     }
