@@ -19,20 +19,11 @@ const COLORS = {
 
 const FINISHED_STATUSES = ['concluida', 'cancelado', 'rejeitado']
 
-const EMP_LABELS: Record<string, string> = {
-  mega_curitiba: 'Mega Curitiba',
-  mega_itajai: 'Mega Itajaí',
-  mega_esteio: 'Mega Esteio',
-  mega_canoas: 'Mega Canoas',
-  todos: 'Todos',
-}
-
-function getGreeting(): { title: string; salute: string } {
+function getGreeting(): { title: string; salute: string; verbo: string } {
   const now = new Date()
   const brtHour = (now.getUTCHours() - 3 + 24) % 24
-  if (brtHour < 12) return { title: 'Radar da Manhã', salute: 'Bom dia' }
-  if (brtHour < 17) return { title: 'Pulso da Tarde', salute: 'Boa tarde' }
-  return { title: 'Fechamento Operacional', salute: 'Boa noite' }
+  if (brtHour < 12) return { title: 'Radar da Manhã', salute: 'Bom dia', verbo: 'Iniciamos com' }
+  return { title: 'Pulso da Tarde', salute: 'Boa tarde', verbo: 'Seguimos com' }
 }
 
 function statColumn(value: number, label: string, color: string) {
@@ -53,12 +44,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const webhookUrl = Deno.env.get('GCHAT_WEBHOOK_URL')
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-
-    // webhookUrl is now optional (fallback), auth API is preferred
-
     const supabase = createClient(supabaseUrl, supabaseKey)
 
     const now = new Date()
@@ -104,36 +91,19 @@ Deno.serve(async (req) => {
     const urgentCount = naFila + pendCorrecao + aguardInfo
     const totalMovement = newToday.length + updatedToday.length
 
-    // Movement by empreendimento
-    const movByEmp: Record<string, { novas: number; atualizadas: number }> = {}
-    newToday.forEach((s) => {
-      const emp = EMP_LABELS[s.empreendimento] || s.empreendimento || 'Outros'
-      if (!movByEmp[emp]) movByEmp[emp] = { novas: 0, atualizadas: 0 }
-      movByEmp[emp].novas += 1
-    })
-    updatedToday.forEach((s) => {
-      const emp = EMP_LABELS[s.empreendimento] || s.empreendimento || 'Outros'
-      if (!movByEmp[emp]) movByEmp[emp] = { novas: 0, atualizadas: 0 }
-      movByEmp[emp].atualizadas += 1
-    })
-
     const greeting = getGreeting()
     const generatedAt = new Date().toLocaleTimeString('pt-BR', {
       hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo',
     })
 
     // --- Build intro text ---
-    // Dynamic verb based on time of day
-    const brtHourNow = (now.getUTCHours() - 3 + 24) % 24
-    const verbo = brtHourNow < 12 ? 'Iniciamos com' : brtHourNow < 17 ? 'Seguimos com' : 'Encerramos com'
-
     let introText: string
     if (totalActive === 0) {
       introText = `${greeting.salute}! Não há solicitações ativas no momento.`
     } else if (urgentCount === 0) {
-      introText = `${greeting.salute}! ${verbo} <b>${totalActive} solicitações ativas</b>, sem prioridades imediatas.`
+      introText = `${greeting.salute}! ${greeting.verbo} <b>${totalActive} solicitações ativas</b>, sem prioridades imediatas.`
     } else {
-      introText = `${greeting.salute}! ${verbo} <b>${totalActive} solicitações ativas</b>, das quais <b>${urgentCount}</b> ${urgentCount === 1 ? 'exige' : 'exigem'} atenção imediata.`
+      introText = `${greeting.salute}! ${greeting.verbo} <b>${totalActive} solicitações ativas</b>, das quais <b>${urgentCount}</b> ${urgentCount === 1 ? 'exige' : 'exigem'} atenção imediata.`
     }
 
     // --- SECTION 1: Intro ---
@@ -148,9 +118,9 @@ Deno.serve(async (req) => {
 
     if (urgentCount > 0) {
       const priorityCols: any[] = []
-      if (naFila > 0) priorityCols.push(statColumn(naFila, 'Na fila', COLORS.critical))
+      if (naFila > 0) priorityCols.push(statColumn(naFila, 'Backoffice', COLORS.critical))
       if (pendCorrecao > 0) priorityCols.push(statColumn(pendCorrecao, 'Correção', COLORS.warning))
-      if (aguardInfo > 0) priorityCols.push(statColumn(aguardInfo, 'Info pendente', COLORS.warning))
+      if (aguardInfo > 0) priorityCols.push(statColumn(aguardInfo, 'Aguard. requisitante', COLORS.warning))
 
       priorityWidgets.push({ columns: { columnItems: priorityCols } })
     } else {
@@ -171,14 +141,13 @@ Deno.serve(async (req) => {
       { label: 'Análise', count: emAnalise, color: COLORS.info },
       { label: 'Aprovação', count: emProcessamento, color: COLORS.info },
       { label: 'OC emitida', count: ocEmitida, color: COLORS.info },
-      { label: 'Liberadas', count: liberadas, color: COLORS.success },
+      { label: 'Liberadas p/ fornec.', count: liberadas, color: COLORS.success },
       { label: 'Enviadas', count: enviadas, color: COLORS.success },
       { label: 'Execução', count: aguardExec, color: COLORS.warning },
       { label: 'NF/Boleto', count: aguardNf, color: COLORS.warning },
     ].filter((i) => i.count > 0)
 
     if (activeItems.length > 0) {
-      // Render in rows of 3
       for (let i = 0; i < activeItems.length; i += 3) {
         const row = activeItems.slice(i, i + 3)
         activeWidgets.push({
@@ -193,29 +162,24 @@ Deno.serve(async (req) => {
       })
     }
 
-    // --- SECTION 4: Movimento do dia ---
+    // --- SECTION 4: Movimento do dia (compacto) ---
     const movementWidgets: any[] = []
-    const movEntries = Object.entries(movByEmp).sort((a, b) =>
-      (b[1].novas + b[1].atualizadas) - (a[1].novas + a[1].atualizadas)
-    )
 
-    if (movEntries.length > 0) {
-      for (const [emp, counts] of movEntries) {
-        const parts: string[] = []
-        if (counts.novas > 0) parts.push(`${counts.novas} nova${counts.novas === 1 ? '' : 's'}`)
-        if (counts.atualizadas > 0) parts.push(`${counts.atualizadas} atualiz.`)
-        movementWidgets.push({
-          decoratedText: {
-            topLabel: emp,
-            text: parts.join(' · '),
-            startIcon: { knownIcon: 'MAP_PIN' },
-          },
-        })
-      }
+    if (totalMovement > 0) {
+      const parts: string[] = []
+      if (newToday.length > 0) parts.push(`<b>${newToday.length}</b> nova${newToday.length === 1 ? '' : 's'}`)
+      if (updatedToday.length > 0) parts.push(`<b>${updatedToday.length}</b> atualizada${updatedToday.length === 1 ? '' : 's'}`)
+      movementWidgets.push({
+        decoratedText: {
+          topLabel: 'Hoje',
+          text: parts.join(' · '),
+          startIcon: { knownIcon: 'CLOCK' },
+        },
+      })
     } else {
       movementWidgets.push({
         textParagraph: {
-          text: `<font color="${COLORS.muted}">Nenhuma nova entrada ou atualização registrada hoje.</font>`,
+          text: `<font color="${COLORS.muted}">Sem movimentação hoje.</font>`,
         },
       })
     }
