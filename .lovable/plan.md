@@ -1,46 +1,26 @@
 
 
-## Melhorias no Resumo Diário do Google Chat
+## Ajustes no Botão do Google Chat
 
-### Mudanças solicitadas
+### Mudanças
 
-| Item | Atual | Novo |
-|------|-------|------|
-| Frequência | 3x (09h, 13h, 18h) | 2x (09h, 13h) |
-| "Na fila" | Na fila | Backoffice |
-| "Info pendente" | Info pendente | Aguardando requisitante |
-| "Liberadas" | Liberadas | Liberadas p/ fornecedor |
-| Movimento do dia | Lista detalhada por empreendimento com novas/atualizadas | Resumo compacto: apenas totais (ex: "3 novas · 5 atualizadas") |
-| Saudação 18h | "Encerramos com..." | Removida (sem disparo às 18h) |
+1. **Renomear botão** de "Abrir BA Chamados" para **"Abrir Sistema"** em 2 arquivos:
+   - `supabase/functions/gchat-daily-digest/index.ts` (linha 200)
+   - `supabase/functions/gchat-send-test/index.ts` (linha 98)
 
-### Passo 1 — Remover cron das 18h
-
-Executar SQL para deletar o job `gchat-digest-18h` da tabela `cron.job`.
-
-### Passo 2 — Atualizar `gchat-daily-digest/index.ts`
-
-**Labels renomeados:**
-- `statColumn(naFila, 'Na fila', ...)` → `statColumn(naFila, 'Backoffice', ...)`
-- `statColumn(aguardInfo, 'Info pendente', ...)` → `statColumn(aguardInfo, 'Aguard. requisitante', ...)`
-- `{ label: 'Liberadas', ... }` → `{ label: 'Liberadas p/ fornec.', ... }`
-
-**Movimento do dia simplificado:**
-- Remover breakdown por empreendimento
-- Mostrar apenas: "**3** novas · **5** atualizadas" em uma única linha compacta
-- Se zero movimento: "Sem movimentação hoje."
-
-**Greeting ajustado:**
-- Remover caso "Boa noite" / "Encerramos com" (não haverá disparo noturno)
-- Manter apenas manhã e tarde
-
-### Passo 3 — Deploy e teste
-
-Deploy da edge function atualizada e teste via Admin.
+2. **Centralizar botão** — No Google Chat Cards v2, o `buttonList` não tem propriedade nativa de alinhamento horizontal (sempre alinha à esquerda). A única forma de centralizar é envolver o botão em um widget `columns` com uma única coluna centralizada:
+   ```
+   columns: { columnItems: [{ horizontalAlignment: 'CENTER', widgets: [{ buttonList: ... }] }] }
+   ```
 
 ### Arquivos modificados
 
 | Arquivo | Mudança |
 |---------|---------|
-| `supabase/functions/gchat-daily-digest/index.ts` | Labels, movimento simplificado, greeting |
-| SQL (cron.job) | Remover `gchat-digest-18h` |
+| `supabase/functions/gchat-daily-digest/index.ts` | Texto → "Abrir Sistema", centralizar via columns |
+| `supabase/functions/gchat-send-test/index.ts` | Texto → "Abrir Sistema", centralizar via columns |
+
+### Deploy
+
+Redeploy das 2 edge functions após as alterações.
 
