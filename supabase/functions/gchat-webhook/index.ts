@@ -3,10 +3,10 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const APP_URL = 'https://megas.lovable.app'
 
 const STATUS_LABELS: Record<string, string> = {
-  recebido: '📥 Na fila',
+  recebido: '📥 Backoffice',
   em_analise: '🔍 Em análise',
   pendente_correcao: '⚠️ Correção necessária',
-  aguardando_informacoes: '❓ Aguardando informações',
+  aguardando_informacoes: '❓ Aguardando requisitante',
   aprovado: '✅ Em lançamento',
   em_processamento: '⏳ Em aprovação',
   oc_ac_emitida: '📄 OC/AC emitida',
@@ -193,51 +193,64 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const event = await req.json()
-    console.log('GChat event type:', event.type, 'space:', event.space?.name)
+    const body = await req.json()
+
+    // Diagnostic: log all top-level keys and nested structure
+    const topKeys = Object.keys(body)
+    console.log('GChat webhook payload keys:', JSON.stringify(topKeys))
+    console.log('GChat raw payload:', JSON.stringify(body).substring(0, 1500))
+
+    // Normalize event type - Google Chat may use "type" or other fields
+    const eventType = body.type || body.eventType || body.action || ''
+    const spaceName = body.space?.name || body.space?.spaceName || ''
+    const userEmail = body.user?.email || body.from?.email || ''
+
+    console.log(`GChat normalized: type=${eventType}, space=${spaceName}, user=${userEmail}`)
 
     // ADDED_TO_SPACE — bot was added to a DM or space
-    if (event.type === 'ADDED_TO_SPACE') {
-      console.log('Bot added to space:', event.space?.name, 'by:', event.user?.email)
+    if (eventType === 'ADDED_TO_SPACE') {
+      console.log('Bot added to space:', spaceName, 'by:', userEmail)
       return new Response(JSON.stringify(buildWelcomeCard()), {
         headers: { 'Content-Type': 'application/json' },
       })
     }
 
     // REMOVED_FROM_SPACE — just log
-    if (event.type === 'REMOVED_FROM_SPACE') {
-      console.log('Bot removed from space:', event.space?.name)
+    if (eventType === 'REMOVED_FROM_SPACE') {
+      console.log('Bot removed from space:', spaceName)
       return new Response(JSON.stringify({}), {
         headers: { 'Content-Type': 'application/json' },
       })
     }
 
     // MESSAGE — user sent a message
-    if (event.type === 'MESSAGE') {
-      const text = (event.message?.text || '').trim()
-      // Remove bot mention if present (e.g. "@Bot Megas protocolo")
-      const cleanText = text.replace(/@[\w\s]+/g, '').trim()
+    if (eventType === 'MESSAGE') {
+      // Google Chat DM may put text in argumentText (without bot mention) or text
+      const rawText = body.message?.argumentText || body.message?.text || ''
+      const cleanText = rawText.replace(/@[\w\s]+/g, '').trim()
 
-      console.log('Message from:', event.user?.email, 'text:', cleanText)
+      console.log('Message from:', userEmail, 'raw:', rawText, 'clean:', cleanText)
 
-      // Check if it's a help command
-      if (['ajuda', 'help', 'oi', 'olá', 'ola', 'hi', 'hello', 'menu', 'start', 'início', 'inicio'].includes(cleanText.toLowerCase())) {
+      // Check if it's a help/greeting command
+      const greetings = ['ajuda', 'help', 'oi', 'olá', 'ola', 'hi', 'hello', 'menu', 'start', 'início', 'inicio']
+      if (greetings.includes(cleanText.toLowerCase())) {
+        console.log('Flow: welcome card')
         return new Response(JSON.stringify(buildWelcomeCard()), {
           headers: { 'Content-Type': 'application/json' },
         })
       }
 
-      // Check if it looks like a protocol number (digits, possibly with year prefix)
+      // Check if it looks like a protocol number
       const protocolMatch = cleanText.match(/(\d{4,})/)
       if (protocolMatch) {
         const protocolQuery = protocolMatch[1]
+        console.log('Flow: protocol search for', protocolQuery)
 
         const supabase = createClient(
           Deno.env.get('SUPABASE_URL')!,
           Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
         )
 
-        // Search by protocol (exact or partial match)
         const { data: solicitacoes, error } = await supabase
           .from('solicitacoes')
           .select('id, protocolo, tipo, status, empreendimento, valor, descricao, created_at')
@@ -264,19 +277,29 @@ Deno.serve(async (req) => {
       }
 
       // Default: help message
+      console.log('Flow: help (unrecognized text)')
       return new Response(JSON.stringify(buildHelpMessage()), {
         headers: { 'Content-Type': 'application/json' },
       })
     }
 
-    // Unknown event type
-    return new Response(JSON.stringify({ text: '' }), {
+    // CARD_CLICKED or other interactive events
+    if (eventType === 'CARD_CLICKED' || eventType === 'SUBMIT_FORM') {
+      console.log('Flow: card interaction, returning welcome')
+      return new Response(JSON.stringify(buildWelcomeCard()), {
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+
+    // FALLBACK: Unknown event type — always return a valid response
+    console.log('Flow: FALLBACK — unknown event type:', eventType || '(empty)')
+    return new Response(JSON.stringify(buildWelcomeCard()), {
       headers: { 'Content-Type': 'application/json' },
     })
 
   } catch (err) {
     console.error('Webhook error:', err)
-    return new Response(JSON.stringify({ text: '⚠️ Erro interno do bot.' }), {
+    return new Response(JSON.stringify({ text: '⚠️ Erro interno do bot. Tente novamente em alguns instantes.' }), {
       status: 200, // Google Chat expects 200 even on errors
       headers: { 'Content-Type': 'application/json' },
     })
