@@ -174,3 +174,61 @@ export async function sendGChatMessageAuth(
 export function isApiConfigured(): boolean {
   return !!(Deno.env.get('GCHAT_SERVICE_ACCOUNT_JSON') && Deno.env.get('GCHAT_SPACE_NAME'))
 }
+
+/**
+ * Send a DM to a specific user by email via Google Chat API.
+ * Uses spaces.setup to find/create a DM space, then sends the message.
+ */
+export async function sendGChatDM(
+  email: string,
+  message: Record<string, unknown>
+): Promise<{ spaceName: string; messageId: string }> {
+  const saJson = Deno.env.get('GCHAT_SERVICE_ACCOUNT_JSON')
+  if (!saJson) {
+    throw new Error('GCHAT_SERVICE_ACCOUNT_JSON not configured')
+  }
+
+  const token = await getAccessToken(saJson)
+
+  // Step 1: Setup (find or create) the DM space with the user
+  const setupRes = await fetch('https://chat.googleapis.com/v1/spaces:setup', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      space: { spaceType: 'DIRECT_MESSAGE' },
+      memberships: [
+        { member: { name: `users/${email}`, type: 'HUMAN' } }
+      ],
+    }),
+  })
+
+  if (!setupRes.ok) {
+    const errText = await setupRes.text()
+    throw new Error(`spaces:setup failed for ${email} [${setupRes.status}]: ${errText}`)
+  }
+
+  const spaceData = await setupRes.json()
+  const spaceName = spaceData.name
+  console.log(`DM space for ${email}: ${spaceName}`)
+
+  // Step 2: Send the message in this DM space
+  const msgRes = await fetch(`https://chat.googleapis.com/v1/${spaceName}/messages`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(message),
+  })
+
+  if (!msgRes.ok) {
+    const errText = await msgRes.text()
+    throw new Error(`DM send failed for ${email} [${msgRes.status}]: ${errText}`)
+  }
+
+  const msgData = await msgRes.json()
+  return { spaceName, messageId: msgData.name || '' }
+}
