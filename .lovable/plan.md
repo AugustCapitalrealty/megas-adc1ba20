@@ -1,55 +1,74 @@
 
+## Diagnóstico
 
-## Google Chat Bot: Endpoint de Gatilho + Resposta a Mensagens
+O link do gatilho parece estar correto. O endpoint `gchat-webhook` está recebendo os POSTs do Google Chat e retornando `200`.
 
-### Problema
+O problema atual é outro: o webhook **não está reconhecendo o payload recebido**. Os logs mostram repetidamente:
 
-1. **Bot não responde** — Não existe nenhuma edge function para receber eventos do Google Chat (mensagens, menções). Quando o usuário envia "oi" ao bot, o Google Chat tenta entregar o evento na URL do gatilho, mas não há nada lá para processar.
-
-2. **URL do gatilho** — A URL genérica que você colocou (`https://webhook.site`) precisa ser substituída pela URL da edge function que vamos criar.
-
-### URL correta para o gatilho
-
-Após criar a function, a URL será:
-
-```
-https://wcxybuietfmaaqzmcmnq.supabase.co/functions/v1/gchat-webhook
+```text
+GChat event type: undefined space: undefined
 ```
 
-Essa é a URL que você deve colar no campo "URL do endpoint HTTP" na configuração do app no Google Cloud Console.
+Como o código depende de `event.type`, ele cai no caminho de “evento desconhecido” e hoje devolve uma resposta vazia/insuficiente. Isso combina com o comportamento do Google Chat de exibir **“Megas Bot não está respondendo”** quando a resposta síncrona não é válida.
 
-### O que será criado
+## Plano de correção
 
-**Nova edge function `gchat-webhook`** que:
+### 1. Tornar o webhook resiliente ao formato real do evento
+Ajustar `supabase/functions/gchat-webhook/index.ts` para:
+- capturar o corpo bruto recebido,
+- logar as chaves principais do payload,
+- aceitar variações de estrutura (`type`, `eventType`, `message.argumentText`, `message.text`),
+- normalizar tudo antes de decidir o fluxo.
 
-1. Recebe eventos POST do Google Chat (mensagens, adição a espaços, remoção)
-2. Responde a mensagens dos usuários com informações úteis:
-   - Saudação automática quando adicionado a um DM
-   - Comando de consulta de protocolo (ex: usuário digita "12345" e recebe status)
-   - Mensagem padrão para textos não reconhecidos
-3. Retorna JSON válido ao Google Chat (resposta síncrona — o Google Chat espera resposta no corpo da requisição)
+### 2. Nunca mais retornar resposta “vazia”
+Hoje, quando o evento não bate com o formato esperado, o webhook termina num retorno fraco para o Chat.
 
-**Lógica principal:**
+Vou trocar isso por um fallback sempre válido, por exemplo:
+- card de boas-vindas, ou
+- texto simples de ajuda.
 
-| Evento | Resposta |
-|--------|----------|
-| `ADDED_TO_SPACE` (DM) | Card de boas-vindas: "Olá! Sou o Bot Megas..." |
-| `MESSAGE` com número | Consulta `solicitacoes` por protocolo e retorna status |
-| `MESSAGE` texto livre | Resposta padrão com instruções de uso |
-| `REMOVED_FROM_SPACE` | Sem resposta (log apenas) |
+Assim, mesmo se o payload vier diferente do esperado, o bot **responde**.
 
-**Importante sobre JWT:** O Google Chat envia um bearer token no header que pode ser verificado opcionalmente. Para simplificar, a function será configurada com `verify_jwt = false` no `config.toml` (já é o padrão do Lovable Cloud).
+### 3. Corrigir a leitura da mensagem enviada pelo usuário
+No DM, o texto pode vir em campos diferentes. Vou priorizar:
+1. `message.argumentText`
+2. `message.text`
 
-### Arquivos a criar/modificar
+E tratar corretamente:
+- `oi`
+- `ajuda`
+- número de protocolo
 
-| Arquivo | Ação |
-|---------|------|
-| `supabase/functions/gchat-webhook/index.ts` | Criar — handler de eventos do Google Chat |
-| `supabase/config.toml` | Adicionar bloco `[functions.gchat-webhook]` com `verify_jwt = false` |
+### 4. Melhorar os logs de diagnóstico
+Adicionar logs úteis no `gchat-webhook` para mostrar:
+- tipo detectado,
+- space detectado,
+- campos disponíveis no payload,
+- texto extraído,
+- fluxo executado.
 
-### Após implementação
+Isso permite confirmar rapidamente o formato exato que o Google Chat está enviando.
 
-1. Deploy automático da function
-2. Você cola a URL `https://wcxybuietfmaaqzmcmnq.supabase.co/functions/v1/gchat-webhook` no campo de gatilho do Google Cloud Console
-3. Envia "oi" ao bot para testar — deve receber resposta imediata
+### 5. Validar a configuração do app no Google Chat
+Sem mudar backend, vou considerar esta checagem final:
+- `HTTP endpoint URL` apontando para `.../functions/v1/gchat-webhook`
+- recursos interativos habilitados
+- DM com o app ativo
 
+Como já houve chamadas no endpoint, isso parece estar quase certo; o foco principal é o parsing/resposta do webhook.
+
+### 6. Teste de aceite
+Depois da correção, validar:
+- enviar **“oi”** → deve voltar card de boas-vindas
+- enviar **“ajuda”** → deve voltar instruções
+- enviar **protocolo** → deve voltar card com status
+
+## Arquivo a ajustar
+
+- `supabase/functions/gchat-webhook/index.ts`
+
+## Resultado esperado
+
+- Você não precisará trocar o link novamente.
+- O bot passará a responder no DM.
+- Mesmo se o Google Chat mandar um payload diferente do previsto, o usuário receberá uma resposta válida em vez de “Megas Bot não está respondendo”.
