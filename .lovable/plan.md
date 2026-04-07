@@ -1,74 +1,115 @@
 
-## Diagnóstico
+## Diagnóstico confirmado pelas prints + logs
 
-O link do gatilho parece estar correto. O endpoint `gchat-webhook` está recebendo os POSTs do Google Chat e retornando `200`.
+As prints ajudam bastante e fecham o diagnóstico:
 
-O problema atual é outro: o webhook **não está reconhecendo o payload recebido**. Os logs mostram repetidamente:
+1. **O link do gatilho já está chegando no endpoint certo**  
+   A tela de configuração está usando o endpoint HTTP do bot e os logs mostram chamadas reais chegando em `gchat-webhook`. Então **não é mais um problema de URL**.
 
-```text
-GChat event type: undefined space: undefined
-```
+2. **O payload real não está no formato que o webhook espera hoje**  
+   O código atual lê:
+   - `body.type`
+   - `body.message`
+   - `body.user`
+   - `body.space`
 
-Como o código depende de `event.type`, ele cai no caminho de “evento desconhecido” e hoje devolve uma resposta vazia/insuficiente. Isso combina com o comportamento do Google Chat de exibir **“Megas Bot não está respondendo”** quando a resposta síncrona não é válida.
+   Mas os logs mostram que o Google Chat está enviando algo neste formato:
+   ```text
+   {
+     commonEventObject: ...,
+     authorizationEventObject: ...,
+     chat: {
+       user: ...,
+       eventTime: ...,
+       messagePayload: ...
+     }
+   }
+   ```
+   Ou seja: o evento vem dentro de `chat.*`, não na raiz.
+
+3. **Por isso o bot cai no fallback com evento “vazio”**  
+   Hoje ele normaliza `type=`, `space=`, `user=` porque está olhando no lugar errado.
+
+4. **Como o Chat recebe uma resposta que não bate com o fluxo esperado, ele mostra “Megas Bot não está respondendo”**  
+   Então o foco agora é **compatibilidade com o payload real do Google Chat**.
 
 ## Plano de correção
 
-### 1. Tornar o webhook resiliente ao formato real do evento
-Ajustar `supabase/functions/gchat-webhook/index.ts` para:
-- capturar o corpo bruto recebido,
-- logar as chaves principais do payload,
-- aceitar variações de estrutura (`type`, `eventType`, `message.argumentText`, `message.text`),
-- normalizar tudo antes de decidir o fluxo.
+### 1. Ajustar o parser do webhook para o formato real do Google Chat
+Atualizar `supabase/functions/gchat-webhook/index.ts` para aceitar os dois formatos:
 
-### 2. Nunca mais retornar resposta “vazia”
-Hoje, quando o evento não bate com o formato esperado, o webhook termina num retorno fraco para o Chat.
+**Formato atual já suportado**
+```text
+type / message / user / space
+```
 
-Vou trocar isso por um fallback sempre válido, por exemplo:
-- card de boas-vindas, ou
-- texto simples de ajuda.
+**Formato real visto nos logs**
+```text
+chat.messagePayload
+chat.addedToSpacePayload
+chat.removedFromSpacePayload
+chat.buttonClickedPayload
+chat.user
+chat.space
+```
 
-Assim, mesmo se o payload vier diferente do esperado, o bot **responde**.
+Mapeamento planejado:
+- `MESSAGE` quando existir `chat.messagePayload`
+- `ADDED_TO_SPACE` quando existir `chat.addedToSpacePayload`
+- `REMOVED_FROM_SPACE` quando existir `chat.removedFromSpacePayload`
+- `CARD_CLICKED` quando existir `chat.buttonClickedPayload`
 
-### 3. Corrigir a leitura da mensagem enviada pelo usuário
-No DM, o texto pode vir em campos diferentes. Vou priorizar:
-1. `message.argumentText`
-2. `message.text`
+### 2. Extrair texto da mensagem do local correto
+Além de `body.message?.argumentText` e `body.message?.text`, passar a ler também:
+- `body.chat?.messagePayload?.message?.argumentText`
+- `body.chat?.messagePayload?.message?.text`
 
-E tratar corretamente:
-- `oi`
-- `ajuda`
-- número de protocolo
+Também vou normalizar:
+- e-mail do usuário via `body.chat?.user?.email`
+- space via `body.chat?.space?.name` ou payload específico do evento
 
-### 4. Melhorar os logs de diagnóstico
-Adicionar logs úteis no `gchat-webhook` para mostrar:
-- tipo detectado,
-- space detectado,
-- campos disponíveis no payload,
-- texto extraído,
-- fluxo executado.
+### 3. Fazer um primeiro retorno síncrono mais seguro
+Para tirar o bot do estado de “não está respondendo”, o caminho mais seguro é:
 
-Isso permite confirmar rapidamente o formato exato que o Google Chat está enviando.
+- primeiro garantir que **“oi”** e **“ajuda”** respondam com **texto simples**
+- depois manter/reativar os cards para welcome e protocolo
 
-### 5. Validar a configuração do app no Google Chat
-Sem mudar backend, vou considerar esta checagem final:
-- `HTTP endpoint URL` apontando para `.../functions/v1/gchat-webhook`
-- recursos interativos habilitados
-- DM com o app ativo
+Isso reduz o risco de o problema também envolver formato de card na resposta síncrona.
 
-Como já houve chamadas no endpoint, isso parece estar quase certo; o foco principal é o parsing/resposta do webhook.
+### 4. Preservar o fluxo de protocolo
+Depois da normalização:
+- `oi`, `olá`, `ajuda` → resposta imediata
+- número de protocolo → consulta em `solicitacoes`
+- texto não reconhecido → ajuda curta e objetiva
 
-### 6. Teste de aceite
-Depois da correção, validar:
-- enviar **“oi”** → deve voltar card de boas-vindas
-- enviar **“ajuda”** → deve voltar instruções
-- enviar **protocolo** → deve voltar card com status
+### 5. Melhorar logs apenas no ponto certo
+Manter logs úteis para validar:
+- estrutura detectada
+- tipo normalizado
+- texto extraído
+- fluxo executado
 
-## Arquivo a ajustar
+Sem depender de tentativa manual no escuro.
+
+## Arquivo principal a ajustar
 
 - `supabase/functions/gchat-webhook/index.ts`
 
-## Resultado esperado
+## O que não precisa mudar agora
 
-- Você não precisará trocar o link novamente.
-- O bot passará a responder no DM.
-- Mesmo se o Google Chat mandar um payload diferente do previsto, o usuário receberá uma resposta válida em vez de “Megas Bot não está respondendo”.
+- `supabase/config.toml` já está adequado para o webhook
+- o **link do gatilho** não precisa ser trocado novamente se ele continuar apontando para:
+  ```text
+  https://wcxybuietfmaaqzmcmnq.supabase.co/functions/v1/gchat-webhook
+  ```
+
+## Resultado esperado após a correção
+
+- enviar **“oi”** no DM deixa de mostrar “Megas Bot não está respondendo”
+- o bot responde imediatamente
+- consultas por protocolo passam a funcionar no DM
+- a base fica pronta para o próximo passo: **DMs individuais por empreendimento**
+
+## Observação técnica importante
+
+Pelas evidências, seu app está recebendo o formato de evento de **HTTP endpoint do Google Chat com payload aninhado em `chat.*`**. Então a correção correta não é trocar a URL — é **adaptar o webhook para esse contrato real de evento**.
