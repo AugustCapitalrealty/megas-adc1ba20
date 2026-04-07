@@ -93,10 +93,19 @@ Deno.serve(async (req) => {
             }] : []),
             {
               widgets: [{
-                buttonList: {
-                  buttons: [{
-                    text: 'Abrir BA Chamados',
-                    onClick: { openLink: { url: 'https://megas.lovable.app' } },
+                columns: {
+                  columnItems: [{
+                    horizontalSizeStyle: 'FILL_AVAILABLE_SPACE',
+                    horizontalAlignment: 'CENTER',
+                    verticalAlignment: 'CENTER',
+                    widgets: [{
+                      buttonList: {
+                        buttons: [{
+                          text: 'Abrir Sistema',
+                          onClick: { openLink: { url: 'https://megas.lovable.app' } },
+                        }],
+                      },
+                    }],
                   }],
                 },
               }],
