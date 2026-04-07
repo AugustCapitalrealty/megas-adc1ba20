@@ -195,11 +195,20 @@ Deno.serve(async (req) => {
       {
         widgets: [
           {
-            buttonList: {
-              buttons: [{
-                text: 'Abrir BA Chamados',
-                onClick: { openLink: { url: APP_URL } },
-                color: { red: 0.12, green: 0.53, blue: 0.9, alpha: 1 },
+            columns: {
+              columnItems: [{
+                horizontalSizeStyle: 'FILL_AVAILABLE_SPACE',
+                horizontalAlignment: 'CENTER',
+                verticalAlignment: 'CENTER',
+                widgets: [{
+                  buttonList: {
+                    buttons: [{
+                      text: 'Abrir Sistema',
+                      onClick: { openLink: { url: APP_URL } },
+                      color: { red: 0.12, green: 0.53, blue: 0.9, alpha: 1 },
+                    }],
+                  },
+                }],
               }],
             },
           },
