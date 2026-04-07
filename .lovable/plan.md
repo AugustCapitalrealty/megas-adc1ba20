@@ -1,54 +1,46 @@
 
 
-## Correções Google Chat: API 404, Saudação, Anexo OC
+## Melhorias no Resumo Diário do Google Chat
 
-### Diagnóstico
+### Mudanças solicitadas
 
-**1. API retorna 404 → fallback para webhook**
-Os logs mostram: `GChat API failed [404]: Not Found`. Isso indica que o secret `GCHAT_SPACE_NAME` está com valor incorreto. O formato correto deve ser `spaces/AAQAdpI7TfI` (sem barra final, sem `/messages`). Vou solicitar a reconfiguração do secret.
+| Item | Atual | Novo |
+|------|-------|------|
+| Frequência | 3x (09h, 13h, 18h) | 2x (09h, 13h) |
+| "Na fila" | Na fila | Backoffice |
+| "Info pendente" | Info pendente | Aguardando requisitante |
+| "Liberadas" | Liberadas | Liberadas p/ fornecedor |
+| Movimento do dia | Lista detalhada por empreendimento com novas/atualizadas | Resumo compacto: apenas totais (ex: "3 novas · 5 atualizadas") |
+| Saudação 18h | "Encerramos com..." | Removida (sem disparo às 18h) |
 
-**2. Saudação "O dia encerra com" aparece em todos os horários**
-No código atual (linha 132), apenas o bloco `else` (quando há itens urgentes) usa "O dia encerra com", independente do horário. Preciso adaptar a frase introdutória para cada período:
-- Manhã: "iniciamos com"
-- Tarde: "seguimos com"  
-- Noite: "encerramos com"
+### Passo 1 — Remover cron das 18h
 
-**3. Anexo da OC só funciona nos minutos iniciais**
-O `createSignedUrl` gera uma URL com validade de 1h (3600s). Depois disso o link expira. Vou aumentar para **24h** (86400s) e adicionar uma nota visual no card quando o link estiver presente.
+Executar SQL para deletar o job `gchat-digest-18h` da tabela `cron.job`.
 
-### Plano de Implementação
+### Passo 2 — Atualizar `gchat-daily-digest/index.ts`
 
-**Passo 1 — Corrigir `GCHAT_SPACE_NAME`**
-- Solicitar que o usuário informe o Space Name correto
-- Recadastrar o secret via `add_secret`
-- O formato deve ser exatamente `spaces/AAQAdpI7TfI`
+**Labels renomeados:**
+- `statColumn(naFila, 'Na fila', ...)` → `statColumn(naFila, 'Backoffice', ...)`
+- `statColumn(aguardInfo, 'Info pendente', ...)` → `statColumn(aguardInfo, 'Aguard. requisitante', ...)`
+- `{ label: 'Liberadas', ... }` → `{ label: 'Liberadas p/ fornec.', ... }`
 
-**Passo 2 — Corrigir saudação dinâmica no `gchat-daily-digest`**
-- Alterar `getGreeting()` para retornar também um verbo contextual
-- Manhã → "Bom dia! Iniciamos com **X solicitações ativas**..."
-- Tarde → "Boa tarde! Seguimos com **X solicitações ativas**..."
-- Noite → "Boa noite! Encerramos com **X solicitações ativas**..."
-- Sem urgentes: adaptar igualmente ("sem prioridades imediatas")
+**Movimento do dia simplificado:**
+- Remover breakdown por empreendimento
+- Mostrar apenas: "**3** novas · **5** atualizadas" em uma única linha compacta
+- Se zero movimento: "Sem movimentação hoje."
 
-**Passo 3 — Aumentar validade do link do PDF (OC)**
-- Em `gchat-notify-oc`: trocar `createSignedUrl(path, 3600)` para `createSignedUrl(path, 86400)` (24h)
-- Adicionar texto no botão indicando validade: "📄 Baixar PDF (24h)"
+**Greeting ajustado:**
+- Remover caso "Boa noite" / "Encerramos com" (não haverá disparo noturno)
+- Manter apenas manhã e tarde
 
-**Passo 4 — Atualizar card de teste (`gchat-send-test`)**
-- Melhorar layout: centralizar elementos, usar cores consistentes
-- Mostrar claramente qual método foi usado (API vs Webhook)
-- Incluir diagnóstico: se API falhou, mostrar o motivo no card
+### Passo 3 — Deploy e teste
 
-**Passo 5 — Redeploy e teste**
-- Deploy das 3 edge functions atualizadas
-- Testar via botão no Admin
+Deploy da edge function atualizada e teste via Admin.
 
-### Arquivos a Modificar
+### Arquivos modificados
 
 | Arquivo | Mudança |
 |---------|---------|
-| Secret `GCHAT_SPACE_NAME` | Recadastrar com valor correto |
-| `supabase/functions/gchat-daily-digest/index.ts` | Saudação dinâmica por horário |
-| `supabase/functions/gchat-notify-oc/index.ts` | Signed URL 24h |
-| `supabase/functions/gchat-send-test/index.ts` | Layout melhorado + diagnóstico |
+| `supabase/functions/gchat-daily-digest/index.ts` | Labels, movimento simplificado, greeting |
+| SQL (cron.job) | Remover `gchat-digest-18h` |
 
