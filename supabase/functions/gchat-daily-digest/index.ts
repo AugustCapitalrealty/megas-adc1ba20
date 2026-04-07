@@ -123,13 +123,17 @@ Deno.serve(async (req) => {
     })
 
     // --- Build intro text ---
+    // Dynamic verb based on time of day
+    const brtHourNow = (now.getUTCHours() - 3 + 24) % 24
+    const verbo = brtHourNow < 12 ? 'Iniciamos com' : brtHourNow < 17 ? 'Seguimos com' : 'Encerramos com'
+
     let introText: string
     if (totalActive === 0) {
       introText = `${greeting.salute}! Não há solicitações ativas no momento.`
     } else if (urgentCount === 0) {
-      introText = `${greeting.salute}! O dia segue com <b>${totalActive} solicitações ativas</b>, sem prioridades imediatas.`
+      introText = `${greeting.salute}! ${verbo} <b>${totalActive} solicitações ativas</b>, sem prioridades imediatas.`
     } else {
-      introText = `${greeting.salute}! O dia encerra com <b>${totalActive} solicitações ativas</b>, das quais <b>${urgentCount}</b> ${urgentCount === 1 ? 'exige' : 'exigem'} atenção imediata.`
+      introText = `${greeting.salute}! ${verbo} <b>${totalActive} solicitações ativas</b>, das quais <b>${urgentCount}</b> ${urgentCount === 1 ? 'exige' : 'exigem'} atenção imediata.`
     }
 
     // --- SECTION 1: Intro ---
