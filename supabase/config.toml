@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.gchat-notify-oc]
 verify_jwt = false
+
+[functions.gchat-webhook]
+verify_jwt = false
