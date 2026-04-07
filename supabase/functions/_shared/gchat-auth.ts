@@ -177,7 +177,8 @@ export function isApiConfigured(): boolean {
 
 /**
  * Send a DM to a specific user by email via Google Chat API.
- * Uses spaces.setup to find/create a DM space, then sends the message.
+ * Uses spaces.findDirectMessage to locate the existing DM space, then sends.
+ * The user must have previously messaged the bot (or added it) for a DM space to exist.
  */
 export async function sendGChatDM(
   email: string,
@@ -190,27 +191,24 @@ export async function sendGChatDM(
 
   const token = await getAccessToken(saJson)
 
-  // Step 1: Setup (find or create) the DM space with the user
-  const setupRes = await fetch('https://chat.googleapis.com/v1/spaces:setup', {
-    method: 'POST',
+  // Step 1: Find the existing DM space with this user
+  const findUrl = `https://chat.googleapis.com/v1/spaces:findDirectMessage?name=users/${encodeURIComponent(email)}`
+  const findRes = await fetch(findUrl, {
+    method: 'GET',
     headers: {
       'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      space: { spaceType: 'DIRECT_MESSAGE' },
-      memberships: [
-        { member: { name: `users/${email}`, type: 'HUMAN' } }
-      ],
-    }),
   })
 
-  if (!setupRes.ok) {
-    const errText = await setupRes.text()
-    throw new Error(`spaces:setup failed for ${email} [${setupRes.status}]: ${errText}`)
+  if (!findRes.ok) {
+    const errText = await findRes.text()
+    if (findRes.status === 404) {
+      throw new Error(`DM space not found for ${email}. The user needs to add Megas Bot first in Google Chat.`)
+    }
+    throw new Error(`findDirectMessage failed for ${email} [${findRes.status}]: ${errText}`)
   }
 
-  const spaceData = await setupRes.json()
+  const spaceData = await findRes.json()
   const spaceName = spaceData.name
   console.log(`DM space for ${email}: ${spaceName}`)
 
