@@ -1,26 +1,55 @@
 
 
-## Ajustes no Botão do Google Chat
+## Google Chat Bot: Endpoint de Gatilho + Resposta a Mensagens
 
-### Mudanças
+### Problema
 
-1. **Renomear botão** de "Abrir BA Chamados" para **"Abrir Sistema"** em 2 arquivos:
-   - `supabase/functions/gchat-daily-digest/index.ts` (linha 200)
-   - `supabase/functions/gchat-send-test/index.ts` (linha 98)
+1. **Bot não responde** — Não existe nenhuma edge function para receber eventos do Google Chat (mensagens, menções). Quando o usuário envia "oi" ao bot, o Google Chat tenta entregar o evento na URL do gatilho, mas não há nada lá para processar.
 
-2. **Centralizar botão** — No Google Chat Cards v2, o `buttonList` não tem propriedade nativa de alinhamento horizontal (sempre alinha à esquerda). A única forma de centralizar é envolver o botão em um widget `columns` com uma única coluna centralizada:
-   ```
-   columns: { columnItems: [{ horizontalAlignment: 'CENTER', widgets: [{ buttonList: ... }] }] }
-   ```
+2. **URL do gatilho** — A URL genérica que você colocou (`https://webhook.site`) precisa ser substituída pela URL da edge function que vamos criar.
 
-### Arquivos modificados
+### URL correta para o gatilho
 
-| Arquivo | Mudança |
-|---------|---------|
-| `supabase/functions/gchat-daily-digest/index.ts` | Texto → "Abrir Sistema", centralizar via columns |
-| `supabase/functions/gchat-send-test/index.ts` | Texto → "Abrir Sistema", centralizar via columns |
+Após criar a function, a URL será:
 
-### Deploy
+```
+https://wcxybuietfmaaqzmcmnq.supabase.co/functions/v1/gchat-webhook
+```
 
-Redeploy das 2 edge functions após as alterações.
+Essa é a URL que você deve colar no campo "URL do endpoint HTTP" na configuração do app no Google Cloud Console.
+
+### O que será criado
+
+**Nova edge function `gchat-webhook`** que:
+
+1. Recebe eventos POST do Google Chat (mensagens, adição a espaços, remoção)
+2. Responde a mensagens dos usuários com informações úteis:
+   - Saudação automática quando adicionado a um DM
+   - Comando de consulta de protocolo (ex: usuário digita "12345" e recebe status)
+   - Mensagem padrão para textos não reconhecidos
+3. Retorna JSON válido ao Google Chat (resposta síncrona — o Google Chat espera resposta no corpo da requisição)
+
+**Lógica principal:**
+
+| Evento | Resposta |
+|--------|----------|
+| `ADDED_TO_SPACE` (DM) | Card de boas-vindas: "Olá! Sou o Bot Megas..." |
+| `MESSAGE` com número | Consulta `solicitacoes` por protocolo e retorna status |
+| `MESSAGE` texto livre | Resposta padrão com instruções de uso |
+| `REMOVED_FROM_SPACE` | Sem resposta (log apenas) |
+
+**Importante sobre JWT:** O Google Chat envia um bearer token no header que pode ser verificado opcionalmente. Para simplificar, a function será configurada com `verify_jwt = false` no `config.toml` (já é o padrão do Lovable Cloud).
+
+### Arquivos a criar/modificar
+
+| Arquivo | Ação |
+|---------|------|
+| `supabase/functions/gchat-webhook/index.ts` | Criar — handler de eventos do Google Chat |
+| `supabase/config.toml` | Adicionar bloco `[functions.gchat-webhook]` com `verify_jwt = false` |
+
+### Após implementação
+
+1. Deploy automático da function
+2. Você cola a URL `https://wcxybuietfmaaqzmcmnq.supabase.co/functions/v1/gchat-webhook` no campo de gatilho do Google Cloud Console
+3. Envia "oi" ao bot para testar — deve receber resposta imediata
 
