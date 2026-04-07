@@ -30,6 +30,64 @@ const EMPREENDIMENTO_LABELS: Record<string, string> = {
   todos: 'Todos',
 }
 
+// --- Normalize payload from Google Chat ---
+// Google Chat HTTP endpoint sends nested payload under `chat.*`
+// Legacy/test format uses top-level `type`, `message`, etc.
+interface NormalizedEvent {
+  eventType: string
+  spaceName: string
+  userEmail: string
+  userDisplayName: string
+  messageText: string
+}
+
+function normalizePayload(body: any): NormalizedEvent {
+  const chat = body.chat
+
+  // Format 1: Nested under body.chat (real Google Chat HTTP endpoint)
+  if (chat) {
+    let eventType = 'UNKNOWN'
+    let spaceName = ''
+    let messageText = ''
+
+    if (chat.messagePayload) {
+      eventType = 'MESSAGE'
+      spaceName = chat.messagePayload.space?.name || ''
+      messageText = chat.messagePayload.message?.argumentText || chat.messagePayload.message?.text || ''
+    } else if (chat.addedToSpacePayload) {
+      eventType = 'ADDED_TO_SPACE'
+      spaceName = chat.addedToSpacePayload.space?.name || ''
+    } else if (chat.removedFromSpacePayload) {
+      eventType = 'REMOVED_FROM_SPACE'
+      spaceName = chat.removedFromSpacePayload.space?.name || ''
+    } else if (chat.buttonClickedPayload) {
+      eventType = 'CARD_CLICKED'
+    }
+
+    return {
+      eventType,
+      spaceName,
+      userEmail: chat.user?.email || '',
+      userDisplayName: chat.user?.displayName || '',
+      messageText: messageText.replace(/@[\w\s]+/g, '').trim(),
+    }
+  }
+
+  // Format 2: Legacy top-level keys (test payloads / older format)
+  const eventType = body.type || body.eventType || ''
+  const rawText = body.message?.argumentText || body.message?.text || ''
+
+  return {
+    eventType,
+    spaceName: body.space?.name || '',
+    userEmail: body.user?.email || '',
+    userDisplayName: body.user?.displayName || '',
+    messageText: rawText.replace(/@[\w\s]+/g, '').trim(),
+  }
+}
+
+// --- Response builders ---
+
 function buildWelcomeCard() {
   return {
     cardsV2: [{
@@ -168,17 +226,15 @@ function buildProtocolCard(sol: any) {
   }
 }
 
-function buildHelpMessage() {
-  return {
-    text: '🤖 Não entendi. Digite um *número de protocolo* (ex: `2025000001`) para consultar o status, ou digite *ajuda* para ver os comandos disponíveis.',
-  }
+function buildHelpText() {
+  return { text: '🤖 Não entendi. Digite um *número de protocolo* (ex: `2025000001`) para consultar, ou *ajuda* para ver os comandos.' }
 }
 
-function buildNotFoundMessage(query: string) {
-  return {
-    text: `🔍 Nenhuma solicitação encontrada com o protocolo *${query}*. Verifique o número e tente novamente.`,
-  }
+function buildNotFoundText(query: string) {
+  return { text: `🔍 Nenhuma solicitação encontrada com o protocolo *${query}*. Verifique o número e tente novamente.` }
 }
+
+// --- Main handler ---
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -195,112 +251,90 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json()
 
-    // Diagnostic: log all top-level keys and nested structure
-    const topKeys = Object.keys(body)
-    console.log('GChat webhook payload keys:', JSON.stringify(topKeys))
-    console.log('GChat raw payload:', JSON.stringify(body).substring(0, 1500))
-
-    // Normalize event type - Google Chat may use "type" or other fields
-    const eventType = body.type || body.eventType || body.action || ''
-    const spaceName = body.space?.name || body.space?.spaceName || ''
-    const userEmail = body.user?.email || body.from?.email || ''
-
-    console.log(`GChat normalized: type=${eventType}, space=${spaceName}, user=${userEmail}`)
-
-    // ADDED_TO_SPACE — bot was added to a DM or space
-    if (eventType === 'ADDED_TO_SPACE') {
-      console.log('Bot added to space:', spaceName, 'by:', userEmail)
-      return new Response(JSON.stringify(buildWelcomeCard()), {
-        headers: { 'Content-Type': 'application/json' },
-      })
+    // Diagnostic logs
+    console.log('GChat payload keys:', JSON.stringify(Object.keys(body)))
+    if (body.chat) {
+      console.log('GChat chat keys:', JSON.stringify(Object.keys(body.chat)))
     }
 
-    // REMOVED_FROM_SPACE — just log
-    if (eventType === 'REMOVED_FROM_SPACE') {
-      console.log('Bot removed from space:', spaceName)
-      return new Response(JSON.stringify({}), {
-        headers: { 'Content-Type': 'application/json' },
-      })
+    const event = normalizePayload(body)
+    console.log(`GChat normalized → type=${event.eventType}, space=${event.spaceName}, user=${event.userEmail}, text="${event.messageText}"`)
+
+    const json = (data: any) => new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } })
+
+    // ADDED_TO_SPACE
+    if (event.eventType === 'ADDED_TO_SPACE') {
+      console.log('Flow: ADDED_TO_SPACE')
+      return json(buildWelcomeCard())
     }
 
-    // MESSAGE — user sent a message
-    if (eventType === 'MESSAGE') {
-      // Google Chat DM may put text in argumentText (without bot mention) or text
-      const rawText = body.message?.argumentText || body.message?.text || ''
-      const cleanText = rawText.replace(/@[\w\s]+/g, '').trim()
+    // REMOVED_FROM_SPACE
+    if (event.eventType === 'REMOVED_FROM_SPACE') {
+      console.log('Flow: REMOVED_FROM_SPACE')
+      return json({})
+    }
 
-      console.log('Message from:', userEmail, 'raw:', rawText, 'clean:', cleanText)
+    // MESSAGE
+    if (event.eventType === 'MESSAGE') {
+      const text = event.messageText.toLowerCase()
+      console.log('Flow: MESSAGE, clean text:', text)
 
-      // Check if it's a help/greeting command
+      // Greetings / help
       const greetings = ['ajuda', 'help', 'oi', 'olá', 'ola', 'hi', 'hello', 'menu', 'start', 'início', 'inicio']
-      if (greetings.includes(cleanText.toLowerCase())) {
-        console.log('Flow: welcome card')
-        return new Response(JSON.stringify(buildWelcomeCard()), {
-          headers: { 'Content-Type': 'application/json' },
-        })
+      if (greetings.includes(text)) {
+        console.log('Flow: welcome')
+        return json(buildWelcomeCard())
       }
 
-      // Check if it looks like a protocol number
-      const protocolMatch = cleanText.match(/(\d{4,})/)
+      // Protocol lookup
+      const protocolMatch = text.match(/(\d{4,})/)
       if (protocolMatch) {
-        const protocolQuery = protocolMatch[1]
-        console.log('Flow: protocol search for', protocolQuery)
+        const q = protocolMatch[1]
+        console.log('Flow: protocol search for', q)
 
         const supabase = createClient(
           Deno.env.get('SUPABASE_URL')!,
           Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
         )
 
-        const { data: solicitacoes, error } = await supabase
+        const { data: sols, error } = await supabase
           .from('solicitacoes')
           .select('id, protocolo, tipo, status, empreendimento, valor, descricao, created_at')
-          .or(`protocolo.eq.${protocolQuery},protocolo.ilike.%${protocolQuery}%`)
+          .or(`protocolo.eq.${q},protocolo.ilike.%${q}%`)
           .order('created_at', { ascending: false })
           .limit(1)
 
         if (error) {
           console.error('DB error:', error)
-          return new Response(JSON.stringify({ text: '⚠️ Erro ao consultar o banco de dados. Tente novamente.' }), {
-            headers: { 'Content-Type': 'application/json' },
-          })
+          return json({ text: '⚠️ Erro ao consultar o banco de dados. Tente novamente.' })
         }
 
-        if (!solicitacoes || solicitacoes.length === 0) {
-          return new Response(JSON.stringify(buildNotFoundMessage(protocolQuery)), {
-            headers: { 'Content-Type': 'application/json' },
-          })
+        if (!sols || sols.length === 0) {
+          return json(buildNotFoundText(q))
         }
 
-        return new Response(JSON.stringify(buildProtocolCard(solicitacoes[0])), {
-          headers: { 'Content-Type': 'application/json' },
-        })
+        return json(buildProtocolCard(sols[0]))
       }
 
-      // Default: help message
-      console.log('Flow: help (unrecognized text)')
-      return new Response(JSON.stringify(buildHelpMessage()), {
-        headers: { 'Content-Type': 'application/json' },
-      })
+      // Unrecognized
+      console.log('Flow: help (unrecognized)')
+      return json(buildHelpText())
     }
 
-    // CARD_CLICKED or other interactive events
-    if (eventType === 'CARD_CLICKED' || eventType === 'SUBMIT_FORM') {
-      console.log('Flow: card interaction, returning welcome')
-      return new Response(JSON.stringify(buildWelcomeCard()), {
-        headers: { 'Content-Type': 'application/json' },
-      })
+    // CARD_CLICKED
+    if (event.eventType === 'CARD_CLICKED') {
+      console.log('Flow: CARD_CLICKED')
+      return json(buildWelcomeCard())
     }
 
-    // FALLBACK: Unknown event type — always return a valid response
-    console.log('Flow: FALLBACK — unknown event type:', eventType || '(empty)')
-    return new Response(JSON.stringify(buildWelcomeCard()), {
-      headers: { 'Content-Type': 'application/json' },
-    })
+    // FALLBACK — always return something valid
+    console.log('Flow: FALLBACK, eventType:', event.eventType)
+    return json(buildWelcomeCard())
 
   } catch (err) {
     console.error('Webhook error:', err)
-    return new Response(JSON.stringify({ text: '⚠️ Erro interno do bot. Tente novamente em alguns instantes.' }), {
-      status: 200, // Google Chat expects 200 even on errors
+    return new Response(JSON.stringify({ text: '⚠️ Erro interno do bot. Tente novamente.' }), {
+      status: 200,
       headers: { 'Content-Type': 'application/json' },
     })
   }
