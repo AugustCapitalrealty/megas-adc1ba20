@@ -152,7 +152,7 @@ Deno.serve(async (req) => {
         if (docs && docs.length > 0) {
           const { data: signedUrlData } = await supabase.storage
             .from('documentos-emitidos')
-            .createSignedUrl(docs[0].storage_path, 3600)
+            .createSignedUrl(docs[0].storage_path, 86400)
 
           if (signedUrlData?.signedUrl) {
             pdfUrl = signedUrlData.signedUrl
@@ -173,7 +173,7 @@ Deno.serve(async (req) => {
 
     if (pdfUrl) {
       buttons.push({
-        text: '📄 Baixar PDF da OC',
+        text: '📄 Baixar PDF (válido 24h)',
         onClick: { openLink: { url: pdfUrl } },
       })
     }

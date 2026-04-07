@@ -12,27 +12,40 @@ Deno.serve(async (req) => {
 
   try {
     const apiConfigured = isApiConfigured()
+    let apiError: string | null = null
+    let usedMethod: 'api' | 'webhook' = 'webhook'
 
     // Test 1: Simple text message
-    const textResult = await sendGChatMessageAuth({
-      text: '✅ Teste API autenticada — BA Chamados',
-    })
-    await textResult.response.text()
+    try {
+      const textResult = await sendGChatMessageAuth({
+        text: '✅ Teste de conectividade — BA Chamados',
+      })
+      await textResult.response.text()
+      usedMethod = textResult.method
+    } catch (e) {
+      apiError = (e as Error).message
+    }
 
-    // Test 2: Card V2
+    // Test 2: Card V2 with improved layout
+    const timestamp = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+    const methodLabel = usedMethod === 'api' ? 'API Autenticada (Service Account)' : 'Webhook (legado)'
+    const methodColor = usedMethod === 'api' ? '#43A047' : '#F57C00'
+
     const cardResult = await sendGChatMessageAuth({
       cardsV2: [{
         cardId: `test-${Date.now()}`,
         card: {
           header: {
             title: '🧪 Teste de Integração',
-            subtitle: `BA Chamados • ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`,
+            subtitle: `BA Chamados • ${timestamp}`,
           },
           sections: [
             {
               widgets: [{
-                textParagraph: {
-                  text: `Modo: <b>${textResult.method === 'api' ? 'API Autenticada (Service Account)' : 'Webhook (legado)'}</b>`,
+                decoratedText: {
+                  topLabel: 'Método de Envio',
+                  text: `<b><font color="${methodColor}">${methodLabel}</font></b>`,
+                  startIcon: { knownIcon: usedMethod === 'api' ? 'INVITE' : 'BOOKMARK' },
                 },
               }],
             },
@@ -43,6 +56,7 @@ Deno.serve(async (req) => {
                     {
                       horizontalSizeStyle: 'FILL_AVAILABLE_SPACE',
                       horizontalAlignment: 'CENTER',
+                      verticalAlignment: 'CENTER',
                       widgets: [
                         { textParagraph: { text: '<b><font size=4 color="#43A047">✓</font></b>' } },
                         { textParagraph: { text: '<font size=1>Texto</font>' } },
@@ -51,6 +65,7 @@ Deno.serve(async (req) => {
                     {
                       horizontalSizeStyle: 'FILL_AVAILABLE_SPACE',
                       horizontalAlignment: 'CENTER',
+                      verticalAlignment: 'CENTER',
                       widgets: [
                         { textParagraph: { text: '<b><font size=4 color="#43A047">✓</font></b>' } },
                         { textParagraph: { text: '<font size=1>Card V2</font>' } },
@@ -59,15 +74,23 @@ Deno.serve(async (req) => {
                     {
                       horizontalSizeStyle: 'FILL_AVAILABLE_SPACE',
                       horizontalAlignment: 'CENTER',
+                      verticalAlignment: 'CENTER',
                       widgets: [
-                        { textParagraph: { text: `<b><font size=4 color="${apiConfigured ? '#43A047' : '#F57C00'}">${apiConfigured ? '✓' : '—'}</font></b>` } },
-                        { textParagraph: { text: '<font size=1>Auth</font>' } },
+                        { textParagraph: { text: `<b><font size=4 color="${apiConfigured && !apiError ? '#43A047' : '#F57C00'}">${apiConfigured && !apiError ? '✓' : '✗'}</font></b>` } },
+                        { textParagraph: { text: '<font size=1>Auth API</font>' } },
                       ],
                     },
                   ],
                 },
               }],
             },
+            ...(apiError ? [{
+              widgets: [{
+                textParagraph: {
+                  text: `<font size=1 color="#D32F2F">⚠ Erro API: ${apiError.substring(0, 200)}</font>`,
+                },
+              }],
+            }] : []),
             {
               widgets: [{
                 buttonList: {
@@ -88,6 +111,7 @@ Deno.serve(async (req) => {
       success: true,
       method: cardResult.method,
       apiConfigured,
+      apiError,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
