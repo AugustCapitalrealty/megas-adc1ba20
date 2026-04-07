@@ -1,77 +1,54 @@
 
 
-## Migração Google Chat: Webhook → API Autenticada (Service Account)
+## Correções Google Chat: API 404, Saudação, Anexo OC
 
-### O que muda
+### Diagnóstico
 
-Atualmente todas as mensagens são enviadas via webhook URL. Vamos migrar para a **Google Chat API autenticada** usando a Service Account que você já criou, permitindo envio programático para qualquer Space e futuramente interatividade (bot).
+**1. API retorna 404 → fallback para webhook**
+Os logs mostram: `GChat API failed [404]: Not Found`. Isso indica que o secret `GCHAT_SPACE_NAME` está com valor incorreto. O formato correto deve ser `spaces/AAQAdpI7TfI` (sem barra final, sem `/messages`). Vou solicitar a reconfiguração do secret.
 
-### Passo 1 — Armazenar credenciais como secrets
+**2. Saudação "O dia encerra com" aparece em todos os horários**
+No código atual (linha 132), apenas o bloco `else` (quando há itens urgentes) usa "O dia encerra com", independente do horário. Preciso adaptar a frase introdutória para cada período:
+- Manhã: "iniciamos com"
+- Tarde: "seguimos com"  
+- Noite: "encerramos com"
 
-Dois novos secrets no projeto:
-- **`GCHAT_SERVICE_ACCOUNT_JSON`** — JSON completo da chave da service account (contém `client_email`, `private_key`, `project_id`)
-- **`GCHAT_SPACE_NAME`** — nome do Space (ex: `spaces/AAQAdpI7TfI`)
+**3. Anexo da OC só funciona nos minutos iniciais**
+O `createSignedUrl` gera uma URL com validade de 1h (3600s). Depois disso o link expira. Vou aumentar para **24h** (86400s) e adicionar uma nota visual no card quando o link estiver presente.
 
-O `GCHAT_WEBHOOK_URL` existente será mantido temporariamente como fallback.
+### Plano de Implementação
 
-### Passo 2 — Criar helper de autenticação
+**Passo 1 — Corrigir `GCHAT_SPACE_NAME`**
+- Solicitar que o usuário informe o Space Name correto
+- Recadastrar o secret via `add_secret`
+- O formato deve ser exatamente `spaces/AAQAdpI7TfI`
 
-Novo arquivo **`supabase/functions/_shared/gchat-auth.ts`**:
-- Gera JWT assinado com RS256 usando a `private_key` da service account
-- Scope: `https://www.googleapis.com/auth/chat.bot`
-- Troca JWT por access token via `https://oauth2.googleapis.com/token`
-- Função `sendAuthenticatedGChatMessage(spaceName, message)` que usa o token para `POST https://chat.googleapis.com/v1/{space}/messages`
-- Cache do token em memória (válido ~1h)
+**Passo 2 — Corrigir saudação dinâmica no `gchat-daily-digest`**
+- Alterar `getGreeting()` para retornar também um verbo contextual
+- Manhã → "Bom dia! Iniciamos com **X solicitações ativas**..."
+- Tarde → "Boa tarde! Seguimos com **X solicitações ativas**..."
+- Noite → "Boa noite! Encerramos com **X solicitações ativas**..."
+- Sem urgentes: adaptar igualmente ("sem prioridades imediatas")
 
-### Passo 3 — Criar função de teste `gchat-send-test`
+**Passo 3 — Aumentar validade do link do PDF (OC)**
+- Em `gchat-notify-oc`: trocar `createSignedUrl(path, 3600)` para `createSignedUrl(path, 86400)` (24h)
+- Adicionar texto no botão indicando validade: "📄 Baixar PDF (24h)"
 
-Nova edge function **`supabase/functions/gchat-send-test/index.ts`**:
-- Envia mensagem simples: `"✅ Teste API autenticada — BA Chamados"`
-- Depois envia um card v2 de teste
-- Retorna resultado detalhado (success/error, response status)
-- Botão no Admin para disparar
+**Passo 4 — Atualizar card de teste (`gchat-send-test`)**
+- Melhorar layout: centralizar elementos, usar cores consistentes
+- Mostrar claramente qual método foi usado (API vs Webhook)
+- Incluir diagnóstico: se API falhou, mostrar o motivo no card
 
-### Passo 4 — Migrar `gchat-daily-digest`
+**Passo 5 — Redeploy e teste**
+- Deploy das 3 edge functions atualizadas
+- Testar via botão no Admin
 
-Alterar para usar `sendAuthenticatedGChatMessage` em vez de `sendGChatMessage` (webhook):
-- Importar de `gchat-auth.ts`
-- Usar `GCHAT_SPACE_NAME` + `GCHAT_SERVICE_ACCOUNT_JSON`
-- Fallback para webhook se service account não configurada
+### Arquivos a Modificar
 
-### Passo 5 — Migrar `gchat-notify-oc`
-
-Mesma migração:
-- Substituir `fetch(webhookUrl, ...)` por `sendAuthenticatedGChatMessage`
-- Manter fallback para webhook
-
-### Passo 6 — Atualizar Admin UI
-
-Em `WhatsAppAdminTab.tsx`:
-- Adicionar botão "Testar API" que invoca `gchat-send-test`
-- Mostrar modo atual (Webhook vs API Autenticada)
-- Indicar se `GCHAT_SERVICE_ACCOUNT_JSON` está configurado
-
-### Arquivos
-
-| Arquivo | Ação |
-|---------|------|
-| `supabase/functions/_shared/gchat-auth.ts` | **Novo** — JWT signing + token exchange + send |
-| `supabase/functions/gchat-send-test/index.ts` | **Novo** — função de teste |
-| `supabase/functions/_shared/gchat-helpers.ts` | Manter (cards builders reutilizados) |
-| `supabase/functions/gchat-daily-digest/index.ts` | Migrar para API autenticada |
-| `supabase/functions/gchat-notify-oc/index.ts` | Migrar para API autenticada |
-| `src/components/admin/WhatsAppAdminTab.tsx` | Botão teste + status API |
-
-### Detalhes técnicos — JWT com Service Account (Deno)
-
-```text
-1. Parse GCHAT_SERVICE_ACCOUNT_JSON
-2. Criar JWT header: {"alg":"RS256","typ":"JWT"}
-3. Payload: {iss: client_email, scope: "chat.bot", aud: "oauth2.googleapis.com/token", iat, exp: iat+3600}
-4. Assinar com crypto.subtle.sign("RSASSA-PKCS1-v1_5", privateKey, data)
-5. POST oauth2.googleapis.com/token → access_token
-6. POST chat.googleapis.com/v1/{space}/messages com Bearer token
-```
-
-A assinatura RS256 no Deno usa `crypto.subtle` nativo (importKey PEM → sign). Não precisa de dependência externa.
+| Arquivo | Mudança |
+|---------|---------|
+| Secret `GCHAT_SPACE_NAME` | Recadastrar com valor correto |
+| `supabase/functions/gchat-daily-digest/index.ts` | Saudação dinâmica por horário |
+| `supabase/functions/gchat-notify-oc/index.ts` | Signed URL 24h |
+| `supabase/functions/gchat-send-test/index.ts` | Layout melhorado + diagnóstico |
 
