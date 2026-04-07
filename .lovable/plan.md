@@ -1,115 +1,45 @@
 
-## Diagnóstico confirmado pelas prints + logs
 
-As prints ajudam bastante e fecham o diagnóstico:
+## Enviar DM do Bot para Usuário via Google Chat API
 
-1. **O link do gatilho já está chegando no endpoint certo**  
-   A tela de configuração está usando o endpoint HTTP do bot e os logs mostram chamadas reais chegando em `gchat-webhook`. Então **não é mais um problema de URL**.
+### Como funciona
 
-2. **O payload real não está no formato que o webhook espera hoje**  
-   O código atual lê:
-   - `body.type`
-   - `body.message`
-   - `body.user`
-   - `body.space`
+A Google Chat API permite que o bot **crie um espaço de DM** com qualquer usuário do domínio e envie mensagens diretamente. O fluxo é:
 
-   Mas os logs mostram que o Google Chat está enviando algo neste formato:
-   ```text
-   {
-     commonEventObject: ...,
-     authorizationEventObject: ...,
-     chat: {
-       user: ...,
-       eventTime: ...,
-       messagePayload: ...
-     }
-   }
-   ```
-   Ou seja: o evento vem dentro de `chat.*`, não na raiz.
+1. `POST /v1/spaces:setup` — cria (ou recupera) o DM entre o bot e o usuário
+2. `POST /v1/{spaceName}/messages` — envia a mensagem nesse DM
 
-3. **Por isso o bot cai no fallback com evento “vazio”**  
-   Hoje ele normaliza `type=`, `space=`, `user=` porque está olhando no lugar errado.
+### O que será feito
 
-4. **Como o Chat recebe uma resposta que não bate com o fluxo esperado, ele mostra “Megas Bot não está respondendo”**  
-   Então o foco agora é **compatibilidade com o payload real do Google Chat**.
+**1. Nova edge function `gchat-send-dm`**
+- Recebe `email` e `message` (texto ou card) no body
+- Usa a Service Account já configurada para autenticar
+- Chama `spaces:setup` com o e-mail do usuário para obter o space de DM
+- Envia a mensagem nesse space
+- Retorna sucesso/erro
 
-## Plano de correção
+**2. Atualizar `gchat-auth.ts`**
+- Adicionar função `sendGChatDM(email, message)` que encapsula o fluxo de setup + envio
+- Reutiliza o mesmo token de acesso já cacheado
 
-### 1. Ajustar o parser do webhook para o formato real do Google Chat
-Atualizar `supabase/functions/gchat-webhook/index.ts` para aceitar os dois formatos:
+**3. Teste imediato**
+- Após deploy, chamar a function passando `guilherme.marques@capitalrealty.com.br` para validar que o DM chega
 
-**Formato atual já suportado**
-```text
-type / message / user / space
-```
+### Pré-requisito importante
 
-**Formato real visto nos logs**
-```text
-chat.messagePayload
-chat.addedToSpacePayload
-chat.removedFromSpacePayload
-chat.buttonClickedPayload
-chat.user
-chat.space
-```
+O scope `chat.bot` já permite enviar DMs para usuários que **têm o app instalado** (ou seja, que já adicionaram o Bot Megas no Google Chat). Se o Guilherme ainda não adicionou o bot, ele precisa:
+1. Abrir Google Chat → Pesquisar "Megas Bot" → Clicar para iniciar conversa
 
-Mapeamento planejado:
-- `MESSAGE` quando existir `chat.messagePayload`
-- `ADDED_TO_SPACE` quando existir `chat.addedToSpacePayload`
-- `REMOVED_FROM_SPACE` quando existir `chat.removedFromSpacePayload`
-- `CARD_CLICKED` quando existir `chat.buttonClickedPayload`
+Após isso, o bot pode enviar DMs proativamente a qualquer momento.
 
-### 2. Extrair texto da mensagem do local correto
-Além de `body.message?.argumentText` e `body.message?.text`, passar a ler também:
-- `body.chat?.messagePayload?.message?.argumentText`
-- `body.chat?.messagePayload?.message?.text`
+### Arquivos
 
-Também vou normalizar:
-- e-mail do usuário via `body.chat?.user?.email`
-- space via `body.chat?.space?.name` ou payload específico do evento
+| Arquivo | Ação |
+|---------|------|
+| `supabase/functions/_shared/gchat-auth.ts` | Adicionar `sendGChatDM(email, message)` |
+| `supabase/functions/gchat-send-dm/index.ts` | Criar — endpoint para envio de DM |
 
-### 3. Fazer um primeiro retorno síncrono mais seguro
-Para tirar o bot do estado de “não está respondendo”, o caminho mais seguro é:
+### Uso futuro
 
-- primeiro garantir que **“oi”** e **“ajuda”** respondam com **texto simples**
-- depois manter/reativar os cards para welcome e protocolo
+Com essa base pronta, o resumo diário poderá enviar DM individual por empreendimento: consultar `user_empreendimentos` → para cada usuário com e-mail, chamar `sendGChatDM(email, resumoDoEmpreendimento)`.
 
-Isso reduz o risco de o problema também envolver formato de card na resposta síncrona.
-
-### 4. Preservar o fluxo de protocolo
-Depois da normalização:
-- `oi`, `olá`, `ajuda` → resposta imediata
-- número de protocolo → consulta em `solicitacoes`
-- texto não reconhecido → ajuda curta e objetiva
-
-### 5. Melhorar logs apenas no ponto certo
-Manter logs úteis para validar:
-- estrutura detectada
-- tipo normalizado
-- texto extraído
-- fluxo executado
-
-Sem depender de tentativa manual no escuro.
-
-## Arquivo principal a ajustar
-
-- `supabase/functions/gchat-webhook/index.ts`
-
-## O que não precisa mudar agora
-
-- `supabase/config.toml` já está adequado para o webhook
-- o **link do gatilho** não precisa ser trocado novamente se ele continuar apontando para:
-  ```text
-  https://wcxybuietfmaaqzmcmnq.supabase.co/functions/v1/gchat-webhook
-  ```
-
-## Resultado esperado após a correção
-
-- enviar **“oi”** no DM deixa de mostrar “Megas Bot não está respondendo”
-- o bot responde imediatamente
-- consultas por protocolo passam a funcionar no DM
-- a base fica pronta para o próximo passo: **DMs individuais por empreendimento**
-
-## Observação técnica importante
-
-Pelas evidências, seu app está recebendo o formato de evento de **HTTP endpoint do Google Chat com payload aninhado em `chat.*`**. Então a correção correta não é trocar a URL — é **adaptar o webhook para esse contrato real de evento**.
