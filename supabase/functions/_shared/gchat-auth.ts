@@ -109,10 +109,11 @@ async function getAccessToken(serviceAccountJson: string): Promise<string> {
  * Falls back to webhook if service account not configured.
  */
 export async function sendGChatMessageAuth(
-  message: Record<string, unknown>
+  message: Record<string, unknown>,
+  targetSpaceName?: string
 ): Promise<{ method: 'api' | 'webhook'; response: Response }> {
   const saJson = Deno.env.get('GCHAT_SERVICE_ACCOUNT_JSON')
-  const spaceName = Deno.env.get('GCHAT_SPACE_NAME')
+  const spaceName = targetSpaceName || Deno.env.get('GCHAT_SPACE_NAME')
   const webhookUrl = Deno.env.get('GCHAT_WEBHOOK_URL')
 
   // Try authenticated API first
