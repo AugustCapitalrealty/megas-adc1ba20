@@ -73,13 +73,11 @@ function buildDigestCard(
   const naFila = sc['recebido'] || 0
   const pendCorrecao = sc['pendente_correcao'] || 0
   const aguardInfo = sc['aguardando_informacoes'] || 0
-  const emAnalise = sc['em_analise'] || 0
-  const emProcessamento = sc['em_processamento'] || 0
-  const ocEmitida = sc['oc_ac_emitida'] || 0
+  const emAprovacao = (sc['em_analise'] || 0) + (sc['em_processamento'] || 0) + (sc['aprovado'] || 0)
+  const ocEmitida = (sc['oc_ac_emitida'] || 0) + (sc['aguardando_aceite'] || 0)
   const liberadas = sc['liberado_fornecedor'] || 0
   const enviadas = sc['enviado_fornecedor'] || 0
   const aguardExec = sc['aguardando_execucao'] || 0
-  const aguardNf = sc['aguardando_nf_boleto'] || 0
 
   const urgentCount = naFila + pendCorrecao + aguardInfo
   const totalMovement = newToday.length + updatedToday.length
@@ -113,13 +111,12 @@ function buildDigestCard(
 
   const activeWidgets: any[] = []
   const activeItems = [
-    { label: 'Análise', count: emAnalise, color: COLORS.info },
-    { label: 'Aprovação', count: emProcessamento, color: COLORS.info },
-    { label: 'OC emitida', count: ocEmitida, color: COLORS.info },
+    { label: 'Em aprovação', count: emAprovacao, color: COLORS.info },
+    { label: 'OC Emitida', count: ocEmitida, color: COLORS.info, alwaysShow: true },
     { label: 'Liberadas p/ fornecedor', count: liberadas, color: COLORS.success },
     { label: 'Enviadas', count: enviadas, color: COLORS.success },
     { label: 'Execução', count: aguardExec, color: COLORS.warning },
-  ].filter((i) => i.count > 0)
+  ].filter((i) => i.count > 0 || (i as any).alwaysShow)
 
   if (activeItems.length > 0) {
     for (let i = 0; i < activeItems.length; i += 3) {
