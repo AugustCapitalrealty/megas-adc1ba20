@@ -1,45 +1,65 @@
 
 
-## Enviar DM do Bot para Usuário via Google Chat API
+## Correção: Bot não responde + Encontrar outros usuários
 
-### Como funciona
+### Problema 1: "Megas Bot não está respondendo"
 
-A Google Chat API permite que o bot **crie um espaço de DM** com qualquer usuário do domínio e envie mensagens diretamente. O fluxo é:
+Os logs confirmam que o webhook processa tudo corretamente:
+```
+type=MESSAGE, text="oi" → Flow: welcome
+```
 
-1. `POST /v1/spaces:setup` — cria (ou recupera) o DM entre o bot e o usuário
-2. `POST /v1/{spaceName}/messages` — envia a mensagem nesse DM
+Mas o Google Chat rejeita a resposta. O motivo provável: **o formato `cardsV2` não é aceito como resposta síncrona em HTTP endpoint apps**. A resposta precisa ser texto simples ou um formato mais básico.
 
-### O que será feito
+**Solução:** Trocar TODAS as respostas do webhook para **texto simples** primeiro. Depois de confirmar que funciona, evoluir para cards se necessário.
 
-**1. Nova edge function `gchat-send-dm`**
-- Recebe `email` e `message` (texto ou card) no body
-- Usa a Service Account já configurada para autenticar
-- Chama `spaces:setup` com o e-mail do usuário para obter o space de DM
-- Envia a mensagem nesse space
-- Retorna sucesso/erro
+Respostas planejadas:
+- **"oi" / "ajuda"** → texto com instruções
+- **protocolo** → texto formatado com status
+- **não reconhecido** → texto de ajuda curta
 
-**2. Atualizar `gchat-auth.ts`**
-- Adicionar função `sendGChatDM(email, message)` que encapsula o fluxo de setup + envio
-- Reutiliza o mesmo token de acesso já cacheado
+### Problema 2: Como encontrar outros usuários (Jonatas, etc.)
 
-**3. Teste imediato**
-- Após deploy, chamar a function passando `guilherme.marques@capitalrealty.com.br` para validar que o DM chega
+A função `sendGChatDM` já funciona por e-mail. O fluxo:
+1. Cada pessoa abre o Google Chat → pesquisa "Megas Bot" → clica para adicionar
+2. Isso cria um espaço de DM entre o bot e a pessoa
+3. Depois, basta chamar a function com o e-mail da pessoa
 
-### Pré-requisito importante
+**Não precisa saber IDs manualmente.** Basta saber o e-mail.
 
-O scope `chat.bot` já permite enviar DMs para usuários que **têm o app instalado** (ou seja, que já adicionaram o Bot Megas no Google Chat). Se o Guilherme ainda não adicionou o bot, ele precisa:
-1. Abrir Google Chat → Pesquisar "Megas Bot" → Clicar para iniciar conversa
+Para facilitar, vou adicionar ao Admin um campo para enviar DM de teste para qualquer e-mail.
 
-Após isso, o bot pode enviar DMs proativamente a qualquer momento.
+### Mudanças
 
-### Arquivos
+| Arquivo | Mudança |
+|---------|---------|
+| `supabase/functions/gchat-webhook/index.ts` | Trocar `cardsV2` por respostas em texto simples |
 
-| Arquivo | Ação |
-|---------|------|
-| `supabase/functions/_shared/gchat-auth.ts` | Adicionar `sendGChatDM(email, message)` |
-| `supabase/functions/gchat-send-dm/index.ts` | Criar — endpoint para envio de DM |
+### Resposta para "oi" (nova):
+```
+👋 Olá! Sou o Bot Megas — assistente de solicitações.
 
-### Uso futuro
+📋 Consultar protocolo: digite o número (ex: 2025000001)
+📊 Resumos automáticos: 09h e 13h
+🔔 Alertas: OC emitida, correção solicitada
 
-Com essa base pronta, o resumo diário poderá enviar DM individual por empreendimento: consultar `user_empreendimentos` → para cada usuário com e-mail, chamar `sendGChatDM(email, resumoDoEmpreendimento)`.
+🔗 Abrir sistema: https://megas.lovable.app
+```
+
+### Resposta para protocolo (nova):
+```
+📋 Protocolo 2025000123
+📌 Tipo: Serviço — Mega Curitiba
+📊 Status: ✅ Em lançamento
+💰 Valor: R$ 15.000,00
+📅 Criada em: 08/04/2026
+
+🔗 Ver detalhes: https://megas.lovable.app
+```
+
+### Próximo passo para DMs em massa
+
+Depois que confirmar que o webhook responde:
+1. Pedir para Jonatas e demais adicionarem o Bot Megas no Google Chat
+2. Integrar o resumo diário para enviar DM individual por empreendimento usando os e-mails do banco
 
