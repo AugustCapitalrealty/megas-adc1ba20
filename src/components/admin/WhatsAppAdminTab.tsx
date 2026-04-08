@@ -141,7 +141,7 @@ export function WhatsAppAdminTab() {
       </div>
 
       {/* Actions */}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Enviar Resumo Agora</CardTitle>
@@ -168,6 +168,31 @@ export function WhatsAppAdminTab() {
             <Button onClick={handleTestApi} disabled={testLoading} variant="outline" className="gap-2">
               {testLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FlaskConical className="h-4 w-4" />}
               Testar API
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Mail className="h-4 w-4" />
+              Enviar DM de Teste
+            </CardTitle>
+            <CardDescription>
+              Envia uma mensagem direta para qualquer usuário pelo e-mail
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Input
+              type="email"
+              placeholder="usuario@capitalrealty.com.br"
+              value={dmEmail}
+              onChange={(e) => setDmEmail(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSendDM()}
+            />
+            <Button onClick={handleSendDM} disabled={dmLoading || !dmEmail} variant="outline" className="gap-2 w-full">
+              {dmLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              Enviar DM
             </Button>
           </CardContent>
         </Card>
