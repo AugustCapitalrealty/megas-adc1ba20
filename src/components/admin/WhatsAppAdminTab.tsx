@@ -3,12 +3,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import { Loader2, Send, MessageSquare, Wifi, Clock, FlaskConical, CheckCircle2 } from 'lucide-react';
+import { Loader2, Send, MessageSquare, Wifi, Clock, FlaskConical, CheckCircle2, Mail } from 'lucide-react';
 
 export function WhatsAppAdminTab() {
   const [digestLoading, setDigestLoading] = useState(false);
   const [testLoading, setTestLoading] = useState(false);
+  const [dmEmail, setDmEmail] = useState('');
+  const [dmLoading, setDmLoading] = useState(false);
 
   const handleSendDigest = async () => {
     setDigestLoading(true);
@@ -39,6 +42,27 @@ export function WhatsAppAdminTab() {
       toast.error('Erro no teste', { description: err.message });
     } finally {
       setTestLoading(false);
+    }
+  };
+
+  const handleSendDM = async () => {
+    if (!dmEmail || !dmEmail.includes('@')) {
+      toast.error('Digite um e-mail válido');
+      return;
+    }
+    setDmLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('gchat-send-dm', {
+        body: { email: dmEmail, text: `👋 Olá! Esta é uma mensagem de teste do *Bot Megas*.\n\n🔗 Abrir sistema: https://megas.lovable.app` },
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Falha no envio');
+      toast.success('DM enviada com sucesso!', { description: `Para: ${dmEmail}` });
+      setDmEmail('');
+    } catch (err: any) {
+      toast.error('Erro ao enviar DM', { description: err.message });
+    } finally {
+      setDmLoading(false);
     }
   };
 
@@ -117,7 +141,7 @@ export function WhatsAppAdminTab() {
       </div>
 
       {/* Actions */}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Enviar Resumo Agora</CardTitle>
@@ -144,6 +168,31 @@ export function WhatsAppAdminTab() {
             <Button onClick={handleTestApi} disabled={testLoading} variant="outline" className="gap-2">
               {testLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FlaskConical className="h-4 w-4" />}
               Testar API
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Mail className="h-4 w-4" />
+              Enviar DM de Teste
+            </CardTitle>
+            <CardDescription>
+              Envia uma mensagem direta para qualquer usuário pelo e-mail
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Input
+              type="email"
+              placeholder="usuario@capitalrealty.com.br"
+              value={dmEmail}
+              onChange={(e) => setDmEmail(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSendDM()}
+            />
+            <Button onClick={handleSendDM} disabled={dmLoading || !dmEmail} variant="outline" className="gap-2 w-full">
+              {dmLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              Enviar DM
             </Button>
           </CardContent>
         </Card>
