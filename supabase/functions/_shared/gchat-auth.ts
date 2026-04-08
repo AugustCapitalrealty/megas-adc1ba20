@@ -215,15 +215,28 @@ async function getSpaceMemberEmail(token: string, spaceName: string): Promise<st
   })
 
   if (!res.ok) {
-    await res.text()
+    const errText = await res.text()
+    console.log(`members.list failed for ${spaceName}: ${errText}`)
     return null
   }
 
   const data = await res.json()
+  console.log(`Members of ${spaceName}:`, JSON.stringify(data.memberships?.map((m: any) => ({
+    type: m.member?.type,
+    name: m.member?.name,
+    displayName: m.member?.displayName,
+    email: m.member?.email,
+  }))))
+
   for (const membership of (data.memberships || [])) {
     const member = membership.member
-    if (member?.type === 'HUMAN' && member?.email) {
-      return member.email.toLowerCase()
+    // Try email first, then try to extract from member name (users/email format)
+    if (member?.type === 'HUMAN') {
+      if (member.email) return member.email.toLowerCase()
+      // Some APIs return name as users/123456 or users/email
+      if (member.name?.includes('@')) {
+        return member.name.replace('users/', '').toLowerCase()
+      }
     }
   }
   return null
