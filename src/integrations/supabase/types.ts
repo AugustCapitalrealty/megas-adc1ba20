@@ -512,6 +512,33 @@ export type Database = {
         }
         Relationships: []
       }
+      gchat_spaces: {
+        Row: {
+          active: boolean
+          created_at: string
+          empreendimento: string | null
+          id: string
+          label: string
+          space_name: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          empreendimento?: string | null
+          id?: string
+          label: string
+          space_name: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          empreendimento?: string | null
+          id?: string
+          label?: string
+          space_name?: string
+        }
+        Relationships: []
+      }
       historico_solicitacoes: {
         Row: {
           acao: string
