@@ -111,13 +111,12 @@ function buildDigestCard(
 
   const activeWidgets: any[] = []
   const activeItems = [
-    { label: 'Análise', count: emAnalise, color: COLORS.info },
-    { label: 'Aprovação', count: emProcessamento, color: COLORS.info },
-    { label: 'OC emitida', count: ocEmitida, color: COLORS.info },
+    { label: 'Em aprovação', count: emAprovacao, color: COLORS.info },
+    { label: 'OC Emitida', count: ocEmitida, color: COLORS.info, alwaysShow: true },
     { label: 'Liberadas p/ fornecedor', count: liberadas, color: COLORS.success },
     { label: 'Enviadas', count: enviadas, color: COLORS.success },
     { label: 'Execução', count: aguardExec, color: COLORS.warning },
-  ].filter((i) => i.count > 0)
+  ].filter((i) => i.count > 0 || (i as any).alwaysShow)
 
   if (activeItems.length > 0) {
     for (let i = 0; i < activeItems.length; i += 3) {
