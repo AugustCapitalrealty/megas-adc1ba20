@@ -45,6 +45,27 @@ export function WhatsAppAdminTab() {
     }
   };
 
+  const handleSendDM = async () => {
+    if (!dmEmail || !dmEmail.includes('@')) {
+      toast.error('Digite um e-mail válido');
+      return;
+    }
+    setDmLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('gchat-send-dm', {
+        body: { email: dmEmail, text: `👋 Olá! Esta é uma mensagem de teste do *Bot Megas*.\n\n🔗 Abrir sistema: https://megas.lovable.app` },
+      });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Falha no envio');
+      toast.success('DM enviada com sucesso!', { description: `Para: ${dmEmail}` });
+      setDmEmail('');
+    } catch (err: any) {
+      toast.error('Erro ao enviar DM', { description: err.message });
+    } finally {
+      setDmLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-3">
