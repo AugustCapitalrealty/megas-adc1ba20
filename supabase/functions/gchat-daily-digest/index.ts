@@ -73,13 +73,11 @@ function buildDigestCard(
   const naFila = sc['recebido'] || 0
   const pendCorrecao = sc['pendente_correcao'] || 0
   const aguardInfo = sc['aguardando_informacoes'] || 0
-  const emAnalise = sc['em_analise'] || 0
-  const emProcessamento = sc['em_processamento'] || 0
-  const ocEmitida = sc['oc_ac_emitida'] || 0
+  const emAprovacao = (sc['em_analise'] || 0) + (sc['em_processamento'] || 0) + (sc['aprovado'] || 0)
+  const ocEmitida = (sc['oc_ac_emitida'] || 0) + (sc['aguardando_aceite'] || 0)
   const liberadas = sc['liberado_fornecedor'] || 0
   const enviadas = sc['enviado_fornecedor'] || 0
   const aguardExec = sc['aguardando_execucao'] || 0
-  const aguardNf = sc['aguardando_nf_boleto'] || 0
 
   const urgentCount = naFila + pendCorrecao + aguardInfo
   const totalMovement = newToday.length + updatedToday.length
