@@ -31,8 +31,6 @@ const EMPREENDIMENTO_LABELS: Record<string, string> = {
 }
 
 // --- Normalize payload from Google Chat ---
-// Google Chat HTTP endpoint sends nested payload under `chat.*`
-// Legacy/test format uses top-level `type`, `message`, etc.
 interface NormalizedEvent {
   eventType: string
   spaceName: string
@@ -73,7 +71,7 @@ function normalizePayload(body: any): NormalizedEvent {
     }
   }
 
-  // Format 2: Legacy top-level keys (test payloads / older format)
+  // Format 2: Legacy top-level keys
   const eventType = body.type || body.eventType || ''
   const rawText = body.message?.argumentText || body.message?.text || ''
 
@@ -86,152 +84,45 @@ function normalizePayload(body: any): NormalizedEvent {
   }
 }
 
-// --- Response builders ---
+// --- Plain text responses ---
 
-function buildWelcomeCard() {
-  return {
-    cardsV2: [{
-      cardId: 'welcome',
-      card: {
-        header: {
-          title: '👋 Olá! Sou o Bot Megas',
-          subtitle: 'Assistente de Solicitações BA Chamados',
-          imageUrl: 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/smart_toy/default/48px.svg',
-          imageType: 'CIRCLE',
-        },
-        sections: [
-          {
-            header: 'O que posso fazer',
-            widgets: [
-              {
-                decoratedText: {
-                  startIcon: { knownIcon: 'DESCRIPTION' },
-                  text: '<b>Consultar protocolo</b>',
-                  bottomLabel: 'Digite o número (ex: 2025000001)',
-                },
-              },
-              {
-                decoratedText: {
-                  startIcon: { knownIcon: 'BOOKMARK' },
-                  text: '<b>Resumos automáticos</b>',
-                  bottomLabel: 'Enviados 2x ao dia (09h e 13h)',
-                },
-              },
-              {
-                decoratedText: {
-                  startIcon: { knownIcon: 'FLIGHT_ARRIVAL' },
-                  text: '<b>Alertas em tempo real</b>',
-                  bottomLabel: 'OC emitida, correção solicitada',
-                },
-              },
-            ],
-          },
-          {
-            widgets: [{
-              columns: {
-                columnItems: [{
-                  horizontalSizeStyle: 'FILL_AVAILABLE_SPACE',
-                  horizontalAlignment: 'CENTER',
-                  verticalAlignment: 'CENTER',
-                  widgets: [{
-                    buttonList: {
-                      buttons: [{
-                        text: 'Abrir Sistema',
-                        onClick: { openLink: { url: APP_URL } },
-                        color: { red: 0.0, green: 0.45, blue: 0.85, alpha: 1 },
-                      }],
-                    },
-                  }],
-                }],
-              },
-            }],
-          },
-        ],
-      },
-    }],
-  }
+function welcomeText(): string {
+  return [
+    '👋 Olá! Sou o *Bot Megas* — assistente de solicitações.',
+    '',
+    '📋 *Consultar protocolo*: digite o número (ex: 2025000001)',
+    '📊 *Resumos automáticos*: 09h e 13h',
+    '🔔 *Alertas*: OC emitida, correção solicitada',
+    '',
+    `🔗 Abrir sistema: ${APP_URL}`,
+  ].join('\n')
 }
 
-function buildProtocolCard(sol: any) {
+function protocolText(sol: any): string {
   const statusLabel = STATUS_LABELS[sol.status] || sol.status
   const empreendimentoLabel = EMPREENDIMENTO_LABELS[sol.empreendimento] || sol.empreendimento
   const valor = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(sol.valor || 0)
   const data = new Date(sol.created_at).toLocaleDateString('pt-BR')
+  const desc = (sol.descricao || '').substring(0, 120)
 
-  return {
-    cardsV2: [{
-      cardId: `protocol-${sol.protocolo}`,
-      card: {
-        header: {
-          title: `📋 Protocolo ${sol.protocolo}`,
-          subtitle: `${sol.tipo} — ${empreendimentoLabel}`,
-        },
-        sections: [
-          {
-            widgets: [
-              {
-                decoratedText: {
-                  startIcon: { knownIcon: 'INVITE' },
-                  topLabel: 'Status',
-                  text: statusLabel,
-                },
-              },
-              {
-                decoratedText: {
-                  startIcon: { knownIcon: 'DOLLAR' },
-                  topLabel: 'Valor',
-                  text: valor,
-                },
-              },
-              {
-                decoratedText: {
-                  startIcon: { knownIcon: 'CLOCK' },
-                  topLabel: 'Criada em',
-                  text: data,
-                },
-              },
-              {
-                decoratedText: {
-                  startIcon: { knownIcon: 'DESCRIPTION' },
-                  topLabel: 'Descrição',
-                  text: (sol.descricao || '').substring(0, 200) + ((sol.descricao || '').length > 200 ? '...' : ''),
-                  wrapText: true,
-                },
-              },
-            ],
-          },
-          {
-            widgets: [{
-              columns: {
-                columnItems: [{
-                  horizontalSizeStyle: 'FILL_AVAILABLE_SPACE',
-                  horizontalAlignment: 'CENTER',
-                  verticalAlignment: 'CENTER',
-                  widgets: [{
-                    buttonList: {
-                      buttons: [{
-                        text: 'Ver Detalhes',
-                        onClick: { openLink: { url: APP_URL } },
-                        color: { red: 0.0, green: 0.45, blue: 0.85, alpha: 1 },
-                      }],
-                    },
-                  }],
-                }],
-              },
-            }],
-          },
-        ],
-      },
-    }],
-  }
+  return [
+    `📋 *Protocolo ${sol.protocolo}*`,
+    `📌 Tipo: ${sol.tipo} — ${empreendimentoLabel}`,
+    `📊 Status: ${statusLabel}`,
+    `💰 Valor: ${valor}`,
+    `📅 Criada em: ${data}`,
+    desc ? `📝 ${desc}${(sol.descricao || '').length > 120 ? '...' : ''}` : '',
+    '',
+    `🔗 Ver detalhes: ${APP_URL}`,
+  ].filter(Boolean).join('\n')
 }
 
-function buildHelpText() {
-  return { text: '🤖 Não entendi. Digite um *número de protocolo* (ex: `2025000001`) para consultar, ou *ajuda* para ver os comandos.' }
+function helpText(): string {
+  return '🤖 Não entendi. Digite um *número de protocolo* (ex: 2025000001) para consultar, ou *oi* para ver os comandos.'
 }
 
-function buildNotFoundText(query: string) {
-  return { text: `🔍 Nenhuma solicitação encontrada com o protocolo *${query}*. Verifique o número e tente novamente.` }
+function notFoundText(query: string): string {
+  return `🔍 Nenhuma solicitação encontrada com o protocolo *${query}*. Verifique o número e tente novamente.`
 }
 
 // --- Main handler ---
@@ -250,47 +141,34 @@ Deno.serve(async (req) => {
 
   try {
     const body = await req.json()
-
-    // Diagnostic logs
     console.log('GChat payload keys:', JSON.stringify(Object.keys(body)))
-    if (body.chat) {
-      console.log('GChat chat keys:', JSON.stringify(Object.keys(body.chat)))
-    }
 
     const event = normalizePayload(body)
-    console.log(`GChat normalized → type=${event.eventType}, space=${event.spaceName}, user=${event.userEmail}, text="${event.messageText}"`)
+    console.log(`GChat → type=${event.eventType}, space=${event.spaceName}, user=${event.userEmail}, text="${event.messageText}"`)
 
-    const json = (data: any) => new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } })
+    const json = (text: string) =>
+      new Response(JSON.stringify({ text }), { headers: { 'Content-Type': 'application/json' } })
 
-    // ADDED_TO_SPACE
     if (event.eventType === 'ADDED_TO_SPACE') {
-      console.log('Flow: ADDED_TO_SPACE')
-      return json(buildWelcomeCard())
+      return json(welcomeText())
     }
 
-    // REMOVED_FROM_SPACE
     if (event.eventType === 'REMOVED_FROM_SPACE') {
-      console.log('Flow: REMOVED_FROM_SPACE')
-      return json({})
+      return new Response(JSON.stringify({}), { headers: { 'Content-Type': 'application/json' } })
     }
 
-    // MESSAGE
     if (event.eventType === 'MESSAGE') {
       const text = event.messageText.toLowerCase()
-      console.log('Flow: MESSAGE, clean text:', text)
 
-      // Greetings / help
       const greetings = ['ajuda', 'help', 'oi', 'olá', 'ola', 'hi', 'hello', 'menu', 'start', 'início', 'inicio']
       if (greetings.includes(text)) {
-        console.log('Flow: welcome')
-        return json(buildWelcomeCard())
+        return json(welcomeText())
       }
 
-      // Protocol lookup
       const protocolMatch = text.match(/(\d{4,})/)
       if (protocolMatch) {
         const q = protocolMatch[1]
-        console.log('Flow: protocol search for', q)
+        console.log('Protocol search:', q)
 
         const supabase = createClient(
           Deno.env.get('SUPABASE_URL')!,
@@ -306,31 +184,25 @@ Deno.serve(async (req) => {
 
         if (error) {
           console.error('DB error:', error)
-          return json({ text: '⚠️ Erro ao consultar o banco de dados. Tente novamente.' })
+          return json('⚠️ Erro ao consultar o banco de dados. Tente novamente.')
         }
 
         if (!sols || sols.length === 0) {
-          return json(buildNotFoundText(q))
+          return json(notFoundText(q))
         }
 
-        return json(buildProtocolCard(sols[0]))
+        return json(protocolText(sols[0]))
       }
 
-      // Unrecognized
-      console.log('Flow: help (unrecognized)')
-      return json(buildHelpText())
+      return json(helpText())
     }
 
-    // CARD_CLICKED
     if (event.eventType === 'CARD_CLICKED') {
-      console.log('Flow: CARD_CLICKED')
-      return json(buildWelcomeCard())
+      return json(welcomeText())
     }
 
-    // FALLBACK — always return something valid
-    console.log('Flow: FALLBACK, eventType:', event.eventType)
-    return json(buildWelcomeCard())
-
+    // Fallback
+    return json(welcomeText())
   } catch (err) {
     console.error('Webhook error:', err)
     return new Response(JSON.stringify({ text: '⚠️ Erro interno do bot. Tente novamente.' }), {
