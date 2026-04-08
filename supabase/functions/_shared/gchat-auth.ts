@@ -176,9 +176,63 @@ export function isApiConfigured(): boolean {
 }
 
 /**
+ * List all DM spaces the bot has. Returns map of displayName/memberEmail → spaceName.
+ */
+async function listBotDMSpaces(token: string): Promise<Array<{ spaceName: string; displayName: string }>> {
+  const spaces: Array<{ spaceName: string; displayName: string }> = []
+  let pageToken = ''
+
+  do {
+    const url = `https://chat.googleapis.com/v1/spaces?filter=spaceType%3D%22DIRECT_MESSAGE%22${pageToken ? `&pageToken=${pageToken}` : ''}`
+    const res = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    })
+
+    if (!res.ok) {
+      const errText = await res.text()
+      throw new Error(`spaces.list failed [${res.status}]: ${errText}`)
+    }
+
+    const data = await res.json()
+    for (const space of (data.spaces || [])) {
+      spaces.push({
+        spaceName: space.name,
+        displayName: space.displayName || '',
+      })
+    }
+    pageToken = data.nextPageToken || ''
+  } while (pageToken)
+
+  return spaces
+}
+
+/**
+ * Find a DM space member's email by listing space members.
+ */
+async function getSpaceMemberEmail(token: string, spaceName: string): Promise<string | null> {
+  const res = await fetch(`https://chat.googleapis.com/v1/${spaceName}/members`, {
+    headers: { 'Authorization': `Bearer ${token}` },
+  })
+
+  if (!res.ok) {
+    await res.text()
+    return null
+  }
+
+  const data = await res.json()
+  for (const membership of (data.memberships || [])) {
+    const member = membership.member
+    if (member?.type === 'HUMAN' && member?.email) {
+      return member.email.toLowerCase()
+    }
+  }
+  return null
+}
+
+/**
  * Send a DM to a specific user by email via Google Chat API.
- * Uses spaces.findDirectMessage to locate the existing DM space, then sends.
- * The user must have previously messaged the bot (or added it) for a DM space to exist.
+ * Lists bot DM spaces, matches by member email, then sends the message.
+ * The user must have previously added Megas Bot in Google Chat.
  */
 export async function sendGChatDM(
   email: string,
@@ -190,30 +244,30 @@ export async function sendGChatDM(
   }
 
   const token = await getAccessToken(saJson)
+  const targetEmail = email.toLowerCase()
 
-  // Step 1: Find the existing DM space with this user
-  const findUrl = `https://chat.googleapis.com/v1/spaces:findDirectMessage?name=users/${encodeURIComponent(email)}`
-  const findRes = await fetch(findUrl, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-  })
+  // Step 1: List all DM spaces
+  const dmSpaces = await listBotDMSpaces(token)
+  console.log(`Found ${dmSpaces.length} DM spaces`)
 
-  if (!findRes.ok) {
-    const errText = await findRes.text()
-    if (findRes.status === 404) {
-      throw new Error(`DM space not found for ${email}. The user needs to add Megas Bot first in Google Chat.`)
+  // Step 2: Find the space for this user by checking members
+  let targetSpace: string | null = null
+  for (const space of dmSpaces) {
+    const memberEmail = await getSpaceMemberEmail(token, space.spaceName)
+    if (memberEmail === targetEmail) {
+      targetSpace = space.spaceName
+      break
     }
-    throw new Error(`findDirectMessage failed for ${email} [${findRes.status}]: ${errText}`)
   }
 
-  const spaceData = await findRes.json()
-  const spaceName = spaceData.name
-  console.log(`DM space for ${email}: ${spaceName}`)
+  if (!targetSpace) {
+    throw new Error(`DM space not found for ${email}. The user needs to add Megas Bot first in Google Chat.`)
+  }
 
-  // Step 2: Send the message in this DM space
-  const msgRes = await fetch(`https://chat.googleapis.com/v1/${spaceName}/messages`, {
+  console.log(`DM space for ${email}: ${targetSpace}`)
+
+  // Step 3: Send the message
+  const msgRes = await fetch(`https://chat.googleapis.com/v1/${targetSpace}/messages`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -228,5 +282,5 @@ export async function sendGChatDM(
   }
 
   const msgData = await msgRes.json()
-  return { spaceName, messageId: msgData.name || '' }
+  return { spaceName: targetSpace, messageId: msgData.name || '' }
 }
