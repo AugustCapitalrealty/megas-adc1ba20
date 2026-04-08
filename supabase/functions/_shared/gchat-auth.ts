@@ -209,42 +209,56 @@ async function listBotDMSpaces(token: string): Promise<Array<{ spaceName: string
 /**
  * Find a DM space member's email by listing space members.
  */
-async function getSpaceMemberEmail(token: string, spaceName: string): Promise<string | null> {
+async function getSpaceMemberInfo(token: string, spaceName: string): Promise<{ email: string | null; userId: string | null; displayName: string | null }> {
   const res = await fetch(`https://chat.googleapis.com/v1/${spaceName}/members`, {
     headers: { 'Authorization': `Bearer ${token}` },
   })
 
   if (!res.ok) {
-    const errText = await res.text()
-    console.log(`members.list failed for ${spaceName}: ${errText}`)
-    return null
+    await res.text()
+    return { email: null, userId: null, displayName: null }
   }
 
   const data = await res.json()
-  console.log(`Members of ${spaceName}:`, JSON.stringify(data.memberships?.map((m: any) => ({
-    type: m.member?.type,
-    name: m.member?.name,
-    displayName: m.member?.displayName,
-    email: m.member?.email,
-  }))))
-
   for (const membership of (data.memberships || [])) {
     const member = membership.member
-    // Try email first, then try to extract from member name (users/email format)
     if (member?.type === 'HUMAN') {
-      if (member.email) return member.email.toLowerCase()
-      // Some APIs return name as users/123456 or users/email
-      if (member.name?.includes('@')) {
-        return member.name.replace('users/', '').toLowerCase()
+      return {
+        email: member.email?.toLowerCase() || null,
+        userId: member.name || null,
+        displayName: member.displayName || null,
       }
     }
+  }
+  return { email: null, userId: null, displayName: null }
+}
+
+/**
+ * Resolve a Google user ID (users/123456) to email using People API.
+ */
+async function resolveUserEmail(token: string, userId: string): Promise<string | null> {
+  // Use the People API to get email from user ID
+  const personId = userId.replace('users/', '')
+  const url = `https://people.googleapis.com/v1/people/${personId}?personFields=emailAddresses`
+  const res = await fetch(url, {
+    headers: { 'Authorization': `Bearer ${token}` },
+  })
+
+  if (res.ok) {
+    const data = await res.json()
+    const emails = data.emailAddresses || []
+    if (emails.length > 0) {
+      return emails[0].value?.toLowerCase() || null
+    }
+  } else {
+    await res.text() // consume
   }
   return null
 }
 
 /**
  * Send a DM to a specific user by email via Google Chat API.
- * Lists bot DM spaces, matches by member email, then sends the message.
+ * Lists bot DM spaces, matches by member, then sends the message.
  * The user must have previously added Megas Bot in Google Chat.
  */
 export async function sendGChatDM(
@@ -263,13 +277,28 @@ export async function sendGChatDM(
   const dmSpaces = await listBotDMSpaces(token)
   console.log(`Found ${dmSpaces.length} DM spaces`)
 
-  // Step 2: Find the space for this user by checking members
+  // Step 2: Find the space for this user
   let targetSpace: string | null = null
   for (const space of dmSpaces) {
-    const memberEmail = await getSpaceMemberEmail(token, space.spaceName)
-    if (memberEmail === targetEmail) {
+    const memberInfo = await getSpaceMemberInfo(token, space.spaceName)
+    console.log(`Space ${space.spaceName} member: email=${memberInfo.email}, userId=${memberInfo.userId}, displayName=${memberInfo.displayName}`)
+    
+    // Match by email if available
+    if (memberInfo.email === targetEmail) {
       targetSpace = space.spaceName
       break
+    }
+
+    // If no email from Chat API, try displayName partial match as fallback
+    if (!memberInfo.email && memberInfo.displayName) {
+      // Extract first part of email as name hint
+      const emailName = targetEmail.split('@')[0].replace('.', ' ').toLowerCase()
+      const displayLower = memberInfo.displayName.toLowerCase()
+      if (displayLower.includes(emailName.split(' ')[0])) {
+        console.log(`Matched by displayName: "${memberInfo.displayName}" ~ "${emailName}"`)
+        targetSpace = space.spaceName
+        break
+      }
     }
   }
 
