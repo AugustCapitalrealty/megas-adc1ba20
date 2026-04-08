@@ -255,7 +255,7 @@ export default function Backoffice() {
             body: {
               tipo: 'correcao',
               protocolo: sol?.protocolo || '',
-              empreendimento: EMP_LABELS[sol?.empreendimento || ''] || sol?.empreendimento || '',
+              empreendimento: sol?.empreendimento || '',
               descricao: sol?.descricao || '',
               motivo: motivoText || 'Correção necessária',
               status: newStatus === 'pendente_correcao' ? 'Correção Necessária' : 'Aguardando Informações',
