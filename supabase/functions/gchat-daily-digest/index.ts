@@ -119,7 +119,6 @@ function buildDigestCard(
     { label: 'Liberadas p/ fornecedor', count: liberadas, color: COLORS.success },
     { label: 'Enviadas', count: enviadas, color: COLORS.success },
     { label: 'Execução', count: aguardExec, color: COLORS.warning },
-    { label: 'NF/Boleto', count: aguardNf, color: COLORS.warning },
   ].filter((i) => i.count > 0)
 
   if (activeItems.length > 0) {
