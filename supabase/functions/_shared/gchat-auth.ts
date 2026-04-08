@@ -258,8 +258,7 @@ async function resolveUserEmail(token: string, userId: string): Promise<string |
 
 /**
  * Send a DM to a specific user by email via Google Chat API.
- * Lists bot DM spaces, matches by member, then sends the message.
- * The user must have previously added Megas Bot in Google Chat.
+ * Uses spaces:setup to create/find DM space, then sends the message.
  */
 export async function sendGChatDM(
   email: string,
@@ -273,31 +272,58 @@ export async function sendGChatDM(
   const token = await getAccessToken(saJson)
   const targetEmail = email.toLowerCase()
 
-  // Step 1: List all DM spaces
-  const dmSpaces = await listBotDMSpaces(token)
-  console.log(`Found ${dmSpaces.length} DM spaces`)
-
-  // Step 2: Find the space for this user
+  // Step 1: Try spaces:setup to create/find DM space directly
   let targetSpace: string | null = null
-  for (const space of dmSpaces) {
-    const memberInfo = await getSpaceMemberInfo(token, space.spaceName)
-    console.log(`Space ${space.spaceName} member: email=${memberInfo.email}, userId=${memberInfo.userId}, displayName=${memberInfo.displayName}`)
-    
-    // Match by email if available
-    if (memberInfo.email === targetEmail) {
-      targetSpace = space.spaceName
-      break
-    }
 
-    // If no email from Chat API, try displayName partial match as fallback
-    if (!memberInfo.email && memberInfo.displayName) {
-      // Extract first part of email as name hint
-      const emailName = targetEmail.split('@')[0].replace('.', ' ').toLowerCase()
-      const displayLower = memberInfo.displayName.toLowerCase()
-      if (displayLower.includes(emailName.split(' ')[0])) {
-        console.log(`Matched by displayName: "${memberInfo.displayName}" ~ "${emailName}"`)
+  try {
+    const setupRes = await fetch('https://chat.googleapis.com/v1/spaces:setup', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        space: { spaceType: 'DIRECT_MESSAGE' },
+        memberships: [{
+          member: { name: `users/${targetEmail}`, type: 'HUMAN' },
+        }],
+      }),
+    })
+
+    if (setupRes.ok) {
+      const setupData = await setupRes.json()
+      targetSpace = setupData.name
+      console.log(`spaces:setup OK for ${email}: ${targetSpace}`)
+    } else {
+      const errText = await setupRes.text()
+      console.log(`spaces:setup failed [${setupRes.status}]: ${errText}`)
+    }
+  } catch (e) {
+    console.log(`spaces:setup error: ${e}`)
+  }
+
+  // Step 2: Fallback — list existing DM spaces and match
+  if (!targetSpace) {
+    console.log('Falling back to spaces.list matching...')
+    const dmSpaces = await listBotDMSpaces(token)
+    console.log(`Found ${dmSpaces.length} DM spaces`)
+
+    for (const space of dmSpaces) {
+      const memberInfo = await getSpaceMemberInfo(token, space.spaceName)
+
+      if (memberInfo.email === targetEmail) {
         targetSpace = space.spaceName
         break
+      }
+
+      if (!memberInfo.email && memberInfo.displayName) {
+        const emailName = targetEmail.split('@')[0].replace('.', ' ').toLowerCase()
+        const displayLower = memberInfo.displayName.toLowerCase()
+        if (displayLower.includes(emailName.split(' ')[0])) {
+          console.log(`Matched by displayName: "${memberInfo.displayName}" ~ "${emailName}"`)
+          targetSpace = space.spaceName
+          break
+        }
       }
     }
   }
@@ -305,8 +331,6 @@ export async function sendGChatDM(
   if (!targetSpace) {
     throw new Error(`DM space not found for ${email}. The user needs to add Megas Bot first in Google Chat.`)
   }
-
-  console.log(`DM space for ${email}: ${targetSpace}`)
 
   // Step 3: Send the message
   const msgRes = await fetch(`https://chat.googleapis.com/v1/${targetSpace}/messages`, {
