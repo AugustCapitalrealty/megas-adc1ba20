@@ -17,6 +17,14 @@ const COLORS = {
   text: '#202124',
 }
 
+const EMP_LABELS: Record<string, string> = {
+  mega_curitiba: 'Mega Curitiba',
+  mega_itajai: 'Mega Itajaí',
+  mega_esteio: 'Mega Esteio',
+  mega_canoas: 'Mega Canoas',
+  todos: 'Todos',
+}
+
 const FINISHED_STATUSES = ['concluida', 'cancelado', 'rejeitado']
 
 function getGreeting(): { title: string; salute: string; verbo: string } {
@@ -38,6 +46,178 @@ function statColumn(value: number, label: string, color: string) {
   }
 }
 
+interface SpaceConfig {
+  space_name: string
+  label: string
+  empreendimento: string | null
+}
+
+function buildDigestCard(
+  allSol: any[],
+  empreendimento: string | null,
+  greeting: ReturnType<typeof getGreeting>,
+  dayFormatted: string,
+  generatedAt: string,
+  startOfDay: string,
+  endOfDay: string,
+  spaceLabel: string,
+) {
+  // Filter by empreendimento if specified
+  const sol = empreendimento
+    ? allSol.filter((s) => s.empreendimento === empreendimento)
+    : allSol
+
+  const newToday = sol.filter((s) => {
+    const d = new Date(s.created_at)
+    return d >= new Date(startOfDay) && d <= new Date(endOfDay)
+  })
+
+  const updatedToday = sol.filter((s) => {
+    const d = new Date(s.updated_at)
+    return d >= new Date(startOfDay) && d <= new Date(endOfDay) && !newToday.find((n: any) => n.id === s.id)
+  })
+
+  const sc: Record<string, number> = {}
+  sol.forEach((s) => { sc[s.status] = (sc[s.status] || 0) + 1 })
+
+  const totalActive = sol.filter((s) => !FINISHED_STATUSES.includes(s.status)).length
+  const naFila = sc['recebido'] || 0
+  const pendCorrecao = sc['pendente_correcao'] || 0
+  const aguardInfo = sc['aguardando_informacoes'] || 0
+  const emAnalise = sc['em_analise'] || 0
+  const emProcessamento = sc['em_processamento'] || 0
+  const ocEmitida = sc['oc_ac_emitida'] || 0
+  const liberadas = sc['liberado_fornecedor'] || 0
+  const enviadas = sc['enviado_fornecedor'] || 0
+  const aguardExec = sc['aguardando_execucao'] || 0
+  const aguardNf = sc['aguardando_nf_boleto'] || 0
+
+  const urgentCount = naFila + pendCorrecao + aguardInfo
+  const totalMovement = newToday.length + updatedToday.length
+
+  const subtitle = empreendimento
+    ? `${EMP_LABELS[empreendimento] || empreendimento} • ${dayFormatted} às ${generatedAt}`
+    : `BA Chamados • ${dayFormatted} às ${generatedAt}`
+
+  // Intro text
+  let introText: string
+  if (totalActive === 0) {
+    introText = `${greeting.salute}! Não há solicitações ativas no momento.`
+  } else if (urgentCount === 0) {
+    introText = `${greeting.salute}! ${greeting.verbo} <b>${totalActive} solicitações ativas</b>, sem prioridades imediatas.`
+  } else {
+    introText = `${greeting.salute}! ${greeting.verbo} <b>${totalActive} solicitações ativas</b>, das quais <b>${urgentCount}</b> ${urgentCount === 1 ? 'exige' : 'exigem'} atenção imediata.`
+  }
+
+  // Priority widgets
+  const priorityWidgets: any[] = []
+  if (urgentCount > 0) {
+    const priorityCols: any[] = []
+    if (naFila > 0) priorityCols.push(statColumn(naFila, 'Backoffice', COLORS.critical))
+    if (pendCorrecao > 0) priorityCols.push(statColumn(pendCorrecao, 'Correção', COLORS.warning))
+    if (aguardInfo > 0) priorityCols.push(statColumn(aguardInfo, 'Aguardando requisitante', COLORS.warning))
+    priorityWidgets.push({ columns: { columnItems: priorityCols } })
+  } else {
+    priorityWidgets.push({
+      decoratedText: {
+        topLabel: 'Status',
+        text: `<font color="${COLORS.success}"><b>Tudo limpo</b></font>`,
+        bottomLabel: 'Fila, correções e informações pendentes zeradas',
+        startIcon: { knownIcon: 'INVITE' },
+      },
+    })
+  }
+
+  // Active widgets
+  const activeWidgets: any[] = []
+  const activeItems = [
+    { label: 'Análise', count: emAnalise, color: COLORS.info },
+    { label: 'Aprovação', count: emProcessamento, color: COLORS.info },
+    { label: 'OC emitida', count: ocEmitida, color: COLORS.info },
+    { label: 'Liberadas p/ fornecedor', count: liberadas, color: COLORS.success },
+    { label: 'Enviadas', count: enviadas, color: COLORS.success },
+    { label: 'Execução', count: aguardExec, color: COLORS.warning },
+    { label: 'NF/Boleto', count: aguardNf, color: COLORS.warning },
+  ].filter((i) => i.count > 0)
+
+  if (activeItems.length > 0) {
+    for (let i = 0; i < activeItems.length; i += 3) {
+      const row = activeItems.slice(i, i + 3)
+      activeWidgets.push({
+        columns: {
+          columnItems: row.map((item) => statColumn(item.count, item.label, item.color)),
+        },
+      })
+    }
+  } else {
+    activeWidgets.push({
+      textParagraph: { text: `<font color="${COLORS.muted}">Sem solicitações em andamento.</font>` },
+    })
+  }
+
+  // Movement widgets
+  const movementWidgets: any[] = []
+  if (totalMovement > 0) {
+    const parts: string[] = []
+    if (newToday.length > 0) parts.push(`<b>${newToday.length}</b> nova${newToday.length === 1 ? '' : 's'}`)
+    if (updatedToday.length > 0) parts.push(`<b>${updatedToday.length}</b> atualizada${updatedToday.length === 1 ? '' : 's'}`)
+    movementWidgets.push({
+      decoratedText: {
+        topLabel: 'Hoje',
+        text: parts.join(' · '),
+        startIcon: { knownIcon: 'CLOCK' },
+      },
+    })
+  } else {
+    movementWidgets.push({
+      textParagraph: { text: `<font color="${COLORS.muted}">Sem movimentação hoje.</font>` },
+    })
+  }
+
+  const sections = [
+    { widgets: [{ textParagraph: { text: introText } }] },
+    { header: `🔴 PRIORIDADES IMEDIATAS (${urgentCount})`, widgets: priorityWidgets },
+    { widgets: [{ divider: {} }] },
+    { header: `📊 ATIVAS (${totalActive})`, widgets: activeWidgets },
+    { widgets: [{ divider: {} }] },
+    { header: `📉 MOVIMENTO DO DIA`, widgets: movementWidgets },
+    {
+      widgets: [{
+        columns: {
+          columnItems: [{
+            horizontalSizeStyle: 'FILL_AVAILABLE_SPACE',
+            horizontalAlignment: 'CENTER',
+            verticalAlignment: 'CENTER',
+            widgets: [{
+              buttonList: {
+                buttons: [{
+                  text: 'Abrir Sistema',
+                  onClick: { openLink: { url: APP_URL } },
+                  color: { red: 0.12, green: 0.53, blue: 0.9, alpha: 1 },
+                }],
+              },
+            }],
+          }],
+        },
+      }],
+    },
+  ]
+
+  return {
+    cardsV2: [{
+      cardId: `digest-${empreendimento || 'geral'}-${Date.now()}`,
+      card: {
+        header: {
+          title: greeting.title,
+          subtitle,
+        },
+        sections,
+      },
+    }],
+    stats: { newToday: newToday.length, updatedToday: updatedToday.length, totalActive, urgentCount },
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -48,6 +228,20 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseKey)
 
+    // Fetch all spaces
+    const { data: spaces, error: spacesErr } = await supabase
+      .from('gchat_spaces')
+      .select('space_name, label, empreendimento')
+      .eq('active', true)
+
+    if (spacesErr) throw spacesErr
+
+    // If no spaces configured, fall back to env var (legacy)
+    const spaceList: SpaceConfig[] = (spaces && spaces.length > 0)
+      ? spaces
+      : [{ space_name: '', label: 'BA Chamados', empreendimento: null }]
+
+    // Time calculations
     const now = new Date()
     const brt = new Date(now.getTime() - 3 * 60 * 60 * 1000)
     const todayStr = brt.toISOString().split('T')[0]
@@ -55,186 +249,45 @@ Deno.serve(async (req) => {
     const endOfDay = `${todayStr}T23:59:59-03:00`
     const [year, month, day] = todayStr.split('-')
     const dayFormatted = `${day}/${month}/${year}`
+    const generatedAt = new Date().toLocaleTimeString('pt-BR', {
+      hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo',
+    })
+    const greeting = getGreeting()
 
+    // Fetch all solicitações once
     const { data: allSol, error: solErr } = await supabase
       .from('solicitacoes')
       .select('id, status, empreendimento, created_at, updated_at')
 
     if (solErr) throw solErr
 
-    const newToday = allSol?.filter((s) => {
-      const d = new Date(s.created_at)
-      return d >= new Date(startOfDay) && d <= new Date(endOfDay)
-    }) || []
+    const results: any[] = []
 
-    const updatedToday = allSol?.filter((s) => {
-      const d = new Date(s.updated_at)
-      return d >= new Date(startOfDay) && d <= new Date(endOfDay) && !newToday.find((n) => n.id === s.id)
-    }) || []
+    for (const space of spaceList) {
+      const { stats, ...cardPayload } = buildDigestCard(
+        allSol || [],
+        space.empreendimento,
+        greeting,
+        dayFormatted,
+        generatedAt,
+        startOfDay,
+        endOfDay,
+        space.label,
+      )
 
-    // Status counts
-    const sc: Record<string, number> = {}
-    allSol?.forEach((s) => { sc[s.status] = (sc[s.status] || 0) + 1 })
-
-    const totalActive = allSol?.filter((s) => !FINISHED_STATUSES.includes(s.status)).length || 0
-    const naFila = sc['recebido'] || 0
-    const pendCorrecao = sc['pendente_correcao'] || 0
-    const aguardInfo = sc['aguardando_informacoes'] || 0
-    const emAnalise = sc['em_analise'] || 0
-    const emProcessamento = sc['em_processamento'] || 0
-    const ocEmitida = sc['oc_ac_emitida'] || 0
-    const liberadas = sc['liberado_fornecedor'] || 0
-    const enviadas = sc['enviado_fornecedor'] || 0
-    const aguardExec = sc['aguardando_execucao'] || 0
-    const aguardNf = sc['aguardando_nf_boleto'] || 0
-
-    const urgentCount = naFila + pendCorrecao + aguardInfo
-    const totalMovement = newToday.length + updatedToday.length
-
-    const greeting = getGreeting()
-    const generatedAt = new Date().toLocaleTimeString('pt-BR', {
-      hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo',
-    })
-
-    // --- Build intro text ---
-    let introText: string
-    if (totalActive === 0) {
-      introText = `${greeting.salute}! Não há solicitações ativas no momento.`
-    } else if (urgentCount === 0) {
-      introText = `${greeting.salute}! ${greeting.verbo} <b>${totalActive} solicitações ativas</b>, sem prioridades imediatas.`
-    } else {
-      introText = `${greeting.salute}! ${greeting.verbo} <b>${totalActive} solicitações ativas</b>, das quais <b>${urgentCount}</b> ${urgentCount === 1 ? 'exige' : 'exigem'} atenção imediata.`
-    }
-
-    // --- SECTION 1: Intro ---
-    const introSection = {
-      widgets: [
-        { textParagraph: { text: introText } },
-      ],
-    }
-
-    // --- SECTION 2: Prioridades Imediatas ---
-    const priorityWidgets: any[] = []
-
-    if (urgentCount > 0) {
-      const priorityCols: any[] = []
-      if (naFila > 0) priorityCols.push(statColumn(naFila, 'Backoffice', COLORS.critical))
-      if (pendCorrecao > 0) priorityCols.push(statColumn(pendCorrecao, 'Correção', COLORS.warning))
-      if (aguardInfo > 0) priorityCols.push(statColumn(aguardInfo, 'Aguard. requisitante', COLORS.warning))
-
-      priorityWidgets.push({ columns: { columnItems: priorityCols } })
-    } else {
-      priorityWidgets.push({
-        decoratedText: {
-          topLabel: 'Status',
-          text: `<font color="${COLORS.success}"><b>Tudo limpo</b></font>`,
-          bottomLabel: 'Fila, correções e informações pendentes zeradas',
-          startIcon: { knownIcon: 'INVITE' },
-        },
-      })
-    }
-
-    // --- SECTION 3: Ativas ---
-    const activeWidgets: any[] = []
-
-    const activeItems = [
-      { label: 'Análise', count: emAnalise, color: COLORS.info },
-      { label: 'Aprovação', count: emProcessamento, color: COLORS.info },
-      { label: 'OC emitida', count: ocEmitida, color: COLORS.info },
-      { label: 'Liberadas p/ fornec.', count: liberadas, color: COLORS.success },
-      { label: 'Enviadas', count: enviadas, color: COLORS.success },
-      { label: 'Execução', count: aguardExec, color: COLORS.warning },
-      { label: 'NF/Boleto', count: aguardNf, color: COLORS.warning },
-    ].filter((i) => i.count > 0)
-
-    if (activeItems.length > 0) {
-      for (let i = 0; i < activeItems.length; i += 3) {
-        const row = activeItems.slice(i, i + 3)
-        activeWidgets.push({
-          columns: {
-            columnItems: row.map((item) => statColumn(item.count, item.label, item.color)),
-          },
-        })
+      try {
+        const targetSpace = space.space_name || undefined
+        const { method } = await sendGChatMessageAuth(cardPayload, targetSpace)
+        console.log(`Digest sent to ${space.label} (${space.space_name}) via ${method}`)
+        results.push({ space: space.label, success: true, stats })
+      } catch (e) {
+        console.error(`Failed to send digest to ${space.label}:`, e)
+        results.push({ space: space.label, success: false, error: (e as Error).message })
       }
-    } else {
-      activeWidgets.push({
-        textParagraph: { text: `<font color="${COLORS.muted}">Sem solicitações em andamento.</font>` },
-      })
     }
-
-    // --- SECTION 4: Movimento do dia (compacto) ---
-    const movementWidgets: any[] = []
-
-    if (totalMovement > 0) {
-      const parts: string[] = []
-      if (newToday.length > 0) parts.push(`<b>${newToday.length}</b> nova${newToday.length === 1 ? '' : 's'}`)
-      if (updatedToday.length > 0) parts.push(`<b>${updatedToday.length}</b> atualizada${updatedToday.length === 1 ? '' : 's'}`)
-      movementWidgets.push({
-        decoratedText: {
-          topLabel: 'Hoje',
-          text: parts.join(' · '),
-          startIcon: { knownIcon: 'CLOCK' },
-        },
-      })
-    } else {
-      movementWidgets.push({
-        textParagraph: {
-          text: `<font color="${COLORS.muted}">Sem movimentação hoje.</font>`,
-        },
-      })
-    }
-
-    // --- Build final card ---
-    const sections = [
-      introSection,
-      { header: `🔴 PRIORIDADES IMEDIATAS (${urgentCount})`, widgets: priorityWidgets },
-      { widgets: [{ divider: {} }] },
-      { header: `📊 ATIVAS (${totalActive})`, widgets: activeWidgets },
-      { widgets: [{ divider: {} }] },
-      { header: `📉 MOVIMENTO DO DIA`, widgets: movementWidgets },
-      {
-        widgets: [
-          {
-            columns: {
-              columnItems: [{
-                horizontalSizeStyle: 'FILL_AVAILABLE_SPACE',
-                horizontalAlignment: 'CENTER',
-                verticalAlignment: 'CENTER',
-                widgets: [{
-                  buttonList: {
-                    buttons: [{
-                      text: 'Abrir Sistema',
-                      onClick: { openLink: { url: APP_URL } },
-                      color: { red: 0.12, green: 0.53, blue: 0.9, alpha: 1 },
-                    }],
-                  },
-                }],
-              }],
-            },
-          },
-        ],
-      },
-    ]
-
-    const cardPayload = {
-      cardsV2: [{
-        cardId: `digest-${Date.now()}`,
-        card: {
-          header: {
-            title: greeting.title,
-            subtitle: `BA Chamados • ${dayFormatted} às ${generatedAt}`,
-          },
-          sections,
-        },
-      }],
-    }
-
-    const { method, response: gchatRes } = await sendGChatMessageAuth(cardPayload)
-    await gchatRes.text()
-    console.log(`Digest sent via ${method}`)
 
     return new Response(
-      JSON.stringify({ success: true, stats: { newToday: newToday.length, updatedToday: updatedToday.length, totalActive, urgentCount } }),
+      JSON.stringify({ success: true, results }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {

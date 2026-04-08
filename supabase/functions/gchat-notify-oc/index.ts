@@ -14,6 +14,29 @@ const EMP_LABELS: Record<string, string> = {
   todos: 'Todos',
 }
 
+async function getTargetSpaces(supabase: any, empreendimento: string | null): Promise<string[]> {
+  const { data: spaces } = await supabase
+    .from('gchat_spaces')
+    .select('space_name, empreendimento')
+    .eq('active', true)
+
+  if (!spaces || spaces.length === 0) return [''] // fallback to env var
+
+  const targets: string[] = []
+  for (const s of spaces) {
+    // Send to matching empreendimento space
+    if (empreendimento && s.empreendimento === empreendimento) {
+      targets.push(s.space_name)
+    }
+    // Always send to backoffice (empreendimento = null)
+    if (!s.empreendimento) {
+      targets.push(s.space_name)
+    }
+  }
+
+  return targets.length > 0 ? targets : ['']
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -25,6 +48,9 @@ Deno.serve(async (req) => {
 
     const body = await req.json()
     const { tipo, protocolo, numeros_oc, valor, descricao, empreendimento, fornecedor_razao, solicitacao_id, motivo, status } = body
+
+    const supabase = createClient(supabaseUrl, supabaseKey)
+    const targetSpaces = await getTargetSpaces(supabase, empreendimento)
 
     // === CORRECTION NOTIFICATION ===
     if (tipo === 'correcao') {
@@ -42,7 +68,7 @@ Deno.serve(async (req) => {
           card: {
             header: {
               title: `🔴 Correção Solicitada — #${protocolo}`,
-              subtitle: empreendimento || '',
+              subtitle: empreendimento ? (EMP_LABELS[empreendimento] || empreendimento) : '',
             },
             sections: [
               {
@@ -64,10 +90,15 @@ Deno.serve(async (req) => {
         }],
       }
 
-      const { response: gchatRes } = await sendGChatMessageAuth(correctionCard)
-      await gchatRes.text()
+      for (const spaceName of targetSpaces) {
+        try {
+          await sendGChatMessageAuth(correctionCard, spaceName || undefined)
+        } catch (e) {
+          console.error(`Failed to send correction to space ${spaceName}:`, e)
+        }
+      }
 
-      return new Response(JSON.stringify({ success: true, tipo: 'correcao' }), {
+      return new Response(JSON.stringify({ success: true, tipo: 'correcao', spacesSent: targetSpaces.length }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
@@ -88,59 +119,28 @@ Deno.serve(async (req) => {
       ? `${descricao.substring(0, 300)}...`
       : (descricao || 'N/A')
 
-    // Build sections
     const sections: any[] = []
 
-    // Details section
     sections.push({
       widgets: [
-        {
-          decoratedText: {
-            topLabel: 'Número(s) da OC',
-            text: `<b>${numeros_oc}</b>`,
-            startIcon: { knownIcon: 'DESCRIPTION' },
-          },
-        },
-        {
-          decoratedText: {
-            topLabel: 'Empreendimento',
-            text: EMP_LABELS[empreendimento] || empreendimento || 'N/A',
-            startIcon: { knownIcon: 'HOTEL_ROOM_TYPE' },
-          },
-        },
-        {
-          decoratedText: {
-            topLabel: 'Valor',
-            text: `<b>${valorFormatted}</b>`,
-            startIcon: { knownIcon: 'DOLLAR' },
-          },
-        },
-        ...(fornecedor_razao ? [{
-          decoratedText: {
-            topLabel: 'Fornecedor',
-            text: fornecedor_razao,
-            startIcon: { knownIcon: 'MEMBERSHIP' },
-          },
-        }] : []),
+        { decoratedText: { topLabel: 'Número(s) da OC', text: `<b>${numeros_oc}</b>`, startIcon: { knownIcon: 'DESCRIPTION' } } },
+        { decoratedText: { topLabel: 'Empreendimento', text: EMP_LABELS[empreendimento] || empreendimento || 'N/A', startIcon: { knownIcon: 'HOTEL_ROOM_TYPE' } } },
+        { decoratedText: { topLabel: 'Valor', text: `<b>${valorFormatted}</b>`, startIcon: { knownIcon: 'DOLLAR' } } },
+        ...(fornecedor_razao ? [{ decoratedText: { topLabel: 'Fornecedor', text: fornecedor_razao, startIcon: { knownIcon: 'MEMBERSHIP' } } }] : []),
       ],
     })
 
-    // Description section
     sections.push({
       header: '📝 Descrição',
       collapsible: descricaoResumo.length > 150,
-      widgets: [{
-        textParagraph: { text: descricaoResumo },
-      }],
+      widgets: [{ textParagraph: { text: descricaoResumo } }],
     })
 
-    // PDF link if available
+    // PDF link
     let pdfUrl: string | null = null
     if (solicitacao_id) {
       try {
-        const supabase = createClient(supabaseUrl, supabaseKey)
         const numerosList = String(numeros_oc).split(',').map((n: string) => n.trim()).filter(Boolean)
-
         const { data: docs } = await supabase
           .from('documentos_emitidos')
           .select('storage_path, nome_arquivo, numero_documento')
@@ -153,36 +153,21 @@ Deno.serve(async (req) => {
           const { data: signedUrlData } = await supabase.storage
             .from('documentos-emitidos')
             .createSignedUrl(docs[0].storage_path, 86400)
-
-          if (signedUrlData?.signedUrl) {
-            pdfUrl = signedUrlData.signedUrl
-          }
+          if (signedUrlData?.signedUrl) pdfUrl = signedUrlData.signedUrl
         }
       } catch (e) {
         console.error('PDF lookup error (non-fatal):', e)
       }
     }
 
-    // Buttons
     const buttons: any[] = [
-      {
-        text: '🔗 Abrir no Sistema',
-        onClick: { openLink: { url: 'https://megas.lovable.app' } },
-      },
+      { text: '🔗 Abrir no Sistema', onClick: { openLink: { url: 'https://megas.lovable.app' } } },
     ]
-
     if (pdfUrl) {
-      buttons.push({
-        text: '📄 Baixar PDF (válido 24h)',
-        onClick: { openLink: { url: pdfUrl } },
-      })
+      buttons.push({ text: '📄 Baixar PDF (válido 24h)', onClick: { openLink: { url: pdfUrl } } })
     }
 
-    sections.push({
-      widgets: [{
-        buttonList: { buttons },
-      }],
-    })
+    sections.push({ widgets: [{ buttonList: { buttons } }] })
 
     const cardPayload = {
       cardsV2: [{
@@ -197,10 +182,15 @@ Deno.serve(async (req) => {
       }],
     }
 
-    const { response: gchatRes } = await sendGChatMessageAuth(cardPayload)
-    await gchatRes.text()
+    for (const spaceName of targetSpaces) {
+      try {
+        await sendGChatMessageAuth(cardPayload, spaceName || undefined)
+      } catch (e) {
+        console.error(`Failed to send OC to space ${spaceName}:`, e)
+      }
+    }
 
-    return new Response(JSON.stringify({ success: true, pdfIncluded: !!pdfUrl }), {
+    return new Response(JSON.stringify({ success: true, pdfIncluded: !!pdfUrl, spacesSent: targetSpaces.length }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (error) {
