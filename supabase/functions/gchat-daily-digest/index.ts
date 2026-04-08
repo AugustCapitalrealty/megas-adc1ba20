@@ -46,27 +46,16 @@ function statColumn(value: number, label: string, color: string) {
   }
 }
 
-interface SpaceConfig {
-  space_name: string
-  label: string
-  empreendimento: string | null
-}
-
 function buildDigestCard(
-  allSol: any[],
-  empreendimento: string | null,
+  sol: any[],
   greeting: ReturnType<typeof getGreeting>,
   dayFormatted: string,
   generatedAt: string,
   startOfDay: string,
   endOfDay: string,
-  spaceLabel: string,
+  subtitle: string,
+  cardIdSuffix: string,
 ) {
-  // Filter by empreendimento if specified
-  const sol = empreendimento
-    ? allSol.filter((s) => s.empreendimento === empreendimento)
-    : allSol
-
   const newToday = sol.filter((s) => {
     const d = new Date(s.created_at)
     return d >= new Date(startOfDay) && d <= new Date(endOfDay)
@@ -95,11 +84,6 @@ function buildDigestCard(
   const urgentCount = naFila + pendCorrecao + aguardInfo
   const totalMovement = newToday.length + updatedToday.length
 
-  const subtitle = empreendimento
-    ? `${EMP_LABELS[empreendimento] || empreendimento} • ${dayFormatted} às ${generatedAt}`
-    : `BA Chamados • ${dayFormatted} às ${generatedAt}`
-
-  // Intro text
   let introText: string
   if (totalActive === 0) {
     introText = `${greeting.salute}! Não há solicitações ativas no momento.`
@@ -109,7 +93,6 @@ function buildDigestCard(
     introText = `${greeting.salute}! ${greeting.verbo} <b>${totalActive} solicitações ativas</b>, das quais <b>${urgentCount}</b> ${urgentCount === 1 ? 'exige' : 'exigem'} atenção imediata.`
   }
 
-  // Priority widgets
   const priorityWidgets: any[] = []
   if (urgentCount > 0) {
     const priorityCols: any[] = []
@@ -128,7 +111,6 @@ function buildDigestCard(
     })
   }
 
-  // Active widgets
   const activeWidgets: any[] = []
   const activeItems = [
     { label: 'Análise', count: emAnalise, color: COLORS.info },
@@ -143,35 +125,20 @@ function buildDigestCard(
   if (activeItems.length > 0) {
     for (let i = 0; i < activeItems.length; i += 3) {
       const row = activeItems.slice(i, i + 3)
-      activeWidgets.push({
-        columns: {
-          columnItems: row.map((item) => statColumn(item.count, item.label, item.color)),
-        },
-      })
+      activeWidgets.push({ columns: { columnItems: row.map((item) => statColumn(item.count, item.label, item.color)) } })
     }
   } else {
-    activeWidgets.push({
-      textParagraph: { text: `<font color="${COLORS.muted}">Sem solicitações em andamento.</font>` },
-    })
+    activeWidgets.push({ textParagraph: { text: `<font color="${COLORS.muted}">Sem solicitações em andamento.</font>` } })
   }
 
-  // Movement widgets
   const movementWidgets: any[] = []
   if (totalMovement > 0) {
     const parts: string[] = []
     if (newToday.length > 0) parts.push(`<b>${newToday.length}</b> nova${newToday.length === 1 ? '' : 's'}`)
     if (updatedToday.length > 0) parts.push(`<b>${updatedToday.length}</b> atualizada${updatedToday.length === 1 ? '' : 's'}`)
-    movementWidgets.push({
-      decoratedText: {
-        topLabel: 'Hoje',
-        text: parts.join(' · '),
-        startIcon: { knownIcon: 'CLOCK' },
-      },
-    })
+    movementWidgets.push({ decoratedText: { topLabel: 'Hoje', text: parts.join(' · '), startIcon: { knownIcon: 'CLOCK' } } })
   } else {
-    movementWidgets.push({
-      textParagraph: { text: `<font color="${COLORS.muted}">Sem movimentação hoje.</font>` },
-    })
+    movementWidgets.push({ textParagraph: { text: `<font color="${COLORS.muted}">Sem movimentação hoje.</font>` } })
   }
 
   const sections = [
@@ -188,15 +155,7 @@ function buildDigestCard(
             horizontalSizeStyle: 'FILL_AVAILABLE_SPACE',
             horizontalAlignment: 'CENTER',
             verticalAlignment: 'CENTER',
-            widgets: [{
-              buttonList: {
-                buttons: [{
-                  text: 'Abrir Sistema',
-                  onClick: { openLink: { url: APP_URL } },
-                  color: { red: 0.12, green: 0.53, blue: 0.9, alpha: 1 },
-                }],
-              },
-            }],
+            widgets: [{ buttonList: { buttons: [{ text: 'Abrir Sistema', onClick: { openLink: { url: APP_URL } }, color: { red: 0.12, green: 0.53, blue: 0.9, alpha: 1 } }] } }],
           }],
         },
       }],
@@ -204,16 +163,12 @@ function buildDigestCard(
   ]
 
   return {
-    cardsV2: [{
-      cardId: `digest-${empreendimento || 'geral'}-${Date.now()}`,
-      card: {
-        header: {
-          title: greeting.title,
-          subtitle,
-        },
-        sections,
-      },
-    }],
+    card: {
+      cardsV2: [{
+        cardId: `digest-${cardIdSuffix}-${Date.now()}`,
+        card: { header: { title: greeting.title, subtitle }, sections },
+      }],
+    },
     stats: { newToday: newToday.length, updatedToday: updatedToday.length, totalActive, urgentCount },
   }
 }
@@ -226,20 +181,16 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const coordenacaoSpace = Deno.env.get('GCHAT_SPACE_NAME') // Coordenação + Gerência (receives ALL)
     const supabase = createClient(supabaseUrl, supabaseKey)
 
-    // Fetch all spaces
+    // Fetch spaces from DB
     const { data: spaces, error: spacesErr } = await supabase
       .from('gchat_spaces')
       .select('space_name, label, empreendimento')
       .eq('active', true)
 
     if (spacesErr) throw spacesErr
-
-    // If no spaces configured, fall back to env var (legacy)
-    const spaceList: SpaceConfig[] = (spaces && spaces.length > 0)
-      ? spaces
-      : [{ space_name: '', label: 'BA Chamados', empreendimento: null }]
 
     // Time calculations
     const now = new Date()
@@ -260,29 +211,73 @@ Deno.serve(async (req) => {
       .select('id, status, empreendimento, created_at, updated_at')
 
     if (solErr) throw solErr
+    const solicitacoes = allSol || []
 
     const results: any[] = []
 
-    for (const space of spaceList) {
-      const { stats, ...cardPayload } = buildDigestCard(
-        allSol || [],
-        space.empreendimento,
-        greeting,
-        dayFormatted,
-        generatedAt,
-        startOfDay,
-        endOfDay,
-        space.label,
+    // Group spaces by space_name to handle multi-empreendimento (e.g. Esteio+Canoas)
+    const spaceGroups = new Map<string, { label: string; empreendimentos: string[] }>()
+    for (const s of (spaces || [])) {
+      const existing = spaceGroups.get(s.space_name)
+      if (existing) {
+        if (s.empreendimento) existing.empreendimentos.push(s.empreendimento)
+      } else {
+        spaceGroups.set(s.space_name, {
+          label: s.label,
+          empreendimentos: s.empreendimento ? [s.empreendimento] : [],
+        })
+      }
+    }
+
+    // Send to each space from DB
+    for (const [spaceName, config] of spaceGroups) {
+      const isBackoffice = config.empreendimentos.length === 0
+
+      // Filter solicitações
+      const filtered = isBackoffice
+        ? solicitacoes // Backoffice gets full digest
+        : solicitacoes.filter((s) => config.empreendimentos.includes(s.empreendimento))
+
+      const empLabel = isBackoffice
+        ? 'BA Chamados'
+        : config.empreendimentos.map((e) => EMP_LABELS[e] || e).join(' + ')
+
+      const subtitle = `${empLabel} • ${dayFormatted} às ${generatedAt}`
+
+      const { card, stats } = buildDigestCard(
+        filtered, greeting, dayFormatted, generatedAt,
+        startOfDay, endOfDay, subtitle,
+        isBackoffice ? 'backoffice' : config.empreendimentos.join('-'),
       )
 
       try {
-        const targetSpace = space.space_name || undefined
-        const { method } = await sendGChatMessageAuth(cardPayload, targetSpace)
-        console.log(`Digest sent to ${space.label} (${space.space_name}) via ${method}`)
-        results.push({ space: space.label, success: true, stats })
+        await sendGChatMessageAuth(card, spaceName)
+        console.log(`Digest sent to ${config.label} (${spaceName})`)
+        results.push({ space: config.label, success: true, stats })
       } catch (e) {
-        console.error(`Failed to send digest to ${space.label}:`, e)
-        results.push({ space: space.label, success: false, error: (e as Error).message })
+        console.error(`Failed to send digest to ${config.label}:`, e)
+        results.push({ space: config.label, success: false, error: (e as Error).message })
+      }
+    }
+
+    // Always send FULL digest to Coordenação + Gerência (GCHAT_SPACE_NAME)
+    if (coordenacaoSpace) {
+      // Avoid duplicate if coordenação space is already in DB
+      const alreadySent = spaceGroups.has(coordenacaoSpace)
+      if (!alreadySent) {
+        const subtitle = `Geral • ${dayFormatted} às ${generatedAt}`
+        const { card, stats } = buildDigestCard(
+          solicitacoes, greeting, dayFormatted, generatedAt,
+          startOfDay, endOfDay, subtitle, 'coordenacao',
+        )
+        try {
+          await sendGChatMessageAuth(card, coordenacaoSpace)
+          console.log(`Digest sent to Coordenação (${coordenacaoSpace})`)
+          results.push({ space: 'Coordenação + Gerência', success: true, stats })
+        } catch (e) {
+          console.error(`Failed to send digest to Coordenação:`, e)
+          results.push({ space: 'Coordenação + Gerência', success: false, error: (e as Error).message })
+        }
       }
     }
 

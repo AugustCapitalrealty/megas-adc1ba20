@@ -14,27 +14,49 @@ const EMP_LABELS: Record<string, string> = {
   todos: 'Todos',
 }
 
-async function getTargetSpaces(supabase: any, empreendimento: string | null): Promise<string[]> {
+/**
+ * Resolve which spaces should receive a notification.
+ *
+ * Routing rules:
+ * - OC emitida → empreendimento space + coordenação
+ * - Correção solicitada (by backoffice) → empreendimento space + coordenação
+ * - Nova entrada (recebido) → backoffice + coordenação
+ * - Solicitação corrigida (by user) → backoffice + coordenação
+ */
+async function getTargetSpaces(
+  supabase: any,
+  empreendimento: string | null,
+  tipo: string,
+): Promise<string[]> {
+  const coordenacaoSpace = Deno.env.get('GCHAT_SPACE_NAME')
+
   const { data: spaces } = await supabase
     .from('gchat_spaces')
     .select('space_name, empreendimento')
     .eq('active', true)
 
-  if (!spaces || spaces.length === 0) return [''] // fallback to env var
+  const targets = new Set<string>()
 
-  const targets: string[] = []
-  for (const s of spaces) {
-    // Send to matching empreendimento space
-    if (empreendimento && s.empreendimento === empreendimento) {
-      targets.push(s.space_name)
+  // Coordenação always receives everything
+  if (coordenacaoSpace) targets.add(coordenacaoSpace)
+
+  if (!spaces || spaces.length === 0) return Array.from(targets)
+
+  if (tipo === 'nova_entrada' || tipo === 'solicitacao_corrigida') {
+    // → Backoffice space (empreendimento IS NULL)
+    for (const s of spaces) {
+      if (!s.empreendimento) targets.add(s.space_name)
     }
-    // Always send to backoffice (empreendimento = null)
-    if (!s.empreendimento) {
-      targets.push(s.space_name)
+  } else {
+    // OC or correction → empreendimento space
+    if (empreendimento) {
+      for (const s of spaces) {
+        if (s.empreendimento === empreendimento) targets.add(s.space_name)
+      }
     }
   }
 
-  return targets.length > 0 ? targets : ['']
+  return Array.from(targets)
 }
 
 Deno.serve(async (req) => {
@@ -45,14 +67,84 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const supabase = createClient(supabaseUrl, supabaseKey)
 
     const body = await req.json()
     const { tipo, protocolo, numeros_oc, valor, descricao, empreendimento, fornecedor_razao, solicitacao_id, motivo, status } = body
 
-    const supabase = createClient(supabaseUrl, supabaseKey)
-    const targetSpaces = await getTargetSpaces(supabase, empreendimento)
+    const targetSpaces = await getTargetSpaces(supabase, empreendimento, tipo)
 
-    // === CORRECTION NOTIFICATION ===
+    // === NOVA ENTRADA (new request received) ===
+    if (tipo === 'nova_entrada') {
+      const empLabel = EMP_LABELS[empreendimento] || empreendimento || ''
+      const valorFormatted = valor
+        ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor)
+        : ''
+
+      const card = {
+        cardsV2: [{
+          cardId: `nova-${protocolo}`,
+          card: {
+            header: {
+              title: `📥 Nova Solicitação — #${protocolo}`,
+              subtitle: empLabel,
+            },
+            sections: [
+              {
+                widgets: [
+                  { decoratedText: { topLabel: 'Empreendimento', text: empLabel, startIcon: { knownIcon: 'HOTEL_ROOM_TYPE' } } },
+                  ...(valorFormatted ? [{ decoratedText: { topLabel: 'Valor', text: `<b>${valorFormatted}</b>`, startIcon: { knownIcon: 'DOLLAR' } } }] : []),
+                  ...(descricao ? [{ textParagraph: { text: `<font size=1 color="#666">📝 ${descricao.substring(0, 200)}${descricao.length > 200 ? '...' : ''}</font>` } }] : []),
+                ],
+              },
+              { widgets: [{ buttonList: { buttons: [{ text: '🔗 Abrir no Sistema', onClick: { openLink: { url: 'https://megas.lovable.app' } } }] } }] },
+            ],
+          },
+        }],
+      }
+
+      for (const spaceName of targetSpaces) {
+        try { await sendGChatMessageAuth(card, spaceName) } catch (e) { console.error(`Failed nova_entrada to ${spaceName}:`, e) }
+      }
+
+      return new Response(JSON.stringify({ success: true, tipo: 'nova_entrada', spacesSent: targetSpaces.length }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // === SOLICITAÇÃO CORRIGIDA (user fixed and resubmitted) ===
+    if (tipo === 'solicitacao_corrigida') {
+      const card = {
+        cardsV2: [{
+          cardId: `corrigida-${protocolo}`,
+          card: {
+            header: {
+              title: `✅ Solicitação Corrigida — #${protocolo}`,
+              subtitle: EMP_LABELS[empreendimento] || empreendimento || '',
+            },
+            sections: [
+              {
+                widgets: [
+                  { decoratedText: { topLabel: 'Status', text: `<b><font color="#43A047">Corrigida e reenviada</font></b>`, startIcon: { knownIcon: 'TICKET' } } },
+                  ...(descricao ? [{ textParagraph: { text: `<font size=1 color="#666">📝 ${descricao.substring(0, 200)}${descricao.length > 200 ? '...' : ''}</font>` } }] : []),
+                ],
+              },
+              { widgets: [{ buttonList: { buttons: [{ text: '🔗 Abrir no Sistema', onClick: { openLink: { url: 'https://megas.lovable.app' } } }] } }] },
+            ],
+          },
+        }],
+      }
+
+      for (const spaceName of targetSpaces) {
+        try { await sendGChatMessageAuth(card, spaceName) } catch (e) { console.error(`Failed corrigida to ${spaceName}:`, e) }
+      }
+
+      return new Response(JSON.stringify({ success: true, tipo: 'solicitacao_corrigida', spacesSent: targetSpaces.length }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // === CORRECTION REQUESTED (backoffice asks for fix) ===
     if (tipo === 'correcao') {
       if (!protocolo) {
         return new Response(JSON.stringify({ error: 'Missing protocolo' }), {
@@ -68,7 +160,7 @@ Deno.serve(async (req) => {
           card: {
             header: {
               title: `🔴 Correção Solicitada — #${protocolo}`,
-              subtitle: empreendimento ? (EMP_LABELS[empreendimento] || empreendimento) : '',
+              subtitle: EMP_LABELS[empreendimento] || empreendimento || '',
             },
             sections: [
               {
@@ -78,24 +170,14 @@ Deno.serve(async (req) => {
                   ...(descResumo ? [{ textParagraph: { text: `<font size=1 color="#666">📝 ${descResumo}</font>` } }] : []),
                 ],
               },
-              {
-                widgets: [{
-                  buttonList: {
-                    buttons: [{ text: '🔗 Abrir no Sistema', onClick: { openLink: { url: 'https://megas.lovable.app' } } }],
-                  },
-                }],
-              },
+              { widgets: [{ buttonList: { buttons: [{ text: '🔗 Abrir no Sistema', onClick: { openLink: { url: 'https://megas.lovable.app' } } }] } }] },
             ],
           },
         }],
       }
 
       for (const spaceName of targetSpaces) {
-        try {
-          await sendGChatMessageAuth(correctionCard, spaceName || undefined)
-        } catch (e) {
-          console.error(`Failed to send correction to space ${spaceName}:`, e)
-        }
+        try { await sendGChatMessageAuth(correctionCard, spaceName) } catch (e) { console.error(`Failed correcao to ${spaceName}:`, e) }
       }
 
       return new Response(JSON.stringify({ success: true, tipo: 'correcao', spacesSent: targetSpaces.length }), {
@@ -106,8 +188,7 @@ Deno.serve(async (req) => {
     // === OC NOTIFICATION (default) ===
     if (!protocolo || !numeros_oc) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
@@ -136,7 +217,6 @@ Deno.serve(async (req) => {
       widgets: [{ textParagraph: { text: descricaoResumo } }],
     })
 
-    // PDF link
     let pdfUrl: string | null = null
     if (solicitacao_id) {
       try {
@@ -166,7 +246,6 @@ Deno.serve(async (req) => {
     if (pdfUrl) {
       buttons.push({ text: '📄 Baixar PDF (válido 24h)', onClick: { openLink: { url: pdfUrl } } })
     }
-
     sections.push({ widgets: [{ buttonList: { buttons } }] })
 
     const cardPayload = {
@@ -183,11 +262,7 @@ Deno.serve(async (req) => {
     }
 
     for (const spaceName of targetSpaces) {
-      try {
-        await sendGChatMessageAuth(cardPayload, spaceName || undefined)
-      } catch (e) {
-        console.error(`Failed to send OC to space ${spaceName}:`, e)
-      }
+      try { await sendGChatMessageAuth(cardPayload, spaceName) } catch (e) { console.error(`Failed OC to ${spaceName}:`, e) }
     }
 
     return new Response(JSON.stringify({ success: true, pdfIncluded: !!pdfUrl, spacesSent: targetSpaces.length }), {
@@ -196,8 +271,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('GChat OC notify error:', error)
     return new Response(JSON.stringify({ error: (error as Error).message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
 })
