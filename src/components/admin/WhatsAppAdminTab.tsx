@@ -3,8 +3,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import { Loader2, Send, MessageSquare, Wifi, Clock, FlaskConical, CheckCircle2 } from 'lucide-react';
+import { Loader2, Send, MessageSquare, Wifi, Clock, FlaskConical, CheckCircle2, Mail } from 'lucide-react';
 
 export function WhatsAppAdminTab() {
   const [digestLoading, setDigestLoading] = useState(false);
