@@ -10,6 +10,8 @@ import { Loader2, Send, MessageSquare, Wifi, Clock, FlaskConical, CheckCircle2, 
 export function WhatsAppAdminTab() {
   const [digestLoading, setDigestLoading] = useState(false);
   const [testLoading, setTestLoading] = useState(false);
+  const [dmEmail, setDmEmail] = useState('');
+  const [dmLoading, setDmLoading] = useState(false);
 
   const handleSendDigest = async () => {
     setDigestLoading(true);
