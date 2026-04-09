@@ -1,68 +1,50 @@
 
 
-## Resumo por Empreendimento via Google Chat Spaces
+## Diagnóstico: Notificações faltando nos spaces
 
-### Contexto
+### Problema 1: Correção #2026000328 não chegou no Mega Curitiba
 
-Você criou 4 espaços no Google Chat:
-- **Bot Backoffice** → resumo geral (todas as solicitações)
-- **Bot Mega Esteio** → só solicitações de Mega Esteio
-- **Bot Mega Curitiba** → só solicitações de Mega Curitiba
-- **Bot Mega Itajaí** → só solicitações de Mega Itajaí
+**Causa:** O campo `empreendimento` no payload está sendo enviado como o valor raw do banco (`mega_curitiba`). A lógica de roteamento em `getTargetSpaces` compara `s.empreendimento === empreendimento` — isso está correto. O registro `mega_curitiba` existe na tabela `gchat_spaces` apontando para `spaces/AAQASY7qbTk`.
 
-### O que preciso de você
+Porém, ao inspecionar o `Backoffice.tsx` linha 258, o `sol?.empreendimento` vem do hook `useBackofficeSolicitacoes` que retorna o campo `empreendimento` como tipo `empreendimento` (enum). A comparação no edge function deveria funcionar. Vou verificar os logs do edge function para confirmar o que realmente chegou.
 
-Sim, preciso dos **space IDs** de cada grupo. Para encontrar:
-1. Abra cada espaço no Google Chat (web)
-2. Na URL vai aparecer algo como: `https://chat.google.com/room/AAQAdpI7TfI` ou `https://mail.google.com/chat/u/0/#chat/space/AAAA...`
-3. O ID é a parte final — ex: `spaces/AAQAdpI7TfI`
+**Ação:** Verificar logs e, se necessário, adicionar logging de debug no `getTargetSpaces`.
 
-Me passe os 4 IDs, um para cada grupo.
+### Problema 2: Nova solicitação #2026000357 não chegou no Backoffice
 
-### Implementação
+**Causa confirmada:** **Não existe nenhum código que chame `gchat-notify-oc` com `tipo: 'nova_entrada'`**. A edge function suporta o tipo, mas nenhum lugar no frontend dispara essa notificação quando uma nova solicitação é criada.
 
-**1. Criar tabela `gchat_spaces`** (migration)
-```sql
-CREATE TABLE gchat_spaces (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  space_name text NOT NULL,         -- ex: spaces/AAQAdpI7TfI
-  label text NOT NULL,              -- ex: Bot Mega Curitiba
-  empreendimento text,              -- ex: mega_curitiba (NULL = backoffice geral)
-  active boolean DEFAULT true,
-  created_at timestamptz DEFAULT now()
-);
-```
+### Problema 3: Solicitação corrigida não chega no Backoffice
 
-**2. Atualizar `gchat-daily-digest`**
-- Buscar todos os spaces ativos de `gchat_spaces`
-- Para cada space:
-  - Se `empreendimento IS NULL` → enviar resumo geral (comportamento atual)
-  - Se `empreendimento = 'mega_curitiba'` → filtrar solicitações por empreendimento e enviar resumo filtrado
-- Usar `sendGChatMessageAuth` passando o `spaceName` como parâmetro em vez de ler de env var
+**Causa confirmada:** Mesma situação — **não existe nenhum código que chame `gchat-notify-oc` com `tipo: 'solicitacao_corrigida'`**. O `handleResubmit` em `MinhasSolicitacoes.tsx` atualiza o status para `recebido` e insere histórico, mas não dispara notificação no Google Chat.
 
-**3. Atualizar `gchat-auth.ts`**
-- Alterar `sendGChatMessageAuth` para aceitar `spaceName` como parâmetro opcional (se não passar, usa o da env var como fallback)
+### Correções necessárias
 
-**4. Atualizar `gchat-notify-oc`**
-- Ao notificar OC/correção, enviar para o space do empreendimento correspondente + space backoffice
+**1. Adicionar notificação `nova_entrada` na criação de solicitação**
+- Arquivo: `src/hooks/useNovaSolicitacaoForm.ts` (ou `src/pages/NovaSolicitacao.tsx`)
+- Após inserir com sucesso na tabela `solicitacoes`, chamar `gchat-notify-oc` com `tipo: 'nova_entrada'`
 
-### Fluxo
+**2. Adicionar notificação `solicitacao_corrigida` no reenvio**
+- Arquivo: `src/pages/MinhasSolicitacoes.tsx` no `handleResubmit`
+- Após atualizar o status para `recebido`, chamar `gchat-notify-oc` com `tipo: 'solicitacao_corrigida'`
 
-```text
-gchat-daily-digest dispara
-  → busca gchat_spaces (4 registros)
-  → para cada space:
-      filtra solicitações por empreendimento
-      monta card com dados filtrados
-      envia via API para aquele space
-```
+**3. Verificar logs da correção #2026000328 para entender por que não foi ao Mega Curitiba**
+- Pode ser que o campo `empreendimento` não estava populado no momento do envio
 
-### Arquivos
+### Resultado esperado
+
+| Evento | Spaces que recebem |
+|--------|-------------------|
+| Nova solicitação criada | Backoffice + Coordenação |
+| Solicitação corrigida/reenviada | Backoffice + Coordenação |
+| Correção solicitada (backoffice) | Space do empreendimento + Coordenação |
+| OC emitida | Space do empreendimento + Coordenação |
+
+### Arquivos a modificar
 
 | Arquivo | Mudança |
 |---------|---------|
-| Migration SQL | Criar tabela `gchat_spaces` + inserir os 4 registros |
-| `supabase/functions/_shared/gchat-auth.ts` | `sendGChatMessageAuth(message, spaceName?)` |
-| `supabase/functions/gchat-daily-digest/index.ts` | Loop por spaces, filtro por empreendimento |
-| `supabase/functions/gchat-notify-oc/index.ts` | Enviar para space do empreendimento + backoffice |
+| `src/hooks/useNovaSolicitacaoForm.ts` | Adicionar chamada `gchat-notify-oc` tipo `nova_entrada` após criação |
+| `src/pages/MinhasSolicitacoes.tsx` | Adicionar chamada `gchat-notify-oc` tipo `solicitacao_corrigida` no `handleResubmit` |
+| `supabase/functions/gchat-notify-oc/index.ts` | Adicionar logs de debug no `getTargetSpaces` para diagnosticar falha da correção |
 
