@@ -575,6 +575,21 @@ export default function MinhasSolicitacoes() {
         });
       }
 
+      // Notify Google Chat spaces (solicitação corrigida)
+      try {
+        await supabase.functions.invoke('gchat-notify-oc', {
+          body: {
+            tipo: 'solicitacao_corrigida',
+            protocolo: editingSolicitacao.protocolo,
+            descricao: editDescricao.substring(0, 200),
+            empreendimento: editingSolicitacao.empreendimento,
+            solicitacao_id: editingSolicitacao.id,
+          },
+        });
+      } catch (gchatError) {
+        console.error('[GCHAT] Erro ao notificar correção:', gchatError);
+      }
+
       toast({ title: 'Solicitação reenviada!', description: 'Sua correção foi enviada para análise.' });
       setEditOpen(false);
       setAnexosParaExcluir([]);

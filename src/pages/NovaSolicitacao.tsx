@@ -317,6 +317,22 @@ export default function NovaSolicitacao() {
         console.error('[EMAIL] Erro ao enviar notificação:', emailError);
       }
 
+      // Notify Google Chat spaces (nova entrada)
+      try {
+        await supabase.functions.invoke('gchat-notify-oc', {
+          body: {
+            tipo: 'nova_entrada',
+            protocolo: data.protocolo,
+            descricao: formState.descricao.substring(0, 200),
+            valor: derived.valorNumerico,
+            empreendimento: formState.empreendimento,
+            solicitacao_id: data.id,
+          },
+        });
+      } catch (gchatError) {
+        console.error('[GCHAT] Erro ao notificar nova entrada:', gchatError);
+      }
+
       clearDraft();
       toast({ title: 'Solicitação criada!', description: `Protocolo: ${data.protocolo}` });
       navigate(`/minhas-solicitacoes?created=${data.protocolo}`);
