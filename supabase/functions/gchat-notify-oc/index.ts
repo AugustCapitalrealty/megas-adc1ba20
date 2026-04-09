@@ -40,7 +40,12 @@ async function getTargetSpaces(
   // Coordenação always receives everything
   if (coordenacaoSpace) targets.add(coordenacaoSpace)
 
-  if (!spaces || spaces.length === 0) return Array.from(targets)
+  if (!spaces || spaces.length === 0) {
+    console.log('[getTargetSpaces] No spaces found in DB, only coordenação')
+    return Array.from(targets)
+  }
+
+  console.log('[getTargetSpaces] tipo:', tipo, 'empreendimento:', empreendimento, 'spaces:', JSON.stringify(spaces.map((s: any) => ({ space: s.space_name, emp: s.empreendimento }))))
 
   if (tipo === 'nova_entrada' || tipo === 'solicitacao_corrigida') {
     // → Backoffice space (empreendimento IS NULL)
@@ -56,6 +61,7 @@ async function getTargetSpaces(
     }
   }
 
+  console.log('[getTargetSpaces] targets:', Array.from(targets))
   return Array.from(targets)
 }
 
