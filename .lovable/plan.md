@@ -1,50 +1,78 @@
 
 
-## Diagnóstico: Notificações faltando nos spaces
+## Painel de Contratos (Projuris) — Plano de Implementação
 
-### Problema 1: Correção #2026000328 não chegou no Mega Curitiba
+Substituir a `TabProjuris` atual dentro de `MonitoramentoOC` por uma versão completa com 4 sub-abas.
 
-**Causa:** O campo `empreendimento` no payload está sendo enviado como o valor raw do banco (`mega_curitiba`). A lógica de roteamento em `getTargetSpaces` compara `s.empreendimento === empreendimento` — isso está correto. O registro `mega_curitiba` existe na tabela `gchat_spaces` apontando para `spaces/AAQASY7qbTk`.
+---
 
-Porém, ao inspecionar o `Backoffice.tsx` linha 258, o `sol?.empreendimento` vem do hook `useBackofficeSolicitacoes` que retorna o campo `empreendimento` como tipo `empreendimento` (enum). A comparação no edge function deveria funcionar. Vou verificar os logs do edge function para confirmar o que realmente chegou.
+### Estrutura de Sub-Abas
 
-**Ação:** Verificar logs e, se necessário, adicionar logging de debug no `getTargetSpaces`.
+A aba "Projuris" no MonitoramentoOC passará a ter 4 sub-abas internas:
 
-### Problema 2: Nova solicitação #2026000357 não chegou no Backoffice
+1. **Visão por Status** — Pipeline macro com KPIs e tabela filtrável por etapa/empreendimento/responsável
+2. **Parados para Assinatura** — Contratos com etapa `enviado_assinatura` há mais de 3 dias, ordenados por tempo parado, destaque vermelho > 7 dias
+3. **Fluxo de Aprovações** — Timeline por contrato mostrando tempo em cada etapa e identificação do gargalo (etapa com maior tempo médio)
+4. **Compliance** — Solicitações que deveriam ter Projuris (regra: `instrumento_juridico != 'oc'` e `numero_projuris IS NULL`, ativas) com ações inline
 
-**Causa confirmada:** **Não existe nenhum código que chame `gchat-notify-oc` com `tipo: 'nova_entrada'`**. A edge function suporta o tipo, mas nenhum lugar no frontend dispara essa notificação quando uma nova solicitação é criada.
+---
 
-### Problema 3: Solicitação corrigida não chega no Backoffice
+### Detalhamento Técnico
 
-**Causa confirmada:** Mesma situação — **não existe nenhum código que chame `gchat-notify-oc` com `tipo: 'solicitacao_corrigida'`**. O `handleResubmit` em `MinhasSolicitacoes.tsx` atualiza o status para `recebido` e insere histórico, mas não dispara notificação no Google Chat.
+**Arquivo principal:** `src/components/monitoramento/TabProjuris.tsx` — será reescrito com sub-tabs
 
-### Correções necessárias
+**Novos componentes:**
+- `src/components/monitoramento/projuris/ProjurisVisaoStatus.tsx` — Painel 1 (evolução do código atual)
+- `src/components/monitoramento/projuris/ProjurisParadosAssinatura.tsx` — Painel 2
+- `src/components/monitoramento/projuris/ProjurisFluxoAprovacoes.tsx` — Painel 3
+- `src/components/monitoramento/projuris/ProjurisCompliance.tsx` — Painel 4
 
-**1. Adicionar notificação `nova_entrada` na criação de solicitação**
-- Arquivo: `src/hooks/useNovaSolicitacaoForm.ts` (ou `src/pages/NovaSolicitacao.tsx`)
-- Após inserir com sucesso na tabela `solicitacoes`, chamar `gchat-notify-oc` com `tipo: 'nova_entrada'`
+**Dados usados (sem novas tabelas):**
+- `solicitacoes` — para identificar contratos sem Projuris (Painel 4) e dados base
+- `acompanhamento_juridico` — para etapas, tempos, timeline (Painéis 1-3)
+- `fornecedores` — nomes dos fornecedores
+- `profiles` — nomes dos responsáveis
 
-**2. Adicionar notificação `solicitacao_corrigida` no reenvio**
-- Arquivo: `src/pages/MinhasSolicitacoes.tsx` no `handleResubmit`
-- Após atualizar o status para `recebido`, chamar `gchat-notify-oc` com `tipo: 'solicitacao_corrigida'`
+**Painel 1 — Visão por Status:**
+- KPIs no topo: Total ativos, Em Minuta, Em Assinatura, Vigentes (mantém lógica atual)
+- Tabela com filtros por status, empreendimento, etapa jurídica
+- Clique abre detalhes (OCDetalhesModal existente)
 
-**3. Verificar logs da correção #2026000328 para entender por que não foi ao Mega Curitiba**
-- Pode ser que o campo `empreendimento` não estava populado no momento do envio
+**Painel 2 — Parados para Assinatura:**
+- Filtra `acompanhamento_juridico` com etapa `enviado_assinatura` e calcula dias parados
+- Threshold: verde < 3 dias, amarelo 3-7 dias, vermelho > 7 dias
+- Ordenação automática por maior tempo parado
+- Colunas: Protocolo, Fornecedor, Valor, Data envio assinatura, Dias parado, Empreendimento
 
-### Resultado esperado
+**Painel 3 — Fluxo de Aprovações:**
+- Para cada contrato ativo, calcula tempo entre etapas consecutivas no `acompanhamento_juridico`
+- Exibe timeline visual (reutiliza padrão do JuridicoTracker)
+- Seção de KPI no topo: "Etapa com maior tempo médio" calculada agregando todos os contratos
+- Clique no contrato expande a timeline detalhada
 
-| Evento | Spaces que recebem |
-|--------|-------------------|
-| Nova solicitação criada | Backoffice + Coordenação |
-| Solicitação corrigida/reenviada | Backoffice + Coordenação |
-| Correção solicitada (backoffice) | Space do empreendimento + Coordenação |
-| OC emitida | Space do empreendimento + Coordenação |
+**Painel 4 — Compliance:**
+- Query: `instrumento_juridico IN ('termo_contratacao', 'contrato_prestacao', 'contrato_empreitada') AND numero_projuris IS NULL AND status NOT IN ('concluida', 'cancelado', 'rejeitado')`
+- Lista com: Protocolo, Data criação, Solicitante, Tipo instrumento, Empreendimento, Valor
+- Ações inline:
+  - "Adicionar Projuris" — abre input para digitar número e salva em `solicitacoes.numero_projuris`
+  - "Não aplicável" — exige justificativa, registra no `historico_solicitacoes`
 
-### Arquivos a modificar
+**Priorização (Painel 1):**
+- Score simples: `(dias_na_etapa * 2) + (valor >= 70000 ? 3 : valor >= 10000 ? 2 : 1)`
+- Coluna "Prioridade" com badge (Alta/Média/Baixa) baseada no score
+- Ordenação padrão por score decrescente
 
-| Arquivo | Mudança |
-|---------|---------|
-| `src/hooks/useNovaSolicitacaoForm.ts` | Adicionar chamada `gchat-notify-oc` tipo `nova_entrada` após criação |
-| `src/pages/MinhasSolicitacoes.tsx` | Adicionar chamada `gchat-notify-oc` tipo `solicitacao_corrigida` no `handleResubmit` |
-| `supabase/functions/gchat-notify-oc/index.ts` | Adicionar logs de debug no `getTargetSpaces` para diagnosticar falha da correção |
+---
+
+### Arquivos a criar/modificar
+
+| Arquivo | Ação |
+|---------|------|
+| `src/components/monitoramento/TabProjuris.tsx` | Reescrever como wrapper com 4 sub-tabs |
+| `src/components/monitoramento/projuris/ProjurisVisaoStatus.tsx` | Criar — migra lógica atual + priorização |
+| `src/components/monitoramento/projuris/ProjurisParadosAssinatura.tsx` | Criar |
+| `src/components/monitoramento/projuris/ProjurisFluxoAprovacoes.tsx` | Criar |
+| `src/components/monitoramento/projuris/ProjurisCompliance.tsx` | Criar |
+
+Nenhuma alteração de banco de dados necessária.
 
