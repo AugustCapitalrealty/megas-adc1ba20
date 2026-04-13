@@ -714,6 +714,72 @@ export type Database = {
         }
         Relationships: []
       }
+      projuris_requisicoes: {
+        Row: {
+          cliente_fornecedor: string | null
+          created_at: string
+          data_finalizacao: string | null
+          data_requisicao: string | null
+          data_ultima_aprovacao: string | null
+          data_ultimo_envio_aprovacao: string | null
+          detalhes: string | null
+          empreendimento: string | null
+          id: string
+          importado_em: string
+          importado_por: string | null
+          numero_fluig: string | null
+          numero_requisicao: string
+          ordem_prioridade: number | null
+          requisitante: string | null
+          responsavel: string | null
+          status: string | null
+          tipo_requisicao: string | null
+          updated_at: string
+        }
+        Insert: {
+          cliente_fornecedor?: string | null
+          created_at?: string
+          data_finalizacao?: string | null
+          data_requisicao?: string | null
+          data_ultima_aprovacao?: string | null
+          data_ultimo_envio_aprovacao?: string | null
+          detalhes?: string | null
+          empreendimento?: string | null
+          id?: string
+          importado_em?: string
+          importado_por?: string | null
+          numero_fluig?: string | null
+          numero_requisicao: string
+          ordem_prioridade?: number | null
+          requisitante?: string | null
+          responsavel?: string | null
+          status?: string | null
+          tipo_requisicao?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cliente_fornecedor?: string | null
+          created_at?: string
+          data_finalizacao?: string | null
+          data_requisicao?: string | null
+          data_ultima_aprovacao?: string | null
+          data_ultimo_envio_aprovacao?: string | null
+          detalhes?: string | null
+          empreendimento?: string | null
+          id?: string
+          importado_em?: string
+          importado_por?: string | null
+          numero_fluig?: string | null
+          numero_requisicao?: string
+          ordem_prioridade?: number | null
+          requisitante?: string | null
+          responsavel?: string | null
+          status?: string | null
+          tipo_requisicao?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       protocolo_counters: {
         Row: {
           ano: string
