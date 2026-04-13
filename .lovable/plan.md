@@ -1,78 +1,90 @@
 
 
-## Painel de Contratos (Projuris) — Plano de Implementação
+## Plano: Alimentar Projuris com dados da planilha CSV
 
-Substituir a `TabProjuris` atual dentro de `MonitoramentoOC` por uma versão completa com 4 sub-abas.
+### Contexto
 
----
+A planilha `Megas_2.0.csv` contém ~10.000 registros do Projuris com colunas:
+- A: Data da Requisição
+- B: Data da última aprovação
+- C: Data do último envio para aprovação
+- D: Detalhes
+- E: Empreendimento
+- F: Nº Fluig
+- G: Número Requisição (= número Fluig interno)
+- H: Requisitante
+- I: Tipo Requisição
+- J: Usuários responsáveis
+- K: Status
+- L: Data da finalização
+- M: Cliente/Fornecedor
 
-### Estrutura de Sub-Abas
+### O que será feito
 
-A aba "Projuris" no MonitoramentoOC passará a ter 4 sub-abas internas:
+**1. Nova tabela `projuris_requisicoes`**
 
-1. **Visão por Status** — Pipeline macro com KPIs e tabela filtrável por etapa/empreendimento/responsável
-2. **Parados para Assinatura** — Contratos com etapa `enviado_assinatura` há mais de 3 dias, ordenados por tempo parado, destaque vermelho > 7 dias
-3. **Fluxo de Aprovações** — Timeline por contrato mostrando tempo em cada etapa e identificação do gargalo (etapa com maior tempo médio)
-4. **Compliance** — Solicitações que deveriam ter Projuris (regra: `instrumento_juridico != 'oc'` e `numero_projuris IS NULL`, ativas) com ações inline
+Armazena os dados importados da planilha:
 
----
+| Coluna | Tipo | Origem CSV |
+|--------|------|-----------|
+| id | uuid PK | auto |
+| numero_requisicao | text UNIQUE | Col G |
+| numero_fluig | text | Col F |
+| data_requisicao | timestamptz | Col A |
+| data_ultima_aprovacao | timestamptz | Col B |
+| data_ultimo_envio_aprovacao | timestamptz | Col C |
+| detalhes | text | Col D |
+| empreendimento | text | Col E |
+| requisitante | text | Col H |
+| tipo_requisicao | text | Col I |
+| responsavel | text | Col J |
+| status | text | Col K |
+| data_finalizacao | timestamptz | Col L |
+| cliente_fornecedor | text | Col M |
+| ordem_prioridade | integer | Para drag-and-drop |
+| importado_por | uuid | user_id |
+| importado_em | timestamptz | auto |
 
-### Detalhamento Técnico
+RLS: backoffice/admin pode CRUD, usuários autenticados podem SELECT.
 
-**Arquivo principal:** `src/components/monitoramento/TabProjuris.tsx` — será reescrito com sub-tabs
+**2. Importador CSV no TabProjuris**
 
-**Novos componentes:**
-- `src/components/monitoramento/projuris/ProjurisVisaoStatus.tsx` — Painel 1 (evolução do código atual)
-- `src/components/monitoramento/projuris/ProjurisParadosAssinatura.tsx` — Painel 2
-- `src/components/monitoramento/projuris/ProjurisFluxoAprovacoes.tsx` — Painel 3
-- `src/components/monitoramento/projuris/ProjurisCompliance.tsx` — Painel 4
+- Botão "Importar Planilha Projuris" no topo
+- Parser CSV (semicolon-separated, encoding latin1)
+- Upsert por `numero_requisicao`
+- Resumo de importação (novos, atualizados)
 
-**Dados usados (sem novas tabelas):**
-- `solicitacoes` — para identificar contratos sem Projuris (Painel 4) e dados base
-- `acompanhamento_juridico` — para etapas, tempos, timeline (Painéis 1-3)
-- `fornecedores` — nomes dos fornecedores
-- `profiles` — nomes dos responsáveis
+**3. Reescrever ProjurisVisaoStatus**
 
-**Painel 1 — Visão por Status:**
-- KPIs no topo: Total ativos, Em Minuta, Em Assinatura, Vigentes (mantém lógica atual)
-- Tabela com filtros por status, empreendimento, etapa jurídica
-- Clique abre detalhes (OCDetalhesModal existente)
+Ao invés de buscar de `solicitacoes` + `acompanhamento_juridico`, passa a buscar de `projuris_requisicoes`:
 
-**Painel 2 — Parados para Assinatura:**
-- Filtra `acompanhamento_juridico` com etapa `enviado_assinatura` e calcula dias parados
-- Threshold: verde < 3 dias, amarelo 3-7 dias, vermelho > 7 dias
-- Ordenação automática por maior tempo parado
-- Colunas: Protocolo, Fornecedor, Valor, Data envio assinatura, Dias parado, Empreendimento
+- KPIs no topo baseados no campo `status` do CSV
+- Tabela com: Nº Requisição, Status (col K), Responsável (col J), Datas A/B/C, Empreendimento, Tipo, Cliente/Fornecedor
+- Filtros por Status, Empreendimento, Responsável
+- **Coluna "Sequência"** com numeração 1, 2, 3... e **drag-and-drop** para reordenar (salva `ordem_prioridade` no banco)
+- O usuário arrasta as linhas para priorizar, tira um print e envia
 
-**Painel 3 — Fluxo de Aprovações:**
-- Para cada contrato ativo, calcula tempo entre etapas consecutivas no `acompanhamento_juridico`
-- Exibe timeline visual (reutiliza padrão do JuridicoTracker)
-- Seção de KPI no topo: "Etapa com maior tempo médio" calculada agregando todos os contratos
-- Clique no contrato expande a timeline detalhada
+**4. Atualizar demais sub-abas**
 
-**Painel 4 — Compliance:**
-- Query: `instrumento_juridico IN ('termo_contratacao', 'contrato_prestacao', 'contrato_empreitada') AND numero_projuris IS NULL AND status NOT IN ('concluida', 'cancelado', 'rejeitado')`
-- Lista com: Protocolo, Data criação, Solicitante, Tipo instrumento, Empreendimento, Valor
-- Ações inline:
-  - "Adicionar Projuris" — abre input para digitar número e salva em `solicitacoes.numero_projuris`
-  - "Não aplicável" — exige justificativa, registra no `historico_solicitacoes`
+- **Parados Assinatura**: filtra `projuris_requisicoes` onde status indica aguardando assinatura e calcula dias parado com base nas datas
+- **Fluxo de Aprovações**: usa as datas A/B/C para mostrar timeline de cada requisição
+- **Compliance**: mantém a lógica atual (solicitações internas sem Projuris)
 
-**Priorização (Painel 1):**
-- Score simples: `(dias_na_etapa * 2) + (valor >= 70000 ? 3 : valor >= 10000 ? 2 : 1)`
-- Coluna "Prioridade" com badge (Alta/Média/Baixa) baseada no score
-- Ordenação padrão por score decrescente
+### Detalhes Técnicos
 
----
+**Drag-and-drop**: Usar `@dnd-kit/core` + `@dnd-kit/sortable` para reordenação de linhas na tabela. Ao soltar, atualiza `ordem_prioridade` no banco.
+
+**Parsing CSV**: O arquivo usa `;` como separador e encoding latin1. Campos com aspas podem conter quebras de linha (multi-line). Será parseado no frontend com tratamento adequado.
 
 ### Arquivos a criar/modificar
 
 | Arquivo | Ação |
 |---------|------|
-| `src/components/monitoramento/TabProjuris.tsx` | Reescrever como wrapper com 4 sub-tabs |
-| `src/components/monitoramento/projuris/ProjurisVisaoStatus.tsx` | Criar — migra lógica atual + priorização |
-| `src/components/monitoramento/projuris/ProjurisParadosAssinatura.tsx` | Criar |
-| `src/components/monitoramento/projuris/ProjurisFluxoAprovacoes.tsx` | Criar |
-| `src/components/monitoramento/projuris/ProjurisCompliance.tsx` | Criar |
-
-Nenhuma alteração de banco de dados necessária.
+| Migration SQL | Criar tabela `projuris_requisicoes` com RLS |
+| `src/components/monitoramento/projuris/ProjurisImport.tsx` | Novo — importador CSV |
+| `src/components/monitoramento/projuris/ProjurisVisaoStatus.tsx` | Reescrever — dados do CSV + drag-and-drop sequência |
+| `src/components/monitoramento/projuris/ProjurisParadosAssinatura.tsx` | Adaptar — dados do CSV |
+| `src/components/monitoramento/projuris/ProjurisFluxoAprovacoes.tsx` | Adaptar — timeline com datas A/B/C |
+| `src/components/monitoramento/TabProjuris.tsx` | Adicionar botão de importação |
+| `package.json` | Adicionar `@dnd-kit/core` e `@dnd-kit/sortable` |
 
