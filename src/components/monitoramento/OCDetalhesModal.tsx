@@ -102,14 +102,36 @@ function ContextualActions({ status, userId, currentUserId, cancelamentoPendente
 export function OCDetalhesModal({ open, onOpenChange, solicitacaoId, protocolo, onAction }: OCDetalhesModalProps) {
   const { detalhes, loading, fetchDetalhes, clearDetalhes } = useSolicitacaoDetalhes();
   const { user } = useAuth();
+  const [projurisData, setProjurisData] = useState<any>(null);
+  const [projurisLoading, setProjurisLoading] = useState(false);
 
   useEffect(() => {
     if (open && solicitacaoId) {
       fetchDetalhes(solicitacaoId);
     } else if (!open) {
       clearDetalhes();
+      setProjurisData(null);
     }
   }, [open, solicitacaoId]);
+
+  // Fetch Projuris data when detalhes loads and has numero_projuris
+  useEffect(() => {
+    if (!detalhes?.solicitacao?.numero_projuris) {
+      setProjurisData(null);
+      return;
+    }
+    const numProjuris = detalhes.solicitacao.numero_projuris;
+    setProjurisLoading(true);
+    supabase
+      .from('projuris_requisicoes')
+      .select('*')
+      .eq('numero_requisicao', numProjuris)
+      .maybeSingle()
+      .then(({ data }) => {
+        setProjurisData(data);
+        setProjurisLoading(false);
+      });
+  }, [detalhes?.solicitacao?.numero_projuris]);
 
   const formatCurrency = (value: number) =>
     value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
