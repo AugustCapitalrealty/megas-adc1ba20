@@ -116,11 +116,11 @@ export function OCDetalhesModal({ open, onOpenChange, solicitacaoId, protocolo, 
 
   // Fetch Projuris data when detalhes loads and has numero_projuris
   useEffect(() => {
-    if (!detalhes?.solicitacao?.numero_projuris) {
+    const numProjuris = (detalhes?.solicitacao as any)?.numero_projuris;
+    if (!numProjuris) {
       setProjurisData(null);
       return;
     }
-    const numProjuris = detalhes.solicitacao.numero_projuris;
     setProjurisLoading(true);
     supabase
       .from('projuris_requisicoes')
@@ -131,7 +131,7 @@ export function OCDetalhesModal({ open, onOpenChange, solicitacaoId, protocolo, 
         setProjurisData(data);
         setProjurisLoading(false);
       });
-  }, [detalhes?.solicitacao?.numero_projuris]);
+  }, [(detalhes?.solicitacao as any)?.numero_projuris]);
 
   const formatCurrency = (value: number) =>
     value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
