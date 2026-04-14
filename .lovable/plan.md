@@ -1,46 +1,35 @@
 
 
-## Correções no Painel Projuris
+## Correção de Dados e Modal de Detalhes — Projuris
 
-### Problemas identificados
+### Problema Identificado
 
-1. **Colunas por posição fixa**: O import usa `row[0]`, `row[6]`, etc. — quando a planilha muda a ordem das colunas, os dados ficam errados. A nova planilha tem ordem diferente (col 0 = Data finalização, antes era Data Requisição).
+Existem registros antigos importados com mapeamento errado (posição fixa), criando entradas onde `numero_requisicao` contém o número Fluig (ex: `152.296`) ao invés do número Projuris (`4006`). São ~5 registros com `numero_requisicao` longo (mais de 5 caracteres com pontos), que são claramente números Fluig.
 
-2. **Número Requisição vs Nº Fluig**: "Número Requisição" é o identificador do Projuris. "Nº Fluig" é o número Fluig. O import precisa mapear pelo **header** e não pela posição.
-
-3. **Exibir data da última atualização**: Mostrar `updated_at` (data/hora da última importação) na tela.
-
-4. **Tela separada para finalizadas**: A visão principal mostra apenas em aberto; finalizadas/canceladas/reprovadas ficam em outra sub-aba.
-
----
+Os registros corretos (da importação com header dinâmico) já existem — basta limpar os duplicados antigos.
 
 ### Mudanças
 
-**`ProjurisImport.tsx`** — Refatorar para mapeamento dinâmico por header:
-- Ler a primeira linha (header), normalizar removendo acentos e lowercase
-- Mapear cada coluna pelo nome (ex: "numero requisicao" → campo `numero_requisicao`, "n fluig" → `numero_fluig`, "status" → `status`, etc.)
-- Não depender mais de índices fixos
-- Usar "Número Requisição" como chave primária (`numero_requisicao`)
+**1. Migration SQL — Limpar registros ruins**
+- Deletar registros onde `numero_requisicao` contém padrão de número Fluig (formato `XXX.XXX` com 6+ caracteres) e já existe um registro correto com esse valor em `numero_fluig`
+- Deletar registros duplicados com mapeamento errado
 
-**`ProjurisVisaoStatus.tsx`** — Filtrar apenas registros em aberto:
-- Query padrão exclui `FINALIZADA`, `CANCELADA`, `REPROVADA`
-- Adicionar coluna "Últ. Atualização" mostrando `updated_at` formatado com data e hora
-- KPIs contam apenas os em aberto
+**2. Modal de Detalhes da Requisição**
+- Criar `ProjurisDetalhesModal.tsx` — modal que abre ao clicar em qualquer linha
+- Exibe todas as informações: Nº Requisição, Nº Fluig, Status, Responsável, Requisitante, Empreendimento, Tipo Requisição, Cliente/Fornecedor, todas as datas formatadas, e **Detalhes** (texto completo com scroll)
+- Layout limpo com cards de resumo no topo e seção de detalhes expandida
 
-**`TabProjuris.tsx`** — Adicionar 5ª sub-aba "Finalizadas":
-- Nova aba mostra somente registros com status `FINALIZADA`, `CANCELADA`, `REPROVADA`
-- Tabela simples sem drag-and-drop, apenas consulta
-
-**Novo: `ProjurisFinalizadas.tsx`** — Componente para a aba de finalizadas:
-- Lista read-only com filtros de busca e empreendimento
-- Sem drag-and-drop
+**3. Simplificar a tabela (`ProjurisVisaoStatus.tsx`)**
+- Remover colunas que poluem: Detalhes, Cliente/Fornecedor, datas individuais
+- Manter apenas: Seq (drag), Nº Req., Status, Responsável, Empreendimento, Últ. Atualização
+- Ao clicar na linha → abre o modal de detalhes
+- Cursor pointer nas linhas para indicar clicabilidade
 
 ### Arquivos
 
 | Arquivo | Ação |
 |---------|------|
-| `src/components/monitoramento/projuris/ProjurisImport.tsx` | Refatorar parser para mapear por header |
-| `src/components/monitoramento/projuris/ProjurisVisaoStatus.tsx` | Filtrar em aberto + coluna updated_at |
-| `src/components/monitoramento/projuris/ProjurisFinalizadas.tsx` | Criar — aba de finalizadas |
-| `src/components/monitoramento/TabProjuris.tsx` | Adicionar aba "Finalizadas" |
+| Migration SQL | Deletar registros com mapeamento antigo errado |
+| `src/components/monitoramento/projuris/ProjurisDetalhesModal.tsx` | Criar — modal de detalhes |
+| `src/components/monitoramento/projuris/ProjurisVisaoStatus.tsx` | Simplificar colunas + integrar modal |
 
