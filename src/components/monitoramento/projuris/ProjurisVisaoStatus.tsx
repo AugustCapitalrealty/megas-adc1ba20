@@ -6,24 +6,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Search, GripVertical, FileText, Clock, CheckCircle, AlertTriangle } from 'lucide-react';
-import { formatBR } from '@/lib/date-utils';
+import { Loader2, Search, GripVertical, FileText, Clock, AlertTriangle } from 'lucide-react';
+import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
+  DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent,
 } from '@dnd-kit/core';
 import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
+  arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
@@ -41,18 +31,28 @@ interface ProjurisRow {
   cliente_fornecedor: string | null;
   detalhes: string | null;
   ordem_prioridade: number | null;
+  updated_at: string;
 }
 
+const CLOSED_STATUSES = ['FINALIZADA', 'CANCELADA', 'REPROVADA'];
+
 const STATUS_COLORS: Record<string, string> = {
-  'FINALIZADA': 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
   'EXECUTADA': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
   'EM REQUISIÇÃO': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
   'AGUARDANDO APROVAÇÃO': 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
   'AGUARDANDO EXECUÇÃO': 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
   'AGUARDANDO INFORMAÇÕES': 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
-  'CANCELADA': 'bg-destructive/10 text-destructive',
-  'REPROVADA': 'bg-destructive/10 text-destructive',
 };
+
+function formatDate(d: string | null) {
+  if (!d) return '—';
+  try { return format(new Date(d), 'dd/MM/yyyy'); } catch { return '—'; }
+}
+
+function formatDateTime(d: string | null) {
+  if (!d) return '—';
+  try { return format(new Date(d), 'dd/MM/yyyy HH:mm'); } catch { return '—'; }
+}
 
 function SortableRow({ row, index }: { row: ProjurisRow; index: number }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: row.id });
@@ -75,11 +75,12 @@ function SortableRow({ row, index }: { row: ProjurisRow; index: number }) {
         </Badge>
       </TableCell>
       <TableCell className="text-sm max-w-[180px] truncate">{row.responsavel || '—'}</TableCell>
-      <TableCell className="text-xs text-muted-foreground">{row.data_requisicao ? formatBR(row.data_requisicao, 'dd/MM/yyyy') : '—'}</TableCell>
-      <TableCell className="text-xs text-muted-foreground">{row.data_ultima_aprovacao ? formatBR(row.data_ultima_aprovacao, 'dd/MM/yyyy') : '—'}</TableCell>
-      <TableCell className="text-xs text-muted-foreground">{row.data_ultimo_envio_aprovacao ? formatBR(row.data_ultimo_envio_aprovacao, 'dd/MM/yyyy') : '—'}</TableCell>
+      <TableCell className="text-xs text-muted-foreground">{formatDate(row.data_requisicao)}</TableCell>
+      <TableCell className="text-xs text-muted-foreground">{formatDate(row.data_ultima_aprovacao)}</TableCell>
+      <TableCell className="text-xs text-muted-foreground">{formatDate(row.data_ultimo_envio_aprovacao)}</TableCell>
       <TableCell className="text-sm">{row.empreendimento || '—'}</TableCell>
       <TableCell className="text-sm max-w-[180px] truncate">{row.cliente_fornecedor || '—'}</TableCell>
+      <TableCell className="text-xs text-muted-foreground">{formatDateTime(row.updated_at)}</TableCell>
     </TableRow>
   );
 }
@@ -100,7 +101,8 @@ export function ProjurisVisaoStatus() {
     setLoading(true);
     const { data } = await supabase
       .from('projuris_requisicoes')
-      .select('id, numero_requisicao, numero_fluig, status, responsavel, data_requisicao, data_ultima_aprovacao, data_ultimo_envio_aprovacao, empreendimento, tipo_requisicao, cliente_fornecedor, detalhes, ordem_prioridade')
+      .select('id, numero_requisicao, numero_fluig, status, responsavel, data_requisicao, data_ultima_aprovacao, data_ultimo_envio_aprovacao, empreendimento, tipo_requisicao, cliente_fornecedor, detalhes, ordem_prioridade, updated_at')
+      .not('status', 'in', `(${CLOSED_STATUSES.join(',')})`)
       .order('ordem_prioridade', { ascending: true, nullsFirst: false })
       .order('data_requisicao', { ascending: false });
     setRows((data as ProjurisRow[]) || []);
@@ -130,31 +132,23 @@ export function ProjurisVisaoStatus() {
   const statuses = useMemo(() => [...new Set(rows.map(r => r.status).filter(Boolean))].sort(), [rows]);
   const empreendimentos = useMemo(() => [...new Set(rows.map(r => r.empreendimento).filter(Boolean))].sort(), [rows]);
 
-  const kpis = useMemo(() => {
-    const active = rows.filter(r => !['FINALIZADA', 'CANCELADA', 'REPROVADA'].includes(r.status || ''));
-    return {
-      total: rows.length,
-      ativos: active.length,
-      aguardandoAprovacao: rows.filter(r => r.status === 'AGUARDANDO APROVAÇÃO').length,
-      emRequisicao: rows.filter(r => r.status === 'EM REQUISIÇÃO').length,
-      finalizadas: rows.filter(r => r.status === 'FINALIZADA').length,
-    };
-  }, [rows]);
+  const kpis = useMemo(() => ({
+    total: rows.length,
+    aguardandoAprovacao: rows.filter(r => r.status === 'AGUARDANDO APROVAÇÃO').length,
+    emRequisicao: rows.filter(r => r.status === 'EM REQUISIÇÃO').length,
+  }), [rows]);
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-
     const oldIndex = filteredRows.findIndex(r => r.id === active.id);
     const newIndex = filteredRows.findIndex(r => r.id === over.id);
     const reordered = arrayMove(filteredRows, oldIndex, newIndex);
-
     setRows(prev => {
       const filteredIds = new Set(reordered.map(r => r.id));
       const others = prev.filter(r => !filteredIds.has(r.id));
       return [...reordered, ...others];
     });
-
     const updates = reordered.map((r, i) => ({ id: r.id, ordem_prioridade: i + 1 }));
     for (const u of updates) {
       await supabase.from('projuris_requisicoes').update({ ordem_prioridade: u.ordem_prioridade }).eq('id', u.id);
@@ -167,13 +161,11 @@ export function ProjurisVisaoStatus() {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {[
-          { label: 'Total', value: kpis.total, icon: FileText, color: 'text-primary' },
-          { label: 'Ativos', value: kpis.ativos, icon: Clock, color: 'text-blue-600' },
+          { label: 'Em Aberto', value: kpis.total, icon: FileText, color: 'text-primary' },
           { label: 'Aguard. Aprovação', value: kpis.aguardandoAprovacao, icon: AlertTriangle, color: 'text-orange-600' },
           { label: 'Em Requisição', value: kpis.emRequisicao, icon: Clock, color: 'text-yellow-600' },
-          { label: 'Finalizadas', value: kpis.finalizadas, icon: CheckCircle, color: 'text-green-600' },
         ].map(kpi => (
           <Card key={kpi.label}>
             <CardContent className="pt-4 pb-3 px-4">
@@ -223,11 +215,12 @@ export function ProjurisVisaoStatus() {
                   <TableHead>Últ. Envio Aprov.</TableHead>
                   <TableHead>Empreendimento</TableHead>
                   <TableHead>Cliente/Fornecedor</TableHead>
+                  <TableHead>Últ. Atualização</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredRows.length === 0 ? (
-                  <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhum registro encontrado</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground">Nenhum registro encontrado</TableCell></TableRow>
                 ) : (
                   filteredRows.map((row, i) => <SortableRow key={row.id} row={row} index={i} />)
                 )}

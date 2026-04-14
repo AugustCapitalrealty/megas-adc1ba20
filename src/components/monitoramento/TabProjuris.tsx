@@ -1,11 +1,12 @@
 import { useState, useCallback } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Scale, Clock, GitBranch, ShieldAlert } from 'lucide-react';
+import { Scale, Clock, GitBranch, ShieldAlert, Archive } from 'lucide-react';
 import { ProjurisVisaoStatus } from './projuris/ProjurisVisaoStatus';
 import { ProjurisParadosAssinatura } from './projuris/ProjurisParadosAssinatura';
 import { ProjurisFluxoAprovacoes } from './projuris/ProjurisFluxoAprovacoes';
 import { ProjurisCompliance } from './projuris/ProjurisCompliance';
 import { ProjurisImport } from './projuris/ProjurisImport';
+import { ProjurisFinalizadas } from './projuris/ProjurisFinalizadas';
 
 export function TabProjuris() {
   const [refreshKey, setRefreshKey] = useState(0);
@@ -18,10 +19,10 @@ export function TabProjuris() {
       </div>
 
       <Tabs defaultValue="visao_status" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="visao_status" className="gap-1.5 text-xs sm:text-sm">
             <Scale className="h-4 w-4 hidden sm:block" />
-            Visão por Status
+            Em Aberto
           </TabsTrigger>
           <TabsTrigger value="parados" className="gap-1.5 text-xs sm:text-sm">
             <Clock className="h-4 w-4 hidden sm:block" />
@@ -34,6 +35,10 @@ export function TabProjuris() {
           <TabsTrigger value="compliance" className="gap-1.5 text-xs sm:text-sm">
             <ShieldAlert className="h-4 w-4 hidden sm:block" />
             Compliance
+          </TabsTrigger>
+          <TabsTrigger value="finalizadas" className="gap-1.5 text-xs sm:text-sm">
+            <Archive className="h-4 w-4 hidden sm:block" />
+            Finalizadas
           </TabsTrigger>
         </TabsList>
 
@@ -48,6 +53,9 @@ export function TabProjuris() {
         </TabsContent>
         <TabsContent value="compliance">
           <ProjurisCompliance />
+        </TabsContent>
+        <TabsContent value="finalizadas">
+          <ProjurisFinalizadas key={`fin-${refreshKey}`} />
         </TabsContent>
       </Tabs>
     </div>
