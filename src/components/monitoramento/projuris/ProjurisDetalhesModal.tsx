@@ -34,6 +34,7 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   vinculo?: SolicitacaoVinculo;
+  onOpenVinculo?: (v: SolicitacaoVinculo) => void;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -66,7 +67,7 @@ function Field({ label, value }: { label: string; value: string | null | undefin
   );
 }
 
-export function ProjurisDetalhesModal({ row, open, onOpenChange, vinculo }: Props) {
+export function ProjurisDetalhesModal({ row, open, onOpenChange, vinculo, onOpenVinculo }: Props) {
   if (!row) return null;
 
   return (
@@ -107,13 +108,16 @@ export function ProjurisDetalhesModal({ row, open, onOpenChange, vinculo }: Prop
             {vinculo && (
               <div className="border-t pt-4">
                 <p className="text-xs text-muted-foreground mb-2">Solicitação Interna Vinculada</p>
-                <a
-                  href={`/backoffice?id=${vinculo.id}`}
+                <button
+                  onClick={() => {
+                    onOpenChange(false);
+                    onOpenVinculo?.(vinculo);
+                  }}
                   className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-sm font-medium"
                 >
                   <Link2 className="h-4 w-4" />
                   Protocolo {vinculo.protocolo}
-                </a>
+                </button>
               </div>
             )}
 
