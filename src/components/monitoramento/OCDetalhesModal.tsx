@@ -215,16 +215,20 @@ export function OCDetalhesModal({ open, onOpenChange, solicitacaoId, protocolo, 
             </div>
 
             <Tabs defaultValue="timeline" className="w-full">
-              <TabsList className="w-full grid grid-cols-4">
+              <TabsList className="w-full grid grid-cols-5">
                 <TabsTrigger value="timeline">Timeline</TabsTrigger>
                 <TabsTrigger value="documentos">
                   Docs ({(detalhes.documentos_emitidos?.length || 0) + (detalhes.documentos_fiscais?.length || 0)})
                 </TabsTrigger>
                 <TabsTrigger value="mensagens" className="flex items-center gap-1">
                   <MessageSquare className="h-3.5 w-3.5" />
-                  Mensagens
+                  Msgs
                 </TabsTrigger>
-                <TabsTrigger value="info">Informações</TabsTrigger>
+                <TabsTrigger value="projuris" className="flex items-center gap-1" disabled={!projurisData && !projurisLoading && !(detalhes.solicitacao as any)?.numero_projuris}>
+                  <Scale className="h-3.5 w-3.5" />
+                  Projuris
+                </TabsTrigger>
+                <TabsTrigger value="info">Info</TabsTrigger>
               </TabsList>
 
               <TabsContent value="timeline" className="mt-4">
