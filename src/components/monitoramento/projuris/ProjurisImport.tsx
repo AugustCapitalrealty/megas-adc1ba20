@@ -8,14 +8,48 @@ import { toast } from 'sonner';
 
 interface ImportResult {
   inserted: number;
-  updated: number;
   errors: string[];
 }
+
+function normalize(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+const HEADER_MAP: Record<string, string> = {
+  'numero requisicao': 'numero_requisicao',
+  'numero da requisicao': 'numero_requisicao',
+  'n fluig': 'numero_fluig',
+  'no fluig': 'numero_fluig',
+  'numero fluig': 'numero_fluig',
+  'data da requisicao': 'data_requisicao',
+  'data requisicao': 'data_requisicao',
+  'data da ultima aprovacao': 'data_ultima_aprovacao',
+  'data ultima aprovacao': 'data_ultima_aprovacao',
+  'data do ultimo envio para aprovacao': 'data_ultimo_envio_aprovacao',
+  'data ultimo envio para aprovacao': 'data_ultimo_envio_aprovacao',
+  'data do ultimo envio aprovacao': 'data_ultimo_envio_aprovacao',
+  'detalhes': 'detalhes',
+  'empreendimento': 'empreendimento',
+  'requisitante': 'requisitante',
+  'tipo requisicao': 'tipo_requisicao',
+  'tipo da requisicao': 'tipo_requisicao',
+  'usuarios responsaveis': 'responsavel',
+  'usuario responsavel': 'responsavel',
+  'responsavel': 'responsavel',
+  'status': 'status',
+  'data da finalizacao': 'data_finalizacao',
+  'data finalizacao': 'data_finalizacao',
+  'cliente/fornecedor': 'cliente_fornecedor',
+  'cliente fornecedor': 'cliente_fornecedor',
+};
 
 function parseDateBR(val: string): string | null {
   const trimmed = val?.trim();
   if (!trimmed) return null;
-  // Format: dd/MM/yyyy or dd/MM/yyyy HH:mm
   const match = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})\s*(.*)$/);
   if (!match) return null;
   const [, day, month, year, time] = match;
@@ -58,6 +92,20 @@ function parseCSV(text: string): string[][] {
   return rows;
 }
 
+function buildColumnMap(headerRow: string[]): Record<string, number> {
+  const map: Record<string, number> = {};
+  for (let i = 0; i < headerRow.length; i++) {
+    const normalized = normalize(headerRow[i]);
+    const field = HEADER_MAP[normalized];
+    if (field && !(field in map)) {
+      map[field] = i;
+    }
+  }
+  return map;
+}
+
+const DATE_FIELDS = ['data_requisicao', 'data_ultima_aprovacao', 'data_ultimo_envio_aprovacao', 'data_finalizacao'];
+
 export function ProjurisImport({ onImported }: { onImported: () => void }) {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
@@ -79,36 +127,49 @@ export function ProjurisImport({ onImported }: { onImported: () => void }) {
 
       if (rows.length < 2) throw new Error('Arquivo vazio ou formato inválido');
 
-      // Skip header
-      const dataRows = rows.slice(1);
-      const res: ImportResult = { inserted: 0, updated: 0, errors: [] };
+      const colMap = buildColumnMap(rows[0]);
 
-      // Process in batches of 50
+      if (!('numero_requisicao' in colMap)) {
+        throw new Error('Coluna "Número Requisição" não encontrada no cabeçalho. Colunas detectadas: ' + rows[0].join(', '));
+      }
+
+      const dataRows = rows.slice(1);
+      const res: ImportResult = { inserted: 0, errors: [] };
+
       const batchSize = 50;
       for (let i = 0; i < dataRows.length; i += batchSize) {
         const batch = dataRows.slice(i, i + batchSize);
         const records = batch.map((row, idx) => {
-          const numReq = row[6]?.trim();
+          const get = (field: string) => {
+            const colIdx = colMap[field];
+            return colIdx !== undefined ? row[colIdx]?.trim() || null : null;
+          };
+
+          const numReq = get('numero_requisicao');
           if (!numReq) {
             res.errors.push(`Linha ${i + idx + 2}: Número Requisição vazio`);
             return null;
           }
-          return {
+
+          const record: Record<string, any> = {
             numero_requisicao: numReq,
-            numero_fluig: row[5]?.trim() || null,
-            data_requisicao: parseDateBR(row[0]),
-            data_ultima_aprovacao: parseDateBR(row[1]),
-            data_ultimo_envio_aprovacao: parseDateBR(row[2]),
-            detalhes: row[3]?.trim() || null,
-            empreendimento: row[4]?.trim() || null,
-            requisitante: row[7]?.trim() || null,
-            tipo_requisicao: row[8]?.trim() || null,
-            responsavel: row[9]?.trim() || null,
-            status: row[10]?.trim() || null,
-            data_finalizacao: parseDateBR(row[11]),
-            cliente_fornecedor: row[12]?.trim() || null,
             importado_por: user.id,
           };
+
+          // Text fields
+          for (const field of ['numero_fluig', 'detalhes', 'empreendimento', 'requisitante', 'tipo_requisicao', 'responsavel', 'status', 'cliente_fornecedor']) {
+            if (field in colMap) record[field] = get(field);
+          }
+
+          // Date fields
+          for (const field of DATE_FIELDS) {
+            if (field in colMap) {
+              const raw = get(field);
+              record[field] = raw ? parseDateBR(raw) : null;
+            }
+          }
+
+          return record;
         }).filter(Boolean);
 
         if (records.length === 0) continue;
@@ -155,7 +216,7 @@ export function ProjurisImport({ onImported }: { onImported: () => void }) {
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
               Selecione o arquivo CSV (separado por <code>;</code>) exportado do Projuris.
-              Os registros serão atualizados pelo Número da Requisição.
+              As colunas são detectadas automaticamente pelo cabeçalho.
             </p>
 
             <input
