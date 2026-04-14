@@ -5,9 +5,10 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Search, GripVertical, FileText, Clock, AlertTriangle } from 'lucide-react';
-import { format } from 'date-fns';
+import { Loader2, Search, GripVertical, FileText, Clock, AlertTriangle, Link2 } from 'lucide-react';
+import { format, differenceInDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 import {
   DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent,
@@ -37,6 +38,12 @@ interface ProjurisRow {
   updated_at: string;
 }
 
+interface SolicitacaoVinculo {
+  id: string;
+  protocolo: string;
+  status: string;
+}
+
 const CLOSED_STATUSES = ['FINALIZADA', 'CANCELADA', 'REPROVADA'];
 
 const STATUS_COLORS: Record<string, string> = {
@@ -47,14 +54,35 @@ const STATUS_COLORS: Record<string, string> = {
   'AGUARDANDO INFORMAÇÕES': 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
 };
 
-function formatDateTime(d: string | null) {
+function formatDate(d: string | null) {
   if (!d) return '—';
-  try { return format(new Date(d), 'dd/MM/yyyy HH:mm'); } catch { return '—'; }
+  try { return format(new Date(d), 'dd/MM/yyyy'); } catch { return '—'; }
 }
 
-function SortableRow({ row, index, onSelect }: { row: ProjurisRow; index: number; onSelect: (r: ProjurisRow) => void }) {
+function getTempoParado(row: ProjurisRow): { days: number; color: string } | null {
+  const ref = row.status === 'AGUARDANDO APROVAÇÃO' && row.data_ultimo_envio_aprovacao
+    ? row.data_ultimo_envio_aprovacao
+    : row.data_requisicao;
+  if (!ref) return null;
+  try {
+    const days = differenceInDays(new Date(), new Date(ref));
+    const color = days < 7 ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+      : days < 14 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+      : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
+    return { days, color };
+  } catch { return null; }
+}
+
+function getFornecedorNome(cf: string | null): string {
+  if (!cf) return '—';
+  const parts = cf.split(' - ');
+  return parts[0]?.trim() || '—';
+}
+
+function SortableRow({ row, index, onSelect, vinculo }: { row: ProjurisRow; index: number; onSelect: (r: ProjurisRow) => void; vinculo?: SolicitacaoVinculo }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: row.id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+  const tempo = getTempoParado(row);
 
   return (
     <TableRow ref={setNodeRef} style={style} className={cn('cursor-pointer hover:bg-muted/50', isDragging && 'bg-muted')} onClick={() => onSelect(row)}>
@@ -72,9 +100,30 @@ function SortableRow({ row, index, onSelect }: { row: ProjurisRow; index: number
           {row.status || '—'}
         </Badge>
       </TableCell>
-      <TableCell className="text-sm max-w-[180px] truncate">{row.responsavel || '—'}</TableCell>
-      <TableCell className="text-sm">{row.empreendimento || '—'}</TableCell>
-      <TableCell className="text-xs text-muted-foreground">{formatDateTime(row.updated_at)}</TableCell>
+      <TableCell className="text-sm max-w-[140px] truncate">{row.responsavel || '—'}</TableCell>
+      <TableCell className="text-sm max-w-[120px] truncate">{row.empreendimento || '—'}</TableCell>
+      <TableCell className="text-xs">{formatDate(row.data_requisicao)}</TableCell>
+      <TableCell>
+        {tempo ? (
+          <Badge className={cn('text-xs', tempo.color)}>{tempo.days}d</Badge>
+        ) : '—'}
+      </TableCell>
+      <TableCell className="text-xs max-w-[140px] truncate">{getFornecedorNome(row.cliente_fornecedor)}</TableCell>
+      <TableCell onClick={e => e.stopPropagation()}>
+        {vinculo ? (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <a href={`/backoffice?id=${vinculo.id}`} className="inline-flex items-center gap-1 text-xs font-mono text-primary hover:underline">
+                  <Link2 className="h-3 w-3" />
+                  {vinculo.protocolo}
+                </a>
+              </TooltipTrigger>
+              <TooltipContent><p>Solicitação interna vinculada</p></TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : <span className="text-xs text-muted-foreground">—</span>}
+      </TableCell>
     </TableRow>
   );
 }
@@ -86,6 +135,7 @@ export function ProjurisVisaoStatus() {
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterEmpreendimento, setFilterEmpreendimento] = useState('all');
   const [selectedRow, setSelectedRow] = useState<ProjurisRow | null>(null);
+  const [vinculos, setVinculos] = useState<Record<string, SolicitacaoVinculo>>({});
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -94,13 +144,30 @@ export function ProjurisVisaoStatus() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from('projuris_requisicoes')
-      .select('id, numero_requisicao, numero_fluig, status, responsavel, requisitante, data_requisicao, data_ultima_aprovacao, data_ultimo_envio_aprovacao, data_finalizacao, empreendimento, tipo_requisicao, cliente_fornecedor, detalhes, ordem_prioridade, updated_at')
-      .not('status', 'in', `(${CLOSED_STATUSES.join(',')})`)
-      .order('ordem_prioridade', { ascending: true, nullsFirst: false })
-      .order('data_requisicao', { ascending: false });
-    setRows((data as ProjurisRow[]) || []);
+    const [{ data: projurisData }, { data: solData }] = await Promise.all([
+      supabase
+        .from('projuris_requisicoes')
+        .select('id, numero_requisicao, numero_fluig, status, responsavel, requisitante, data_requisicao, data_ultima_aprovacao, data_ultimo_envio_aprovacao, data_finalizacao, empreendimento, tipo_requisicao, cliente_fornecedor, detalhes, ordem_prioridade, updated_at')
+        .not('status', 'in', `(${CLOSED_STATUSES.join(',')})`)
+        .order('ordem_prioridade', { ascending: true, nullsFirst: false })
+        .order('data_requisicao', { ascending: false }),
+      supabase
+        .from('solicitacoes')
+        .select('id, protocolo, numero_projuris, status')
+        .not('numero_projuris', 'is', null),
+    ]);
+    setRows((projurisData as ProjurisRow[]) || []);
+    
+    // Build vinculos map: numero_projuris -> solicitacao
+    const map: Record<string, SolicitacaoVinculo> = {};
+    if (solData) {
+      for (const s of solData) {
+        if (s.numero_projuris) {
+          map[s.numero_projuris] = { id: s.id, protocolo: s.protocolo || '', status: s.status };
+        }
+      }
+    }
+    setVinculos(map);
     setLoading(false);
   }, []);
 
@@ -205,15 +272,26 @@ export function ProjurisVisaoStatus() {
                   <TableHead>Nº Req.</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Responsável</TableHead>
-                  <TableHead>Empreendimento</TableHead>
-                  <TableHead>Últ. Atualização</TableHead>
+                  <TableHead>Empreend.</TableHead>
+                  <TableHead>Data Req.</TableHead>
+                  <TableHead>Parado</TableHead>
+                  <TableHead>Fornecedor</TableHead>
+                  <TableHead>Vínculo</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredRows.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhum registro encontrado</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Nenhum registro encontrado</TableCell></TableRow>
                 ) : (
-                  filteredRows.map((row, i) => <SortableRow key={row.id} row={row} index={i} onSelect={setSelectedRow} />)
+                  filteredRows.map((row, i) => (
+                    <SortableRow
+                      key={row.id}
+                      row={row}
+                      index={i}
+                      onSelect={setSelectedRow}
+                      vinculo={vinculos[row.numero_requisicao]}
+                    />
+                  ))
                 )}
               </TableBody>
             </Table>
@@ -221,7 +299,12 @@ export function ProjurisVisaoStatus() {
         </DndContext>
       </ScrollArea>
 
-      <ProjurisDetalhesModal row={selectedRow} open={!!selectedRow} onOpenChange={open => { if (!open) setSelectedRow(null); }} />
+      <ProjurisDetalhesModal
+        row={selectedRow}
+        open={!!selectedRow}
+        onOpenChange={open => { if (!open) setSelectedRow(null); }}
+        vinculo={selectedRow ? vinculos[selectedRow.numero_requisicao] : undefined}
+      />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { Link2 } from 'lucide-react';
 
 interface ProjurisRow {
   id: string;
@@ -22,10 +23,17 @@ interface ProjurisRow {
   updated_at: string;
 }
 
+interface SolicitacaoVinculo {
+  id: string;
+  protocolo: string;
+  status: string;
+}
+
 interface Props {
   row: ProjurisRow | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  vinculo?: SolicitacaoVinculo;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -58,7 +66,7 @@ function Field({ label, value }: { label: string; value: string | null | undefin
   );
 }
 
-export function ProjurisDetalhesModal({ row, open, onOpenChange }: Props) {
+export function ProjurisDetalhesModal({ row, open, onOpenChange, vinculo }: Props) {
   if (!row) return null;
 
   return (
@@ -95,6 +103,19 @@ export function ProjurisDetalhesModal({ row, open, onOpenChange }: Props) {
             <div className="border-t pt-4">
               <Field label="Última Atualização" value={fmtDt(row.updated_at)} />
             </div>
+
+            {vinculo && (
+              <div className="border-t pt-4">
+                <p className="text-xs text-muted-foreground mb-2">Solicitação Interna Vinculada</p>
+                <a
+                  href={`/backoffice?id=${vinculo.id}`}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-sm font-medium"
+                >
+                  <Link2 className="h-4 w-4" />
+                  Protocolo {vinculo.protocolo}
+                </a>
+              </div>
+            )}
 
             {row.detalhes && (
               <div className="border-t pt-4">
