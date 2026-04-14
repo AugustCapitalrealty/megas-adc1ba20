@@ -299,6 +299,97 @@ export function OCDetalhesModal({ open, onOpenChange, solicitacaoId, protocolo, 
                 {solicitacaoId && <SolicitacaoTimeline solicitacaoId={solicitacaoId} showHistorico={false} showMessages />}
               </TabsContent>
 
+              <TabsContent value="projuris" className="mt-4 space-y-4">
+                {projurisLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : projurisData ? (
+                  <>
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm flex items-center gap-2">
+                          <Scale className="h-4 w-4" />
+                          Requisição Projuris #{projurisData.numero_requisicao}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-3 text-sm">
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                          <div>
+                            <p className="text-muted-foreground text-xs">Status Projuris</p>
+                            <Badge variant="outline" className="mt-0.5 text-xs">{projurisData.status || '—'}</Badge>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground text-xs">Tipo Requisição</p>
+                            <p className="font-medium">{projurisData.tipo_requisicao || '—'}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground text-xs">Responsável</p>
+                            <p className="font-medium">{projurisData.responsavel || '—'}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground text-xs">Fornecedor / Cliente</p>
+                            <p className="font-medium">{projurisData.cliente_fornecedor || '—'}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground text-xs">Empreendimento</p>
+                            <p className="font-medium">{projurisData.empreendimento || '—'}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground text-xs">Nº Fluig</p>
+                            <p className="font-medium">{projurisData.numero_fluig || '—'}</p>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2 border-t">
+                          <div>
+                            <p className="text-muted-foreground text-xs">Data Requisição</p>
+                            <p className="font-medium">{projurisData.data_requisicao ? formatBR(projurisData.data_requisicao, 'dd/MM/yyyy') : '—'}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground text-xs">Últ. Envio Aprovação</p>
+                            <p className="font-medium">{projurisData.data_ultimo_envio_aprovacao ? formatBR(projurisData.data_ultimo_envio_aprovacao, 'dd/MM/yyyy') : '—'}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground text-xs">Últ. Aprovação</p>
+                            <p className="font-medium">{projurisData.data_ultima_aprovacao ? formatBR(projurisData.data_ultima_aprovacao, 'dd/MM/yyyy') : '—'}</p>
+                          </div>
+                          <div>
+                            <p className="text-muted-foreground text-xs">Finalização</p>
+                            <p className="font-medium">{projurisData.data_finalizacao ? formatBR(projurisData.data_finalizacao, 'dd/MM/yyyy') : '—'}</p>
+                          </div>
+                        </div>
+
+                        {projurisData.data_requisicao && !projurisData.data_finalizacao && (
+                          <div className="flex items-center gap-2 pt-2 border-t">
+                            <Clock className="h-4 w-4 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground">Tempo parado:</span>
+                            <Badge variant="secondary" className="text-xs">
+                              {differenceInDays(new Date(), new Date(projurisData.data_ultimo_envio_aprovacao || projurisData.data_requisicao))} dias
+                            </Badge>
+                          </div>
+                        )}
+
+                        {projurisData.detalhes && (
+                          <div className="pt-2 border-t">
+                            <p className="text-muted-foreground text-xs mb-1">Detalhes</p>
+                            <p className="text-sm whitespace-pre-wrap">{projurisData.detalhes}</p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </>
+                ) : (detalhes.solicitacao as any)?.numero_projuris ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    Nº Projuris {(detalhes.solicitacao as any).numero_projuris} não encontrado na base importada.
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-8">
+                    Esta solicitação não possui número Projuris vinculado.
+                  </p>
+                )}
+              </TabsContent>
+
               <TabsContent value="info" className="mt-4 space-y-4">
                 <StageDurationTimeline
                   historico={detalhes.historico}
