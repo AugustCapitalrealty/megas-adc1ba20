@@ -1,35 +1,31 @@
 
 
-## Correção de Dados e Modal de Detalhes — Projuris
+## Limpeza dos 3 registros com mapeamento errado
 
-### Problema Identificado
+### Problema
 
-Existem registros antigos importados com mapeamento errado (posição fixa), criando entradas onde `numero_requisicao` contém o número Fluig (ex: `152.296`) ao invés do número Projuris (`4006`). São ~5 registros com `numero_requisicao` longo (mais de 5 caracteres com pontos), que são claramente números Fluig.
+Existem exatamente 3 registros criados pela importação antiga (posição fixa) onde todas as colunas estão deslocadas:
 
-Os registros corretos (da importação com header dinâmico) já existem — basta limpar os duplicados antigos.
+| ID | numero_requisicao (errado) | status (errado) | Correto já existe? |
+|----|---------------------------|-----------------|-------------------|
+| `e9e9086d` | `2.026.000.280` | `Termo de contratação_Megas` | Sim (4004) |
+| `323d062b` | `00` | `Contrato de Prestação de Serviços_Megas` | Sim |
+| `513943ec` | `0` | `Contrato de Comodato_ADM Megas` | Sim |
 
-### Mudanças
+Os registros corretos já foram importados pelo parser baseado em header. Basta deletar esses 3 lixo.
 
-**1. Migration SQL — Limpar registros ruins**
-- Deletar registros onde `numero_requisicao` contém padrão de número Fluig (formato `XXX.XXX` com 6+ caracteres) e já existe um registro correto com esse valor em `numero_fluig`
-- Deletar registros duplicados com mapeamento errado
+### Solução
 
-**2. Modal de Detalhes da Requisição**
-- Criar `ProjurisDetalhesModal.tsx` — modal que abre ao clicar em qualquer linha
-- Exibe todas as informações: Nº Requisição, Nº Fluig, Status, Responsável, Requisitante, Empreendimento, Tipo Requisição, Cliente/Fornecedor, todas as datas formatadas, e **Detalhes** (texto completo com scroll)
-- Layout limpo com cards de resumo no topo e seção de detalhes expandida
+**Migration SQL** — Deletar os 3 registros por ID:
 
-**3. Simplificar a tabela (`ProjurisVisaoStatus.tsx`)**
-- Remover colunas que poluem: Detalhes, Cliente/Fornecedor, datas individuais
-- Manter apenas: Seq (drag), Nº Req., Status, Responsável, Empreendimento, Últ. Atualização
-- Ao clicar na linha → abre o modal de detalhes
-- Cursor pointer nas linhas para indicar clicabilidade
+```sql
+DELETE FROM public.projuris_requisicoes
+WHERE id IN (
+  'e9e9086d-a171-4dc9-8550-9994eed25492',
+  '323d062b-cc19-4ef7-b4f0-f635ef522455',
+  '513943ec-1c0a-4d3d-95a5-18259f76b9bd'
+);
+```
 
-### Arquivos
-
-| Arquivo | Ação |
-|---------|------|
-| Migration SQL | Deletar registros com mapeamento antigo errado |
-| `src/components/monitoramento/projuris/ProjurisDetalhesModal.tsx` | Criar — modal de detalhes |
-| `src/components/monitoramento/projuris/ProjurisVisaoStatus.tsx` | Simplificar colunas + integrar modal |
+Nenhuma alteração de código necessária — apenas a limpeza de dados.
 
