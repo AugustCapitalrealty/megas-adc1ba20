@@ -1,90 +1,46 @@
 
 
-## Plano: Alimentar Projuris com dados da planilha CSV
+## Correções no Painel Projuris
 
-### Contexto
+### Problemas identificados
 
-A planilha `Megas_2.0.csv` contém ~10.000 registros do Projuris com colunas:
-- A: Data da Requisição
-- B: Data da última aprovação
-- C: Data do último envio para aprovação
-- D: Detalhes
-- E: Empreendimento
-- F: Nº Fluig
-- G: Número Requisição (= número Fluig interno)
-- H: Requisitante
-- I: Tipo Requisição
-- J: Usuários responsáveis
-- K: Status
-- L: Data da finalização
-- M: Cliente/Fornecedor
+1. **Colunas por posição fixa**: O import usa `row[0]`, `row[6]`, etc. — quando a planilha muda a ordem das colunas, os dados ficam errados. A nova planilha tem ordem diferente (col 0 = Data finalização, antes era Data Requisição).
 
-### O que será feito
+2. **Número Requisição vs Nº Fluig**: "Número Requisição" é o identificador do Projuris. "Nº Fluig" é o número Fluig. O import precisa mapear pelo **header** e não pela posição.
 
-**1. Nova tabela `projuris_requisicoes`**
+3. **Exibir data da última atualização**: Mostrar `updated_at` (data/hora da última importação) na tela.
 
-Armazena os dados importados da planilha:
+4. **Tela separada para finalizadas**: A visão principal mostra apenas em aberto; finalizadas/canceladas/reprovadas ficam em outra sub-aba.
 
-| Coluna | Tipo | Origem CSV |
-|--------|------|-----------|
-| id | uuid PK | auto |
-| numero_requisicao | text UNIQUE | Col G |
-| numero_fluig | text | Col F |
-| data_requisicao | timestamptz | Col A |
-| data_ultima_aprovacao | timestamptz | Col B |
-| data_ultimo_envio_aprovacao | timestamptz | Col C |
-| detalhes | text | Col D |
-| empreendimento | text | Col E |
-| requisitante | text | Col H |
-| tipo_requisicao | text | Col I |
-| responsavel | text | Col J |
-| status | text | Col K |
-| data_finalizacao | timestamptz | Col L |
-| cliente_fornecedor | text | Col M |
-| ordem_prioridade | integer | Para drag-and-drop |
-| importado_por | uuid | user_id |
-| importado_em | timestamptz | auto |
+---
 
-RLS: backoffice/admin pode CRUD, usuários autenticados podem SELECT.
+### Mudanças
 
-**2. Importador CSV no TabProjuris**
+**`ProjurisImport.tsx`** — Refatorar para mapeamento dinâmico por header:
+- Ler a primeira linha (header), normalizar removendo acentos e lowercase
+- Mapear cada coluna pelo nome (ex: "numero requisicao" → campo `numero_requisicao`, "n fluig" → `numero_fluig`, "status" → `status`, etc.)
+- Não depender mais de índices fixos
+- Usar "Número Requisição" como chave primária (`numero_requisicao`)
 
-- Botão "Importar Planilha Projuris" no topo
-- Parser CSV (semicolon-separated, encoding latin1)
-- Upsert por `numero_requisicao`
-- Resumo de importação (novos, atualizados)
+**`ProjurisVisaoStatus.tsx`** — Filtrar apenas registros em aberto:
+- Query padrão exclui `FINALIZADA`, `CANCELADA`, `REPROVADA`
+- Adicionar coluna "Últ. Atualização" mostrando `updated_at` formatado com data e hora
+- KPIs contam apenas os em aberto
 
-**3. Reescrever ProjurisVisaoStatus**
+**`TabProjuris.tsx`** — Adicionar 5ª sub-aba "Finalizadas":
+- Nova aba mostra somente registros com status `FINALIZADA`, `CANCELADA`, `REPROVADA`
+- Tabela simples sem drag-and-drop, apenas consulta
 
-Ao invés de buscar de `solicitacoes` + `acompanhamento_juridico`, passa a buscar de `projuris_requisicoes`:
+**Novo: `ProjurisFinalizadas.tsx`** — Componente para a aba de finalizadas:
+- Lista read-only com filtros de busca e empreendimento
+- Sem drag-and-drop
 
-- KPIs no topo baseados no campo `status` do CSV
-- Tabela com: Nº Requisição, Status (col K), Responsável (col J), Datas A/B/C, Empreendimento, Tipo, Cliente/Fornecedor
-- Filtros por Status, Empreendimento, Responsável
-- **Coluna "Sequência"** com numeração 1, 2, 3... e **drag-and-drop** para reordenar (salva `ordem_prioridade` no banco)
-- O usuário arrasta as linhas para priorizar, tira um print e envia
-
-**4. Atualizar demais sub-abas**
-
-- **Parados Assinatura**: filtra `projuris_requisicoes` onde status indica aguardando assinatura e calcula dias parado com base nas datas
-- **Fluxo de Aprovações**: usa as datas A/B/C para mostrar timeline de cada requisição
-- **Compliance**: mantém a lógica atual (solicitações internas sem Projuris)
-
-### Detalhes Técnicos
-
-**Drag-and-drop**: Usar `@dnd-kit/core` + `@dnd-kit/sortable` para reordenação de linhas na tabela. Ao soltar, atualiza `ordem_prioridade` no banco.
-
-**Parsing CSV**: O arquivo usa `;` como separador e encoding latin1. Campos com aspas podem conter quebras de linha (multi-line). Será parseado no frontend com tratamento adequado.
-
-### Arquivos a criar/modificar
+### Arquivos
 
 | Arquivo | Ação |
 |---------|------|
-| Migration SQL | Criar tabela `projuris_requisicoes` com RLS |
-| `src/components/monitoramento/projuris/ProjurisImport.tsx` | Novo — importador CSV |
-| `src/components/monitoramento/projuris/ProjurisVisaoStatus.tsx` | Reescrever — dados do CSV + drag-and-drop sequência |
-| `src/components/monitoramento/projuris/ProjurisParadosAssinatura.tsx` | Adaptar — dados do CSV |
-| `src/components/monitoramento/projuris/ProjurisFluxoAprovacoes.tsx` | Adaptar — timeline com datas A/B/C |
-| `src/components/monitoramento/TabProjuris.tsx` | Adicionar botão de importação |
-| `package.json` | Adicionar `@dnd-kit/core` e `@dnd-kit/sortable` |
+| `src/components/monitoramento/projuris/ProjurisImport.tsx` | Refatorar parser para mapear por header |
+| `src/components/monitoramento/projuris/ProjurisVisaoStatus.tsx` | Filtrar em aberto + coluna updated_at |
+| `src/components/monitoramento/projuris/ProjurisFinalizadas.tsx` | Criar — aba de finalizadas |
+| `src/components/monitoramento/TabProjuris.tsx` | Adicionar aba "Finalizadas" |
 
