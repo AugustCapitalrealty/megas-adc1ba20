@@ -1,37 +1,31 @@
 
 
-## Melhorias na Tela Projuris — Visão por Status
+## Melhorias no Vínculo e Reorganização — Projuris
+
+### Problemas
+
+1. O hyperlink de vínculo redireciona para `/backoffice?id=...` — deveria abrir o `OCDetalhesModal` diretamente com os detalhes da solicitação
+2. O visual do link está ruim (texto pequeno, pouco destaque)
+3. A ordem das colunas precisa ser reorganizada para melhor leitura
 
 ### Mudanças
 
-**1. Remover coluna "Últ. Atualização" da tabela — mover para abaixo do botão de importar**
-- No `TabProjuris.tsx`, exibir a data/hora da última importação (mais recente `updated_at` dos registros) como texto pequeno abaixo do botão de importar planilha.
-- Na tabela de `ProjurisVisaoStatus`, remover a coluna "Últ. Atualização".
+**1. Vínculo abre OCDetalhesModal ao invés de navegar**
+- Na tabela (`ProjurisVisaoStatus.tsx`): ao clicar no vínculo, abrir o `OCDetalhesModal` com o `solicitacaoId` e `protocolo`
+- No modal de detalhes (`ProjurisDetalhesModal.tsx`): mesmo comportamento — o botão de vínculo abre o `OCDetalhesModal`
+- Adicionar estado para controlar o modal de detalhes da solicitação
 
-**2. Adicionar novas colunas na tabela**
-- **Data Requisição**: Formatar `data_requisicao` como `dd/MM/yyyy`
-- **Tempo Parado**: Calcular dias entre `data_requisicao` (ou `data_ultimo_envio_aprovacao` para quem está aguardando aprovação) e hoje. Exibir com badge colorido (verde < 7d, amarelo 7-14d, vermelho > 14d)
-- **Fornecedor**: Exibir `cliente_fornecedor` truncado (apenas nome, sem CNPJ, pegar antes do " - ")
+**2. Melhorar visual do vínculo**
+- Badge colorido com ícone ao invés de link simples
+- Mais visível e consistente com o design do sistema
 
-**3. Vincular com solicitações internas**
-- Após carregar os dados do Projuris, buscar na tabela `solicitacoes` os registros onde `numero_projuris` corresponde ao `numero_requisicao` do Projuris
-- Quando existir match, mostrar um ícone/badge clicável com o protocolo da solicitação interna na linha
-- No modal de detalhes, exibir a solicitação vinculada com link
-
-### Colunas finais da tabela
-Seq. | Nº Req. | Status | Responsável | Empreendimento | Data Req. | Tempo Parado | Fornecedor | Vínculo
+**3. Reorganizar ordem das colunas**
+Nova ordem: Seq. | Nº Req. | Fornecedor | Empreend. | Status | Responsável | Data Req. | Parado | Vínculo
 
 ### Arquivos
 
 | Arquivo | Ação |
 |---------|------|
-| `src/components/monitoramento/projuris/ProjurisVisaoStatus.tsx` | Trocar colunas, adicionar tempo parado, fornecedor, vínculo com solicitações |
-| `src/components/monitoramento/TabProjuris.tsx` | Mover última atualização para abaixo do import |
-| `src/components/monitoramento/projuris/ProjurisDetalhesModal.tsx` | Adicionar seção de solicitação vinculada |
-
-### Detalhes técnicos
-
-- **Vínculo**: Query `supabase.from('solicitacoes').select('id, protocolo, numero_projuris, status').not('numero_projuris', 'is', null)` → criar mapa `numero_projuris → {protocolo, id, status}`
-- **Tempo parado**: `differenceInDays(new Date(), new Date(row.data_requisicao))` usando date-fns
-- **Fornecedor**: `row.cliente_fornecedor?.split(' - ')[0]` para pegar só o nome
+| `src/components/monitoramento/projuris/ProjurisVisaoStatus.tsx` | Reorganizar colunas, integrar OCDetalhesModal para vínculo |
+| `src/components/monitoramento/projuris/ProjurisDetalhesModal.tsx` | Vínculo abre OCDetalhesModal ao invés de navegar |
 
