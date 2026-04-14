@@ -18,6 +18,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { ProjurisDetalhesModal } from './ProjurisDetalhesModal';
+import { OCDetalhesModal } from '../OCDetalhesModal';
 
 interface ProjurisRow {
   id: string;
@@ -79,7 +80,13 @@ function getFornecedorNome(cf: string | null): string {
   return parts[0]?.trim() || '—';
 }
 
-function SortableRow({ row, index, onSelect, vinculo }: { row: ProjurisRow; index: number; onSelect: (r: ProjurisRow) => void; vinculo?: SolicitacaoVinculo }) {
+function SortableRow({ row, index, onSelect, vinculo, onOpenVinculo }: {
+  row: ProjurisRow;
+  index: number;
+  onSelect: (r: ProjurisRow) => void;
+  vinculo?: SolicitacaoVinculo;
+  onOpenVinculo: (v: SolicitacaoVinculo) => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: row.id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
   const tempo = getTempoParado(row);
@@ -95,31 +102,34 @@ function SortableRow({ row, index, onSelect, vinculo }: { row: ProjurisRow; inde
         </div>
       </TableCell>
       <TableCell className="font-mono text-sm font-medium">{row.numero_requisicao}</TableCell>
+      <TableCell className="text-sm max-w-[140px] truncate">{getFornecedorNome(row.cliente_fornecedor)}</TableCell>
+      <TableCell className="text-sm max-w-[120px] truncate">{row.empreendimento || '—'}</TableCell>
       <TableCell>
         <Badge className={cn('text-xs', STATUS_COLORS[row.status || ''] || 'bg-muted text-muted-foreground')}>
           {row.status || '—'}
         </Badge>
       </TableCell>
       <TableCell className="text-sm max-w-[140px] truncate">{row.responsavel || '—'}</TableCell>
-      <TableCell className="text-sm max-w-[120px] truncate">{row.empreendimento || '—'}</TableCell>
       <TableCell className="text-xs">{formatDate(row.data_requisicao)}</TableCell>
       <TableCell>
         {tempo ? (
           <Badge className={cn('text-xs', tempo.color)}>{tempo.days}d</Badge>
         ) : '—'}
       </TableCell>
-      <TableCell className="text-xs max-w-[140px] truncate">{getFornecedorNome(row.cliente_fornecedor)}</TableCell>
       <TableCell onClick={e => e.stopPropagation()}>
         {vinculo ? (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <a href={`/backoffice?id=${vinculo.id}`} className="inline-flex items-center gap-1 text-xs font-mono text-primary hover:underline">
-                  <Link2 className="h-3 w-3" />
+                <button
+                  onClick={() => onOpenVinculo(vinculo)}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-xs font-semibold"
+                >
+                  <Link2 className="h-3.5 w-3.5" />
                   {vinculo.protocolo}
-                </a>
+                </button>
               </TooltipTrigger>
-              <TooltipContent><p>Solicitação interna vinculada</p></TooltipContent>
+              <TooltipContent><p>Ver detalhes da solicitação interna</p></TooltipContent>
             </Tooltip>
           </TooltipProvider>
         ) : <span className="text-xs text-muted-foreground">—</span>}
@@ -136,6 +146,7 @@ export function ProjurisVisaoStatus() {
   const [filterEmpreendimento, setFilterEmpreendimento] = useState('all');
   const [selectedRow, setSelectedRow] = useState<ProjurisRow | null>(null);
   const [vinculos, setVinculos] = useState<Record<string, SolicitacaoVinculo>>({});
+  const [vinculoModal, setVinculoModal] = useState<{ id: string; protocolo: string } | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -158,7 +169,6 @@ export function ProjurisVisaoStatus() {
     ]);
     setRows((projurisData as ProjurisRow[]) || []);
     
-    // Build vinculos map: numero_projuris -> solicitacao
     const map: Record<string, SolicitacaoVinculo> = {};
     if (solData) {
       for (const s of solData) {
@@ -217,6 +227,10 @@ export function ProjurisVisaoStatus() {
     }
   };
 
+  const handleOpenVinculo = useCallback((v: SolicitacaoVinculo) => {
+    setVinculoModal({ id: v.id, protocolo: v.protocolo });
+  }, []);
+
   if (loading) {
     return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
@@ -270,12 +284,12 @@ export function ProjurisVisaoStatus() {
                 <TableRow>
                   <TableHead className="w-16">Seq.</TableHead>
                   <TableHead>Nº Req.</TableHead>
+                  <TableHead>Fornecedor</TableHead>
+                  <TableHead>Empreend.</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Responsável</TableHead>
-                  <TableHead>Empreend.</TableHead>
                   <TableHead>Data Req.</TableHead>
                   <TableHead>Parado</TableHead>
-                  <TableHead>Fornecedor</TableHead>
                   <TableHead>Vínculo</TableHead>
                 </TableRow>
               </TableHeader>
@@ -290,6 +304,7 @@ export function ProjurisVisaoStatus() {
                       index={i}
                       onSelect={setSelectedRow}
                       vinculo={vinculos[row.numero_requisicao]}
+                      onOpenVinculo={handleOpenVinculo}
                     />
                   ))
                 )}
@@ -304,6 +319,14 @@ export function ProjurisVisaoStatus() {
         open={!!selectedRow}
         onOpenChange={open => { if (!open) setSelectedRow(null); }}
         vinculo={selectedRow ? vinculos[selectedRow.numero_requisicao] : undefined}
+        onOpenVinculo={handleOpenVinculo}
+      />
+
+      <OCDetalhesModal
+        open={!!vinculoModal}
+        onOpenChange={open => { if (!open) setVinculoModal(null); }}
+        solicitacaoId={vinculoModal?.id || null}
+        protocolo={vinculoModal?.protocolo || null}
       />
     </div>
   );
