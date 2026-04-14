@@ -127,11 +127,15 @@ export function ProjurisImport({ onImported }: { onImported: () => void }) {
 
       if (rows.length < 2) throw new Error('Arquivo vazio ou formato inválido');
 
-      const colMap = buildColumnMap(rows[0]);
+      const headerRow = rows[0];
+      const colMap = buildColumnMap(headerRow);
+      const expectedCols = headerRow.length;
 
       if (!('numero_requisicao' in colMap)) {
-        throw new Error('Coluna "Número Requisição" não encontrada no cabeçalho. Colunas detectadas: ' + rows[0].join(', '));
+        throw new Error('Coluna "Número Requisição" não encontrada no cabeçalho. Colunas detectadas: ' + headerRow.join(', '));
       }
+
+      const detalhesIdx = colMap['detalhes'];
 
       const dataRows = rows.slice(1);
       const res: ImportResult = { inserted: 0, errors: [] };
@@ -140,6 +144,14 @@ export function ProjurisImport({ onImported }: { onImported: () => void }) {
       for (let i = 0; i < dataRows.length; i += batchSize) {
         const batch = dataRows.slice(i, i + batchSize);
         const records = batch.map((row, idx) => {
+          // Fix rows with extra columns caused by unescaped quotes in Detalhes
+          if (row.length > expectedCols && detalhesIdx !== undefined) {
+            const extraCols = row.length - expectedCols;
+            const detalhesEnd = detalhesIdx + extraCols + 1;
+            const fixedDetalhes = row.slice(detalhesIdx, detalhesEnd).join(';');
+            row.splice(detalhesIdx, extraCols + 1, fixedDetalhes);
+          }
+
           const get = (field: string) => {
             const colIdx = colMap[field];
             return colIdx !== undefined ? row[colIdx]?.trim() || null : null;
@@ -148,6 +160,12 @@ export function ProjurisImport({ onImported }: { onImported: () => void }) {
           const numReq = get('numero_requisicao');
           if (!numReq) {
             res.errors.push(`Linha ${i + idx + 2}: Número Requisição vazio`);
+            return null;
+          }
+
+          // Validate numero_requisicao — reject obviously wrong values
+          if (numReq.includes('.') || numReq.length > 10 || numReq === '0' || numReq === '00') {
+            res.errors.push(`Linha ${i + idx + 2}: numero_requisicao inválido: ${numReq}`);
             return null;
           }
 
