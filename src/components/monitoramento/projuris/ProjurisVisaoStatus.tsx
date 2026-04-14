@@ -16,6 +16,7 @@ import {
   arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { ProjurisDetalhesModal } from './ProjurisDetalhesModal';
 
 interface ProjurisRow {
   id: string;
@@ -23,9 +24,11 @@ interface ProjurisRow {
   numero_fluig: string | null;
   status: string | null;
   responsavel: string | null;
+  requisitante: string | null;
   data_requisicao: string | null;
   data_ultima_aprovacao: string | null;
   data_ultimo_envio_aprovacao: string | null;
+  data_finalizacao: string | null;
   empreendimento: string | null;
   tipo_requisicao: string | null;
   cliente_fornecedor: string | null;
@@ -44,23 +47,18 @@ const STATUS_COLORS: Record<string, string> = {
   'AGUARDANDO INFORMAÇÕES': 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
 };
 
-function formatDate(d: string | null) {
-  if (!d) return '—';
-  try { return format(new Date(d), 'dd/MM/yyyy'); } catch { return '—'; }
-}
-
 function formatDateTime(d: string | null) {
   if (!d) return '—';
   try { return format(new Date(d), 'dd/MM/yyyy HH:mm'); } catch { return '—'; }
 }
 
-function SortableRow({ row, index }: { row: ProjurisRow; index: number }) {
+function SortableRow({ row, index, onSelect }: { row: ProjurisRow; index: number; onSelect: (r: ProjurisRow) => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: row.id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
 
   return (
-    <TableRow ref={setNodeRef} style={style} className={cn(isDragging && 'bg-muted')}>
-      <TableCell className="w-12 text-center">
+    <TableRow ref={setNodeRef} style={style} className={cn('cursor-pointer hover:bg-muted/50', isDragging && 'bg-muted')} onClick={() => onSelect(row)}>
+      <TableCell className="w-12 text-center" onClick={e => e.stopPropagation()}>
         <div className="flex items-center gap-1">
           <button {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded">
             <GripVertical className="h-4 w-4 text-muted-foreground" />
@@ -75,11 +73,7 @@ function SortableRow({ row, index }: { row: ProjurisRow; index: number }) {
         </Badge>
       </TableCell>
       <TableCell className="text-sm max-w-[180px] truncate">{row.responsavel || '—'}</TableCell>
-      <TableCell className="text-xs text-muted-foreground">{formatDate(row.data_requisicao)}</TableCell>
-      <TableCell className="text-xs text-muted-foreground">{formatDate(row.data_ultima_aprovacao)}</TableCell>
-      <TableCell className="text-xs text-muted-foreground">{formatDate(row.data_ultimo_envio_aprovacao)}</TableCell>
       <TableCell className="text-sm">{row.empreendimento || '—'}</TableCell>
-      <TableCell className="text-sm max-w-[180px] truncate">{row.cliente_fornecedor || '—'}</TableCell>
       <TableCell className="text-xs text-muted-foreground">{formatDateTime(row.updated_at)}</TableCell>
     </TableRow>
   );
@@ -91,6 +85,7 @@ export function ProjurisVisaoStatus() {
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterEmpreendimento, setFilterEmpreendimento] = useState('all');
+  const [selectedRow, setSelectedRow] = useState<ProjurisRow | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -101,7 +96,7 @@ export function ProjurisVisaoStatus() {
     setLoading(true);
     const { data } = await supabase
       .from('projuris_requisicoes')
-      .select('id, numero_requisicao, numero_fluig, status, responsavel, data_requisicao, data_ultima_aprovacao, data_ultimo_envio_aprovacao, empreendimento, tipo_requisicao, cliente_fornecedor, detalhes, ordem_prioridade, updated_at')
+      .select('id, numero_requisicao, numero_fluig, status, responsavel, requisitante, data_requisicao, data_ultima_aprovacao, data_ultimo_envio_aprovacao, data_finalizacao, empreendimento, tipo_requisicao, cliente_fornecedor, detalhes, ordem_prioridade, updated_at')
       .not('status', 'in', `(${CLOSED_STATUSES.join(',')})`)
       .order('ordem_prioridade', { ascending: true, nullsFirst: false })
       .order('data_requisicao', { ascending: false });
@@ -210,25 +205,23 @@ export function ProjurisVisaoStatus() {
                   <TableHead>Nº Req.</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Responsável</TableHead>
-                  <TableHead>Data Req.</TableHead>
-                  <TableHead>Últ. Aprov.</TableHead>
-                  <TableHead>Últ. Envio Aprov.</TableHead>
                   <TableHead>Empreendimento</TableHead>
-                  <TableHead>Cliente/Fornecedor</TableHead>
                   <TableHead>Últ. Atualização</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredRows.length === 0 ? (
-                  <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground">Nenhum registro encontrado</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhum registro encontrado</TableCell></TableRow>
                 ) : (
-                  filteredRows.map((row, i) => <SortableRow key={row.id} row={row} index={i} />)
+                  filteredRows.map((row, i) => <SortableRow key={row.id} row={row} index={i} onSelect={setSelectedRow} />)
                 )}
               </TableBody>
             </Table>
           </SortableContext>
         </DndContext>
       </ScrollArea>
+
+      <ProjurisDetalhesModal row={selectedRow} open={!!selectedRow} onOpenChange={open => { if (!open) setSelectedRow(null); }} />
     </div>
   );
 }
