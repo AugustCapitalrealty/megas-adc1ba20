@@ -4,6 +4,7 @@ import { formatBR } from '@/lib/date-utils';
 import { Button } from '@/components/ui/button';
 import { SolicitacaoCard, type SolicitacaoWithDetails } from '@/components/ui/SolicitacaoCard';
 import { SolicitacaoTimeline } from '@/components/SolicitacaoTimeline';
+import { ProjurisStatusCard } from '@/components/ProjurisStatusCard';
 import { JuridicoTracker } from '@/components/JuridicoTracker';
 import { FluigStatusCard } from '@/components/FluigStatusCard';
 import { AnexoCard } from '@/components/AnexoCard';
@@ -317,9 +318,11 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
           </div>
         )}
 
-        {(((sol as any).instrumento_juridico && (sol as any).instrumento_juridico !== 'oc') || (sol as any).numero_projuris) && (
+        {(sol as any).numero_projuris ? (
+          <ProjurisStatusCard numeroProjuris={(sol as any).numero_projuris} />
+        ) : (((sol as any).instrumento_juridico && (sol as any).instrumento_juridico !== 'oc') && (
           <JuridicoTracker solicitacaoId={sol.id} readOnly />
-        )}
+        ))}
 
         {((sol as any).ia_cnae_status || (sol as any).ia_descricao_vaga !== null) && (
           <div className="space-y-2">
