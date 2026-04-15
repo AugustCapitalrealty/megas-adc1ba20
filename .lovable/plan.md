@@ -1,59 +1,51 @@
 
 
-## Correção do Parser CSV — Aspas Não-Escapadas no Campo Detalhes
+## Substituir Acompanhamento Jurídico por Card Projuris (estilo Fluig)
 
-### Causa Raiz
+### Problema
+Nas telas de detalhe da solicitação (Backoffice e Solicitante), o componente `JuridicoTracker` exibe etapas jurídicas genéricas que não refletem os dados reais do Projuris. O usuário quer substituí-lo por um card com informações do Painel Projuris, no mesmo estilo visual do `FluigStatusCard`.
 
-O parser CSV quebra quando o campo `Detalhes` (que é citado com `"`) contém aspas duplas (`"`) soltas no meio do texto (ex: medidas como `8"`, citações, etc.). Quando o parser encontra uma `"` dentro de um campo citado sem ser escapada como `""`, ele sai do modo de citação prematuramente. A partir desse ponto, qualquer `;` no texto do Detalhes é tratado como separador de campo, criando colunas extras e deslocando todos os dados da linha para a esquerda.
+### Solução
 
-Isso explica por que `numero_requisicao` recebe o valor do `numero_fluig` (ex: `2.026.000.280` ao invés de `4004`) — as colunas ficam deslocadas em 1 posição.
+**Criar novo componente `ProjurisStatusCard`** — similar ao `FluigStatusCard`:
+- Recebe `numeroProjuris: string` como prop
+- Busca dados de `projuris_requisicoes` onde `numero_requisicao = numeroProjuris`
+- Exibe:
+  - Header: `Status Projuris #4010` + Badge de status (colorido) + link "Ver no Painel"
+  - Data Requisição
+  - Responsável
+  - Tipo Requisição / Fornecedor
+  - Tempo parado (aging badge)
+  - Detalhes (colapsável se longo)
 
-### Solução (2 partes)
-
-**1. Tornar o parser CSV mais robusto** (`ProjurisImport.tsx`)
-- Mudar a estratégia: ao invés de confiar cegamente nas aspas, contar as colunas do header e validar cada linha parseada
-- Adicionar validação: se a linha parseada tiver mais colunas que o header, tentar re-juntar campos extras no campo Detalhes (que é o único campo multiline/com aspas problemáticas)
-- Adicionar validação no `numero_requisicao`: rejeitar valores que claramente não são números Projuris (ex: contém pontos como `2.026.000.280`, ou são muito curtos como `0`, `00`)
-
-**2. Limpar registros corrompidos no banco** (Migration SQL)
-- Deletar todos os registros onde `numero_requisicao` é claramente inválido (Nº Fluig, tipo requisição, etc.)
-
-### Detalhes Técnicos — Parser
-
-```typescript
-// Estratégia: após parsear a linha, se tiver mais colunas que o header,
-// juntar as colunas extras de volta no campo Detalhes (col 4)
-const expectedCols = headerRow.length; // 13
-if (row.length > expectedCols) {
-  // Colunas extras vieram do Detalhes com aspas quebradas
-  const extraCols = row.length - expectedCols;
-  const detalhesIdx = colMap['detalhes'] ?? 4;
-  const detalhesEnd = detalhesIdx + extraCols + 1;
-  const fixedDetalhes = row.slice(detalhesIdx, detalhesEnd).join(';');
-  row.splice(detalhesIdx, extraCols + 1, fixedDetalhes);
-}
-
-// Validação: numero_requisicao deve ser um número curto
-const numReq = get('numero_requisicao');
-if (!numReq || numReq.includes('.') || numReq.length > 5) {
-  res.errors.push(`Linha ${n}: numero_requisicao inválido: ${numReq}`);
-  return null;
-}
-```
-
-### Migration SQL
-
-```sql
-DELETE FROM public.projuris_requisicoes
-WHERE numero_requisicao ~ '\.'        -- contém pontos (ex: 2.026.000.280, 152.642)
-   OR numero_requisicao IN ('0', '00') -- valores vazios/curtos
-   OR length(numero_requisicao) > 10;  -- valores absurdamente longos
-```
+**Substituir `JuridicoTracker`** nos dois locais:
+- `BackofficeModals.tsx` — trocar `JuridicoTracker` por `ProjurisStatusCard` quando `numero_projuris` existir
+- `SolicitanteSolicitacaoCard.tsx` — mesmo comportamento
 
 ### Arquivos
 
 | Arquivo | Ação |
 |---------|------|
-| Migration SQL | Deletar registros corrompidos por padrão |
-| `src/components/monitoramento/projuris/ProjurisImport.tsx` | Corrigir parser: re-juntar colunas extras no Detalhes + validar numero_requisicao |
+| `src/components/ProjurisStatusCard.tsx` | **Novo** — card estilo FluigStatusCard para dados Projuris |
+| `src/components/backoffice/BackofficeModals.tsx` | Substituir `JuridicoTracker` por `ProjurisStatusCard` |
+| `src/components/solicitante/SolicitanteSolicitacaoCard.tsx` | Substituir `JuridicoTracker` por `ProjurisStatusCard` |
+
+### Visual do card (referência: FluigStatusCard)
+
+```text
+┌─────────────────────────────────────────────────────┐
+│ ⚖ Status Projuris #4010  [AGUARDANDO EXECUÇÃO]  Ver no Painel ↗ │
+│ 📅 Requisição: 10/04/2026    ⏱ Parado: 4 dias                  │
+│─────────────────────────────────────────────────────│
+│ Responsável: Fulano    Tipo: Termo de Contratação   │
+│ Fornecedor: Empresa X  Empreendimento: Mega Itajaí  │
+└─────────────────────────────────────────────────────┘
+```
+
+### Detalhes técnicos
+- Query: `supabase.from('projuris_requisicoes').select('*').eq('numero_requisicao', numeroProjuris).maybeSingle()`
+- Aging: `differenceInDays(new Date(), new Date(data_ultimo_envio_aprovacao || data_requisicao))`
+- Link "Ver no Painel": navegar para `/monitoramento-oc` com tab Projuris (ou simplesmente `Link` para a página)
+- Status colors: reutilizar o mapa `STATUS_COLORS` já existente no Projuris
+- Manter `JuridicoTracker` apenas quando NÃO houver `numero_projuris` (fallback para contratos sem vínculo Projuris)
 
