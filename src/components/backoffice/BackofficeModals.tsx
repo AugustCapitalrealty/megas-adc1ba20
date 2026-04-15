@@ -23,6 +23,7 @@ import { DescriptionQualityBadge } from '@/components/DescriptionQualityBadge';
 import { MEIAlertBadge } from '@/components/MEIAlertBadge';
 import { EscopoMinutaCard } from '@/components/EscopoMinutaCard';
 import { InstrumentoJuridicoBadge } from '@/components/InstrumentoJuridicoBadge';
+import { ProjurisStatusCard } from '@/components/ProjurisStatusCard';
 import { JuridicoTracker } from '@/components/JuridicoTracker';
 import { RateioCard } from '@/components/RateioCard';
 import { FluigStatusCard } from '@/components/FluigStatusCard';
@@ -424,10 +425,12 @@ export function BackofficeModals(props: BackofficeModalsProps) {
                   </div>
                 )}
 
-                {/* Acompanhamento Jurídico */}
-                {(((detalhes.solicitacao as any).instrumento_juridico && (detalhes.solicitacao as any).instrumento_juridico !== 'oc') || (detalhes.solicitacao as any).numero_projuris) && (
+                {/* Status Projuris */}
+                {(detalhes.solicitacao as any).numero_projuris ? (
+                  <ProjurisStatusCard numeroProjuris={(detalhes.solicitacao as any).numero_projuris} />
+                ) : (((detalhes.solicitacao as any).instrumento_juridico && (detalhes.solicitacao as any).instrumento_juridico !== 'oc') && (
                   <JuridicoTracker solicitacaoId={detalhes.solicitacao.id} />
-                )}
+                ))}
 
                 {/* Escopo Detalhado para Minuta */}
                 {(detalhes.solicitacao as any).escopo_detalhado_minuta && (
