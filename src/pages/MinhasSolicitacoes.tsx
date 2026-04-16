@@ -340,16 +340,34 @@ export default function MinhasSolicitacoes() {
     return sortWithFavorites(filtered);
   }, [solicitacoes, activeTab, debouncedSearch, sortWithFavorites, viewMode, empreendimentoFilter, sortBy]);
 
+  // Base filtered (search + empreendimento) — used for tab counts so they reflect active filters
+  const solicitacoesFiltradasBase = useMemo(() => {
+    let filtered = [...solicitacoes];
+    if (viewMode === 'empreendimento' && empreendimentoFilter !== 'todos') {
+      filtered = filtered.filter(s => s.empreendimento === empreendimentoFilter);
+    }
+    if (debouncedSearch.trim()) {
+      const searchLower = debouncedSearch.toLowerCase();
+      filtered = filtered.filter(s =>
+        s.protocolo.toLowerCase().includes(searchLower) ||
+        s.descricao.toLowerCase().includes(searchLower) ||
+        s.fornecedor?.razao_social?.toLowerCase().includes(searchLower) ||
+        s.fornecedor?.nome_fantasia?.toLowerCase().includes(searchLower)
+      );
+    }
+    return filtered;
+  }, [solicitacoes, viewMode, empreendimentoFilter, debouncedSearch]);
+
   const statusCounts = useMemo(() => ({
-    todas: solicitacoes.length,
-    com_backoffice: solicitacoes.filter(s => ['recebido', 'em_analise', 'aprovado', 'em_processamento'].includes(s.status)).length,
-    correcoes: solicitacoes.filter(s => s.status === 'pendente_correcao' || s.status === 'aguardando_informacoes').length,
-    oc_emitida: solicitacoes.filter(s => s.status === 'aguardando_aceite' || s.status === 'oc_ac_emitida').length,
-    liberadas: solicitacoes.filter(s => s.status === 'liberado_fornecedor' || s.status === 'aguardando_execucao').length,
-    enviadas: solicitacoes.filter(s => ['enviado_fornecedor', 'aguardando_nf_boleto', 'nf_boleto_enviados'].includes(s.status)).length,
-    canceladas: solicitacoes.filter(s => s.status === 'rejeitado' || s.status === 'cancelado').length,
-    concluidas: solicitacoes.filter(s => s.status === 'concluida' || s.status === 'enviado_pagamento').length,
-  }), [solicitacoes]);
+    todas: solicitacoesFiltradasBase.length,
+    com_backoffice: solicitacoesFiltradasBase.filter(s => ['recebido', 'em_analise', 'aprovado', 'em_processamento'].includes(s.status)).length,
+    correcoes: solicitacoesFiltradasBase.filter(s => s.status === 'pendente_correcao' || s.status === 'aguardando_informacoes').length,
+    oc_emitida: solicitacoesFiltradasBase.filter(s => s.status === 'aguardando_aceite' || s.status === 'oc_ac_emitida').length,
+    liberadas: solicitacoesFiltradasBase.filter(s => s.status === 'liberado_fornecedor' || s.status === 'aguardando_execucao').length,
+    enviadas: solicitacoesFiltradasBase.filter(s => ['enviado_fornecedor', 'aguardando_nf_boleto', 'nf_boleto_enviados'].includes(s.status)).length,
+    canceladas: solicitacoesFiltradasBase.filter(s => s.status === 'rejeitado' || s.status === 'cancelado').length,
+    concluidas: solicitacoesFiltradasBase.filter(s => s.status === 'concluida' || s.status === 'enviado_pagamento').length,
+  }), [solicitacoesFiltradasBase]);
 
   // ==================== Unread Messages ====================
 
@@ -709,7 +727,7 @@ export default function MinhasSolicitacoes() {
     setAceiteLoading(true);
     try {
       const { data: updatedRows, error: updateError } = await supabase
-        .from('solicitacoes').update({ status: 'em_processamento' as any }).eq('id', aceiteSolicitacao.id).select('id, status');
+        .from('solicitacoes').update({ status: 'recebido' as any }).eq('id', aceiteSolicitacao.id).select('id, status');
 
       if (updateError || !updatedRows || updatedRows.length === 0) {
         throw new Error(updateError?.message || 'Atualização bloqueada por permissão.');
@@ -717,7 +735,7 @@ export default function MinhasSolicitacoes() {
 
       await supabase.from('historico_solicitacoes').insert({
         solicitacao_id: aceiteSolicitacao.id, user_id: user.id, acao: 'ajuste_solicitado',
-        status_anterior: 'aguardando_aceite', status_novo: 'em_processamento', motivo: aceiteAjuste,
+        status_anterior: 'aguardando_aceite', status_novo: 'recebido', motivo: aceiteAjuste,
       });
 
       toast({ title: 'Ajuste solicitado', description: 'O backoffice receberá seu pedido de ajuste.' });
