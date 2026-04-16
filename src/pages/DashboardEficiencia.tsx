@@ -126,6 +126,7 @@ export default function DashboardEficiencia() {
     topFornecedores,
     canceladasPorPrazo,
     canceladasPorPrazoPercent,
+    ocStatus,
     isLoading,
     refetch,
   } = useEficienciaDashboard(filters);
@@ -479,6 +480,114 @@ export default function DashboardEficiencia() {
           </Card>
         </div>
         </TooltipProvider>
+
+        {/* OC Faturada vs Em Aberto */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <BarChart3 className="h-4 w-4 text-primary" />
+              OCs Faturadas vs Em Aberto
+            </CardTitle>
+            <CardDescription className="text-xs">
+              OC = "Faturada" quando há NF anexada. Aging conta dias corridos desde a emissão da OC.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <Skeleton className="h-32 w-full" />
+            ) : ocStatus.total === 0 ? (
+              <div className="text-center text-sm text-muted-foreground py-6">
+                Nenhuma OC emitida no período selecionado.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Counts row */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="rounded-lg border bg-success/5 border-success/20 p-4">
+                    <div className="flex items-center gap-2 text-success">
+                      <span className="text-xs uppercase tracking-wide font-medium">Faturadas</span>
+                    </div>
+                    <p className="text-3xl font-bold mt-1">
+                      {ocStatus.faturadas}
+                      <span className="text-sm font-normal text-muted-foreground ml-2">
+                        ({ocStatus.percentFaturada}%)
+                      </span>
+                    </p>
+                  </div>
+                  <div className={cn(
+                    "rounded-lg border p-4",
+                    ocStatus.agingBuckets.mais30 > 0 ? "bg-destructive/5 border-destructive/20" : "bg-warning/5 border-warning/20"
+                  )}>
+                    <div className={cn(
+                      "flex items-center gap-2",
+                      ocStatus.agingBuckets.mais30 > 0 ? "text-destructive" : "text-warning"
+                    )}>
+                      <span className="text-xs uppercase tracking-wide font-medium">Em Aberto</span>
+                    </div>
+                    <p className="text-3xl font-bold mt-1">
+                      {ocStatus.emAberto}
+                      <span className="text-sm font-normal text-muted-foreground ml-2">
+                        ({100 - ocStatus.percentFaturada}%)
+                      </span>
+                    </p>
+                  </div>
+                </div>
+
+                {/* Stacked bar */}
+                <div className="space-y-1.5">
+                  <div className="flex h-3 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="bg-success transition-all"
+                      style={{ width: `${ocStatus.percentFaturada}%` }}
+                    />
+                    <div
+                      className={cn(
+                        "transition-all",
+                        ocStatus.agingBuckets.mais30 > 0 ? "bg-destructive" : "bg-warning"
+                      )}
+                      style={{ width: `${100 - ocStatus.percentFaturada}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Total: {ocStatus.total} OCs</span>
+                  </div>
+                </div>
+
+                {/* Aging buckets */}
+                {ocStatus.emAberto > 0 && (
+                  <div className="pt-2 border-t">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">
+                      Em aberto por idade (dias corridos)
+                    </p>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="rounded-md border p-2.5 text-center">
+                        <p className="text-xs text-muted-foreground">0–15 dias</p>
+                        <p className="text-xl font-semibold mt-0.5">{ocStatus.agingBuckets.ate15}</p>
+                      </div>
+                      <div className="rounded-md border border-warning/30 bg-warning/5 p-2.5 text-center">
+                        <p className="text-xs text-warning">16–30 dias</p>
+                        <p className="text-xl font-semibold mt-0.5">{ocStatus.agingBuckets.de16a30}</p>
+                      </div>
+                      <div className={cn(
+                        "rounded-md border p-2.5 text-center",
+                        ocStatus.agingBuckets.mais30 > 0 ? "border-destructive/40 bg-destructive/5" : ""
+                      )}>
+                        <p className={cn(
+                          "text-xs flex items-center justify-center gap-1",
+                          ocStatus.agingBuckets.mais30 > 0 ? "text-destructive" : "text-muted-foreground"
+                        )}>
+                          {ocStatus.agingBuckets.mais30 > 0 && <AlertTriangle className="h-3 w-3" />}
+                          {'>'}30 dias
+                        </p>
+                        <p className="text-xl font-semibold mt-0.5">{ocStatus.agingBuckets.mais30}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Row: Retrabalho + Lead Time por Empreendimento */}
         <div className="grid gap-6 lg:grid-cols-3">
