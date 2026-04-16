@@ -528,6 +528,87 @@ export function useEficienciaDashboard(filters: EficienciaFilters) {
     ? Math.round((canceladasPorPrazo / canceladasPorPrazoData.total) * 100) 
     : 0;
 
+  // Comparativo OC Faturada vs Em Aberto
+  const { data: ocStatusData } = useQuery({
+    queryKey: ['eficiencia-oc-status', filters],
+    queryFn: async (): Promise<OCStatusComparativo> => {
+      // 1. OCs emitidas no período
+      let docsQuery = supabase
+        .from('documentos_emitidos')
+        .select('id, solicitacao_id, created_at, tipo_documento')
+        .eq('tipo_documento', 'OC')
+        .gte('created_at', filters.dataInicio)
+        .lte('created_at', filters.dataFim + 'T23:59:59');
+
+      const { data: docs } = await docsQuery;
+      if (!docs || docs.length === 0) {
+        return { faturadas: 0, emAberto: 0, total: 0, percentFaturada: 0, agingBuckets: { ate15: 0, de16a30: 0, mais30: 0 } };
+      }
+
+      // 2. Filtro de empreendimento via solicitacoes
+      let solIds = docs.map(d => d.solicitacao_id);
+      if (filters.empreendimento) {
+        const { data: sols } = await supabase
+          .from('solicitacoes')
+          .select('id')
+          .in('id', solIds)
+          .eq('empreendimento', filters.empreendimento);
+        const allowed = new Set((sols || []).map(s => s.id));
+        const filteredDocs = docs.filter(d => allowed.has(d.solicitacao_id));
+        if (filteredDocs.length === 0) {
+          return { faturadas: 0, emAberto: 0, total: 0, percentFaturada: 0, agingBuckets: { ate15: 0, de16a30: 0, mais30: 0 } };
+        }
+        solIds = filteredDocs.map(d => d.solicitacao_id);
+        docs.length = 0;
+        docs.push(...filteredDocs);
+      }
+
+      // 3. NFs anexadas para essas solicitações
+      const { data: nfs } = await supabase
+        .from('documentos_fiscais')
+        .select('solicitacao_id')
+        .in('solicitacao_id', solIds)
+        .eq('tipo', 'NF');
+
+      const comNF = new Set((nfs || []).map(n => n.solicitacao_id));
+
+      // 4. Contagem + aging das em aberto
+      const now = new Date();
+      let faturadas = 0;
+      let emAberto = 0;
+      const aging = { ate15: 0, de16a30: 0, mais30: 0 };
+
+      docs.forEach(d => {
+        if (comNF.has(d.solicitacao_id)) {
+          faturadas++;
+        } else {
+          emAberto++;
+          const dias = Math.floor((now.getTime() - new Date(d.created_at).getTime()) / (1000 * 60 * 60 * 24));
+          if (dias <= 15) aging.ate15++;
+          else if (dias <= 30) aging.de16a30++;
+          else aging.mais30++;
+        }
+      });
+
+      const total = faturadas + emAberto;
+      return {
+        faturadas,
+        emAberto,
+        total,
+        percentFaturada: total > 0 ? Math.round((faturadas / total) * 100) : 0,
+        agingBuckets: aging,
+      };
+    },
+    enabled: !!user?.id,
+    staleTime: 120_000,
+  });
+
+  const ocStatus: OCStatusComparativo = ocStatusData || {
+    faturadas: 0, emAberto: 0, total: 0, percentFaturada: 0,
+    agingBuckets: { ate15: 0, de16a30: 0, mais30: 0 },
+  };
+
+
   return {
     entries,
     avgLeadTime: Math.round(avgLeadTime * 10) / 10,
