@@ -63,6 +63,14 @@ export interface EtapaTempo {
   avgDias: number;
 }
 
+export interface OCStatusComparativo {
+  faturadas: number;
+  emAberto: number;
+  total: number;
+  percentFaturada: number;
+  agingBuckets: { ate15: number; de16a30: number; mais30: number };
+}
+
 const HISTOGRAM_BUCKETS = [
   { label: '0d', min: 0, max: 0 },
   { label: '1-2d', min: 1, max: 2 },
