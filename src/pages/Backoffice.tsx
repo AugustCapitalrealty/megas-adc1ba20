@@ -1192,6 +1192,12 @@ export default function Backoffice() {
   const handleAprovarCancelamento = async (sol: SolicitacaoBackoffice) => {
     if (!user) return;
     setCancelamentoActionLoading(true);
+    // Optimistic update — remove from "Cancel. Pendente" tab immediately
+    setCancelamentoPendenteIds(prev => {
+      const next = new Set(prev);
+      next.delete(sol.id);
+      return next;
+    });
     try {
       await supabase
         .from('solicitacoes')
@@ -1227,6 +1233,12 @@ export default function Backoffice() {
   const handleRejeitarCancelamento = async (sol: SolicitacaoBackoffice) => {
     if (!user) return;
     setCancelamentoActionLoading(true);
+    // Optimistic update — remove from "Cancel. Pendente" tab immediately
+    setCancelamentoPendenteIds(prev => {
+      const next = new Set(prev);
+      next.delete(sol.id);
+      return next;
+    });
     try {
       await supabase
         .from('solicitacoes')

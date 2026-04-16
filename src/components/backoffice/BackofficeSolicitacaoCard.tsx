@@ -224,6 +224,15 @@ export const BackofficeSolicitacaoCard = memo(function BackofficeSolicitacaoCard
     );
   }
 
+  // Badge for "Ajuste pedido pelo solicitante" — when solicitante requested OC adjustment
+  if (sol.ultimaAcao === 'ajuste_solicitado' && sol.status === 'recebido') {
+    chips.push(
+      <Badge key="ajuste" variant="outline" className="text-[10px] gap-1 bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30">
+        <AlertTriangle className="h-3 w-3" /> Ajuste pedido pelo solicitante
+      </Badge>
+    );
+  }
+
   // ── Primary action ───────────────────────────────────
   const renderPrimaryAction = () => {
     if (sol.status === 'recebido' || sol.status === 'em_analise') {
