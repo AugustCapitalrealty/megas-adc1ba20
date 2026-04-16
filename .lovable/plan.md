@@ -1,56 +1,59 @@
 
 
-## Bugs de Visualização — Backoffice & Minhas Solicitações
+User wants a comparison on the efficiency panel between OCs that have been invoiced (faturada) vs still open (em aberto).
 
-### Bug 1 — Cancelamento aprovado não sai da aba "Cancel. Pendente"
+Let me think about what data we have:
+- `documentos_emitidos` — OCs emitted (tipo_documento = 'OC')
+- `documentos_fiscais` — NF/Boleto uploaded; has `baixa_financeiro_em` indicating sent to payment
+- `solicitacoes` — has status field
 
-**Causa:** Em `Backoffice.tsx`, `cancelamentoPendenteIds` é um Set local atualizado por `useEffect` que dispara após `solicitacoes` mudar. Quando `handleAprovarCancelamento`/`handleRejeitarCancelamento` chamam `fetchSolicitacoes()`, há uma janela onde:
-1. O DB já tem `cancelamento_pendente = false`
-2. Mas o Set local ainda contém o ID
-3. O filtro `cancelamentoPendenteIds.has(s.id)` mantém o card na aba
+Definition of "faturada" = OC has at least one NF (documento_fiscal tipo='NF') uploaded
+Definition of "em aberto" = OC emitted but no NF yet
 
-**Fix:** Atualização otimista — remover o ID do Set imediatamente no início de `handleAprovarCancelamento` e `handleRejeitarCancelamento`, antes do `await`.
+This data is already available in `useEficienciaDashboard` and `MonitoramentoOC` flows. Need to add a new section/widget on `DashboardEficiencia.tsx`.
 
-```ts
-setCancelamentoPendenteIds(prev => {
-  const next = new Set(prev);
-  next.delete(sol.id);
-  return next;
-});
+Plan structure:
+- New KPI card pair + visual comparison (donut or stacked bar) on Dashboard Eficiência
+- Respect existing filters (date range, empreendimento)
+- Add to `useEficienciaDashboard` hook a new computation returning `{ faturadas, emAberto, totalOCs, percentFaturada }` plus maybe aging buckets for em aberto
+
+Keep concise.
+
+## Comparativo OC Faturada vs Em Aberto — Dashboard Eficiência
+
+### O que vai aparecer
+
+Nova seção no `DashboardEficiencia.tsx` (entre os KPIs principais e o gráfico de Retrabalho), com:
+
+**1. Card duplo de comparativo**
+```text
+┌─────────────────────────────────────────────────────┐
+│  OCs Faturadas vs Em Aberto                         │
+│                                                     │
+│   ✅ 142 Faturadas (68%)    ⏳ 67 Em Aberto (32%)   │
+│   ████████████████████░░░░░░░░░░  (barra empilhada) │
+│                                                     │
+│   Em aberto por idade:                              │
+│   • 0-15 dias: 28    • 16-30: 22    • >30: 17 ⚠   │
+└─────────────────────────────────────────────────────┘
 ```
 
-### Bug 2 — Solicitar Ajuste de OC vai para "Em Proc." em vez de "Recebidas"
+**2. Definições de negócio**
+- **Faturada** = OC emitida que possui ao menos uma NF anexada em `documentos_fiscais` (tipo `NF`)
+- **Em Aberto** = OC emitida sem NF correspondente
+- **Idade** = dias corridos desde emissão da OC (`documentos_emitidos.created_at`)
+- Respeita filtros ativos: período (data emissão da OC), empreendimento
 
-**Causa:** Em `MinhasSolicitacoes.tsx > handleSolicitarAjuste` (linha 712), quando o solicitante pede ajuste numa OC `aguardando_aceite`, o status volta para `em_processamento`. Isso aparece na aba **"Em Proc."** do backoffice, sem destaque de que o solicitante pediu retrabalho.
+### Mudanças
 
-**Fix:** Mudar o status alvo para `recebido` (entra em "Recebidas" do backoffice como nova tarefa). Atualizar:
-- `MinhasSolicitacoes.tsx` linha 712: `status: 'recebido'`
-- Linha 720: `status_novo: 'recebido'`
-- Garantir que o histórico mantém `acao: 'ajuste_solicitado'` (já tem) para o card mostrar o banner "Solicitante pediu ajuste na OC" — atualmente o `BackofficeSolicitacaoCard` deve detectar isso pela última ação no histórico, não pelo status.
-
-Verificar/ajustar também: o card no backoffice deve exibir um chip de destaque "🔁 Ajuste pedido pelo solicitante" quando a última `acao` no histórico for `ajuste_solicitado` e o status atual for `recebido`.
-
-### Bug 3 — Contagem nas abas ignora filtros ativos
-
-**Causa em ambas as páginas:**
-- `Backoffice.tsx` (linha 1263): `groupedSolicitacoes` usa `filteredSolicitacoes` ✅ — então contagem **já reflete** filtros de fornecedor/"apenas minhas". MAS o badge "Cancel. Pendente" usa `cancelamentoPendenteIds.has(s.id)` que filtra só por ID; tudo certo.
-- `MinhasSolicitacoes.tsx` (linha 343): `statusCounts` usa `solicitacoes` (não filtrado) → contagem **NÃO reflete** filtros de busca, empreendimento.
-
-**Fix em `MinhasSolicitacoes.tsx`:** Calcular `statusCounts` a partir de uma base já filtrada por busca + empreendimento (mas NÃO pela aba ativa, senão zera os outros). Criar `solicitacoesFiltradasBase` (sem filtro de aba) e basear contagem nele.
-
-**Verificação extra no Backoffice:** Confirmar que o filtro de busca no `Backoffice` também passa por `filteredSolicitacoes` — atualmente search é via RPC, então já reflete. ✅
-
-### Outros bugs do mesmo tipo identificados
-
-- **`SolicitanteKPIs.tsx`**: KPIs calculados sobre array bruto. Verificar se devem refletir filtros — caso sim, propagar `solicitacoesFiltradasBase`.
-- **Modal `OCDetalhesModal`**: badge "Cancelamento Pendente" lê `(detalhes.solicitacao as any).cancelamento_pendente` — deve continuar funcionando após fetch refresh; OK.
-
-### Arquivos
-
-| Arquivo | Mudança |
+| Arquivo | O quê |
 |---|---|
-| `src/pages/Backoffice.tsx` | Atualização otimista do `cancelamentoPendenteIds` em aprovar/rejeitar |
-| `src/pages/MinhasSolicitacoes.tsx` | (a) Status `recebido` em `handleSolicitarAjuste`; (b) `statusCounts` baseado em filtragem (busca+empreendimento) |
-| `src/components/backoffice/BackofficeSolicitacaoCard.tsx` | Chip "Ajuste pedido pelo solicitante" quando `ultimaAcao === 'ajuste_solicitado'` e status `recebido` |
-| `src/components/solicitante/SolicitanteKPIs.tsx` | (Opcional) KPIs sobre base filtrada |
+| `src/hooks/useEficienciaDashboard.ts` | Adicionar query/cálculo: para cada OC em `documentos_emitidos` no período, verificar se há NF em `documentos_fiscais`. Retornar `ocStatus: { faturadas, emAberto, total, percentFaturada, agingBuckets: { ate15, de16a30, mais30 } }` |
+| `src/pages/DashboardEficiencia.tsx` | Nova seção `Card` com barra empilhada (já usa Recharts) + 3 mini-stats de aging. Posicionar acima de "Retrabalho" |
+
+### Detalhes técnicos
+- Query: `documentos_emitidos` filtrado por `tipo_documento = 'OC'` + período + join indireto com solicitacoes para filtro de empreendimento
+- Para cada OC, contar NFs: `documentos_fiscais.solicitacao_id = de.solicitacao_id AND tipo = 'NF'`
+- Aging: `differenceInDays(now, de.created_at)` apenas para as em aberto
+- Ícone alerta nos `>30 dias` (já existe semântica de crítico no dashboard)
 
