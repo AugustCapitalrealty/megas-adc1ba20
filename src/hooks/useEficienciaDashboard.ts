@@ -628,6 +628,7 @@ export function useEficienciaDashboard(filters: EficienciaFilters) {
     topFornecedores: topFornecedores || [],
     canceladasPorPrazo,
     canceladasPorPrazoPercent,
+    ocStatus,
     isLoading,
     error,
     refetch,
