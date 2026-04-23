@@ -328,7 +328,7 @@ export default function MinhasSolicitacoes() {
         filtered = filtered.filter(s => s.status === 'rejeitado' || s.status === 'cancelado');
         break;
       case 'ciencia':
-        filtered = filtered.filter(s => s.status === 'cancelado' && !s.cancelamento_ciencia_em);
+        filtered = filtered.filter(s => s.status === 'cancelado' && !(s as any).cancelamento_ciencia_em);
         break;
       case 'concluidas':
         filtered = filtered.filter(s => s.status === 'concluida' || s.status === 'enviado_pagamento');
@@ -373,7 +373,7 @@ export default function MinhasSolicitacoes() {
     liberadas: solicitacoesFiltradasBase.filter(s => s.status === 'liberado_fornecedor' || s.status === 'aguardando_execucao').length,
     enviadas: solicitacoesFiltradasBase.filter(s => ['enviado_fornecedor', 'aguardando_nf_boleto', 'nf_boleto_enviados'].includes(s.status)).length,
     canceladas: solicitacoesFiltradasBase.filter(s => s.status === 'rejeitado' || s.status === 'cancelado').length,
-    ciencia: solicitacoesFiltradasBase.filter(s => s.status === 'cancelado' && !s.cancelamento_ciencia_em).length,
+    ciencia: solicitacoesFiltradasBase.filter(s => s.status === 'cancelado' && !(s as any).cancelamento_ciencia_em).length,
     concluidas: solicitacoesFiltradasBase.filter(s => s.status === 'concluida' || s.status === 'enviado_pagamento').length,
   }), [solicitacoesFiltradasBase]);
 
