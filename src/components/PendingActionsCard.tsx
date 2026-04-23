@@ -81,10 +81,10 @@ export function PendingActionsCard({
     switch (type) {
       case 'correcao': return 'correcoes';
       case 'aceite_oc': return 'oc_emitida';
-      case 'nf_boleto': return 'liberadas';
-      case 'info_requests': return 'correcoes';
+      case 'nf_boleto': return 'enviadas';
+      case 'info_requests': return 'informacoes';
       case 'justificativa_oc': return 'justificativa_oc';
-      case 'ciencia_cancelamento': return 'canceladas';
+      case 'ciencia_cancelamento': return 'ciencia';
       default: return 'todas';
     }
   };

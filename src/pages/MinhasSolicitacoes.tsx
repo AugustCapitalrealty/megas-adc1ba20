@@ -51,7 +51,7 @@ const ATTACHMENT_TYPES = {
   orcamento_concorrente_2: 'Orçamento Concorrente 2',
 } as const;
 
-type FilterTab = 'todas' | 'com_backoffice' | 'correcoes' | 'oc_emitida' | 'liberadas' | 'enviadas' | 'canceladas' | 'concluidas';
+type FilterTab = 'todas' | 'com_backoffice' | 'correcoes' | 'informacoes' | 'oc_emitida' | 'liberadas' | 'enviadas' | 'canceladas' | 'ciencia' | 'concluidas';
 type ViewMode = 'minhas' | 'empreendimento';
 
 export default function MinhasSolicitacoes() {
@@ -310,7 +310,10 @@ export default function MinhasSolicitacoes() {
         filtered = filtered.filter(s => ['recebido', 'em_analise', 'aprovado', 'em_processamento'].includes(s.status));
         break;
       case 'correcoes':
-        filtered = filtered.filter(s => s.status === 'pendente_correcao' || s.status === 'aguardando_informacoes');
+        filtered = filtered.filter(s => s.status === 'pendente_correcao');
+        break;
+      case 'informacoes':
+        filtered = filtered.filter(s => s.status === 'aguardando_informacoes');
         break;
       case 'oc_emitida':
         filtered = filtered.filter(s => s.status === 'aguardando_aceite' || s.status === 'oc_ac_emitida');
@@ -323,6 +326,9 @@ export default function MinhasSolicitacoes() {
         break;
       case 'canceladas':
         filtered = filtered.filter(s => s.status === 'rejeitado' || s.status === 'cancelado');
+        break;
+      case 'ciencia':
+        filtered = filtered.filter(s => s.status === 'cancelado' && !s.cancelamento_ciencia_em);
         break;
       case 'concluidas':
         filtered = filtered.filter(s => s.status === 'concluida' || s.status === 'enviado_pagamento');
@@ -361,11 +367,13 @@ export default function MinhasSolicitacoes() {
   const statusCounts = useMemo(() => ({
     todas: solicitacoesFiltradasBase.length,
     com_backoffice: solicitacoesFiltradasBase.filter(s => ['recebido', 'em_analise', 'aprovado', 'em_processamento'].includes(s.status)).length,
-    correcoes: solicitacoesFiltradasBase.filter(s => s.status === 'pendente_correcao' || s.status === 'aguardando_informacoes').length,
+    correcoes: solicitacoesFiltradasBase.filter(s => s.status === 'pendente_correcao').length,
+    informacoes: solicitacoesFiltradasBase.filter(s => s.status === 'aguardando_informacoes').length,
     oc_emitida: solicitacoesFiltradasBase.filter(s => s.status === 'aguardando_aceite' || s.status === 'oc_ac_emitida').length,
     liberadas: solicitacoesFiltradasBase.filter(s => s.status === 'liberado_fornecedor' || s.status === 'aguardando_execucao').length,
     enviadas: solicitacoesFiltradasBase.filter(s => ['enviado_fornecedor', 'aguardando_nf_boleto', 'nf_boleto_enviados'].includes(s.status)).length,
     canceladas: solicitacoesFiltradasBase.filter(s => s.status === 'rejeitado' || s.status === 'cancelado').length,
+    ciencia: solicitacoesFiltradasBase.filter(s => s.status === 'cancelado' && !s.cancelamento_ciencia_em).length,
     concluidas: solicitacoesFiltradasBase.filter(s => s.status === 'concluida' || s.status === 'enviado_pagamento').length,
   }), [solicitacoesFiltradasBase]);
 
@@ -1000,7 +1008,7 @@ export default function MinhasSolicitacoes() {
             pendingNfBoleto={pendingCounts.nfBoleto}
             pendingCiencia={pendingCounts.ciencia}
             onViewPending={(filter) => setActiveTab(filter as FilterTab)}
-            onDarCiencia={() => setActiveTab('canceladas')}
+            onDarCiencia={() => setActiveTab('ciencia')}
           />
         )}
 
