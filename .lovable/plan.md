@@ -1,52 +1,53 @@
 
 
-## Trocar comparativo do Dashboard Eficiência + Auditoria das Ações Pendentes
+## Bug: Cancelamento aprovado não efetiva o cancelamento
 
-### Parte 1 — Trocar "OCs Faturadas vs Em Aberto" por "Solicitações em Aberto vs Concluídas"
+### Causa raiz (confirmada no banco)
 
-**Definições corretas (alinhadas ao resto do sistema):**
-- **Concluídas** = `status IN ('concluida', 'enviado_pagamento')` (mesma definição usada em `MinhasSolicitacoes` e `useDashboardMetrics`)
-- **Em Aberto** = qualquer status ativo (não em `'concluida'`, `'enviado_pagamento'`, `'cancelado'`, `'rejeitado'`)
-- **Aging** = dias corridos desde `created_at` da solicitação (somente para Em Aberto)
-- **Filtros respeitados:** período (`created_at` entre `dataInicio`/`dataFim`) + empreendimento
+A solicitação `#2026000146` (status `aguardando_aceite`, `cancelamento_pendente=true`) teve o botão "Aprovar Cancelamento" clicado **7 vezes** entre 09/04 e 17/04. Em todas as tentativas:
 
-**Mudanças no hook `useEficienciaDashboard.ts`:**
-- Renomear interface `OCStatusComparativo` → `SolicitacoesStatusComparativo` com campos: `concluidas`, `emAberto`, `total`, `percentConcluidas`, `agingBuckets`
-- Substituir a query atual (que olha `documentos_emitidos` + NF) por uma query direta em `solicitacoes` filtrando por `created_at` no período + empreendimento
-- Mantém os mesmos buckets de aging: `0-15`, `16-30`, `>30` dias
+1. O `handleAprovarCancelamento` chamou `supabase.update({ status: 'cancelado', cancelamento_pendente: false })`
+2. O trigger `validate_status_transition_trigger` **rejeitou** a operação porque a transição `aguardando_aceite → cancelado` **não existe** em `status_transitions` (só existem `recebido/em_analise/pendente_correcao/aprovado/em_processamento/aguardando_informacoes → cancelado`)
+3. O código **não verifica o `error`** retornado pelo supabase — então segue inserindo o `historico_solicitacoes` (que não tem trigger de validação) e exibe o toast de sucesso
+4. A linha em `solicitacoes` permanece intocada → continua aparecendo na aba "Cancel. Pendente"
 
-**Mudanças em `DashboardEficiencia.tsx`:**
-- Trocar título do card: "Solicitações em Aberto vs Concluídas"
-- Trocar descrição: "Total de solicitações abertas no período. Aging conta dias corridos desde a abertura."
-- Trocar labels: "Concluídas" (verde) e "Em Aberto" (warning/destructive conforme aging)
-- Renomear referências `ocStatus` → `solicitacoesStatus`
+Mesmo problema afeta `enviado_fornecedor` (outro status atualmente com cancelamento pendente no banco) e qualquer outro status que não esteja na tabela.
 
-### Parte 2 — Auditoria do `PendingActionsCard`
+### Fix (3 partes)
 
-**Verificar consistência entre contagens e filtros de destino:**
+**1. Migração SQL — adicionar transições faltantes para `cancelado`**
 
-| Card | Métrica origem | Filtro destino | Status real esperado | OK? |
-|---|---|---|---|---|
-| Liberar OC | `pendingAcceptance` (`aguardando_aceite`) | `?filter=oc_emitida` → filtra `aguardando_aceite OR oc_ac_emitida` | match | ✅ |
-| Correções | `pendingCorrections` (`pendente_correcao`) | `?filter=correcoes` → filtra `pendente_correcao OR aguardando_informacoes` | filtro mais amplo que a contagem | ⚠️ revisar |
-| Informações | `pendingInfoRequests` (`aguardando_informacoes`) | `?filter=correcoes` (mesmo destino que Correções) | confunde dois cards no mesmo destino | ⚠️ revisar |
-| NF/Boleto | `pendingNfBoleto` (`aguardando_nf_boleto`) | `?filter=liberadas` → filtra `liberado_fornecedor OR aguardando_execucao` | **MISMATCH** — destino não inclui `aguardando_nf_boleto` | ❌ corrigir |
-| Justificativas OC | query separada (OCs sem NF) | `/monitoramento-oc?status=pendente_justificativa` | match | ✅ |
-| Dar ciência | `pendingCiencia` (cancelado sem `cancelamento_ciencia_em`) | `?filter=canceladas` → filtra `rejeitado OR cancelado` | match parcial (mostra também rejeitadas) | ⚠️ revisar |
+Adicionar em `status_transitions` todas as transições `<status_ativo> → cancelado` que faltam:
+- `aguardando_aceite → cancelado`
+- `liberado_fornecedor → cancelado`
+- `enviado_fornecedor → cancelado`
+- `aguardando_nf_boleto → cancelado`
+- `nf_boleto_enviados → cancelado`
+- `aguardando_execucao → cancelado`
+- `oc_ac_emitida → cancelado` (se existir no enum)
 
-**Correções propostas:**
+Usar `INSERT ... ON CONFLICT DO NOTHING` para ser idempotente.
 
-1. **NF/Boleto → destino errado**: trocar `getFilterForAction('nf_boleto')` de `'liberadas'` para `'enviadas'` (que filtra `enviado_fornecedor, aguardando_nf_boleto, nf_boleto_enviados`).
-2. **Informações vs Correções compartilham destino**: criar um filtro distinto `?filter=informacoes` em `MinhasSolicitacoes.tsx` que filtra apenas `aguardando_informacoes`, e usar esse no `getFilterForAction('info_requests')`. O filtro `correcoes` passa a filtrar somente `pendente_correcao`.
-3. **Dar ciência**: criar filtro dedicado `?filter=ciencia` que filtra `status === 'cancelado' AND !cancelamento_ciencia_em`, separando das rejeitadas.
-4. **Sincronizar `statusCounts`**: ajustar o objeto `statusCounts` em `MinhasSolicitacoes` para refletir os novos filtros (`correcoes`, `informacoes`, `ciencia`) com contagens precisas que batem com o `PendingActionsCard`.
+**2. Reparar a solicitação #2026000146 (e a outra `enviado_fornecedor`)**
+
+Após adicionar as transições, executar UPDATE manual nas duas linhas órfãs:
+```sql
+UPDATE solicitacoes 
+SET status='cancelado', cancelamento_pendente=false 
+WHERE cancelamento_pendente=true;
+```
+
+**3. Frontend — checar erros do Supabase em `Backoffice.tsx`**
+
+Em `handleAprovarCancelamento` e `handleRejeitarCancelamento`:
+- Capturar `{ error }` de cada chamada `await supabase...`
+- Se `error` existir: lançar `throw error` para cair no `catch`, **reverter** o optimistic update (re-adicionar o ID em `cancelamentoPendenteIds`) e mostrar toast com a mensagem real do erro
+- Mesma proteção em outros handlers de update críticos do Backoffice (auditoria leve em `handleAprovarOC`, `handleRejeitarOC`, `handleConcluirLiberada` para evitar bugs silenciosos similares)
 
 ### Arquivos
 
 | Arquivo | Mudança |
 |---|---|
-| `src/hooks/useEficienciaDashboard.ts` | Substituir query `ocStatus` por `solicitacoesStatus` baseada em `solicitacoes` |
-| `src/pages/DashboardEficiencia.tsx` | Renomear card e variáveis, ajustar labels |
-| `src/components/PendingActionsCard.tsx` | Corrigir mapeamento `getFilterForAction` (NF/Boleto, Informações, Ciência) |
-| `src/pages/MinhasSolicitacoes.tsx` | Adicionar filtros `informacoes` e `ciencia`; ajustar `correcoes` para apenas `pendente_correcao`; atualizar `statusCounts` |
+| `supabase/migrations/<novo>.sql` | INSERT idempotente das transições para `cancelado` + UPDATE de reparo das linhas pendentes |
+| `src/pages/Backoffice.tsx` | Checar `error` em todas as chamadas dentro dos handlers de cancelamento; reverter optimistic update no erro; aplicar padrão também aos handlers de OC |
 
