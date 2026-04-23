@@ -905,6 +905,7 @@ export default function MinhasSolicitacoes() {
       icon: <AlertTriangle className="h-3 w-3" />, labelClassName: 'text-warning',
       tabs: [
         { id: 'correcoes', label: 'Correções', count: statusCounts.correcoes, variant: 'warning' as const, icon: <AlertTriangle className="h-3.5 w-3.5" />, showCountWhenZero: false },
+        { id: 'informacoes', label: 'Informações', count: statusCounts.informacoes, variant: 'warning' as const, showCountWhenZero: false },
         { id: 'oc_emitida', label: 'OC/AC Emitida', count: statusCounts.oc_emitida, variant: 'success' as const, showCountWhenZero: false },
         { id: 'liberadas', label: 'Liberadas', count: statusCounts.liberadas, variant: 'default' as const, showCountWhenZero: false },
         { id: 'enviadas', label: 'Enviadas', count: statusCounts.enviadas, variant: 'purple' as const, showCountWhenZero: false },
@@ -913,6 +914,7 @@ export default function MinhasSolicitacoes() {
     {
       id: 'finalizadas', label: 'Finalizadas',
       tabs: [
+        { id: 'ciencia', label: 'Aguardando Ciência', count: statusCounts.ciencia, variant: 'warning' as const, showCountWhenZero: false },
         { id: 'canceladas', label: 'Canceladas', count: statusCounts.canceladas, showCountWhenZero: false },
         { id: 'concluidas', label: 'Finalizadas', count: statusCounts.concluidas, variant: 'success' as const, showCountWhenZero: false },
       ],
