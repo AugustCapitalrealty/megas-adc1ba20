@@ -67,7 +67,8 @@ Deno.serve(async (req) => {
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
     for (const sol of solicitacoes) {
-      // Check for existing recent notification (last 24h)
+      // Idempotency guard: skip if any "Solicitar NF" notification was inserted
+      // for this solicitation in the last 24h (prevents cron duplicates).
       const { data: existing } = await supabase
         .from("notifications")
         .select("id")
@@ -76,7 +77,10 @@ Deno.serve(async (req) => {
         .gte("created_at", oneDayAgo)
         .limit(1);
 
-      if (existing && existing.length > 0) continue;
+      if (existing && existing.length > 0) {
+        console.log(`[check-service-execution] Skipping ${sol.protocolo}: notification already sent in last 24h`);
+        continue;
+      }
 
       // Format date for message
       const dataExec = sol.data_execucao_servico
