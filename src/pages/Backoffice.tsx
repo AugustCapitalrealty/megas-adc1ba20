@@ -654,12 +654,13 @@ export default function Backoffice() {
     
     setActionLoading(true);
     try {
-      await supabase
+      const { error: updateError } = await supabase
         .from('solicitacoes')
         .update({ status: 'concluida' as any })
         .eq('id', sol.id);
+      if (updateError) throw updateError;
 
-      await supabase.from('historico_solicitacoes').insert({
+      const { error: histError } = await supabase.from('historico_solicitacoes').insert({
         solicitacao_id: sol.id,
         user_id: user.id,
         acao: 'Conclusão',
@@ -667,6 +668,7 @@ export default function Backoffice() {
         status_novo: 'concluida',
         motivo: 'NF recebida e pagamento lançado no Fluig',
       });
+      if (histError) throw histError;
 
       toast({
         title: 'Solicitação Concluída!',
@@ -674,12 +676,12 @@ export default function Backoffice() {
       });
 
       fetchSolicitacoes();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error concluding:', error);
       toast({
         variant: 'destructive',
         title: 'Erro',
-        description: 'Não foi possível concluir a solicitação',
+        description: error?.message || 'Não foi possível concluir a solicitação',
       });
     } finally {
       setActionLoading(false);
@@ -1199,19 +1201,21 @@ export default function Backoffice() {
       return next;
     });
     try {
-      await supabase
+      const { error: updateError } = await supabase
         .from('solicitacoes')
         .update({ status: 'cancelado' as any, cancelamento_pendente: false } as any)
         .eq('id', sol.id);
+      if (updateError) throw updateError;
 
-      await supabase.from('oc_acompanhamento' as any).insert({
+      const { error: ocError } = await supabase.from('oc_acompanhamento' as any).insert({
         solicitacao_id: sol.id,
         tipo_acao: 'cancelamento_aprovado',
         justificativa: 'Cancelamento aprovado pelo backoffice',
         user_id: user.id,
       } as any);
+      if (ocError) throw ocError;
 
-      await supabase.from('historico_solicitacoes').insert({
+      const { error: histError } = await supabase.from('historico_solicitacoes').insert({
         solicitacao_id: sol.id,
         user_id: user.id,
         acao: 'cancelamento_aprovado',
@@ -1219,12 +1223,23 @@ export default function Backoffice() {
         status_novo: 'cancelado',
         motivo: 'Cancelamento aprovado pelo backoffice',
       });
+      if (histError) throw histError;
 
       toast({ title: 'Cancelamento aprovado', description: `Solicitação #${sol.protocolo} cancelada.` });
       fetchSolicitacoes();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error approving cancellation:', error);
-      toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível aprovar o cancelamento.' });
+      // Revert optimistic update
+      setCancelamentoPendenteIds(prev => {
+        const next = new Set(prev);
+        next.add(sol.id);
+        return next;
+      });
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao aprovar cancelamento',
+        description: error?.message || 'Não foi possível aprovar o cancelamento.',
+      });
     } finally {
       setCancelamentoActionLoading(false);
     }
@@ -1240,19 +1255,21 @@ export default function Backoffice() {
       return next;
     });
     try {
-      await supabase
+      const { error: updateError } = await supabase
         .from('solicitacoes')
         .update({ cancelamento_pendente: false } as any)
         .eq('id', sol.id);
+      if (updateError) throw updateError;
 
-      await supabase.from('oc_acompanhamento' as any).insert({
+      const { error: ocError } = await supabase.from('oc_acompanhamento' as any).insert({
         solicitacao_id: sol.id,
         tipo_acao: 'cancelamento_rejeitado',
         justificativa: 'Cancelamento rejeitado pelo backoffice',
         user_id: user.id,
       } as any);
+      if (ocError) throw ocError;
 
-      await supabase.from('historico_solicitacoes').insert({
+      const { error: histError } = await supabase.from('historico_solicitacoes').insert({
         solicitacao_id: sol.id,
         user_id: user.id,
         acao: 'cancelamento_rejeitado',
@@ -1260,12 +1277,23 @@ export default function Backoffice() {
         status_novo: sol.status,
         motivo: 'Cancelamento rejeitado pelo backoffice',
       });
+      if (histError) throw histError;
 
       toast({ title: 'Cancelamento rejeitado', description: `Solicitação #${sol.protocolo} mantida.` });
       fetchSolicitacoes();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error rejecting cancellation:', error);
-      toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível rejeitar o cancelamento.' });
+      // Revert optimistic update
+      setCancelamentoPendenteIds(prev => {
+        const next = new Set(prev);
+        next.add(sol.id);
+        return next;
+      });
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao rejeitar cancelamento',
+        description: error?.message || 'Não foi possível rejeitar o cancelamento.',
+      });
     } finally {
       setCancelamentoActionLoading(false);
     }
