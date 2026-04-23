@@ -50,6 +50,7 @@ Deno.serve(async (req) => {
       .in("role", ["backoffice", "admin"]);
 
     if (usersError) throw usersError;
+    // Deduplicate user_ids — users with multiple roles would otherwise receive N copies
     const backofficeUserIds = [...new Set((backofficeUsers || []).map((u) => u.user_id))];
 
     if (!backofficeUserIds.length) {
