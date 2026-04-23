@@ -1,59 +1,52 @@
 
 
-User wants a comparison on the efficiency panel between OCs that have been invoiced (faturada) vs still open (em aberto).
+## Trocar comparativo do Dashboard Eficiência + Auditoria das Ações Pendentes
 
-Let me think about what data we have:
-- `documentos_emitidos` — OCs emitted (tipo_documento = 'OC')
-- `documentos_fiscais` — NF/Boleto uploaded; has `baixa_financeiro_em` indicating sent to payment
-- `solicitacoes` — has status field
+### Parte 1 — Trocar "OCs Faturadas vs Em Aberto" por "Solicitações em Aberto vs Concluídas"
 
-Definition of "faturada" = OC has at least one NF (documento_fiscal tipo='NF') uploaded
-Definition of "em aberto" = OC emitted but no NF yet
+**Definições corretas (alinhadas ao resto do sistema):**
+- **Concluídas** = `status IN ('concluida', 'enviado_pagamento')` (mesma definição usada em `MinhasSolicitacoes` e `useDashboardMetrics`)
+- **Em Aberto** = qualquer status ativo (não em `'concluida'`, `'enviado_pagamento'`, `'cancelado'`, `'rejeitado'`)
+- **Aging** = dias corridos desde `created_at` da solicitação (somente para Em Aberto)
+- **Filtros respeitados:** período (`created_at` entre `dataInicio`/`dataFim`) + empreendimento
 
-This data is already available in `useEficienciaDashboard` and `MonitoramentoOC` flows. Need to add a new section/widget on `DashboardEficiencia.tsx`.
+**Mudanças no hook `useEficienciaDashboard.ts`:**
+- Renomear interface `OCStatusComparativo` → `SolicitacoesStatusComparativo` com campos: `concluidas`, `emAberto`, `total`, `percentConcluidas`, `agingBuckets`
+- Substituir a query atual (que olha `documentos_emitidos` + NF) por uma query direta em `solicitacoes` filtrando por `created_at` no período + empreendimento
+- Mantém os mesmos buckets de aging: `0-15`, `16-30`, `>30` dias
 
-Plan structure:
-- New KPI card pair + visual comparison (donut or stacked bar) on Dashboard Eficiência
-- Respect existing filters (date range, empreendimento)
-- Add to `useEficienciaDashboard` hook a new computation returning `{ faturadas, emAberto, totalOCs, percentFaturada }` plus maybe aging buckets for em aberto
+**Mudanças em `DashboardEficiencia.tsx`:**
+- Trocar título do card: "Solicitações em Aberto vs Concluídas"
+- Trocar descrição: "Total de solicitações abertas no período. Aging conta dias corridos desde a abertura."
+- Trocar labels: "Concluídas" (verde) e "Em Aberto" (warning/destructive conforme aging)
+- Renomear referências `ocStatus` → `solicitacoesStatus`
 
-Keep concise.
+### Parte 2 — Auditoria do `PendingActionsCard`
 
-## Comparativo OC Faturada vs Em Aberto — Dashboard Eficiência
+**Verificar consistência entre contagens e filtros de destino:**
 
-### O que vai aparecer
+| Card | Métrica origem | Filtro destino | Status real esperado | OK? |
+|---|---|---|---|---|
+| Liberar OC | `pendingAcceptance` (`aguardando_aceite`) | `?filter=oc_emitida` → filtra `aguardando_aceite OR oc_ac_emitida` | match | ✅ |
+| Correções | `pendingCorrections` (`pendente_correcao`) | `?filter=correcoes` → filtra `pendente_correcao OR aguardando_informacoes` | filtro mais amplo que a contagem | ⚠️ revisar |
+| Informações | `pendingInfoRequests` (`aguardando_informacoes`) | `?filter=correcoes` (mesmo destino que Correções) | confunde dois cards no mesmo destino | ⚠️ revisar |
+| NF/Boleto | `pendingNfBoleto` (`aguardando_nf_boleto`) | `?filter=liberadas` → filtra `liberado_fornecedor OR aguardando_execucao` | **MISMATCH** — destino não inclui `aguardando_nf_boleto` | ❌ corrigir |
+| Justificativas OC | query separada (OCs sem NF) | `/monitoramento-oc?status=pendente_justificativa` | match | ✅ |
+| Dar ciência | `pendingCiencia` (cancelado sem `cancelamento_ciencia_em`) | `?filter=canceladas` → filtra `rejeitado OR cancelado` | match parcial (mostra também rejeitadas) | ⚠️ revisar |
 
-Nova seção no `DashboardEficiencia.tsx` (entre os KPIs principais e o gráfico de Retrabalho), com:
+**Correções propostas:**
 
-**1. Card duplo de comparativo**
-```text
-┌─────────────────────────────────────────────────────┐
-│  OCs Faturadas vs Em Aberto                         │
-│                                                     │
-│   ✅ 142 Faturadas (68%)    ⏳ 67 Em Aberto (32%)   │
-│   ████████████████████░░░░░░░░░░  (barra empilhada) │
-│                                                     │
-│   Em aberto por idade:                              │
-│   • 0-15 dias: 28    • 16-30: 22    • >30: 17 ⚠   │
-└─────────────────────────────────────────────────────┘
-```
+1. **NF/Boleto → destino errado**: trocar `getFilterForAction('nf_boleto')` de `'liberadas'` para `'enviadas'` (que filtra `enviado_fornecedor, aguardando_nf_boleto, nf_boleto_enviados`).
+2. **Informações vs Correções compartilham destino**: criar um filtro distinto `?filter=informacoes` em `MinhasSolicitacoes.tsx` que filtra apenas `aguardando_informacoes`, e usar esse no `getFilterForAction('info_requests')`. O filtro `correcoes` passa a filtrar somente `pendente_correcao`.
+3. **Dar ciência**: criar filtro dedicado `?filter=ciencia` que filtra `status === 'cancelado' AND !cancelamento_ciencia_em`, separando das rejeitadas.
+4. **Sincronizar `statusCounts`**: ajustar o objeto `statusCounts` em `MinhasSolicitacoes` para refletir os novos filtros (`correcoes`, `informacoes`, `ciencia`) com contagens precisas que batem com o `PendingActionsCard`.
 
-**2. Definições de negócio**
-- **Faturada** = OC emitida que possui ao menos uma NF anexada em `documentos_fiscais` (tipo `NF`)
-- **Em Aberto** = OC emitida sem NF correspondente
-- **Idade** = dias corridos desde emissão da OC (`documentos_emitidos.created_at`)
-- Respeita filtros ativos: período (data emissão da OC), empreendimento
+### Arquivos
 
-### Mudanças
-
-| Arquivo | O quê |
+| Arquivo | Mudança |
 |---|---|
-| `src/hooks/useEficienciaDashboard.ts` | Adicionar query/cálculo: para cada OC em `documentos_emitidos` no período, verificar se há NF em `documentos_fiscais`. Retornar `ocStatus: { faturadas, emAberto, total, percentFaturada, agingBuckets: { ate15, de16a30, mais30 } }` |
-| `src/pages/DashboardEficiencia.tsx` | Nova seção `Card` com barra empilhada (já usa Recharts) + 3 mini-stats de aging. Posicionar acima de "Retrabalho" |
-
-### Detalhes técnicos
-- Query: `documentos_emitidos` filtrado por `tipo_documento = 'OC'` + período + join indireto com solicitacoes para filtro de empreendimento
-- Para cada OC, contar NFs: `documentos_fiscais.solicitacao_id = de.solicitacao_id AND tipo = 'NF'`
-- Aging: `differenceInDays(now, de.created_at)` apenas para as em aberto
-- Ícone alerta nos `>30 dias` (já existe semântica de crítico no dashboard)
+| `src/hooks/useEficienciaDashboard.ts` | Substituir query `ocStatus` por `solicitacoesStatus` baseada em `solicitacoes` |
+| `src/pages/DashboardEficiencia.tsx` | Renomear card e variáveis, ajustar labels |
+| `src/components/PendingActionsCard.tsx` | Corrigir mapeamento `getFilterForAction` (NF/Boleto, Informações, Ciência) |
+| `src/pages/MinhasSolicitacoes.tsx` | Adicionar filtros `informacoes` e `ciencia`; ajustar `correcoes` para apenas `pendente_correcao`; atualizar `statusCounts` |
 
