@@ -46,13 +46,21 @@ export function NotificationBell() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('notifications')
-        .select('id, tipo, titulo, mensagem, lida, solicitacao_id, created_at, prioridade')
+        .select('id, tipo, titulo, mensagem, lida, solicitacao_id, created_at, prioridade, solicitacoes(status)')
         .eq('user_id', user!.id)
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(40);
 
       if (error) throw error;
-      return (data || []) as Notification[];
+      // Defensive filter: hide action_required notifications whose related solicitação
+      // is already in a terminal status (concluida/cancelado/rejeitado/enviado_pagamento).
+      const TERMINAL = new Set(['concluida','cancelado','rejeitado','enviado_pagamento']);
+      const filtered = (data || []).filter((n: any) => {
+        if (n.tipo !== 'action_required') return true;
+        const status = n.solicitacoes?.status;
+        return !status || !TERMINAL.has(status);
+      });
+      return filtered.slice(0, 20) as Notification[];
     },
     enabled: !!user,
     staleTime: 300_000,
