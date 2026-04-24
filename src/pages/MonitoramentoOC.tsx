@@ -35,6 +35,7 @@ import { cn } from '@/lib/utils';
 import { OCDetalhesModal } from '@/components/monitoramento/OCDetalhesModal';
 import { JustificativaModal } from '@/components/monitoramento/JustificativaModal';
 import { TabProjuris } from '@/components/monitoramento/TabProjuris';
+import { CalendarioServicos } from '@/components/monitoramento/calendario/CalendarioServicos';
 import { OcDistributionBar } from '@/components/monitoramento/OcDistributionBar';
 import { TopOfensoresOC } from '@/components/monitoramento/TopOfensoresOC';
 import { SlaKpiCard } from '@/components/sla/SlaKpiCard';
@@ -392,6 +393,10 @@ export default function MonitoramentoOC() {
             <TabsTrigger value="projuris" className="gap-1.5">
               <Scale className="h-4 w-4" />
               Projuris
+            </TabsTrigger>
+            <TabsTrigger value="calendario" className="gap-1.5">
+              <CalendarDays className="h-4 w-4" />
+              Calendário de Serviços
             </TabsTrigger>
           </TabsList>
 
@@ -868,6 +873,10 @@ export default function MonitoramentoOC() {
 
           <TabsContent value="projuris">
             <TabProjuris />
+          </TabsContent>
+
+          <TabsContent value="calendario">
+            <CalendarioServicos />
           </TabsContent>
         </Tabs>
       </div>
