@@ -298,7 +298,7 @@ export const BackofficeSolicitacaoCard = memo(function BackofficeSolicitacaoCard
   const secondaryItems: React.ReactNode[] = [];
 
   // Solicitar Ajuste
-  if (['recebido', 'em_analise', 'aprovado', 'em_processamento'].includes(sol.status)) {
+  if (['recebido', 'em_analise', 'aprovado', 'em_processamento', 'liberado_fornecedor'].includes(sol.status)) {
     secondaryItems.push(
       <DropdownMenuItem key="ajuste" onClick={() => callbacks.openAction(sol, 'solicitar_ajuste')}>
         <HelpCircle className="h-4 w-4 mr-2" /> Solicitar Ajuste
