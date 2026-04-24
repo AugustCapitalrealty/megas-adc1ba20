@@ -141,6 +141,14 @@ export interface BackofficeModalsProps {
   editProjurisLoading: boolean;
   handleSaveProjuris: () => void;
 
+  // Edit Natureza Orçamentária Modal
+  editNaturezaOpen: boolean;
+  setEditNaturezaOpen: (open: boolean) => void;
+  editNaturezaValue: string;
+  setEditNaturezaValue: (v: string) => void;
+  editNaturezaLoading: boolean;
+  handleSaveNatureza: () => void;
+
   // Confirmation Modal (baixa only now)
   confirmAction: { type: string; sol: SolicitacaoBackoffice; title: string; description: string } | null;
   setConfirmAction: (v: any) => void;
@@ -298,6 +306,7 @@ export function BackofficeModals(props: BackofficeModalsProps) {
     editFluigOpen, setEditFluigOpen, editFluigValue, setEditFluigValue, editFluigLoading, handleSaveFluig,
     editFluigCadastroOpen, setEditFluigCadastroOpen, editFluigCadastroValue, setEditFluigCadastroValue, editFluigCadastroLoading, handleSaveFluigCadastro,
     editProjurisOpen, setEditProjurisOpen, editProjurisValue, setEditProjurisValue, editProjurisLoading, handleSaveProjuris,
+    editNaturezaOpen, setEditNaturezaOpen, editNaturezaValue, setEditNaturezaValue, editNaturezaLoading, handleSaveNatureza,
     confirmAction, setConfirmAction, handleDarBaixaConfirmed,
     concluirModal, setConcluirModal, handleConcluirLiberadaConfirmed,
     envioFornecedorModal, setEnvioFornecedorModal, handleRegistrarEnvioFornecedorConfirmed,
@@ -524,8 +533,20 @@ export function BackofficeModals(props: BackofficeModalsProps) {
                   )}
 
                   <div className="col-span-2 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center justify-between gap-2">
                       <Label className="text-xs uppercase tracking-wide text-muted-foreground">Classificação Orçamentária</Label>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/50"
+                        onClick={() => {
+                          setEditNaturezaValue(detalhes.solicitacao.natureza_orcamentaria || '');
+                          setEditNaturezaOpen(true);
+                        }}
+                      >
+                        <Edit className="h-3.5 w-3.5 mr-1" />
+                        Editar
+                      </Button>
                     </div>
                     <Badge variant="secondary" className="mt-2 px-3 py-1.5 text-sm font-medium whitespace-normal text-left bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 border-amber-300 dark:border-amber-700">
                       {NATUREZA_ORCAMENTARIA_LABELS[detalhes.solicitacao.natureza_orcamentaria]}
@@ -1164,6 +1185,39 @@ export function BackofficeModals(props: BackofficeModalsProps) {
             <Button variant="outline" onClick={() => setEditProjurisOpen(false)} disabled={editProjurisLoading}>Cancelar</Button>
             <Button onClick={handleSaveProjuris} disabled={editProjurisLoading}>
               {editProjurisLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />} Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══════════════ Edit Natureza Orçamentária Modal ═══════════════ */}
+      <Dialog open={editNaturezaOpen} onOpenChange={setEditNaturezaOpen}>
+        <DialogContent className="max-w-lg w-[80vw]">
+          <DialogHeader>
+            <DialogTitle>Corrigir Classificação Orçamentária</DialogTitle>
+            <DialogDescription>
+              A alteração será registrada no histórico da solicitação e ficará visível para o solicitante.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-natureza">Nova Classificação</Label>
+              <Select value={editNaturezaValue} onValueChange={setEditNaturezaValue}>
+                <SelectTrigger id="edit-natureza">
+                  <SelectValue placeholder="Selecione a classificação" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(NATUREZA_ORCAMENTARIA_LABELS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditNaturezaOpen(false)} disabled={editNaturezaLoading}>Cancelar</Button>
+            <Button onClick={handleSaveNatureza} disabled={editNaturezaLoading || !editNaturezaValue}>
+              {editNaturezaLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />} Salvar
             </Button>
           </DialogFooter>
         </DialogContent>

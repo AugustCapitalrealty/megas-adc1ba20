@@ -1,49 +1,53 @@
 ## Objetivo
 
-A tela "Responder Solicitação de Informações" / "Corrigir e Reenviar Solicitação" está apertada: o modal usa `max-w-lg` (≈512px) com muito conteúdo (descrição longa, valor, natureza, fornecedores, anexos). Vamos dar mais largura, hierarquia visual e respiro, mantendo todo o conteúdo atual.
+Permitir que usuários do backoffice/admin alterem a **Natureza Orçamentária** de uma solicitação direto pelo modal de detalhes, registrando a mudança no histórico (e, por consequência, na timeline visível ao solicitante).
 
-## Mudanças propostas
+## Como vai funcionar
 
-### 1. Largura e altura do modal
-Em `src/components/solicitante/SolicitanteModals.tsx`, no `EditModal`:
+No card "Classificação Orçamentária" do modal de detalhes (BackofficeModals), o backoffice verá um botão **Editar** (ícone de lápis) ao lado do badge atual. Clicar abre um modal pequeno com um `Select` listando todas as opções de `NATUREZA_ORCAMENTARIA_LABELS`, pré-selecionado no valor atual. Ao salvar:
 
-- Trocar `max-w-lg max-h-[90vh]` por algo confortável e responsivo:
-  - `sm:max-w-2xl lg:max-w-3xl max-h-[92vh] p-0` (o `p-0` permite header/footer fixos)
-- Estruturar em três áreas:
-  - **Header fixo** (com título e, quando houver, o destaque de "Informações solicitadas / Motivo da correção" logo abaixo do título — assim o usuário não precisa rolar para lembrar o pedido).
-  - **Corpo rolável** (`overflow-y-auto px-6 py-4 space-y-5`).
-  - **Footer fixo** com os botões de ação (Cancelar / Reenviar), evitando que o usuário precise rolar até o fim para enviar.
+1. UPDATE em `solicitacoes.natureza_orcamentaria`.
+2. INSERT em `historico_solicitacoes` com:
+   - `acao = 'natureza_orcamentaria_alterada'`
+   - `motivo = 'Natureza Orçamentária alterada de {LABEL_ANTIGO} para {LABEL_NOVO}'`
+   - `status_anterior` e `status_novo` iguais ao status atual (sem mudança de status).
+3. Toast de confirmação + refresh da listagem e do modal.
 
-### 2. Layout em duas colunas para campos curtos
-Dentro do corpo, agrupar campos curtos em grid responsivo para não desperdiçar largura:
+## Mudanças técnicas
 
-- `Valor (R$)` + `Natureza Orçamentária` lado a lado em `md:grid-cols-2 gap-4`.
-- `Descrição` e `Escopo Detalhado` permanecem largura total (são textareas longas).
-- Aumentar `rows` da Descrição de 4 → 6 para reduzir a sensação de "caixinha apertada".
+### 1. `src/pages/Backoffice.tsx`
+- Novos estados: `editNaturezaOpen`, `editNaturezaValue`, `editNaturezaLoading`.
+- Novo handler `handleSaveNatureza` no mesmo padrão de `handleSaveProjuris`:
+  - Valida `selectedSolicitacao` e `user`.
+  - Faz `supabase.from('solicitacoes').update({ natureza_orcamentaria: novoValor }).eq('id', ...)`.
+  - Se houve mudança real, insere em `historico_solicitacoes` com a ação descrita acima.
+  - Atualiza `selectedSolicitacao` no estado local (para o card refletir imediatamente) e chama `fetchSolicitacoes()`.
+- Encaminha as 4 props novas para `<BackofficeModals .../>`.
 
-### 3. Destaque das instruções do backoffice
-O bloco azul "Informações solicitadas" (e o amarelo "Motivo da correção") sai do meio do formulário e vira um **banner sticky no topo do corpo** (logo abaixo do header), com:
+### 2. `src/components/backoffice/BackofficeModals.tsx`
+- Adicionar à interface `BackofficeModalsProps`:
+  ```ts
+  editNaturezaOpen: boolean;
+  setEditNaturezaOpen: (open: boolean) => void;
+  editNaturezaValue: string;
+  setEditNaturezaValue: (v: string) => void;
+  editNaturezaLoading: boolean;
+  handleSaveNatureza: () => void;
+  ```
+- No bloco "Classificação Orçamentária" (linhas ~526–534), adicionar um botão `Edit` (variant ghost, size icon) ao lado do `Label`, visível apenas quando o usuário é backoffice/admin. Ao clicar: pré-popular `editNaturezaValue` com `detalhes.solicitacao.natureza_orcamentaria` e abrir o modal.
+- Novo `<Dialog>` `EditNaturezaModal` no mesmo padrão visual do `editProjurisOpen`, mas usando `Select` com as opções de `NATUREZA_ORCAMENTARIA_LABELS`.
 
-- ícone maior, título em negrito, texto em `text-sm leading-relaxed`;
-- borda lateral colorida (`border-l-4`) para reforço visual;
-- `whitespace-pre-wrap` para preservar quebras de linha do que o backoffice escreveu.
+### 3. `src/components/SolicitacaoTimeline.tsx` e `src/components/SlaTimelineModal.tsx`
+- Mapear a nova ação `natureza_orcamentaria_alterada` para um label legível ("Classificação Orçamentária alterada") com ícone `Edit` e cor neutra (ex.: `bg-amber-500 text-white`), seguindo o mesmo estilo das ações `numero_fluig_alterado` / `numero_projuris_alterado`. O `motivo` (com de→para) já é renderizado abaixo do label automaticamente.
 
-### 4. Bloco "Fornecedor Atual"
-- Reduzir padding interno (`p-3` em vez de `p-4`) e usar `text-sm` no nome para ficar menos pesado.
-- Manter as opções de troca, mas com espaçamento `gap-2` em vez de `gap-3`.
+## Permissões e segurança
 
-### 5. Bloco de Anexos
-- Os títulos "Anexos já enviados" e "Adicionar/Substituir anexos" passam a ter divisores sutis (`border-t pt-4`) para separar visualmente das seções anteriores.
-
-### 6. Acessibilidade / UX
-- Adicionar `DialogDescription` curta abaixo do título ("Revise as informações abaixo e reenvie a solicitação para o backoffice").
-- Botões do footer com `w-full sm:w-auto` para ficarem confortáveis no mobile.
-
-## Arquivos afetados
-
-- `src/components/solicitante/SolicitanteModals.tsx` — apenas o componente `EditModal` (sem alterar lógica, props ou handlers; somente JSX/classes Tailwind).
+- A RLS atual de `solicitacoes` já permite `Backoffice can update all solicitacoes`, portanto o UPDATE funciona.
+- A RLS atual de `historico_solicitacoes` exige `auth.uid() = user_id` no INSERT, o que é satisfeito.
+- O botão Editar só será exibido se `effectiveProfile === 'backoffice'` ou `'admin'` (podemos detectar pelo hook já existente `useUserRole`/`useAuth` do projeto, conforme padrão já usado nesta tela).
 
 ## Fora do escopo
 
-- Não mexemos em validações, submit, regras de troca de fornecedor, nem em outros modais (Approve, Reject, etc.).
-- Não alteramos schema do banco nem RLS.
+- Não alteramos schema do banco, RLS, nem Edge Functions.
+- Não recalculamos `instrumento_juridico` (esse é definido por outras flags via trigger `set_instrumento_juridico` apenas no INSERT/UPDATE de campos relevantes — natureza orçamentária não dispara recálculo).
+- Não enviamos notificação automática extra ao solicitante; a mudança aparecerá na timeline de histórico que ele já visualiza.
