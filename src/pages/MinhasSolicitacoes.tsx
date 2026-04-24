@@ -90,6 +90,26 @@ export default function MinhasSolicitacoes() {
       return () => clearTimeout(timer);
     }
   }, [createdProtocolo]);
+
+  // Keyboard shortcut: "/" focuses the search input
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== '/') return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || target?.isContentEditable) return;
+      const input = document.querySelector<HTMLInputElement>(
+        'input[placeholder^="Buscar por protocolo"]'
+      );
+      if (input) {
+        e.preventDefault();
+        input.focus();
+        input.select();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
   
   // Edit modal state
   const [editOpen, setEditOpen] = useState(false);
