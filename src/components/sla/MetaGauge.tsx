@@ -6,6 +6,8 @@ interface MetaGaugeProps {
   /** Meta (0-100) */
   meta: number;
   size?: number;
+  /** Texto opcional para a legenda inferior (ex.: "Meta 3 dias"). Se omitido, mostra "meta {meta}%". */
+  metaLabel?: string;
 }
 
 /**
@@ -15,7 +17,7 @@ interface MetaGaugeProps {
  *   meta - 20 <= value <meta → warning
  *   value < meta - 20        → destructive
  */
-export function MetaGauge({ value, meta, size = 180 }: MetaGaugeProps) {
+export function MetaGauge({ value, meta, size = 180, metaLabel }: MetaGaugeProps) {
   const pct = Math.max(0, Math.min(100, value));
   const stroke = 14;
   const r = (size - stroke) / 2;
@@ -80,13 +82,15 @@ export function MetaGauge({ value, meta, size = 180 }: MetaGaugeProps) {
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center pt-2">
-        <div className={cn('text-5xl font-bold tracking-tight', tone)}>
+        <div className={cn('text-3xl font-semibold tracking-tight tabular-nums', tone)}>
           {pct}%
         </div>
-        <div className="text-xs text-muted-foreground mt-0.5">no prazo</div>
+        <div className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wider">
+          no prazo
+        </div>
       </div>
       <div className="absolute bottom-2 text-[10px] text-muted-foreground uppercase tracking-wider">
-        meta {meta}%
+        {metaLabel ?? `meta ${meta}%`}
       </div>
     </div>
   );
