@@ -21,7 +21,7 @@ import {
   type DocumentoEmitido,
   type DocumentoFiscal,
 } from '@/types';
-import { Loader2, FileText, AlertTriangle, User, Building2, Download, CheckCircle, X, PartyPopper } from 'lucide-react';
+import { Loader2, FileText, AlertTriangle, User, Building2, Download, CheckCircle, X, PartyPopper, LayoutGrid, Rows3, Keyboard } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ContextualEmptyState } from '@/components/ui/ContextualEmptyState';
 import { saveAs } from 'file-saver';
@@ -35,11 +35,14 @@ import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 // Design System Components
 import { FilterBar, type TabGroup } from '@/components/ui/FilterBar';
 import { PendingHeaderChips } from '@/components/solicitante/PendingHeaderChips';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 // Extracted components
 // SolicitanteKPIs removed — FilterBar tabs provide the same info
 import { SolicitanteModals } from '@/components/solicitante/SolicitanteModals';
 import { SolicitanteSolicitacaoCard } from '@/components/solicitante/SolicitanteSolicitacaoCard';
+import { SolicitanteTable } from '@/components/solicitante/SolicitanteTable';
+import { useSolicitanteShortcuts } from '@/hooks/useSolicitanteShortcuts';
 import type { SolicitacaoComFornecedor, RejectionInfo, InfoRequest } from '@/components/solicitante/types';
 
 const ATTACHMENT_TYPES = {
@@ -81,6 +84,16 @@ export default function MinhasSolicitacoes() {
   const [empreendimentoFilter, setEmpreendimentoFilter] = useState('todos');
   const [showCreatedBanner, setShowCreatedBanner] = useState(!!createdProtocolo);
   const [sortBy, setSortBy] = useState<'created_at' | 'updated_at'>('updated_at');
+
+  // View mode (cards / table) — persisted in localStorage for parity with Backoffice
+  const [layoutMode, setLayoutMode] = useState<'cards' | 'table'>(() => {
+    if (typeof window === 'undefined') return 'cards';
+    return (localStorage.getItem('solicitante:viewMode') as 'cards' | 'table') || 'cards';
+  });
+  useEffect(() => {
+    try { localStorage.setItem('solicitante:viewMode', layoutMode); } catch {}
+  }, [layoutMode]);
+  const [focusedRowId, setFocusedRowId] = useState<string | null>(null);
 
   // Auto-dismiss success banner
   useEffect(() => {
@@ -365,6 +378,15 @@ export default function MinhasSolicitacoes() {
     
     return sortWithFavorites(filtered);
   }, [solicitacoes, activeTab, debouncedSearch, sortWithFavorites, viewMode, empreendimentoFilter, sortBy]);
+
+  // Power-user shortcuts (j/k/Enter) — only active in table mode for parity with Backoffice
+  useSolicitanteShortcuts({
+    items: layoutMode === 'table' ? (sortedAndFilteredSolicitacoes as any) : [],
+    focusedId: focusedRowId,
+    setFocusedId: setFocusedRowId,
+    onOpen: (sol) => toggleExpand(sol.id),
+    enabled: layoutMode === 'table',
+  });
 
   // Base filtered (search + empreendimento) — used for tab counts so they reflect active filters
   const solicitacoesFiltradasBase = useMemo(() => {
@@ -1068,6 +1090,44 @@ export default function MinhasSolicitacoes() {
                 <Download className="h-4 w-4" />
                 Exportar
               </Button>
+              <div className="inline-flex rounded-md border bg-card p-0.5">
+                <Button
+                  variant={layoutMode === 'cards' ? 'default' : 'ghost'}
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  onClick={() => setLayoutMode('cards')}
+                  aria-label="Visão em cards"
+                  aria-pressed={layoutMode === 'cards'}
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={layoutMode === 'table' ? 'default' : 'ghost'}
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  onClick={() => setLayoutMode('table')}
+                  aria-label="Visão em tabela"
+                  aria-pressed={layoutMode === 'table'}
+                >
+                  <Rows3 className="h-4 w-4" />
+                </Button>
+              </div>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0" aria-label="Atalhos de teclado">
+                      <Keyboard className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    <div className="space-y-0.5">
+                      <div><kbd className="px-1 rounded bg-muted">/</kbd> focar busca</div>
+                      <div><kbd className="px-1 rounded bg-muted">j</kbd> / <kbd className="px-1 rounded bg-muted">k</kbd> navegar linhas</div>
+                      <div><kbd className="px-1 rounded bg-muted">Enter</kbd> abrir solicitação</div>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           }
         />
@@ -1082,6 +1142,20 @@ export default function MinhasSolicitacoes() {
               label: 'Criar Solicitação',
               onClick: () => navigate('/nova-solicitacao'),
             } : undefined}
+          />
+        ) : layoutMode === 'table' ? (
+          <SolicitanteTable
+            items={sortedAndFilteredSolicitacoes}
+            effectiveUserId={effectiveUserId}
+            focusedId={focusedRowId}
+            favoriteSet={favoriteSet}
+            onFocus={setFocusedRowId}
+            onOpenDetails={(sol) => toggleExpand(sol.id)}
+            onToggleFavorite={toggleFavorite}
+            onEdit={openEditModal}
+            onAceiteOC={openAceiteModal}
+            onNfBoleto={openNfBoletoModal}
+            unreadMap={unreadMap}
           />
         ) : (
           <VirtualizedList
