@@ -554,7 +554,11 @@ export default function MonitoramentoOC() {
                   Exportar
                 </Button>
                 <span className="text-sm text-muted-foreground tabular-nums">
-                  {filteredGroups.length} sol. · {filteredGroups.reduce((acc, g) => acc + g.ocs.length, 0)} OCs
+                  {filteredGroups.length === cardFilteredGroups.length
+                    ? `${filteredGroups.length} sol.`
+                    : `${filteredGroups.length} de ${cardFilteredGroups.length} sol.`}
+                  {' · '}
+                  {filteredGroups.reduce((acc, g) => acc + g.ocs.length, 0)} OCs
                 </span>
               </div>
             </div>
