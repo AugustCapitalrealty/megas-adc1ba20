@@ -48,11 +48,8 @@ export interface OcKpis {
 }
 
 export interface OcDistribution {
-  em_prazo: number;
-  atencao: number;
   pendente: number;
   adiado: number;
-  cancel: number;
 }
 
 const isCurrentMonth = (iso: string) => {
@@ -135,7 +132,7 @@ export function computeAggregates(groups: OCGroupRow[]): OcAggregates {
   let agingSoma = 0;
   let agingCount = 0;
 
-  const dist: OcDistribution = { em_prazo: 0, atencao: 0, pendente: 0, adiado: 0, cancel: 0 };
+  const dist: OcDistribution = { pendente: 0, adiado: 0 };
   const ofensores: { group: OCGroupRow; oc: OCItem }[] = [];
 
   groups.forEach(g => {
@@ -154,11 +151,8 @@ export function computeAggregates(groups: OCGroupRow[]): OcAggregates {
         pendente++;
         ofensores.push({ group: g, oc });
       }
-      if (st === 'em_prazo' || st === 'aguardando_nf') dist.em_prazo++;
-      else if (st === 'atencao') dist.atencao++;
-      else if (st === 'pendente_justificativa') dist.pendente++;
+      if (st === 'pendente_justificativa') dist.pendente++;
       else if (st === 'adiado') dist.adiado++;
-      else if (st === 'cancel_solicitado' || st === 'cancelado') dist.cancel++;
 
       if (!oc.tem_nf && ativo) {
         agingSoma += oc.dias_aberto;
@@ -279,6 +273,10 @@ export function useMonitoramentoOC(opts: {
         const previsaoNfBruta = acomp?.previsao_nf || null;
         const previsaoNfValida = previsaoNfBruta && previsaoNfBruta >= new Date().toISOString().slice(0, 10) ? previsaoNfBruta : null;
 
+      // Excluir grupos canceladas/rejeitadas/cancelamento aprovado
+      if (sol.status === 'cancelado' || sol.status === 'rejeitado') return;
+      if (acomp?.tipo_acao === 'cancelamento_aprovado') return;
+
         const oc: OCItem = {
           id: doc.id,
           numero_documento: doc.numero_documento,
@@ -373,15 +371,12 @@ export function useMonitoramentoOC(opts: {
   }, [groups, historicalKpis]);
 
   const distribution: OcDistribution = useMemo(() => {
-    const dist: OcDistribution = { em_prazo: 0, atencao: 0, pendente: 0, adiado: 0, cancel: 0 };
+    const dist: OcDistribution = { pendente: 0, adiado: 0 };
     groups.forEach(g => {
       g.ocs.forEach(oc => {
         const st = computeOcStatus(oc, g);
-        if (st === 'em_prazo' || st === 'aguardando_nf') dist.em_prazo++;
-        else if (st === 'atencao') dist.atencao++;
-        else if (st === 'pendente_justificativa') dist.pendente++;
+        if (st === 'pendente_justificativa') dist.pendente++;
         else if (st === 'adiado') dist.adiado++;
-        else if (st === 'cancel_solicitado' || st === 'cancelado') dist.cancel++;
       });
     });
     return dist;
