@@ -1,79 +1,76 @@
 
+# Plano — Correções no Backoffice + Paridade no Solicitações
 
-## Auditoria de Notificações — Bugs Confirmados e Correções
+## Parte 1 — Correções urgentes no Backoffice (bugs visuais)
 
-Inspecionei o banco e identifiquei **4 bugs reais** afetando a entrega de notificações.
+### Bug 1: "Sem fornecedor" aparecendo indevidamente
+**Causa raiz confirmada no banco:** o RPC `get_solicitacoes_backoffice` usa `COALESCE(f.nome_fantasia, f.razao_social)`. Vários fornecedores têm `nome_fantasia` como **string vazia `''`** (não NULL), então o `COALESCE` retorna `''` em vez de cair para `razao_social`. Solicitações como #2026000402 (S. Vargas), #2026000401 (Dell) e #2026000398 (J.G da Silva) ficam sem nome, mesmo tendo fornecedor.
 
-### Bugs encontrados
-
-| # | Bug | Evidência no banco |
-|---|---|---|
-| 1 | **Notificações multiplicadas 2-4x** para usuários com múltiplas roles | 5 usuários têm 2-4 entradas em `user_roles` (`solicitante`+`backoffice`+`admin`+`super_admin`). Edge functions buscam `user_id` da `user_roles` filtrando por `role IN (...)` e o mesmo user_id retorna N vezes. Confirmado: notificação "OC Liberada" gerou 15 inserts para 7 destinatários únicos no protocolo 2026000391. |
-| 2 | **"Solicitar NF" duplicada por execução** do cron diário | Edge `check-service-execution` cria 1 notificação por user × N roles a cada chamada. Cron rodou 6× para o mesmo protocolo gerando 6 cópias. O dedup por `ilike "%Solicitar NF%"` funciona apenas para 24h, mas o `array.map` sem dedup multiplica por roles. |
-| 3 | **529 notificações `action_required` não lidas** presas em solicitações terminais | 486 em `concluida`, 40 em `cancelado`, 3 em `rejeitado`. Poluem o sino e o badge. |
-| 4 | **80 notificações órfãs** com `user_id` que não existe mais em `profiles` | Inseridas no passado, hoje pertencem a "fantasmas". |
-
-### Correções
-
-**1. Deduplicar `user_id` em todas as queries de roles (corrige bugs #1 e #2)**
-
-Usar `Set` no JS **após** SELECT, OU `SELECT DISTINCT`. Arquivos:
-- `supabase/functions/check-service-execution/index.ts` — já tem `[...new Set(...)]` na linha 57, então o bug está em outras funções:
-- `supabase/functions/check-sla-alerts/index.ts` — verificar e adicionar `Set`
-- `supabase/functions/check-correction-deadline/index.ts` — verificar
-- `src/lib/message-notifications.ts` — já usa `Set`, OK
-- `notify_backoffice_liberado_fornecedor()` (função SQL) — já usa `SELECT DISTINCT`, OK
-
-Investigar por que mesmo com `Set` o protocolo 2026000391 recebeu 15 inserts: provavelmente o trigger SQL `notify_backoffice_liberado_fornecedor` foi chamado mais de uma vez (status mudou várias vezes). Adicionar guarda anti-duplicidade idempotente nas edge functions críticas (último 5min para o mesmo título+solicitacao_id+user_id).
-
-**2. Migration: limpar notificações órfãs e marcar como lidas as terminais (corrige #3 e #4)**
-
+**Correção (migration):** alterar a função para usar `NULLIF` antes do `COALESCE`:
 ```sql
--- Marcar como lidas notificações action_required de solicitações já finalizadas
-UPDATE notifications n
-SET lida = true
-FROM solicitacoes s
-WHERE n.solicitacao_id = s.id
-  AND n.tipo = 'action_required'
-  AND n.lida = false
-  AND s.status IN ('concluida','cancelado','rejeitado','enviado_pagamento');
-
--- Deletar notificações de usuários inexistentes
-DELETE FROM notifications n
-WHERE NOT EXISTS (SELECT 1 FROM profiles p WHERE p.id = n.user_id);
-
--- Deduplicar inserts duplicados antigos (mesmo titulo+user+solicitacao em < 1min)
-DELETE FROM notifications a USING notifications b
-WHERE a.id > b.id
-  AND a.user_id = b.user_id
-  AND a.solicitacao_id = b.solicitacao_id
-  AND a.titulo = b.titulo
-  AND ABS(EXTRACT(EPOCH FROM (a.created_at - b.created_at))) < 60;
+COALESCE(NULLIF(TRIM(f.nome_fantasia), ''), NULLIF(TRIM(f.razao_social), '')) AS fornecedor_razao
 ```
+Aplicar a mesma lógica defensiva no front (`BackofficeTable.tsx`) como segurança extra: tratar string vazia como ausência.
 
-**3. Auto-marcar como lidas quando solicitação muda para status terminal (preventivo para #3)**
+### Bug 2: Status "Em Fila" quebrando em duas linhas
+O `StatusBadge` usa label completo de `STATUS_LABELS` e dentro da célula de tabela com `w-[110px]` ele quebra. Soluções aplicadas em conjunto:
+- Adicionar `whitespace-nowrap` ao `.status-badge` (ajuste em `index.css` já que essa classe é global).
+- Aumentar a largura da coluna Status para `w-[130px]` e usar versão compacta (sem ícone OU ícone + label, mas em uma linha só).
+- Para a coluna Empreendimento, normalizar o label via `EMPREENDIMENTO_LABELS` (atualmente faz replace manual e fica "Mega curitiba" minúsculo) e adicionar `whitespace-nowrap`.
 
-Novo trigger `auto_read_notifications_on_terminal`:
-- ANTES: status muda para `concluida`/`cancelado`/`rejeitado`/`enviado_pagamento`
-- AÇÃO: `UPDATE notifications SET lida = true WHERE solicitacao_id = NEW.id AND tipo = 'action_required' AND lida = false`
+### Bug 3: Linhas com altura desigual / desalinhadas
+- Definir altura mínima fixa nas linhas (`h-14`) para padronização.
+- Mover o badge "emergencial" (ícone vermelho) para inline ao lado do status, **dentro** do mesmo bloco flex `items-center` (hoje fica abaixo, jogando a linha pra baixo).
+- Truncar a descrição em uma única linha com `truncate`, com `max-w` controlado pela coluna pai.
+- Padronizar tipografia (tudo `text-sm` exceto valor que fica `font-medium tabular-nums`).
 
-**4. Filtro defensivo no `NotificationBell` (UX)**
+## Parte 2 — Paridade Solicitações ↔ Backoffice
 
-Em `src/components/NotificationBell.tsx`: ao buscar notificações, ocultar `action_required` se a solicitação relacionada estiver em status terminal. Pode ser feito via JOIN no SELECT (PostgREST `solicitacoes!inner(status)`) ou filtro client-side se já carregado.
+Hoje o **Backoffice** tem: toolbar sticky, chips de filtros ativos, toggle Cards/Tabela, atalhos `j/k/Enter/x/a`, tooltip de teclado. O **Solicitações** tem só FilterBar + cards. Vamos trazer o que faz sentido para o solicitante, **mantendo as visões distintas**:
 
-### Arquivos modificados
+### O que vai para o Solicitante (igual ao Backoffice)
+1. **Toggle Cards/Tabela** persistido em localStorage (`solicitante:viewMode`).
+2. **Nova `SolicitanteTable`** densa, espelho do `BackofficeTable`, mas com colunas adaptadas:
+   - Protocolo (com badge AC/OC + data) · Status · Fornecedor / Descrição · Empreend. · Valor · **Idade** (tempo desde criação) · **Pendência** (corrigir / aceitar OC / enviar NF — chip colorido) · Ações (Ver / Editar / Cancelar conforme status).
+   - **Sem** coluna "Responsável" (não faz sentido para o solicitante).
+   - **Com** ícone de favorito clicável na coluna do protocolo (paridade com card).
+3. **Atalhos de teclado** `j / k / ↑ / ↓` para navegar e `Enter` para expandir/abrir detalhes. (Sem `a`/`x` que são exclusivos do backoffice.)
+4. **Tooltip de teclado** no header (mesmo ícone `Keyboard`) listando: `/` busca, `j/k` navegar, `Enter` abrir.
+5. **Chips de filtros ativos** abaixo da FilterBar (busca, empreendimento, viewMode), com botão "Limpar tudo".
+6. **Toolbar sticky** (search + select empreendimento + sort + Minhas/Empreendimento + Exportar + toggle view + atalhos), no mesmo padrão visual do Backoffice (`sticky top-0 bg-background/95 backdrop-blur`).
 
-| Arquivo | Mudança |
-|---|---|
-| `supabase/migrations/<novo>.sql` | Limpeza de órfãs + auto-mark de terminais + trigger preventivo |
-| `supabase/functions/check-sla-alerts/index.ts` | Adicionar `[...new Set(...)]` no array de user_ids |
-| `supabase/functions/check-correction-deadline/index.ts` | Idem |
-| `supabase/functions/check-service-execution/index.ts` | Adicionar guarda anti-duplicidade últimos 5min para o título exato |
-| `src/components/NotificationBell.tsx` | Filtrar action_required de solicitações em status terminal |
+### O que **NÃO** vai (mantém visão própria)
+- Backoffice mantém: coluna Responsável, atalho `a` (assumir), `x` (selecionar), checkbox de seleção em massa, BatchActionBar.
+- Solicitante mantém: `PendingHeaderChips` (chips de pendências do solicitante: correções/info/aceite/NF) acima da toolbar — equivalente conceitual aos KPIs do Backoffice, mas focado em "o que EU preciso fazer".
+- Banner de sucesso ao criar (verde com PartyPopper) só no solicitante.
 
-### Resultado esperado
+## Parte 3 — Padronização visual conjunta
 
-- Sino mostrará contagem correta (badge atual de `20` provavelmente cairá ~50%)
-- Sem duplicação de "Solicitar NF" e "OC Liberada" para admins
-- Notificações de solicitações fechadas saem automaticamente da fila
+- Criar utilitários compartilhados em `src/lib/solicitacao-display.ts`:
+  - `getFornecedorDisplay(razao, fantasia)` — função única que pula vazio/null/whitespace.
+  - `formatEmpreendimento(emp)` — usa `EMPREENDIMENTO_LABELS` em vez de `replace` ad-hoc.
+  - `getSlaTone(sol)` — extrair do `BackofficeTable` para reuso.
+- Atualizar **ambas** as tabelas para usar esses helpers, garantindo nunca mais "Sem fornecedor" indevido.
+- Ajustar `.status-badge` no `index.css`: `whitespace-nowrap`, `inline-flex`, altura fixa `h-6`, padding compacto.
 
+## Arquivos afetados
+
+**Migration:**
+- Nova migration corrigindo `get_solicitacoes_backoffice` (NULLIF + TRIM no COALESCE de fornecedor).
+
+**Novos:**
+- `src/components/solicitante/SolicitanteTable.tsx`
+- `src/hooks/useSolicitanteShortcuts.ts`
+- `src/lib/solicitacao-display.ts`
+
+**Editados:**
+- `src/components/backoffice/BackofficeTable.tsx` (whitespace-nowrap, altura padrão, EMPREENDIMENTO_LABELS, helper de fornecedor, emergencial inline)
+- `src/pages/MinhasSolicitacoes.tsx` (toolbar sticky, toggle view, chips de filtros ativos, atalhos, tooltip teclado, render condicional Cards/Tabela)
+- `src/pages/Backoffice.tsx` (usar helpers compartilhados)
+- `src/index.css` (`.status-badge` com `whitespace-nowrap`)
+
+## Resultado esperado
+
+- Linhas com altura uniforme, status numa linha só, fornecedor sempre correto.
+- Solicitante e Backoffice com **mesma linguagem visual** (toolbar, tabela, atalhos, chips), mas cada um com colunas e ações específicas do seu papel.
+- Power-users do solicitante ganham densidade igual à do backoffice; backoffice fica visualmente mais limpo.
