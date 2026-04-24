@@ -51,6 +51,8 @@ export interface FormDraft {
 
 export function useFormPersistence() {
   const [hasDraft, setHasDraft] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
+  const [justRestored, setJustRestored] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Check if there's a saved draft on mount
@@ -62,6 +64,10 @@ export function useFormPersistence() {
         // Check if draft is less than 24 hours old
         const isRecent = Date.now() - draft.savedAt < 24 * 60 * 60 * 1000;
         setHasDraft(isRecent);
+        if (isRecent) {
+          setLastSavedAt(draft.savedAt);
+          setJustRestored(true);
+        }
         if (!isRecent) {
           localStorage.removeItem(STORAGE_KEY);
         }
@@ -78,12 +84,14 @@ export function useFormPersistence() {
     }
     
     timeoutRef.current = setTimeout(() => {
+      const now = Date.now();
       const draftWithTimestamp: FormDraft = {
         ...draft,
-        savedAt: Date.now(),
+        savedAt: now,
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(draftWithTimestamp));
       setHasDraft(true);
+      setLastSavedAt(now);
     }, DEBOUNCE_MS);
   }, []);
 
@@ -112,6 +120,8 @@ export function useFormPersistence() {
     }
     localStorage.removeItem(STORAGE_KEY);
     setHasDraft(false);
+    setLastSavedAt(null);
+    setJustRestored(false);
   }, []);
 
   // Cleanup timeout on unmount
@@ -125,6 +135,9 @@ export function useFormPersistence() {
 
   return {
     hasDraft,
+    lastSavedAt,
+    justRestored,
+    dismissRestoredBanner: () => setJustRestored(false),
     saveDraft,
     loadDraft,
     clearDraft,
