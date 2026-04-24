@@ -1686,6 +1686,46 @@ export default function Backoffice() {
               <Download className="h-4 w-4" />
               Exportar
             </Button>
+            <div className="flex items-center gap-0.5 shrink-0 border rounded-md h-9 p-0.5">
+              <Button
+                size="sm"
+                variant={viewMode === 'cards' ? 'secondary' : 'ghost'}
+                onClick={() => setViewMode('cards')}
+                className="h-7 px-2"
+                aria-label="Visão em cards"
+                title="Visão em cards"
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant={viewMode === 'table' ? 'secondary' : 'ghost'}
+                onClick={() => setViewMode('table')}
+                className="h-7 px-2"
+                aria-label="Visão em tabela densa"
+                title="Visão em tabela densa"
+              >
+                <Rows3 className="h-4 w-4" />
+              </Button>
+            </div>
+            <TooltipProvider delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button size="sm" variant="ghost" className="h-9 w-9 p-0 shrink-0" aria-label="Atalhos">
+                    <Keyboard className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  <div className="space-y-0.5">
+                    <div><kbd className="font-mono">/</kbd> focar busca</div>
+                    <div><kbd className="font-mono">j</kbd> / <kbd className="font-mono">k</kbd> próxima/anterior</div>
+                    <div><kbd className="font-mono">Enter</kbd> abrir detalhes</div>
+                    <div><kbd className="font-mono">a</kbd> assumir focada</div>
+                    <div><kbd className="font-mono">x</kbd> selecionar focada</div>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
 
           {/* Active filter chips (removable) */}
