@@ -390,7 +390,7 @@ export default function MinhasSolicitacoes() {
     });
     
     return sortWithFavorites(filtered);
-  }, [solicitacoes, activeTab, debouncedSearch, sortWithFavorites, viewMode, empreendimentoFilter, sortBy]);
+  }, [solicitacoes, activeTab, pendentesSubFilter, debouncedSearch, sortWithFavorites, viewMode, empreendimentoFilter, sortBy]);
 
   // Power-user shortcuts (j/k/Enter) — only active in table mode for parity with Backoffice
   useSolicitanteShortcuts({
@@ -422,6 +422,7 @@ export default function MinhasSolicitacoes() {
   const statusCounts = useMemo(() => ({
     todas: solicitacoesFiltradasBase.length,
     com_backoffice: solicitacoesFiltradasBase.filter(s => ['recebido', 'em_analise', 'aprovado', 'em_processamento'].includes(s.status)).length,
+    pendentes: solicitacoesFiltradasBase.filter(s => s.status === 'pendente_correcao' || s.status === 'aguardando_informacoes').length,
     correcoes: solicitacoesFiltradasBase.filter(s => s.status === 'pendente_correcao').length,
     informacoes: solicitacoesFiltradasBase.filter(s => s.status === 'aguardando_informacoes').length,
     oc_emitida: solicitacoesFiltradasBase.filter(s => s.status === 'aguardando_aceite' || s.status === 'oc_ac_emitida').length,
