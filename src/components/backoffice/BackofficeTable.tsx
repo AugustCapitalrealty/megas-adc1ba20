@@ -5,9 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Eye, AlertTriangle, UserCheck, Clock } from 'lucide-react';
-import { differenceInDays, differenceInHours } from 'date-fns';
 import { formatBR } from '@/lib/date-utils';
 import { cn } from '@/lib/utils';
+import {
+  getFornecedorDisplay,
+  formatEmpreendimento,
+  getSlaTone,
+} from '@/lib/solicitacao-display';
 import type { SolicitacaoBackoffice } from '@/hooks/useBackofficeSolicitacoes';
 
 interface BackofficeTableProps {
@@ -23,18 +27,6 @@ interface BackofficeTableProps {
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-
-function getSlaTone(sol: SolicitacaoBackoffice) {
-  const dias = differenceInDays(new Date(), new Date(sol.created_at));
-  const horas = differenceInHours(new Date(), new Date(sol.created_at));
-  const tempo = dias === 0 ? `${horas}h` : `${dias}d`;
-  const atrasadoAnalise = dias > 5 && ['recebido', 'em_analise'].includes(sol.status);
-  let diasApr: number | null = null;
-  if (sol.dataAprovacao) diasApr = differenceInDays(new Date(), new Date(sol.dataAprovacao));
-  const atrasadoEmissao = diasApr !== null && diasApr > 3 && ['aprovado', 'em_processamento'].includes(sol.status);
-  const atrasado = atrasadoAnalise || atrasadoEmissao;
-  return { tempo, atrasado };
-}
 
 export const BackofficeTable = memo(function BackofficeTable({
   items,
@@ -62,9 +54,9 @@ export const BackofficeTable = memo(function BackofficeTable({
               />
             </TableHead>
             <TableHead className="w-[140px]">Protocolo</TableHead>
-            <TableHead className="w-[110px]">Status</TableHead>
+            <TableHead className="w-[150px]">Status</TableHead>
             <TableHead>Fornecedor / Descrição</TableHead>
-            <TableHead className="w-[110px]">Empreend.</TableHead>
+            <TableHead className="w-[130px]">Empreend.</TableHead>
             <TableHead className="w-[120px] text-right">Valor</TableHead>
             <TableHead className="w-[90px]">SLA</TableHead>
             <TableHead className="w-[140px]">Responsável</TableHead>
@@ -73,10 +65,11 @@ export const BackofficeTable = memo(function BackofficeTable({
         </TableHeader>
         <TableBody>
           {items.map((sol) => {
-            const sla = getSlaTone(sol);
+            const sla = getSlaTone(sol.created_at, sol.status, sol.dataAprovacao);
             const isMine = sol.responsavelId === userId;
             const isFocused = focusedId === sol.id;
             const isSelected = selectedIds.has(sol.id);
+            const fornecedorNome = getFornecedorDisplay(sol.fornecedor_razao, null);
             return (
               <TableRow
                 key={sol.id}
@@ -84,7 +77,7 @@ export const BackofficeTable = memo(function BackofficeTable({
                 onClick={() => onFocus(sol.id)}
                 onDoubleClick={() => onOpenDetails(sol)}
                 className={cn(
-                  'cursor-pointer transition-colors',
+                  'cursor-pointer transition-colors h-14 align-middle',
                   isFocused && 'bg-primary/5 ring-1 ring-inset ring-primary/40',
                   isSelected && !isFocused && 'bg-muted/40',
                 )}
@@ -108,21 +101,31 @@ export const BackofficeTable = memo(function BackofficeTable({
                   </div>
                 </TableCell>
                 <TableCell>
-                  <StatusBadge status={sol.status} />
-                  {sol.emergencial && (
-                    <Badge variant="destructive" className="ml-1 h-4 px-1 text-[9px]">
-                      <AlertTriangle className="h-2.5 w-2.5" />
-                    </Badge>
-                  )}
+                  <div className="flex items-center gap-1">
+                    <StatusBadge status={sol.status} />
+                    {sol.emergencial && (
+                      <Badge
+                        variant="destructive"
+                        className="h-5 px-1 text-[9px] gap-0.5"
+                        aria-label="Emergencial"
+                      >
+                        <AlertTriangle className="h-3 w-3" />
+                      </Badge>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell className="max-w-0">
                   <div className="truncate font-medium text-sm">
-                    {sol.fornecedor_razao || <span className="text-muted-foreground italic">Sem fornecedor</span>}
+                    {fornecedorNome ?? (
+                      <span className="text-muted-foreground italic">Sem fornecedor</span>
+                    )}
                   </div>
                   <div className="truncate text-xs text-muted-foreground">{sol.descricao}</div>
                 </TableCell>
                 <TableCell>
-                  <span className="text-xs">{sol.empreendimento.replace('mega_', 'Mega ').replace(/^./, c => c.toUpperCase())}</span>
+                  <span className="text-xs whitespace-nowrap">
+                    {formatEmpreendimento(sol.empreendimento)}
+                  </span>
                 </TableCell>
                 <TableCell className="text-right tabular-nums font-medium text-sm">
                   {formatCurrency(sol.valor)}
@@ -131,7 +134,7 @@ export const BackofficeTable = memo(function BackofficeTable({
                   <Badge
                     variant="outline"
                     className={cn(
-                      'gap-1 text-[10px] tabular-nums',
+                      'gap-1 text-[10px] tabular-nums whitespace-nowrap',
                       sla.atrasado && 'bg-destructive/10 text-destructive border-destructive/30',
                     )}
                   >
@@ -141,7 +144,7 @@ export const BackofficeTable = memo(function BackofficeTable({
                 </TableCell>
                 <TableCell className="text-xs">
                   {sol.responsavelNome ? (
-                    <span className={cn('inline-flex items-center gap-1', isMine && 'text-primary font-medium')}>
+                    <span className={cn('inline-flex items-center gap-1 truncate', isMine && 'text-primary font-medium')}>
                       {isMine && <UserCheck className="h-3 w-3" />}
                       {sol.responsavelNome}
                     </span>
