@@ -567,6 +567,20 @@ export default function MonitoramentoOC() {
                   {EMPREENDIMENTO_LABELS[filterEmpreendimento as Empreendimento] || filterEmpreendimento}
                 </Badge>
               )}
+              {cardFilter !== 'todas' && (
+                <Badge variant="outline" className="ml-1 gap-1 text-xs">
+                  <span className="text-muted-foreground">Card:</span>
+                  {CARD_FILTER_LABEL[cardFilter]}
+                  <button
+                    type="button"
+                    onClick={() => setCardFilter('todas')}
+                    className="ml-1 hover:text-destructive"
+                    title="Remover filtro do card"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
             </div>
 
             {/* Tabela agrupada — colunas mescladas e ações com label */}
