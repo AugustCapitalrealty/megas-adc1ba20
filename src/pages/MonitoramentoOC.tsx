@@ -11,15 +11,22 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserEmpreendimentos } from '@/hooks/useUserEmpreendimentos';
 import { EMPREENDIMENTO_LABELS, type Empreendimento } from '@/types';
 import {
   FileCheck, Clock, AlertTriangle, XCircle, CheckCircle,
-  CalendarDays, Loader2, Download, AlertOctagon as AlertOctagonIcon,
+  CalendarDays, Loader2, Download,
   FileText, Ban, History, AlertCircle, Search, XOctagon, Scale, X, Inbox,
-  ChevronDown, ChevronRight, Wallet, Layers,
+  ChevronDown, ChevronRight, Wallet, Layers, MoreHorizontal, Eye, ShieldAlert, ShieldCheck,
 } from 'lucide-react';
 import { formatBR } from '@/lib/date-utils';
 import { formatDistanceToNowStrict } from 'date-fns';
@@ -37,15 +44,20 @@ import {
   useMonitoramentoOC,
   computeOcStatus,
   computeGroupStatus,
+  computeAggregates,
   type OCGroupRow,
   type OCItem,
   type OcVisualStatus,
 } from '@/hooks/useMonitoramentoOC';
 
-type StatusFilter = 'todos' | OcVisualStatus;
+type TabKey = 'pendencia' | 'justificadas';
 
-const STATUS_LABELS: Record<StatusFilter, string> = {
-  todos: 'Todos',
+const TAB_STATUS: Record<TabKey, OcVisualStatus[]> = {
+  pendencia: ['pendente_justificativa', 'atencao'],
+  justificadas: ['adiado', 'aguardando_nf', 'em_prazo', 'cancel_solicitado', 'cancelado'],
+};
+
+const STATUS_LABEL_MAP: Record<OcVisualStatus, string> = {
   em_prazo: 'Em prazo',
   atencao: 'Atenção',
   pendente_justificativa: 'Pendente justif.',
@@ -126,16 +138,11 @@ export default function MonitoramentoOC() {
   const {
     loading,
     groups,
-    kpis,
-    distribution,
-    topOfensores,
-    valorEmAberto,
-    agingMedio,
     refetch,
   } = useMonitoramentoOC({ userEmpreendimentos, hasAllAccess, enabled: !loadingEmpreendimentos });
 
   const [filterEmpreendimento, setFilterEmpreendimento] = useState<string>('todos');
-  const [filterStatus, setFilterStatus] = useState<StatusFilter>('todos');
+  const [activeTab, setActiveTab] = useState<TabKey>('pendencia');
   const [searchTerm, setSearchTerm] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -149,11 +156,10 @@ export default function MonitoramentoOC() {
   const [cancelJustificativa, setCancelJustificativa] = useState('');
   const [cancelSaving, setCancelSaving] = useState(false);
 
-  const hasActiveFilters = filterEmpreendimento !== 'todos' || filterStatus !== 'todos' || searchTerm !== '';
+  const hasActiveFilters = filterEmpreendimento !== 'todos' || searchTerm !== '';
 
   const clearFilters = () => {
     setFilterEmpreendimento('todos');
-    setFilterStatus('todos');
     setSearchTerm('');
   };
 
@@ -165,13 +171,10 @@ export default function MonitoramentoOC() {
     });
   };
 
-  const filteredGroups = useMemo(() => {
+  // Filtros base (empreendimento + busca) — alimentam KPIs e distribuição
+  const baseFilteredGroups = useMemo(() => {
     return groups.filter(g => {
       if (filterEmpreendimento !== 'todos' && g.empreendimento !== filterEmpreendimento) return false;
-      if (filterStatus !== 'todos') {
-        const groupStatus = computeGroupStatus(g);
-        if (groupStatus !== filterStatus) return false;
-      }
       if (searchTerm) {
         const term = searchTerm.toLowerCase();
         const match =
@@ -183,7 +186,30 @@ export default function MonitoramentoOC() {
       }
       return true;
     });
-  }, [groups, filterEmpreendimento, filterStatus, searchTerm]);
+  }, [groups, filterEmpreendimento, searchTerm]);
+
+  // Agregados reativos ao filtro de empreendimento + busca
+  const aggregates = useMemo(() => computeAggregates(baseFilteredGroups), [baseFilteredGroups]);
+  const { kpis, distribution, topOfensores, valorEmAberto, agingMedio } = aggregates;
+
+  // Contagem por aba (a partir do conjunto base filtrado)
+  const tabCounts = useMemo(() => {
+    const counts = { pendencia: 0, justificadas: 0 };
+    baseFilteredGroups.forEach(g => {
+      const st = computeGroupStatus(g);
+      if (TAB_STATUS.pendencia.includes(st)) counts.pendencia++;
+      else counts.justificadas++;
+    });
+    return counts;
+  }, [baseFilteredGroups]);
+
+  // Tabela = aplica filtro de aba sobre o conjunto base
+  const filteredGroups = useMemo(() => {
+    return baseFilteredGroups.filter(g => {
+      const st = computeGroupStatus(g);
+      return TAB_STATUS[activeTab].includes(st);
+    });
+  }, [baseFilteredGroups, activeTab]);
 
   const availableEmpreendimentos = useMemo(() => {
     if (hasAllAccess) {
@@ -294,14 +320,9 @@ export default function MonitoramentoOC() {
                   <OcDistributionBar
                     data={distribution}
                     onSegmentClick={(key) => {
-                      const map: Record<string, StatusFilter> = {
-                        em_prazo: 'em_prazo',
-                        atencao: 'atencao',
-                        pendente: 'pendente_justificativa',
-                        adiado: 'adiado',
-                        cancel: 'cancel_solicitado',
-                      };
-                      setFilterStatus(map[key] || 'todos');
+                      // Mapeia segmento -> aba apropriada
+                      if (key === 'pendente' || key === 'atencao') setActiveTab('pendencia');
+                      else setActiveTab('justificadas');
                     }}
                   />
                   <div className="grid grid-cols-2 gap-3 pt-2">
@@ -339,17 +360,16 @@ export default function MonitoramentoOC() {
                   value={kpis.total_ativas}
                   icon={<FileCheck className="h-4 w-4" />}
                   tone="neutral"
-                  active={filterStatus === 'todos' && !searchTerm && filterEmpreendimento === 'todos'}
-                  onClick={() => setFilterStatus('todos')}
-                  hint="Total de Ordens de Compra ativas (excluindo concluídas e canceladas)."
+                  active={false}
+                  hint="Total de OCs ativas no recorte filtrado (exclui concluídas/canceladas)."
                 />
                 <SlaKpiCard
                   label="Sem NF"
                   value={kpis.sem_nf}
                   icon={<Clock className="h-4 w-4" />}
                   tone="warning"
-                  active={filterStatus === 'aguardando_nf'}
-                  onClick={() => setFilterStatus(filterStatus === 'aguardando_nf' ? 'todos' : 'aguardando_nf')}
+                  active={activeTab === 'justificadas'}
+                  onClick={() => setActiveTab('justificadas')}
                   hint="OCs ativas que ainda não receberam NF."
                 />
                 <SlaKpiCard
@@ -357,8 +377,8 @@ export default function MonitoramentoOC() {
                   value={kpis.pendente_justificativa}
                   icon={<AlertTriangle className="h-4 w-4" />}
                   tone="destructive"
-                  active={filterStatus === 'pendente_justificativa'}
-                  onClick={() => setFilterStatus(filterStatus === 'pendente_justificativa' ? 'todos' : 'pendente_justificativa')}
+                  active={activeTab === 'pendencia'}
+                  onClick={() => setActiveTab('pendencia')}
                   hint="OCs sem NF do mês anterior, ou do mês atual após dia 23 sem previsão futura."
                 />
                 <SlaKpiCard
@@ -366,8 +386,7 @@ export default function MonitoramentoOC() {
                   value={kpis.cancelamento_pendente}
                   icon={<XCircle className="h-4 w-4" />}
                   tone="warning"
-                  active={filterStatus === 'cancel_solicitado'}
-                  onClick={() => setFilterStatus(filterStatus === 'cancel_solicitado' ? 'todos' : 'cancel_solicitado')}
+                  active={false}
                   hint="Solicitações com cancelamento aguardando aprovação."
                 />
               </div>
@@ -399,14 +418,6 @@ export default function MonitoramentoOC() {
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as StatusFilter)}>
-                <SelectTrigger className="w-56"><SelectValue placeholder="Status" /></SelectTrigger>
-                <SelectContent>
-                  {Object.entries(STATUS_LABELS).map(([key, label]) => (
-                    <SelectItem key={key} value={key}>{label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
 
               <div className="ml-auto flex items-center gap-3">
                 {hasActiveFilters && (
@@ -429,7 +440,7 @@ export default function MonitoramentoOC() {
                         'Valor (R$)': g.valor,
                         'Data OC': formatBR(oc.data_oc, 'dd/MM/yyyy'),
                         'Dias Aberto': oc.dias_aberto,
-                        'Status': STATUS_LABELS[computeOcStatus(oc, g) as StatusFilter] || '-',
+                        'Status': STATUS_LABEL_MAP[computeOcStatus(oc, g)] || '-',
                         'Tem NF': oc.tem_nf ? 'Sim' : 'Não',
                         'Previsão NF': oc.previsao_nf || '-',
                       }))
@@ -457,7 +468,55 @@ export default function MonitoramentoOC() {
               </div>
             </div>
 
-            {/* Tabela agrupada */}
+            {/* Abas Pendência / Justificadas — padrão Solicitante/Backoffice */}
+            <div className="flex flex-wrap gap-2 items-center">
+              <button
+                type="button"
+                onClick={() => setActiveTab('pendencia')}
+                className={cn(
+                  'inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-all',
+                  activeTab === 'pendencia'
+                    ? 'bg-destructive/10 border-destructive/40 text-destructive shadow-sm'
+                    : 'bg-background border-border text-muted-foreground hover:bg-muted hover:text-foreground'
+                )}
+              >
+                <ShieldAlert className="h-4 w-4" />
+                <span>Pendência de justificativa</span>
+                <span className={cn(
+                  'inline-flex items-center justify-center min-w-[22px] h-[20px] px-1.5 rounded-full text-[11px] font-bold tabular-nums',
+                  activeTab === 'pendencia' ? 'bg-destructive text-destructive-foreground' : 'bg-muted text-foreground'
+                )}>
+                  {tabCounts.pendencia}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('justificadas')}
+                className={cn(
+                  'inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-all',
+                  activeTab === 'justificadas'
+                    ? 'bg-success/10 border-success/40 text-success shadow-sm'
+                    : 'bg-background border-border text-muted-foreground hover:bg-muted hover:text-foreground'
+                )}
+              >
+                <ShieldCheck className="h-4 w-4" />
+                <span>Justificadas</span>
+                <span className={cn(
+                  'inline-flex items-center justify-center min-w-[22px] h-[20px] px-1.5 rounded-full text-[11px] font-bold tabular-nums',
+                  activeTab === 'justificadas' ? 'bg-success text-success-foreground' : 'bg-muted text-foreground'
+                )}>
+                  {tabCounts.justificadas}
+                </span>
+              </button>
+              {filterEmpreendimento !== 'todos' && (
+                <Badge variant="outline" className="ml-1 gap-1 text-xs">
+                  <span className="text-muted-foreground">Filtro:</span>
+                  {EMPREENDIMENTO_LABELS[filterEmpreendimento as Empreendimento] || filterEmpreendimento}
+                </Badge>
+              )}
+            </div>
+
+            {/* Tabela agrupada — colunas mescladas e ações com label */}
             <Card>
               <ScrollArea className="h-[560px]">
                 <div className="overflow-x-auto">
@@ -470,20 +529,22 @@ export default function MonitoramentoOC() {
                         <TableHead>Empreendimento</TableHead>
                         <TableHead>Fornecedor</TableHead>
                         <TableHead className="text-right">Valor</TableHead>
-                        <TableHead>OC</TableHead>
-                        <TableHead>Aging</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Última ação</TableHead>
-                        <TableHead className="text-right">Ações</TableHead>
+                        <TableHead>OC / Aging</TableHead>
+                        <TableHead>Status &amp; Última ação</TableHead>
+                        <TableHead className="text-right w-[180px]">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredGroups.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={11} className="text-center py-16">
+                          <TableCell colSpan={9} className="text-center py-16">
                             <div className="flex flex-col items-center gap-2 text-muted-foreground">
                               <Inbox className="h-10 w-10 opacity-40" />
-                              <p className="text-sm font-medium">Nenhuma OC encontrada</p>
+                              <p className="text-sm font-medium">
+                                {activeTab === 'pendencia'
+                                  ? 'Nenhuma OC com pendência de justificativa'
+                                  : 'Nenhuma OC justificada neste recorte'}
+                              </p>
                               {hasActiveFilters && (
                                 <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-1 mt-1">
                                   <X className="h-3.5 w-3.5" />
@@ -500,18 +561,19 @@ export default function MonitoramentoOC() {
                           const groupStatus = computeGroupStatus(group);
                           const primary = group.primary;
                           const primaryStatus = computeOcStatus(primary, group);
-                          const rowTone =
-                            primaryStatus === 'pendente_justificativa' ? 'bg-destructive/[0.04]' :
-                            primaryStatus === 'atencao' ? 'bg-warning/[0.04]' : '';
+                          // Borda lateral colorida em vez de fundo na linha inteira
+                          const leftAccent =
+                            primaryStatus === 'pendente_justificativa' ? 'border-l-destructive' :
+                            primaryStatus === 'atencao' ? 'border-l-warning' :
+                            isOwn ? 'border-l-primary' : 'border-l-transparent';
 
                           return (
                             <Fragment key={group.solicitacao_id}>
                               <TableRow
                                 className={cn(
-                                  'cursor-pointer group',
-                                  rowTone,
-                                  group.cancelamento_pendente && 'bg-destructive/5',
-                                  isOwn && 'border-l-4 border-l-primary',
+                                  'cursor-pointer group border-l-4 hover:bg-muted/40 transition-colors',
+                                  leftAccent,
+                                  group.cancelamento_pendente && 'bg-destructive/[0.03]',
                                 )}
                                 onClick={() => setDetailGroup(group)}
                               >
@@ -560,78 +622,78 @@ export default function MonitoramentoOC() {
                                   {group.fornecedor_razao || '—'}
                                 </TableCell>
                                 <TableCell className="text-right text-sm font-medium tabular-nums">{formatCurrency(group.valor)}</TableCell>
-                                <TableCell className="text-sm tabular-nums">
-                                  {group.has_multiple ? (
-                                    <span className="text-muted-foreground text-xs">
-                                      {primary.numero_documento} <span className="opacity-60">+{group.ocs.length - 1}</span>
+                                {/* OC + Aging mesclados */}
+                                <TableCell>
+                                  <div className="flex flex-col gap-1">
+                                    <span className="text-sm tabular-nums font-medium leading-none">
+                                      {primary.numero_documento}
+                                      {group.has_multiple && (
+                                        <span className="ml-1 text-[10px] text-muted-foreground font-normal">+{group.ocs.length - 1}</span>
+                                      )}
                                     </span>
-                                  ) : (
-                                    primary.numero_documento
-                                  )}
+                                    <AgingBadge dias={primary.dias_aberto} hasJustificativa={!!primary.ultima_justificativa} dataOc={primary.data_oc} />
+                                  </div>
                                 </TableCell>
+                                {/* Status + Última ação mesclados */}
                                 <TableCell>
-                                  <AgingBadge dias={primary.dias_aberto} hasJustificativa={!!primary.ultima_justificativa} dataOc={primary.data_oc} />
-                                </TableCell>
-                                <TableCell>
-                                  <div className="flex flex-col gap-0.5">
+                                  <div className="flex flex-col gap-0.5 min-w-[160px]">
                                     <StatusBadge status={groupStatus} />
                                     {groupStatus === 'adiado' && primary.previsao_nf && (
                                       <span className="text-[10px] text-muted-foreground">
-                                        Prev: {formatBR(primary.previsao_nf + 'T00:00:00', 'dd/MM/yy')}
+                                        Prev. NF: {formatBR(primary.previsao_nf + 'T00:00:00', 'dd/MM/yy')}
+                                      </span>
+                                    )}
+                                    {primary.ultima_acao_em && (
+                                      <span className="text-[10px] text-muted-foreground/70 truncate">
+                                        {TIPO_ACAO_LABELS[primary.ultima_acao_tipo || ''] || primary.ultima_acao_tipo}
+                                        {' · '}
+                                        {formatDistanceToNowStrict(new Date(primary.ultima_acao_em), { locale: ptBR, addSuffix: true })}
                                       </span>
                                     )}
                                   </div>
                                 </TableCell>
-                                <TableCell>
-                                  {primary.ultima_acao_em ? (
-                                    <div className="text-xs">
-                                      <div className="text-muted-foreground">
-                                        {TIPO_ACAO_LABELS[primary.ultima_acao_tipo || ''] || primary.ultima_acao_tipo}
-                                      </div>
-                                      <div className="text-[10px] text-muted-foreground/70">
-                                        {formatDistanceToNowStrict(new Date(primary.ultima_acao_em), { locale: ptBR, addSuffix: true })}
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <span className="text-xs text-muted-foreground/60">—</span>
-                                  )}
-                                </TableCell>
+                                {/* Ações com label */}
                                 <TableCell className="text-right">
-                                  <div className="flex items-center gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
+                                  <div className="flex items-center gap-1.5 justify-end" onClick={(e) => e.stopPropagation()}>
                                     {(groupStatus === 'pendente_justificativa' || groupStatus === 'atencao') && (
-                                      <TooltipProvider>
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <Button variant="outline" size="icon" className="h-8 w-8 text-amber-600 border-amber-300 hover:bg-amber-50" onClick={() => setJustificativaGroup(group)}>
-                                              <AlertCircle className="h-4 w-4" />
-                                            </Button>
-                                          </TooltipTrigger>
-                                          <TooltipContent>Justificar</TooltipContent>
-                                        </Tooltip>
-                                      </TooltipProvider>
+                                      <Button
+                                        size="sm"
+                                        className="h-7 px-2 gap-1 bg-amber-500 hover:bg-amber-600 text-white border-0"
+                                        onClick={() => setJustificativaGroup(group)}
+                                      >
+                                        <AlertCircle className="h-3.5 w-3.5" />
+                                        Justificar
+                                      </Button>
                                     )}
-                                    {group.status !== 'cancelado' && !group.cancelamento_pendente && (
-                                      <TooltipProvider>
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <Button variant="outline" size="icon" className="h-8 w-8 text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => setCancelGroup(group)}>
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7">
+                                          <MoreHorizontal className="h-4 w-4" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end" className="w-44">
+                                        <DropdownMenuItem onClick={() => setDetailGroup(group)} className="gap-2">
+                                          <Eye className="h-4 w-4" />
+                                          Ver detalhes
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => openHistory(group)} className="gap-2">
+                                          <History className="h-4 w-4" />
+                                          Histórico
+                                        </DropdownMenuItem>
+                                        {group.status !== 'cancelado' && !group.cancelamento_pendente && (
+                                          <>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem
+                                              onClick={() => setCancelGroup(group)}
+                                              className="gap-2 text-destructive focus:text-destructive"
+                                            >
                                               <XOctagon className="h-4 w-4" />
-                                            </Button>
-                                          </TooltipTrigger>
-                                          <TooltipContent>Cancelar</TooltipContent>
-                                        </Tooltip>
-                                      </TooltipProvider>
-                                    )}
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openHistory(group)}>
-                                            <History className="h-4 w-4" />
-                                          </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>Histórico</TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
+                                              Solicitar cancelamento
+                                            </DropdownMenuItem>
+                                          </>
+                                        )}
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
                                   </div>
                                 </TableCell>
                               </TableRow>
@@ -640,7 +702,7 @@ export default function MonitoramentoOC() {
                               {isExpanded && group.has_multiple && group.ocs.slice(1).map(oc => {
                                 const ocStatus = computeOcStatus(oc, group);
                                 return (
-                                  <TableRow key={oc.id} className="bg-muted/30 hover:bg-muted/40">
+                                  <TableRow key={oc.id} className="bg-muted/30 hover:bg-muted/40 border-l-4 border-l-transparent">
                                     <TableCell className="w-8"></TableCell>
                                     <TableCell colSpan={5} className="text-xs text-muted-foreground">
                                       <span className="ml-6 inline-flex items-center gap-1.5">
@@ -648,19 +710,14 @@ export default function MonitoramentoOC() {
                                         OC adicional desta solicitação
                                       </span>
                                     </TableCell>
-                                    <TableCell className="text-sm tabular-nums font-medium">{oc.numero_documento}</TableCell>
                                     <TableCell>
-                                      <AgingBadge dias={oc.dias_aberto} hasJustificativa={!!oc.ultima_justificativa} dataOc={oc.data_oc} />
+                                      <div className="flex flex-col gap-1">
+                                        <span className="text-sm tabular-nums font-medium leading-none">{oc.numero_documento}</span>
+                                        <AgingBadge dias={oc.dias_aberto} hasJustificativa={!!oc.ultima_justificativa} dataOc={oc.data_oc} />
+                                      </div>
                                     </TableCell>
                                     <TableCell>
                                       <StatusBadge status={ocStatus} />
-                                    </TableCell>
-                                    <TableCell>
-                                      {oc.ultima_acao_em ? (
-                                        <div className="text-[10px] text-muted-foreground">
-                                          {formatDistanceToNowStrict(new Date(oc.ultima_acao_em), { locale: ptBR, addSuffix: true })}
-                                        </div>
-                                      ) : '—'}
                                     </TableCell>
                                     <TableCell className="text-right text-xs text-muted-foreground">
                                       Emitida {formatBR(oc.data_oc, 'dd/MM/yy')}
