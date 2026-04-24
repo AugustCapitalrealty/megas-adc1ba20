@@ -209,6 +209,7 @@ export default function NovaSolicitacao() {
 
   const handleSubmit = async () => {
     if (isSubmittingRef.current || submitting) return;
+    let errorCooldown = false;
 
     if (!user) {
       toast({ title: 'Sessão não encontrada', description: 'Faça login novamente para enviar a solicitação.', variant: 'destructive' });
@@ -442,15 +443,15 @@ export default function NovaSolicitacao() {
         ? 'Conflito ao gerar número de protocolo. Por favor, tente novamente em alguns segundos.'
         : errorMessage;
       toast({ title: 'Erro ao criar solicitação', description: userMessage, variant: 'destructive' });
-      // Cooldown anti-spam: keep button disabled briefly after error
-      setTimeout(() => {
-        setSubmitting(false);
-        isSubmittingRef.current = false;
-      }, 800);
-      return;
+      errorCooldown = true;
     } finally {
-      // On success path, release the lock here. On error path the timeout above handles it.
-      if (isSubmittingRef.current) {
+      if (errorCooldown) {
+        // Anti-spam cooldown: keep button disabled briefly after error
+        setTimeout(() => {
+          setSubmitting(false);
+          isSubmittingRef.current = false;
+        }, 800);
+      } else {
         setSubmitting(false);
         isSubmittingRef.current = false;
       }
