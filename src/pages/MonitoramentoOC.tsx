@@ -50,9 +50,10 @@ import {
   type OcVisualStatus,
 } from '@/hooks/useMonitoramentoOC';
 
-type TabKey = 'pendencia' | 'justificadas';
+type TabKey = 'todas' | 'pendencia' | 'justificadas';
 
 const TAB_STATUS: Record<TabKey, OcVisualStatus[]> = {
+  todas: ['pendente_justificativa', 'atencao', 'adiado', 'aguardando_nf', 'em_prazo', 'cancel_solicitado'],
   pendencia: ['pendente_justificativa', 'atencao'],
   justificadas: ['adiado', 'aguardando_nf', 'em_prazo'],
 };
@@ -119,6 +120,12 @@ function getInitials(name: string | null) {
   return ((parts[0]?.[0] || '') + (parts[1]?.[0] || '')).toUpperCase() || '?';
 }
 
+function getShortName(name: string | null) {
+  if (!name) return '';
+  const parts = name.trim().split(/\s+/);
+  return parts.slice(0, 2).join(' ');
+}
+
 function StatusBadge({ status }: { status: OcVisualStatus }) {
   const config: Record<OcVisualStatus, { label: string; tone: string; icon: React.ReactNode }> = {
     em_prazo: { label: 'Em prazo', tone: 'bg-success/10 text-success border-success/30', icon: <CheckCircle className="h-3 w-3" /> },
@@ -171,7 +178,7 @@ export default function MonitoramentoOC() {
   } = useMonitoramentoOC({ userEmpreendimentos, hasAllAccess, enabled: !loadingEmpreendimentos });
 
   const [filterEmpreendimento, setFilterEmpreendimento] = useState<string>('todos');
-  const [activeTab, setActiveTab] = useState<TabKey>('pendencia');
+  const [activeTab, setActiveTab] = useState<TabKey>('todas');
   const [searchTerm, setSearchTerm] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [cardFilter, setCardFilter] = useState<CardFilter>('todas');
@@ -197,7 +204,8 @@ export default function MonitoramentoOC() {
   const toggleCardFilter = (next: CardFilter, targetTab?: TabKey) => {
     setCardFilter(prev => {
       const isSame = prev === next;
-      if (!isSame && targetTab) setActiveTab(targetTab);
+      // Se a aba atual já é "Todas", preserva a visão consolidada.
+      if (!isSame && targetTab && activeTab !== 'todas') setActiveTab(targetTab);
       return isSame ? 'todas' : next;
     });
   };
@@ -275,7 +283,7 @@ export default function MonitoramentoOC() {
 
   // Contagem por aba (a partir do recorte do card)
   const tabCounts = useMemo(() => {
-    const counts = { pendencia: 0, justificadas: 0 };
+    const counts = { todas: cardFilteredGroups.length, pendencia: 0, justificadas: 0 };
     cardFilteredGroups.forEach(g => {
       const st = computeGroupStatus(g);
       if (TAB_STATUS.pendencia.includes(st)) counts.pendencia++;
@@ -561,6 +569,25 @@ export default function MonitoramentoOC() {
             <div className="flex flex-wrap gap-2 items-center">
               <button
                 type="button"
+                onClick={() => setActiveTab('todas')}
+                className={cn(
+                  'inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-all',
+                  activeTab === 'todas'
+                    ? 'bg-primary/10 border-primary/40 text-primary shadow-sm'
+                    : 'bg-background border-border text-muted-foreground hover:bg-muted hover:text-foreground'
+                )}
+              >
+                <Layers className="h-4 w-4" />
+                <span>Todas</span>
+                <span className={cn(
+                  'inline-flex items-center justify-center min-w-[22px] h-[20px] px-1.5 rounded-full text-[11px] font-bold tabular-nums',
+                  activeTab === 'todas' ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'
+                )}>
+                  {tabCounts.todas}
+                </span>
+              </button>
+              <button
+                type="button"
                 onClick={() => setActiveTab('pendencia')}
                 className={cn(
                   'inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-all',
@@ -634,7 +661,7 @@ export default function MonitoramentoOC() {
                         <TableHead className="text-right">Valor</TableHead>
                         <TableHead className="text-center">OC / Aging</TableHead>
                         <TableHead className="text-center">Status &amp; Última ação</TableHead>
-                        <TableHead className="text-right w-[180px]">Ações</TableHead>
+                        <TableHead className="text-center w-[180px]">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -646,7 +673,9 @@ export default function MonitoramentoOC() {
                               <p className="text-sm font-medium">
                                 {activeTab === 'pendencia'
                                   ? 'Nenhuma OC com pendência de justificativa'
-                                  : 'Nenhuma OC justificada neste recorte'}
+                                  : activeTab === 'justificadas'
+                                  ? 'Nenhuma OC justificada neste recorte'
+                                  : 'Nenhuma OC neste recorte'}
                               </p>
                               {hasActiveFilters && (
                                 <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-1 mt-1">
@@ -712,7 +741,7 @@ export default function MonitoramentoOC() {
                                       </AvatarFallback>
                                     </Avatar>
                                     <span className="text-xs truncate max-w-[160px]" title={group.solicitante_nome || ''}>
-                                      {group.solicitante_nome || '—'}
+                                      {getShortName(group.solicitante_nome) || '—'}
                                     </span>
                                   </div>
                                 </TableCell>
@@ -756,8 +785,8 @@ export default function MonitoramentoOC() {
                                   </div>
                                 </TableCell>
                                 {/* Ações com label */}
-                                <TableCell className="text-right">
-                                  <div className="flex items-center gap-1.5 justify-end" onClick={(e) => e.stopPropagation()}>
+                                <TableCell className="text-center">
+                                  <div className="flex items-center gap-1.5 justify-center" onClick={(e) => e.stopPropagation()}>
                                     {(groupStatus === 'pendente_justificativa' || groupStatus === 'atencao') && (
                                       <Button
                                         size="sm"
