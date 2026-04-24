@@ -468,7 +468,55 @@ export default function MonitoramentoOC() {
               </div>
             </div>
 
-            {/* Tabela agrupada */}
+            {/* Abas Pendência / Justificadas — padrão Solicitante/Backoffice */}
+            <div className="flex flex-wrap gap-2 items-center">
+              <button
+                type="button"
+                onClick={() => setActiveTab('pendencia')}
+                className={cn(
+                  'inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-all',
+                  activeTab === 'pendencia'
+                    ? 'bg-destructive/10 border-destructive/40 text-destructive shadow-sm'
+                    : 'bg-background border-border text-muted-foreground hover:bg-muted hover:text-foreground'
+                )}
+              >
+                <ShieldAlert className="h-4 w-4" />
+                <span>Pendência de justificativa</span>
+                <span className={cn(
+                  'inline-flex items-center justify-center min-w-[22px] h-[20px] px-1.5 rounded-full text-[11px] font-bold tabular-nums',
+                  activeTab === 'pendencia' ? 'bg-destructive text-destructive-foreground' : 'bg-muted text-foreground'
+                )}>
+                  {tabCounts.pendencia}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('justificadas')}
+                className={cn(
+                  'inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-all',
+                  activeTab === 'justificadas'
+                    ? 'bg-success/10 border-success/40 text-success shadow-sm'
+                    : 'bg-background border-border text-muted-foreground hover:bg-muted hover:text-foreground'
+                )}
+              >
+                <ShieldCheck className="h-4 w-4" />
+                <span>Justificadas</span>
+                <span className={cn(
+                  'inline-flex items-center justify-center min-w-[22px] h-[20px] px-1.5 rounded-full text-[11px] font-bold tabular-nums',
+                  activeTab === 'justificadas' ? 'bg-success text-success-foreground' : 'bg-muted text-foreground'
+                )}>
+                  {tabCounts.justificadas}
+                </span>
+              </button>
+              {filterEmpreendimento !== 'todos' && (
+                <Badge variant="outline" className="ml-1 gap-1 text-xs">
+                  <span className="text-muted-foreground">Filtro:</span>
+                  {EMPREENDIMENTO_LABELS[filterEmpreendimento as Empreendimento] || filterEmpreendimento}
+                </Badge>
+              )}
+            </div>
+
+            {/* Tabela agrupada — colunas mescladas e ações com label */}
             <Card>
               <ScrollArea className="h-[560px]">
                 <div className="overflow-x-auto">
@@ -481,20 +529,22 @@ export default function MonitoramentoOC() {
                         <TableHead>Empreendimento</TableHead>
                         <TableHead>Fornecedor</TableHead>
                         <TableHead className="text-right">Valor</TableHead>
-                        <TableHead>OC</TableHead>
-                        <TableHead>Aging</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Última ação</TableHead>
-                        <TableHead className="text-right">Ações</TableHead>
+                        <TableHead>OC / Aging</TableHead>
+                        <TableHead>Status &amp; Última ação</TableHead>
+                        <TableHead className="text-right w-[180px]">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredGroups.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={11} className="text-center py-16">
+                          <TableCell colSpan={9} className="text-center py-16">
                             <div className="flex flex-col items-center gap-2 text-muted-foreground">
                               <Inbox className="h-10 w-10 opacity-40" />
-                              <p className="text-sm font-medium">Nenhuma OC encontrada</p>
+                              <p className="text-sm font-medium">
+                                {activeTab === 'pendencia'
+                                  ? 'Nenhuma OC com pendência de justificativa'
+                                  : 'Nenhuma OC justificada neste recorte'}
+                              </p>
                               {hasActiveFilters && (
                                 <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-1 mt-1">
                                   <X className="h-3.5 w-3.5" />
@@ -511,18 +561,19 @@ export default function MonitoramentoOC() {
                           const groupStatus = computeGroupStatus(group);
                           const primary = group.primary;
                           const primaryStatus = computeOcStatus(primary, group);
-                          const rowTone =
-                            primaryStatus === 'pendente_justificativa' ? 'bg-destructive/[0.04]' :
-                            primaryStatus === 'atencao' ? 'bg-warning/[0.04]' : '';
+                          // Borda lateral colorida em vez de fundo na linha inteira
+                          const leftAccent =
+                            primaryStatus === 'pendente_justificativa' ? 'border-l-destructive' :
+                            primaryStatus === 'atencao' ? 'border-l-warning' :
+                            isOwn ? 'border-l-primary' : 'border-l-transparent';
 
                           return (
                             <Fragment key={group.solicitacao_id}>
                               <TableRow
                                 className={cn(
-                                  'cursor-pointer group',
-                                  rowTone,
-                                  group.cancelamento_pendente && 'bg-destructive/5',
-                                  isOwn && 'border-l-4 border-l-primary',
+                                  'cursor-pointer group border-l-4 hover:bg-muted/40 transition-colors',
+                                  leftAccent,
+                                  group.cancelamento_pendente && 'bg-destructive/[0.03]',
                                 )}
                                 onClick={() => setDetailGroup(group)}
                               >
@@ -571,78 +622,78 @@ export default function MonitoramentoOC() {
                                   {group.fornecedor_razao || '—'}
                                 </TableCell>
                                 <TableCell className="text-right text-sm font-medium tabular-nums">{formatCurrency(group.valor)}</TableCell>
-                                <TableCell className="text-sm tabular-nums">
-                                  {group.has_multiple ? (
-                                    <span className="text-muted-foreground text-xs">
-                                      {primary.numero_documento} <span className="opacity-60">+{group.ocs.length - 1}</span>
+                                {/* OC + Aging mesclados */}
+                                <TableCell>
+                                  <div className="flex flex-col gap-1">
+                                    <span className="text-sm tabular-nums font-medium leading-none">
+                                      {primary.numero_documento}
+                                      {group.has_multiple && (
+                                        <span className="ml-1 text-[10px] text-muted-foreground font-normal">+{group.ocs.length - 1}</span>
+                                      )}
                                     </span>
-                                  ) : (
-                                    primary.numero_documento
-                                  )}
+                                    <AgingBadge dias={primary.dias_aberto} hasJustificativa={!!primary.ultima_justificativa} dataOc={primary.data_oc} />
+                                  </div>
                                 </TableCell>
+                                {/* Status + Última ação mesclados */}
                                 <TableCell>
-                                  <AgingBadge dias={primary.dias_aberto} hasJustificativa={!!primary.ultima_justificativa} dataOc={primary.data_oc} />
-                                </TableCell>
-                                <TableCell>
-                                  <div className="flex flex-col gap-0.5">
+                                  <div className="flex flex-col gap-0.5 min-w-[160px]">
                                     <StatusBadge status={groupStatus} />
                                     {groupStatus === 'adiado' && primary.previsao_nf && (
                                       <span className="text-[10px] text-muted-foreground">
-                                        Prev: {formatBR(primary.previsao_nf + 'T00:00:00', 'dd/MM/yy')}
+                                        Prev. NF: {formatBR(primary.previsao_nf + 'T00:00:00', 'dd/MM/yy')}
+                                      </span>
+                                    )}
+                                    {primary.ultima_acao_em && (
+                                      <span className="text-[10px] text-muted-foreground/70 truncate">
+                                        {TIPO_ACAO_LABELS[primary.ultima_acao_tipo || ''] || primary.ultima_acao_tipo}
+                                        {' · '}
+                                        {formatDistanceToNowStrict(new Date(primary.ultima_acao_em), { locale: ptBR, addSuffix: true })}
                                       </span>
                                     )}
                                   </div>
                                 </TableCell>
-                                <TableCell>
-                                  {primary.ultima_acao_em ? (
-                                    <div className="text-xs">
-                                      <div className="text-muted-foreground">
-                                        {TIPO_ACAO_LABELS[primary.ultima_acao_tipo || ''] || primary.ultima_acao_tipo}
-                                      </div>
-                                      <div className="text-[10px] text-muted-foreground/70">
-                                        {formatDistanceToNowStrict(new Date(primary.ultima_acao_em), { locale: ptBR, addSuffix: true })}
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <span className="text-xs text-muted-foreground/60">—</span>
-                                  )}
-                                </TableCell>
+                                {/* Ações com label */}
                                 <TableCell className="text-right">
-                                  <div className="flex items-center gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
+                                  <div className="flex items-center gap-1.5 justify-end" onClick={(e) => e.stopPropagation()}>
                                     {(groupStatus === 'pendente_justificativa' || groupStatus === 'atencao') && (
-                                      <TooltipProvider>
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <Button variant="outline" size="icon" className="h-8 w-8 text-amber-600 border-amber-300 hover:bg-amber-50" onClick={() => setJustificativaGroup(group)}>
-                                              <AlertCircle className="h-4 w-4" />
-                                            </Button>
-                                          </TooltipTrigger>
-                                          <TooltipContent>Justificar</TooltipContent>
-                                        </Tooltip>
-                                      </TooltipProvider>
+                                      <Button
+                                        size="sm"
+                                        className="h-7 px-2 gap-1 bg-amber-500 hover:bg-amber-600 text-white border-0"
+                                        onClick={() => setJustificativaGroup(group)}
+                                      >
+                                        <AlertCircle className="h-3.5 w-3.5" />
+                                        Justificar
+                                      </Button>
                                     )}
-                                    {group.status !== 'cancelado' && !group.cancelamento_pendente && (
-                                      <TooltipProvider>
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <Button variant="outline" size="icon" className="h-8 w-8 text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => setCancelGroup(group)}>
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7">
+                                          <MoreHorizontal className="h-4 w-4" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end" className="w-44">
+                                        <DropdownMenuItem onClick={() => setDetailGroup(group)} className="gap-2">
+                                          <Eye className="h-4 w-4" />
+                                          Ver detalhes
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => openHistory(group)} className="gap-2">
+                                          <History className="h-4 w-4" />
+                                          Histórico
+                                        </DropdownMenuItem>
+                                        {group.status !== 'cancelado' && !group.cancelamento_pendente && (
+                                          <>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem
+                                              onClick={() => setCancelGroup(group)}
+                                              className="gap-2 text-destructive focus:text-destructive"
+                                            >
                                               <XOctagon className="h-4 w-4" />
-                                            </Button>
-                                          </TooltipTrigger>
-                                          <TooltipContent>Cancelar</TooltipContent>
-                                        </Tooltip>
-                                      </TooltipProvider>
-                                    )}
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openHistory(group)}>
-                                            <History className="h-4 w-4" />
-                                          </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>Histórico</TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
+                                              Solicitar cancelamento
+                                            </DropdownMenuItem>
+                                          </>
+                                        )}
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
                                   </div>
                                 </TableCell>
                               </TableRow>
@@ -651,7 +702,7 @@ export default function MonitoramentoOC() {
                               {isExpanded && group.has_multiple && group.ocs.slice(1).map(oc => {
                                 const ocStatus = computeOcStatus(oc, group);
                                 return (
-                                  <TableRow key={oc.id} className="bg-muted/30 hover:bg-muted/40">
+                                  <TableRow key={oc.id} className="bg-muted/30 hover:bg-muted/40 border-l-4 border-l-transparent">
                                     <TableCell className="w-8"></TableCell>
                                     <TableCell colSpan={5} className="text-xs text-muted-foreground">
                                       <span className="ml-6 inline-flex items-center gap-1.5">
@@ -659,19 +710,14 @@ export default function MonitoramentoOC() {
                                         OC adicional desta solicitação
                                       </span>
                                     </TableCell>
-                                    <TableCell className="text-sm tabular-nums font-medium">{oc.numero_documento}</TableCell>
                                     <TableCell>
-                                      <AgingBadge dias={oc.dias_aberto} hasJustificativa={!!oc.ultima_justificativa} dataOc={oc.data_oc} />
+                                      <div className="flex flex-col gap-1">
+                                        <span className="text-sm tabular-nums font-medium leading-none">{oc.numero_documento}</span>
+                                        <AgingBadge dias={oc.dias_aberto} hasJustificativa={!!oc.ultima_justificativa} dataOc={oc.data_oc} />
+                                      </div>
                                     </TableCell>
                                     <TableCell>
                                       <StatusBadge status={ocStatus} />
-                                    </TableCell>
-                                    <TableCell>
-                                      {oc.ultima_acao_em ? (
-                                        <div className="text-[10px] text-muted-foreground">
-                                          {formatDistanceToNowStrict(new Date(oc.ultima_acao_em), { locale: ptBR, addSuffix: true })}
-                                        </div>
-                                      ) : '—'}
                                     </TableCell>
                                     <TableCell className="text-right text-xs text-muted-foreground">
                                       Emitida {formatBR(oc.data_oc, 'dd/MM/yy')}
