@@ -874,6 +874,10 @@ export default function MonitoramentoOC() {
           <TabsContent value="projuris">
             <TabProjuris />
           </TabsContent>
+
+          <TabsContent value="calendario">
+            <CalendarioServicos />
+          </TabsContent>
         </Tabs>
       </div>
 
