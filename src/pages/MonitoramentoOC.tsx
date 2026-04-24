@@ -35,6 +35,7 @@ import { cn } from '@/lib/utils';
 import { OCDetalhesModal } from '@/components/monitoramento/OCDetalhesModal';
 import { JustificativaModal } from '@/components/monitoramento/JustificativaModal';
 import { TabProjuris } from '@/components/monitoramento/TabProjuris';
+import { CalendarioServicos } from '@/components/monitoramento/calendario/CalendarioServicos';
 import { OcDistributionBar } from '@/components/monitoramento/OcDistributionBar';
 import { TopOfensoresOC } from '@/components/monitoramento/TopOfensoresOC';
 import { SlaKpiCard } from '@/components/sla/SlaKpiCard';
