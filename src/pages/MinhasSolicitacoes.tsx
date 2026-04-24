@@ -1134,6 +1134,20 @@ export default function MinhasSolicitacoes() {
               onClick: () => navigate('/nova-solicitacao'),
             } : undefined}
           />
+        ) : layoutMode === 'table' ? (
+          <SolicitanteTable
+            items={sortedAndFilteredSolicitacoes}
+            effectiveUserId={effectiveUserId}
+            focusedId={focusedRowId}
+            favoriteSet={favoriteSet}
+            onFocus={setFocusedRowId}
+            onOpenDetails={(sol) => toggleExpand(sol.id)}
+            onToggleFavorite={toggleFavorite}
+            onEdit={openEditModal}
+            onAceiteOC={openAceiteModal}
+            onNfBoleto={openNfBoletoModal}
+            unreadMap={unreadMap}
+          />
         ) : (
           <VirtualizedList
             items={sortedAndFilteredSolicitacoes}
