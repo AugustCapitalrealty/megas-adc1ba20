@@ -638,7 +638,7 @@ export default function MonitoramentoOC() {
                             <Fragment key={group.solicitacao_id}>
                               <TableRow
                                 className={cn(
-                                  'cursor-pointer group border-l-4 hover:bg-muted/40 transition-colors',
+                                  'cursor-pointer group border-l-4 hover:bg-muted/40 transition-colors h-[60px]',
                                   leftAccent,
                                   group.cancelamento_pendente && 'bg-destructive/[0.03]',
                                 )}
@@ -669,29 +669,29 @@ export default function MonitoramentoOC() {
                                   </div>
                                 </TableCell>
                                 <TableCell>
-                                  <div className="flex items-center gap-2 min-w-0">
+                                  <div className="flex items-center justify-center gap-2 min-w-0">
                                     <Avatar className="h-6 w-6 shrink-0">
                                       <AvatarFallback className="text-[10px] bg-muted">
                                         {getInitials(group.solicitante_nome)}
                                       </AvatarFallback>
                                     </Avatar>
-                                    <span className="text-xs truncate max-w-[140px]" title={group.solicitante_nome || ''}>
+                                    <span className="text-xs truncate max-w-[160px]" title={group.solicitante_nome || ''}>
                                       {group.solicitante_nome || '—'}
                                     </span>
                                   </div>
                                 </TableCell>
-                                <TableCell>
+                                <TableCell className="text-center">
                                   <Badge variant="outline" className={cn('text-xs', EMPREENDIMENTO_BADGE_COLORS[group.empreendimento] || '')}>
                                     {EMPREENDIMENTO_LABELS[group.empreendimento] || group.empreendimento}
                                   </Badge>
                                 </TableCell>
-                                <TableCell className="text-sm max-w-[200px] truncate" title={group.fornecedor_razao || ''}>
+                                <TableCell className="text-sm max-w-[200px] truncate text-center" title={group.fornecedor_razao || ''}>
                                   {group.fornecedor_razao || '—'}
                                 </TableCell>
                                 <TableCell className="text-right text-sm font-medium tabular-nums">{formatCurrency(group.valor)}</TableCell>
                                 {/* OC + Aging mesclados */}
                                 <TableCell>
-                                  <div className="flex flex-col gap-1">
+                                  <div className="flex flex-col gap-1 items-center">
                                     <span className="text-sm tabular-nums font-medium leading-none">
                                       {primary.numero_documento}
                                       {group.has_multiple && (
@@ -703,7 +703,7 @@ export default function MonitoramentoOC() {
                                 </TableCell>
                                 {/* Status + Última ação mesclados */}
                                 <TableCell>
-                                  <div className="flex flex-col gap-0.5 min-w-[160px]">
+                                  <div className="flex flex-col gap-0.5 min-w-[160px] items-center text-center">
                                     <StatusBadge status={groupStatus} />
                                     {groupStatus === 'adiado' && primary.previsao_nf && (
                                       <span className="text-[10px] text-muted-foreground">
