@@ -867,7 +867,7 @@ export default function Backoffice() {
 
     setEditNaturezaLoading(true);
     try {
-      const previousValue = selectedSolicitacao.natureza_orcamentaria as string | null;
+      const previousValue = (detalhes?.solicitacao?.natureza_orcamentaria ?? null) as string | null;
       const newValue = editNaturezaValue;
 
       if (previousValue === newValue) {
