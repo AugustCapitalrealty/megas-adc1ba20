@@ -55,6 +55,8 @@ import { TopOfensoresCard } from '@/components/sla/TopOfensoresCard';
 
 type QuickRange = '7d' | '30d' | '90d' | 'mes' | 'ytd';
 
+const SLA_DIAS_META = 3;
+
 function rangeFor(q: QuickRange): { dataInicio: string; dataFim: string } {
   const today = new Date();
   const fim = format(today, 'yyyy-MM-dd');
