@@ -498,14 +498,30 @@ export default function PainelFluig() {
   return (
     <>
       <div className="space-y-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-2">
           <div>
-            <h1 className="text-2xl font-bold">Painel Fluig</h1>
+            <h1 className="text-2xl font-bold">Painel</h1>
             <p className="text-muted-foreground">
-              Acompanhe as solicitações do Fluig
+              Fluig e Projuris em um só lugar
             </p>
           </div>
-          <div className="flex flex-col items-end gap-1">
+        </div>
+
+        <Tabs defaultValue="fluig" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="fluig" className="gap-1.5">
+              <BarChart3 className="h-4 w-4" />
+              Fluig
+            </TabsTrigger>
+            <TabsTrigger value="projuris" className="gap-1.5">
+              <Scale className="h-4 w-4" />
+              Projuris
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="fluig" className="space-y-4 mt-0">
+            <div className="flex items-center justify-end mb-2">
+              <div className="flex flex-col items-end gap-1">
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" onClick={refetch} disabled={loading}>
                 <RefreshCw className={cn('h-4 w-4 mr-1', loading && 'animate-spin')} />
@@ -545,8 +561,8 @@ export default function PainelFluig() {
                 </p>
               );
             })()}
-          </div>
-        </div>
+              </div>
+            </div>
 
         {/* KPIs Section */}
         {!loadingEmps && empreendimentoTab && (
