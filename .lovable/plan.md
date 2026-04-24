@@ -1,46 +1,79 @@
-## Objetivo
+# Reorganização da Navegação Principal
 
-Reordenar a hierarquia visual do hero do **SLA do Backoffice** para destacar a meta em **dias** (não em %) e relegar o `99%` do gauge a um papel secundário.
+Vamos reorganizar o menu superior para refletir o uso real da plataforma:
 
-## O que muda para o usuário
+1. **Garantias** sai da navegação principal e passa a viver dentro do menu **Admin** (acesso restrito a backoffice/admin como hoje).
+2. Surge uma nova aba pública **Calendário** no lugar de Garantias, visível para todos os perfis (cada usuário vê apenas seus empreendimentos — a regra já existe no hook `useCalendarioServicos`).
+3. **Painel Fluig** vira simplesmente **Painel**, agrupando duas sub-abas internas:
+   - **Fluig** (conteúdo atual da página)
+   - **Projuris** (mesmo conteúdo já existente em Monitoramento → Projuris)
 
-Lado direito do hero (hoje "Meta atingida") passa a mostrar, com destaque grande:
+## Mudanças por arquivo
 
+### `src/components/layout/AppLayout.tsx`
+- `mainNavItems`: 
+  - Trocar `'/garantias' / Garantias / Shield`  →  `'/calendario' / Calendário / CalendarDays` com `show: true` (todos os perfis).
+  - Renomear o label `'Painel Fluig'`  →  `'Painel'` (rota `/painel-fluig` mantida para não quebrar links).
+- `adminItems`: adicionar `{ href: '/garantias', label: 'Garantias', icon: Shield }` no topo da lista.
+- `prefetchRoute`: adicionar `'/calendario': () => import('@/pages/Calendario')`.
+
+### `src/App.tsx`
+- Adicionar lazy import `const Calendario = lazy(() => import("./pages/Calendario"));`
+- Nova rota dentro do `ProtectedShell`: `<Route path="calendario" element={<Calendario />} />`
+- Manter `garantias` como está (a proteção de visualização já é por dados; o item só desaparece da nav principal e aparece sob Admin).
+
+### `src/pages/Calendario.tsx` (novo)
+Página fina que reaproveita o componente já existente:
+```tsx
+import { CalendarDays } from 'lucide-react';
+import { CalendarioServicos } from '@/components/monitoramento/calendario/CalendarioServicos';
+import { useAuth } from '@/hooks/useAuth';
+import { useUserEmpreendimentos } from '@/hooks/useUserEmpreendimentos';
+
+export default function Calendario() {
+  const { user, effectiveProfile, isImpersonating } = useAuth();
+  const effectiveUserId = isImpersonating ? effectiveProfile?.id : user?.id;
+  const { empreendimentos, hasAllAccess, loading } = useUserEmpreendimentos(effectiveUserId);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-3">
+        <CalendarDays className="h-7 w-7 text-primary" />
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Calendário de Serviços</h1>
+          <p className="text-muted-foreground text-sm">
+            Veja os serviços agendados e executados nos seus empreendimentos
+          </p>
+        </div>
+      </div>
+      <CalendarioServicos
+        userEmpreendimentos={empreendimentos}
+        hasAllAccess={hasAllAccess}
+        enabled={!loading}
+      />
+    </div>
+  );
+}
 ```
-Meta 3 dias úteis · Resultado 0,5
-[badge ▼ 1pp vs. período anterior]
-```
+Nota: confirmar a assinatura exata de `<CalendarioServicos />` durante a implementação e ajustar props se necessário.
 
-- "Meta atingida / Próximo da meta / Abaixo da meta" vira um chip pequeno colorido ao lado do resultado, mantendo a leitura de status.
-- Barra de distribuição (`104 no prazo · 1 atenção · 0 estourado`) permanece igual.
-- Bloco inferior "Tempo médio / Total no período" deixa de duplicar o tempo médio e passa a mostrar apenas **Total no período**, ocupando a linha inteira (já que o tempo médio sobe para o destaque principal).
+### `src/pages/PainelFluig.tsx`
+Refatorar a página para envolver o conteúdo atual em um `<Tabs>` com duas sub-abas:
+- **Fluig** → mantém todo o JSX atual da página (KPIs, tabela, modais, etc.) movido para dentro de `<TabsContent value="fluig">`.
+- **Projuris** → renderiza `<TabProjuris />` (`@/components/monitoramento/TabProjuris`), reaproveitando o componente já usado em `MonitoramentoOC`.
+- Atualizar o título da página para "Painel" (mantém ícone `BarChart3`).
 
-No gauge à esquerda:
-- O `99%` continua, mas em fonte menor (`text-3xl` semibold em vez de `text-5xl` bold).
-- A legenda inferior do gauge passa de **"META 80%"** para **"META 3 DIAS"** (a meta em dias, condizente com a régua usada no cálculo).
-- Anel verde, marca da meta e cores continuam iguais — o `%` segue útil para enxergar atingimento.
+### `src/pages/MonitoramentoOC.tsx`
+Remover a aba **Projuris** da `TabsList` para evitar duplicidade (Projuris passa a viver no Painel). O hook/import e `TabsContent value="projuris"` também são removidos. Permanecem **OC x NF** e **Calendário de Serviços** (este último continua útil ali como visão de OCs/serviços agendados; se preferir remover por ser redundante com a nova aba global, posso retirar — me diga).
 
-## Mudanças técnicas
+### `src/components/layout/AppBreadcrumbs.tsx`
+- Adicionar `'/calendario': 'Calendário'` no `ROUTE_LABELS`.
+- Atualizar `'/painel-fluig': 'Painel'`.
 
-### 1. `src/components/sla/MetaGauge.tsx`
-- Adicionar prop opcional `metaLabel?: string` para sobrescrever o rodapé "meta {meta}%".
-- Reduzir o número central: `text-5xl font-bold` → `text-3xl font-semibold tabular-nums`.
-- Pequeno polimento: legenda "no prazo" em uppercase tracking-wider para casar com o rótulo "META …".
+### `src/components/CommandPalette.tsx`
+- Atualizar a entrada de "Painel Fluig" → "Painel".
+- Adicionar atalho de navegação para `/calendario`.
 
-### 2. `src/pages/DashboardSLA.tsx` (hero, linhas ~172–270)
-- Passar `metaLabel={`Meta ${SLA_DIAS} dias`}` para o `MetaGauge` (constante `SLA_DIAS = 3`, já implícita no header).
-- Reescrever o bloco "Atingimento da meta no período":
-  - Título pequeno (eyebrow): mantém "ATINGIMENTO DA META NO PERÍODO".
-  - Linha principal grande: `Meta 3 dias úteis · Resultado {stats.tempoMedio}` — número do resultado em `text-4xl font-bold tabular-nums`, colorido pelo `tone` (success/warning/destructive vs. meta).
-  - Chip pequeno do estado textual ("Meta atingida" etc.) e o badge `▼ 1pp vs. período anterior` ficam logo abaixo, alinhados.
-- No grid inferior (Tempo médio / Total no período):
-  - Remover a célula "Tempo médio" (já está no destaque acima).
-  - Manter "Total no período" ocupando a linha inteira (`grid-cols-1`).
-- A função `tone` (success/warning/destructive) passa a ser calculada também a partir de `stats.tempoMedio` vs. `SLA_DIAS` (≤ meta = success, ≤ meta + 1 = warning, > meta + 1 = destructive) para colorir o número de dias coerentemente. O % no gauge mantém sua própria régua (vs. `meta` em pp).
-
-### 3. Outros consumidores do `MetaGauge`
-- `src/pages/PainelFluig.tsx` (se usar) — não passa `metaLabel`, então fica com o comportamento atual ("meta {meta}%"). Sem regressão.
-
-## Fora de escopo
-- Não alterar a fonte de dados nem o cálculo de `tempoMedio` / `percentualNoPrazo` no hook `useSlaDashboard`.
-- Não mexer nas demais seções da página (top ofensores, gráfico de barras, tabela).
+## Pontos a confirmar
+- **Aba Calendário em Monitoramento**: mantenho ou removo, já que existirá uma aba global? (default proposto: manter para não perder o contexto operacional dentro de Monitoramento).
+- **Acesso a Garantias**: hoje o item aparece para `!isSolicitante` (backoffice/admin). Ao mover para o submenu Admin, o item ficará visível apenas no dropdown Admin (que só aparece para `isAdmin`). Se backoffice (não-admin) também precisar acessar Garantias, manteremos o item adicional no nav principal só para `isBackofficeOrAdmin && !isAdmin`. Confirme qual comportamento prefere.

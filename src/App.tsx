@@ -23,6 +23,7 @@ const DashboardSLA = lazy(() => import("./pages/DashboardSLA"));
 const GarantiasVigentes = lazy(() => import("./pages/GarantiasVigentes"));
 const DashboardEficiencia = lazy(() => import("./pages/DashboardEficiencia"));
 const MonitoramentoOC = lazy(() => import("./pages/MonitoramentoOC"));
+const Calendario = lazy(() => import("./pages/Calendario"));
 const Notificacoes = lazy(() => import("./pages/Notificacoes"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -53,6 +54,7 @@ function AppRoutes() {
           <Route path="painel-fluig" element={<PainelFluig />} />
           <Route path="garantias" element={<GarantiasVigentes />} />
           <Route path="monitoramento-oc" element={<MonitoramentoOC />} />
+          <Route path="calendario" element={<Calendario />} />
           <Route path="notificacoes" element={<Notificacoes />} />
           <Route path="backoffice" element={<RequireRole role="backoffice"><Backoffice /></RequireRole>} />
           <Route path="admin/sla" element={<RequireRole role="backoffice"><DashboardSLA /></RequireRole>} />

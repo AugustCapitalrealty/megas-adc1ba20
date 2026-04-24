@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/command';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { FileText, Search, LayoutDashboard, Plus, Shield, BarChart3, FileCheck } from 'lucide-react';
+import { FileText, Search, LayoutDashboard, Plus, Shield, BarChart3, FileCheck, CalendarDays } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 
 interface SearchResult {
@@ -86,11 +86,12 @@ export function CommandPalette() {
   const pages = [
     { label: 'Nova Solicitação', icon: Plus, path: '/nova-solicitacao' },
     { label: 'Minhas Solicitações', icon: FileText, path: '/minhas-solicitacoes' },
-    { label: 'Painel Fluig', icon: BarChart3, path: '/painel-fluig' },
-    { label: 'Garantias', icon: Shield, path: '/garantias' },
+    { label: 'Painel', icon: BarChart3, path: '/painel-fluig' },
+    { label: 'Calendário', icon: CalendarDays, path: '/calendario' },
     { label: 'Monitoramento OC', icon: FileCheck, path: '/monitoramento-oc' },
     ...(isBackofficeOrAdmin ? [
       { label: 'Backoffice', icon: LayoutDashboard, path: '/backoffice' },
+      { label: 'Garantias', icon: Shield, path: '/garantias' },
     ] : []),
   ];
 

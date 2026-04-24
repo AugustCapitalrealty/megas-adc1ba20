@@ -34,7 +34,6 @@ import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { OCDetalhesModal } from '@/components/monitoramento/OCDetalhesModal';
 import { JustificativaModal } from '@/components/monitoramento/JustificativaModal';
-import { TabProjuris } from '@/components/monitoramento/TabProjuris';
 import { CalendarioServicos } from '@/components/monitoramento/calendario/CalendarioServicos';
 import { OcDistributionBar } from '@/components/monitoramento/OcDistributionBar';
 import { TopOfensoresOC } from '@/components/monitoramento/TopOfensoresOC';
@@ -389,10 +388,6 @@ export default function MonitoramentoOC() {
             <TabsTrigger value="oc-nf" className="gap-1.5">
               <FileCheck className="h-4 w-4" />
               OC x NF
-            </TabsTrigger>
-            <TabsTrigger value="projuris" className="gap-1.5">
-              <Scale className="h-4 w-4" />
-              Projuris
             </TabsTrigger>
             <TabsTrigger value="calendario" className="gap-1.5">
               <CalendarDays className="h-4 w-4" />
@@ -869,10 +864,6 @@ export default function MonitoramentoOC() {
                 </div>
               </ScrollArea>
             </Card>
-          </TabsContent>
-
-          <TabsContent value="projuris">
-            <TabProjuris />
           </TabsContent>
 
           <TabsContent value="calendario">
