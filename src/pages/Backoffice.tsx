@@ -78,6 +78,15 @@ export default function Backoffice() {
   const [numeroChamadoFluig, setNumeroChamadoFluig] = useState('');
   const [showOnlyMine, setShowOnlyMine] = useState(false);
   const [sortBy, setSortBy] = useState<'created_at' | 'updated_at'>('created_at');
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>(() => {
+    if (typeof window === 'undefined') return 'cards';
+    return (localStorage.getItem('backoffice:viewMode') as 'cards' | 'table') || 'cards';
+  });
+  const [focusedId, setFocusedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    try { localStorage.setItem('backoffice:viewMode', viewMode); } catch {}
+  }, [viewMode]);
 
   // Use RPC-based hook for fetching with debounced search
   const { solicitacoes, loading, refetch: fetchSolicitacoes } = useBackofficeSolicitacoes({
