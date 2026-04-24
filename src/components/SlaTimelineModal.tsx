@@ -88,6 +88,7 @@ const acaoLabels: Record<string, string> = {
   'anexo_adicionado': 'Anexo Adicionado',
   'solicitacao_corrigida': 'Solicitação Corrigida',
   'resposta_informacoes': 'Resposta às Informações',
+  'natureza_orcamentaria_alterada': 'Classificação Orçamentária Alterada',
 };
 
 export function SlaTimelineModal({
