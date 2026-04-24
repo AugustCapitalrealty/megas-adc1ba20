@@ -1038,7 +1038,7 @@ export default function MinhasSolicitacoes() {
         {/* Filter Bar */}
         <FilterBar
           showSearch
-          searchPlaceholder="Buscar por protocolo, descrição ou fornecedor..."
+          searchPlaceholder="Buscar por protocolo, descrição ou fornecedor… (atalho: /)"
           searchValue={searchTerm}
           onSearchChange={setSearchTerm}
           tabGroups={filterTabGroups}
