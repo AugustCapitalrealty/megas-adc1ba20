@@ -27,6 +27,7 @@ import {
 } from '@/types';
 import { 
   Loader2, CheckCircle, XCircle, Search, AlertTriangle, Download, Filter,
+  LayoutGrid, Rows3, Keyboard,
 } from 'lucide-react';
 import { differenceInDays, differenceInHours } from 'date-fns';
 import { formatBR } from '@/lib/date-utils';
@@ -43,6 +44,9 @@ import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 import { BackofficeSolicitacaoCard, type CardCallbacks } from '@/components/backoffice/BackofficeSolicitacaoCard';
 import { BackofficeModals } from '@/components/backoffice/BackofficeModals';
 import { BatchActionBar } from '@/components/backoffice/BatchActionBar';
+import { BackofficeTable } from '@/components/backoffice/BackofficeTable';
+import { useBackofficeShortcuts } from '@/hooks/useBackofficeShortcuts';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ContextualEmptyState } from '@/components/ui/ContextualEmptyState';
 
 // PDF validation types
@@ -74,6 +78,15 @@ export default function Backoffice() {
   const [numeroChamadoFluig, setNumeroChamadoFluig] = useState('');
   const [showOnlyMine, setShowOnlyMine] = useState(false);
   const [sortBy, setSortBy] = useState<'created_at' | 'updated_at'>('created_at');
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>(() => {
+    if (typeof window === 'undefined') return 'cards';
+    return (localStorage.getItem('backoffice:viewMode') as 'cards' | 'table') || 'cards';
+  });
+  const [focusedId, setFocusedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    try { localStorage.setItem('backoffice:viewMode', viewMode); } catch {}
+  }, [viewMode]);
 
   // Use RPC-based hook for fetching with debounced search
   const { solicitacoes, loading, refetch: fetchSolicitacoes } = useBackofficeSolicitacoes({
@@ -1453,53 +1466,98 @@ export default function Backoffice() {
     return groupedSolicitacoes[activeTab] || [];
   }, [groupedSolicitacoes, activeTab]);
 
-  const TabContent = ({ items, emptyMessage }: { items: SolicitacaoBackoffice[], emptyMessage: string }) => {
-    const sortedItems = [...items].sort((a, b) => {
+  const sortedActiveItems = useMemo(() => {
+    const items = groupedSolicitacoes[activeTab] || [];
+    return [...items].sort((a, b) => {
       const dateA = new Date(sortBy === 'created_at' ? a.created_at : a.updated_at).getTime();
       const dateB = new Date(sortBy === 'created_at' ? b.created_at : b.updated_at).getTime();
       return dateB - dateA;
     });
-    const totalPages = Math.ceil(sortedItems.length / ITEMS_PER_PAGE);
-    const paginatedItems = sortedItems.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
-    
+  }, [groupedSolicitacoes, activeTab, sortBy]);
+
+  const totalPages = Math.ceil(sortedActiveItems.length / ITEMS_PER_PAGE);
+  const paginatedItems = useMemo(
+    () => sortedActiveItems.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE),
+    [sortedActiveItems, currentPage],
+  );
+
+  // Power-user shortcuts (j/k navigation, Enter open, a assumir, x select)
+  useBackofficeShortcuts({
+    items: paginatedItems,
+    focusedId,
+    setFocusedId,
+    onOpenDetails: openDetails,
+    onAssumir: (sol) => openAction(sol, 'assumir'),
+    onToggleSelect: toggleSelect,
+  });
+
+  const toggleSelectAllVisible = useCallback(() => {
+    const allSelected = paginatedItems.length > 0 && paginatedItems.every(i => selectedIds.has(i.id));
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (allSelected) {
+        paginatedItems.forEach(i => next.delete(i.id));
+      } else {
+        paginatedItems.forEach(i => next.add(i.id));
+      }
+      return next;
+    });
+  }, [paginatedItems, selectedIds]);
+
+  const TabContent = ({ items, emptyMessage }: { items: SolicitacaoBackoffice[], emptyMessage: string }) => {
+    const localSorted = sortedActiveItems;
+    const localTotal = totalPages;
+    const localPaginated = paginatedItems;
+
+    if (items.length === 0) {
+      return <ContextualEmptyState tab={activeTab} variant="backoffice" />;
+    }
+
     return (
       <div className="space-y-4">
-        {items.length === 0 ? (
-          <ContextualEmptyState tab={activeTab} variant="backoffice" />
+        {viewMode === 'table' ? (
+          <BackofficeTable
+            items={localPaginated}
+            userId={user?.id}
+            selectedIds={selectedIds}
+            focusedId={focusedId}
+            onToggleSelect={toggleSelect}
+            onToggleSelectAll={toggleSelectAllVisible}
+            onOpenDetails={openDetails}
+            onFocus={setFocusedId}
+          />
         ) : (
-          <>
-            {paginatedItems.map((sol) => (
-              <BackofficeSolicitacaoCard
-                key={sol.id}
-                sol={sol}
-                userId={user?.id}
-                expandedId={expandedId}
-                cadastroStatus={cadastroStatus[sol.id]}
-                hasCancelamentoPendente={cancelamentoPendenteIds.has(sol.id)}
-                unreadInfo={backofficeUnreadMap[sol.id]}
-                actionLoading={actionLoading}
-                cadastroLoading={cadastroLoading}
-                cancelamentoActionLoading={cancelamentoActionLoading}
-                callbacks={cardCallbacks}
-                isSelected={selectedIds.has(sol.id)}
-              />
-            ))}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between pt-2">
-                <span className="text-sm text-muted-foreground">
-                  {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, items.length)} de {items.length}
-                </span>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
-                    Anterior
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
-                    Próximo
-                  </Button>
-                </div>
-              </div>
-            )}
-          </>
+          localPaginated.map((sol) => (
+            <BackofficeSolicitacaoCard
+              key={sol.id}
+              sol={sol}
+              userId={user?.id}
+              expandedId={expandedId}
+              cadastroStatus={cadastroStatus[sol.id]}
+              hasCancelamentoPendente={cancelamentoPendenteIds.has(sol.id)}
+              unreadInfo={backofficeUnreadMap[sol.id]}
+              actionLoading={actionLoading}
+              cadastroLoading={cadastroLoading}
+              cancelamentoActionLoading={cancelamentoActionLoading}
+              callbacks={cardCallbacks}
+              isSelected={selectedIds.has(sol.id)}
+            />
+          ))
+        )}
+        {localTotal > 1 && (
+          <div className="flex items-center justify-between pt-2">
+            <span className="text-sm text-muted-foreground">
+              {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, localSorted.length)} de {localSorted.length}
+            </span>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
+                Anterior
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(localTotal, p + 1))} disabled={currentPage === localTotal}>
+                Próximo
+              </Button>
+            </div>
+          </div>
         )}
       </div>
     );
@@ -1628,6 +1686,46 @@ export default function Backoffice() {
               <Download className="h-4 w-4" />
               Exportar
             </Button>
+            <div className="flex items-center gap-0.5 shrink-0 border rounded-md h-9 p-0.5">
+              <Button
+                size="sm"
+                variant={viewMode === 'cards' ? 'secondary' : 'ghost'}
+                onClick={() => setViewMode('cards')}
+                className="h-7 px-2"
+                aria-label="Visão em cards"
+                title="Visão em cards"
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant={viewMode === 'table' ? 'secondary' : 'ghost'}
+                onClick={() => setViewMode('table')}
+                className="h-7 px-2"
+                aria-label="Visão em tabela densa"
+                title="Visão em tabela densa"
+              >
+                <Rows3 className="h-4 w-4" />
+              </Button>
+            </div>
+            <TooltipProvider delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button size="sm" variant="ghost" className="h-9 w-9 p-0 shrink-0" aria-label="Atalhos">
+                    <Keyboard className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">
+                  <div className="space-y-0.5">
+                    <div><kbd className="font-mono">/</kbd> focar busca</div>
+                    <div><kbd className="font-mono">j</kbd> / <kbd className="font-mono">k</kbd> próxima/anterior</div>
+                    <div><kbd className="font-mono">Enter</kbd> abrir detalhes</div>
+                    <div><kbd className="font-mono">a</kbd> assumir focada</div>
+                    <div><kbd className="font-mono">x</kbd> selecionar focada</div>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
 
           {/* Active filter chips (removable) */}
