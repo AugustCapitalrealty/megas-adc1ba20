@@ -682,14 +682,18 @@ export default function Backoffice() {
     setConcluirModal(sol);
   };
 
-  const handleConcluirLiberadaConfirmed = async (sol: SolicitacaoBackoffice) => {
+  const handleConcluirLiberadaConfirmed = async (sol: SolicitacaoBackoffice, numeroFluigPagamento: string) => {
     if (!user) return;
     
     setActionLoading(true);
     try {
       const { error: updateError } = await supabase
         .from('solicitacoes')
-        .update({ status: 'concluida' as any })
+        .update({
+          status: 'concluida' as any,
+          numero_fluig_pagamento: numeroFluigPagamento,
+          data_conclusao: new Date().toISOString(),
+        } as any)
         .eq('id', sol.id);
       if (updateError) throw updateError;
 
@@ -699,7 +703,7 @@ export default function Backoffice() {
         acao: 'Conclusão',
         status_anterior: sol.status,
         status_novo: 'concluida',
-        motivo: 'NF recebida e pagamento lançado no Fluig',
+        motivo: `NF recebida e pagamento lançado no Fluig #${numeroFluigPagamento}`,
       });
       if (histError) throw histError;
 
