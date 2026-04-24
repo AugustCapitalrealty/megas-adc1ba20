@@ -85,6 +85,16 @@ export default function MinhasSolicitacoes() {
   const [showCreatedBanner, setShowCreatedBanner] = useState(!!createdProtocolo);
   const [sortBy, setSortBy] = useState<'created_at' | 'updated_at'>('updated_at');
 
+  // View mode (cards / table) — persisted in localStorage for parity with Backoffice
+  const [layoutMode, setLayoutMode] = useState<'cards' | 'table'>(() => {
+    if (typeof window === 'undefined') return 'cards';
+    return (localStorage.getItem('solicitante:viewMode') as 'cards' | 'table') || 'cards';
+  });
+  useEffect(() => {
+    try { localStorage.setItem('solicitante:viewMode', layoutMode); } catch {}
+  }, [layoutMode]);
+  const [focusedRowId, setFocusedRowId] = useState<string | null>(null);
+
   // Auto-dismiss success banner
   useEffect(() => {
     if (createdProtocolo) {
