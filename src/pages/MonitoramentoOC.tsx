@@ -19,7 +19,7 @@ import {
   FileCheck, Clock, AlertTriangle, XCircle, CheckCircle,
   CalendarDays, Loader2, Download, AlertOctagon as AlertOctagonIcon,
   FileText, Ban, History, AlertCircle, Search, XOctagon, Scale, X, Inbox,
-  ChevronDown, ChevronRight, Wallet, Activity, Layers,
+  ChevronDown, ChevronRight, Wallet, Layers,
 } from 'lucide-react';
 import { formatBR } from '@/lib/date-utils';
 import { formatDistanceToNowStrict } from 'date-fns';
@@ -28,7 +28,6 @@ import { cn } from '@/lib/utils';
 import { OCDetalhesModal } from '@/components/monitoramento/OCDetalhesModal';
 import { JustificativaModal } from '@/components/monitoramento/JustificativaModal';
 import { TabProjuris } from '@/components/monitoramento/TabProjuris';
-import { OcMetaGauge } from '@/components/monitoramento/OcMetaGauge';
 import { OcDistributionBar } from '@/components/monitoramento/OcDistributionBar';
 import { TopOfensoresOC } from '@/components/monitoramento/TopOfensoresOC';
 import { SlaKpiCard } from '@/components/sla/SlaKpiCard';
@@ -130,7 +129,6 @@ export default function MonitoramentoOC() {
     kpis,
     distribution,
     topOfensores,
-    metaMes,
     valorEmAberto,
     agingMedio,
     refetch,
@@ -283,26 +281,9 @@ export default function MonitoramentoOC() {
           </TabsList>
 
           <TabsContent value="oc-nf" className="space-y-6">
-            {/* HERO: Gauge + métricas + ofensores */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              {/* Gauge da meta */}
-              <Card className="lg:col-span-1">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Activity className="h-4 w-4 text-primary" />
-                    Meta do mês
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="flex flex-col items-center pb-6">
-                  <OcMetaGauge value={metaMes.pct} meta={metaMes.meta} comNf={metaMes.comNf} totalMes={metaMes.totalMes} />
-                  <p className="text-xs text-muted-foreground mt-3 text-center">
-                    OCs emitidas no mês corrente com NF entregue
-                  </p>
-                </CardContent>
-              </Card>
-
-              {/* Distribuição + métricas auxiliares */}
-              <Card className="lg:col-span-2">
+            {/* HERO: Distribuição + métricas */}
+            <div className="grid grid-cols-1 gap-4">
+              <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm flex items-center gap-2">
                     <Layers className="h-4 w-4 text-primary" />
