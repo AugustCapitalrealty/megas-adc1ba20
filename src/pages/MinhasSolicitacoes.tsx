@@ -1081,6 +1081,44 @@ export default function MinhasSolicitacoes() {
                 <Download className="h-4 w-4" />
                 Exportar
               </Button>
+              <div className="inline-flex rounded-md border bg-card p-0.5">
+                <Button
+                  variant={layoutMode === 'cards' ? 'default' : 'ghost'}
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  onClick={() => setLayoutMode('cards')}
+                  aria-label="Visão em cards"
+                  aria-pressed={layoutMode === 'cards'}
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={layoutMode === 'table' ? 'default' : 'ghost'}
+                  size="sm"
+                  className="h-7 w-7 p-0"
+                  onClick={() => setLayoutMode('table')}
+                  aria-label="Visão em tabela"
+                  aria-pressed={layoutMode === 'table'}
+                >
+                  <Rows3 className="h-4 w-4" />
+                </Button>
+              </div>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0" aria-label="Atalhos de teclado">
+                      <Keyboard className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-xs">
+                    <div className="space-y-0.5">
+                      <div><kbd className="px-1 rounded bg-muted">/</kbd> focar busca</div>
+                      <div><kbd className="px-1 rounded bg-muted">j</kbd> / <kbd className="px-1 rounded bg-muted">k</kbd> navegar linhas</div>
+                      <div><kbd className="px-1 rounded bg-muted">Enter</kbd> abrir solicitação</div>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           }
         />
