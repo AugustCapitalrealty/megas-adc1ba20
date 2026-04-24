@@ -54,17 +54,37 @@ type TabKey = 'pendencia' | 'justificadas';
 
 const TAB_STATUS: Record<TabKey, OcVisualStatus[]> = {
   pendencia: ['pendente_justificativa', 'atencao'],
-  justificadas: ['adiado', 'aguardando_nf', 'em_prazo', 'cancel_solicitado', 'cancelado'],
+  justificadas: ['adiado', 'aguardando_nf', 'em_prazo'],
 };
 
-type CardFilter = 'todas' | 'liberada' | 'sem_nf' | 'pendente';
+type CardFilter = 'todas' | 'liberada' | 'nao_liberada' | 'pendente' | 'justificadas';
 
 const CARD_FILTER_LABEL: Record<CardFilter, string> = {
   todas: 'Todas',
-  liberada: 'OC liberada',
-  sem_nf: 'OC não liberada',
-  pendente: 'Pend. justificativa',
+  liberada: 'OC Liberada',
+  nao_liberada: 'OC Não Liberada',
+  pendente: 'Pend. Justificativa',
+  justificadas: 'Justificadas',
 };
+
+// Status da solicitação que indicam que a OC já foi liberada para o fornecedor
+// (backoffice já enviou). Vem do ecossistema de status do backoffice.
+const STATUS_LIBERADA = new Set([
+  'liberado_fornecedor',
+  'enviado_fornecedor',
+  'aguardando_execucao',
+  'aguardando_nf_boleto',
+  'nf_boleto_enviados',
+  'enviado_pagamento',
+]);
+
+// Status onde a OC está com o solicitante (aguardando aceite para o backoffice
+// poder enviar ao fornecedor) ou ainda em lançamento/aprovação.
+const STATUS_NAO_LIBERADA = new Set([
+  'aguardando_aceite',
+  'oc_ac_emitida',
+  'em_processamento',
+]);
 
 const STATUS_LABEL_MAP: Record<OcVisualStatus, string> = {
   em_prazo: 'Em prazo',
@@ -210,21 +230,23 @@ export default function MonitoramentoOC() {
   // KPIs (4 cards) sempre vêm do conjunto base — para que clicar em um card
   // não zere os outros números.
   const baseAggregates = useMemo(() => computeAggregates(baseFilteredGroups), [baseFilteredGroups]);
-  const { kpis } = baseAggregates;
+  // baseAggregates pode ser usado no futuro; KPIs dos cards vêm de cardCounts
+  void baseAggregates;
 
   // Recorte aplicado pelo card ativo — alimenta Aging, Valor, Distribuição,
   // Top ofensores e a tabela.
   const cardFilteredGroups = useMemo(() => {
     if (cardFilter === 'todas') return baseFilteredGroups;
     return baseFilteredGroups.filter(g => {
-      const ativo = g.status !== 'cancelado' && g.status !== 'concluida';
       switch (cardFilter) {
         case 'liberada':
-          return ativo && g.ocs.length > 0 && g.ocs.every(oc => oc.tem_nf);
-        case 'sem_nf':
-          return ativo && g.ocs.some(oc => !oc.tem_nf);
+          return STATUS_LIBERADA.has(g.status);
+        case 'nao_liberada':
+          return STATUS_NAO_LIBERADA.has(g.status);
         case 'pendente':
-          return ativo && g.ocs.some(oc => computeOcStatus(oc, g) === 'pendente_justificativa');
+          return g.ocs.some(oc => computeOcStatus(oc, g) === 'pendente_justificativa');
+        case 'justificadas':
+          return g.ocs.some(oc => computeOcStatus(oc, g) === 'adiado');
         default:
           return true;
       }
@@ -233,6 +255,23 @@ export default function MonitoramentoOC() {
 
   const viewAggregates = useMemo(() => computeAggregates(cardFilteredGroups), [cardFilteredGroups]);
   const { distribution, topOfensores, valorEmAberto, agingMedio } = viewAggregates;
+
+  // Contagens dos cards a partir do recorte base (empreendimento + busca),
+  // assim os números de cada card permanecem visíveis ao alternar entre eles.
+  const cardCounts = useMemo(() => {
+    let liberada = 0;
+    let naoLiberada = 0;
+    let pendente = 0;
+    let justificadas = 0;
+    baseFilteredGroups.forEach(g => {
+      if (STATUS_LIBERADA.has(g.status)) liberada++;
+      else if (STATUS_NAO_LIBERADA.has(g.status)) naoLiberada++;
+      const ocStatuses = g.ocs.map(oc => computeOcStatus(oc, g));
+      if (ocStatuses.some(st => st === 'pendente_justificativa')) pendente++;
+      if (ocStatuses.some(st => st === 'adiado')) justificadas++;
+    });
+    return { liberada, naoLiberada, pendente, justificadas };
+  }, [baseFilteredGroups]);
 
   // Contagem por aba (a partir do recorte do card)
   const tabCounts = useMemo(() => {
@@ -369,7 +408,7 @@ export default function MonitoramentoOC() {
                     data={distribution}
                     onSegmentClick={(key) => {
                       // Mapeia segmento -> aba apropriada
-                      if (key === 'pendente' || key === 'atencao') setActiveTab('pendencia');
+                      if (key === 'pendente') setActiveTab('pendencia');
                       else setActiveTab('justificadas');
                     }}
                   />
@@ -402,33 +441,42 @@ export default function MonitoramentoOC() {
 
             {/* KPIs + Top ofensores */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="grid grid-cols-3 gap-3 lg:col-span-2">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:col-span-2">
                 <SlaKpiCard
                   label="OC Liberada"
-                  value={Math.max(0, kpis.total_ativas - kpis.sem_nf)}
+                  value={cardCounts.liberada}
                   icon={<CheckCircle className="h-4 w-4" />}
                   tone="success"
                   active={cardFilter === 'liberada'}
                   onClick={() => toggleCardFilter('liberada', 'justificadas')}
-                  hint="OCs ativas que já têm NF emitida (fluxo concluído do lado fiscal)."
+                  hint="OC já está com o fornecedor — backoffice já enviou."
                 />
                 <SlaKpiCard
                   label="OC Não Liberada"
-                  value={kpis.sem_nf}
+                  value={cardCounts.naoLiberada}
                   icon={<Clock className="h-4 w-4" />}
                   tone="warning"
-                  active={cardFilter === 'sem_nf'}
-                  onClick={() => toggleCardFilter('sem_nf', 'justificadas')}
-                  hint="OCs ativas que ainda não receberam NF."
+                  active={cardFilter === 'nao_liberada'}
+                  onClick={() => toggleCardFilter('nao_liberada', 'pendencia')}
+                  hint="OC está com o solicitante aguardando liberar para o backoffice realizar o envio."
                 />
                 <SlaKpiCard
                   label="Pend. Justificativa"
-                  value={kpis.pendente_justificativa}
+                  value={cardCounts.pendente}
                   icon={<AlertTriangle className="h-4 w-4" />}
                   tone="destructive"
                   active={cardFilter === 'pendente'}
                   onClick={() => toggleCardFilter('pendente', 'pendencia')}
-                  hint="OCs sem NF do mês anterior, ou do mês atual após dia 23 sem previsão futura."
+                  hint="OCs que ainda precisam de justificativa pela regra (mês anterior sem NF, ou mês atual após dia 23 sem previsão futura)."
+                />
+                <SlaKpiCard
+                  label="Justificadas"
+                  value={cardCounts.justificadas}
+                  icon={<ShieldCheck className="h-4 w-4" />}
+                  tone="neutral"
+                  active={cardFilter === 'justificadas'}
+                  onClick={() => toggleCardFilter('justificadas', 'justificadas')}
+                  hint="OCs já justificadas com previsão futura válida — sem ação por enquanto."
                 />
               </div>
               <div className="lg:col-span-1">

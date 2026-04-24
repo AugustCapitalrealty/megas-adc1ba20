@@ -1,66 +1,95 @@
-## Cards do OC x NF clicáveis como filtros + tabela centralizada
+## Realinhamento de Monitoramento OC x NF
 
-### 1. Tornar **todos** os 4 cards de KPI clicáveis e reativos
+Reescrita da semântica dos cards para refletir o ecossistema real (Backoffice ↔ Solicitante), adição do card "Justificadas", limpeza da Distribuição Operacional e remoção de OCs canceladas/aprovadas pelo backoffice da tela.
 
-Hoje só "Sem NF" e "Pend. Justificativa" trocam de aba. O usuário quer que **todo card filtre** o conjunto e que **Aging Médio + Valor em Aberto reflitam o filtro do card** ativo.
+### 1. Nova semântica dos 4 cards (substitui os 3 atuais)
 
-Solução: introduzir um novo state `cardFilter` com 5 valores possíveis:
+| Card | Significado real | Origem do dado |
+|---|---|---|
+| **OC Liberada** | OC já está com o **fornecedor** — backoffice já enviou. | `solicitacao.status` ∈ `liberado_fornecedor`, `enviado_fornecedor`, `aguardando_execucao`, `aguardando_nf_boleto`, `nf_boleto_enviados`, `enviado_pagamento` |
+| **OC Não Liberada** | OC está com o **solicitante** aguardando aceite para o backoffice enviar ao fornecedor. | `solicitacao.status` ∈ `aguardando_aceite`, `oc_ac_emitida`, `em_processamento` |
+| **Pend. Justificativa** | OCs que ainda precisam de justificativa pela regra (mês anterior sem NF, ou mês atual após dia 23 sem previsão futura). | `computeOcStatus(...) === 'pendente_justificativa'` |
+| **Justificadas** *(novo)* | OCs que já têm justificativa registrada com previsão futura válida e por enquanto não exigem ação. | `computeOcStatus(...) === 'adiado'` (já tem `previsao_nf` futura no `oc_acompanhamento`) |
+
+Cada card continua sendo **clicável** e atua como filtro: ao selecionar, recorta a Distribuição Operacional, Aging Médio, Valor em Aberto, Top Ofensores e a tabela.
+
+### 2. Remover canceladas e aprovadas pelo backoffice
+
+No fetch do `useMonitoramentoOC.ts`, ampliar o filtro de exclusão:
 
 ```ts
-type CardFilter = 'todas' | 'ativas' | 'sem_nf' | 'pendente' | 'cancel';
-const [cardFilter, setCardFilter] = useState<CardFilter>('todas');
+// excluir grupos que não pertencem mais a "OC viva"
+if (sol.status === 'concluida') return;
+if (sol.status === 'cancelado') return;        // já cancelado
+if (sol.status === 'rejeitado') return;        // rejeitado pelo backoffice
+if (sol.cancelamento_pendente && sol.cancelamento_aprovado_em) return; // se houver flag
+// Também filtrar OCs cujo grupo contenha último acompanhamento = 'cancelamento_aprovado'
 ```
 
-Comportamento:
-- **OCs Ativas** → mostra todas as ativas (status ≠ cancelado/concluida). Aba destino: ambas.
-- **Sem NF** → filtra grupos com pelo menos 1 OC sem NF. Aba destino: justificadas (default).
-- **Pend. Justificativa** → filtra grupos com OC `pendente_justificativa`. Aba destino: pendência.
-- **Cancel. Pendentes** → filtra grupos com `cancelamento_pendente=true`.
-- Clicar de novo no mesmo card → volta para `todas`.
+Adicionalmente, no nível de OC: se o **último** `oc_acompanhamento.tipo_acao === 'cancelamento_aprovado'`, esse grupo deixa de aparecer na tela. Hoje esses casos seguem renderizados como `cancel_solicitado` / `cancelado`.
 
-A pipeline de filtros vira:
-```
-groups → (empreendimento + busca) = baseFilteredGroups
-       → (cardFilter)              = cardFilteredGroups   ← alimenta Aging, Valor, Distribuição, Top Ofensores
-       → (aba pend/justif)         = filteredGroups       ← alimenta a tabela
-```
+Resultado: a aba **Justificadas** fica limpa (só `adiado`), e o segmento `cancel.` desaparece da Distribuição.
 
-Os KPIs (4 números no topo) **continuam sempre** computados a partir de `baseFilteredGroups` (senão clicar zeraria os outros). O card ativo ganha `ring-2 ring-primary/40` (já existe via `active` no `SlaKpiCard`).
+### 3. Limpar Distribuição Operacional
 
-Indicador visual quando há `cardFilter` ativo: badge "Filtro: Sem NF" ao lado do filtro de empreendimento + botão "Limpar filtros" também limpa o `cardFilter`.
+A barra `OcDistributionBar` mostra hoje 5 segmentos. Reduzir para apenas 2:
 
-### 2. Cards do hero (Aging Médio + Valor em Aberto + Distribuição) reativos
+- **Pendente justificativa** (vermelho)
+- **Adiado** (azul)
 
-Trocar o `aggregates = computeAggregates(baseFilteredGroups)` por `computeAggregates(cardFilteredGroups)` apenas para `distribution`, `topOfensores`, `valorEmAberto`, `agingMedio`. Os KPIs (`kpis`) continuam vindo de `baseFilteredGroups`.
+Remover: `em prazo`, `atenção`, `cancel.` (canceladas saem da tela; "em prazo" e "atenção" não agregam valor já que estão refletidos nos cards superiores).
 
-Vou separar em duas chamadas:
+A `OcDistribution` passa de:
 ```ts
-const baseAggregates = useMemo(() => computeAggregates(baseFilteredGroups), [baseFilteredGroups]);
-const viewAggregates = useMemo(() => computeAggregates(cardFilteredGroups), [cardFilteredGroups]);
-// KPIs ← baseAggregates.kpis
-// Aging/Valor/Distribuição/TopOfensores ← viewAggregates
+{ em_prazo, atencao, pendente, adiado, cancel }
+```
+para:
+```ts
+{ pendente, adiado }
 ```
 
-Adicionar legenda discreta no card de Distribuição: quando `cardFilter !== 'todas'`, mostrar "Recorte: Sem NF (X OCs)".
+### 4. Mapeamento card ↔ aba
 
-### 3. Centralizar a tabela
+Ao clicar em um card, a aba ativa muda para a mais coerente:
 
-Atualmente os textos estão alinhados à esquerda misturados com itens à direita, ficando bagunçado. Vou aplicar:
+| Card | Aba destino |
+|---|---|
+| OC Liberada | Justificadas |
+| OC Não Liberada | Pendência (se houver) senão Justificadas |
+| Pend. Justificativa | Pendência |
+| Justificadas | Justificadas |
 
-- **Header** (`TableHead`): adicionar `text-center` em Solicitante, Empreendimento, OC/Aging, Status & Última ação. Manter Protocolo à esquerda (identificador), Valor à direita (numérico) e Ações à direita.
-- **Células** correspondentes: usar `text-center` e flex `justify-center items-center` nos conteúdos com badges/avatares.
-- **Avatar do solicitante**: centralizar usando `mx-auto` e remover o truncamento agressivo (max-w-[140px] → 160px) com tooltip.
-- **Coluna OC/Aging**: empilhar verticalmente já existe, só centralizar com `items-center`.
-- **Coluna Status/Última ação**: centralizar o badge e o texto auxiliar.
-- Padronizar altura mínima das linhas (`h-[60px]`) para não "pular" entre linhas com muito ou pouco conteúdo.
+### 5. Layout
 
-### Arquivos editados
+- Grid dos cards: `grid-cols-2 lg:grid-cols-4` (4 cards agora).
+- Tooltips dos cards atualizados com a nova explicação (ex.: "OCs já entregues ao fornecedor pelo backoffice").
+- Manter o componente `SlaKpiCard` com `active` highlight e click toggle.
 
-- `src/pages/MonitoramentoOC.tsx` — adicionar `cardFilter` state, dividir agregados em `baseAggregates` e `viewAggregates`, ligar `onClick` em todos os SlaKpiCards, centralizar colunas da tabela.
-- `src/hooks/useMonitoramentoOC.ts` — sem mudanças (a função `computeAggregates` já aceita qualquer subconjunto).
+### 6. Arquivos a serem modificados
 
-### Resultado esperado
+1. **`src/hooks/useMonitoramentoOC.ts`**
+   - Excluir `cancelado` / `rejeitado` no fetch.
+   - Excluir grupos cujo último `oc_acompanhamento` seja `cancelamento_aprovado`.
+   - Reduzir `OcDistribution` para `{ pendente, adiado }` em `computeAggregates` e nos `useMemo`s.
 
-- Clicar em qualquer card filtra Aging, Valor, Distribuição, Top Ofensores e tabela em tempo real.
-- Card ativo destacado com ring; clicar de novo desativa.
-- Tabela centralizada e visualmente alinhada (cabeçalhos e células no mesmo eixo).
+2. **`src/pages/MonitoramentoOC.tsx`**
+   - Tipo `CardFilter`: `'todas' | 'liberada' | 'nao_liberada' | 'pendente' | 'justificadas'`.
+   - Conjuntos de status do solicitação:
+     ```ts
+     const STATUS_LIBERADA = new Set(['liberado_fornecedor','enviado_fornecedor','aguardando_execucao','aguardando_nf_boleto','nf_boleto_enviados','enviado_pagamento']);
+     const STATUS_NAO_LIBERADA = new Set(['aguardando_aceite','oc_ac_emitida','em_processamento']);
+     ```
+   - Recalcular KPIs com base nesses conjuntos (não mais `total_ativas - sem_nf`).
+   - Atualizar `cardFilteredGroups` com a nova lógica.
+   - Adicionar 4º `SlaKpiCard` "Justificadas" (tone `info`/azul).
+   - Remover o segmento `cancel` da tabela e remover `TAB_STATUS.justificadas` referências a `cancel_solicitado`/`cancelado`.
+
+3. **`src/components/monitoramento/OcDistributionBar.tsx`**
+   - Reduzir `SEGMENTS` para `pendente` e `adiado` apenas.
+
+### 7. Pontos técnicos
+
+- O hook `useMonitoramentoOC` já lê `solicitacoes.status` — basta usar. Nenhuma migration necessária.
+- `computeOcStatus` continua válido para detectar "adiado" vs "pendente_justificativa" no nível da OC. O card "Justificadas" usa o mesmo critério já existente (`adiado`).
+- Manter o badge "Recorte" e o badge de filtro de empreendimento já implementados.
+- Atualizar memory `mem://features/pendencies-oc-nf` ao final para refletir a nova taxonomia dos cards.
