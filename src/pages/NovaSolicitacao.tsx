@@ -1,9 +1,10 @@
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 import { useTrackEvent } from '@/hooks/useTrackEvent';
 import { useNavigate } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,7 +12,7 @@ import {
   EMPREENDIMENTO_LABELS,
   type Empreendimento,
 } from '@/types';
-import { AlertTriangle, RotateCcw } from 'lucide-react';
+import { AlertTriangle, RotateCcw, History, X } from 'lucide-react';
 import { notifyBackofficeNewSolicitacao } from '@/hooks/useNotificationEmail';
 import { StepIndicator, type Step as StepIndicatorStep } from '@/components/StepIndicator';
 import { NaturezaServicoStep } from '@/components/NaturezaServicoStep';
@@ -40,7 +41,7 @@ export default function NovaSolicitacao() {
     formState, derived, setters,
     currentStep, setCurrentStep, submitting, setSubmitting,
     allowedEmpreendimentos, loadingEmpreendimentos,
-    hasDraft, clearDraft,
+    hasDraft, clearDraft, lastSavedAt, justRestored, dismissRestoredBanner,
     isValidatingDescription, descriptionValidation, cnaeValidationResult,
     getRequiredAttachments, formatCurrency, handleContratoMensalChange, resetForm,
   } = form;
@@ -59,6 +60,20 @@ export default function NovaSolicitacao() {
 
   const visibleSteps = steps.filter((s) => s.show);
   const currentIndex = visibleSteps.findIndex((s) => s.id === currentStep);
+
+  // Focus management: move focus to step heading when step changes
+  const stepContainerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const node = stepContainerRef.current;
+    if (!node) return;
+    // Focus first input/textarea/select inside the step, fallback to heading
+    const focusable = node.querySelector<HTMLElement>(
+      'input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex="0"]'
+    );
+    if (focusable) {
+      focusable.focus({ preventScroll: true });
+    }
+  }, [currentStep]);
 
   // canProceed logic
   const canProceed = (): boolean => {
@@ -366,7 +381,43 @@ export default function NovaSolicitacao() {
           onStepClick={(index) => { if (index < currentIndex) setCurrentStep(visibleSteps[index].id); }}
           showTimeEstimate
           draftSaved={hasDraft}
+          lastSavedAt={lastSavedAt}
         />
+
+        {justRestored && (
+          <Alert className="bg-primary/5 border-primary/30 animate-fade-in">
+            <History className="h-4 w-4 text-primary" />
+            <AlertDescription className="flex items-center justify-between gap-3 flex-wrap">
+              <span className="text-sm">
+                <span className="font-medium">Rascunho restaurado.</span>{' '}
+                Continuamos de onde você parou.
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    clearDraft();
+                    resetForm();
+                    dismissRestoredBanner();
+                  }}
+                  className="h-7 text-xs"
+                >
+                  Começar do zero
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={dismissRestoredBanner}
+                  className="h-7 w-7"
+                  aria-label="Dispensar"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
 
         <Card>
           <CardHeader className="flex flex-row items-start justify-between space-y-0">
@@ -395,7 +446,8 @@ export default function NovaSolicitacao() {
               </Button>
             )}
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4" ref={stepContainerRef}>
+            <div key={currentStep} className="animate-fade-in">
             {currentStep === 'empreendimento' && (
               <EmpreendimentoStep {...stepProps} allowedEmpreendimentos={allowedEmpreendimentos} loadingEmpreendimentos={loadingEmpreendimentos} />
             )}
@@ -424,6 +476,7 @@ export default function NovaSolicitacao() {
             {currentStep === 'fornecedor' && <FornecedorStep {...stepProps} />}
             {currentStep === 'anexos' && <AnexosStep {...stepProps} getRequiredAttachments={getRequiredAttachments} />}
             {currentStep === 'revisao' && <RevisaoStep {...stepProps} formatCurrency={formatCurrency} />}
+            </div>
           </CardContent>
         </Card>
 
