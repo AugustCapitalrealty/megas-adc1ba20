@@ -20,7 +20,8 @@ import {
   Loader2,
   Package,
   Lock,
-  Eye
+  Eye,
+  Edit
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
