@@ -54,17 +54,37 @@ type TabKey = 'pendencia' | 'justificadas';
 
 const TAB_STATUS: Record<TabKey, OcVisualStatus[]> = {
   pendencia: ['pendente_justificativa', 'atencao'],
-  justificadas: ['adiado', 'aguardando_nf', 'em_prazo', 'cancel_solicitado', 'cancelado'],
+  justificadas: ['adiado', 'aguardando_nf', 'em_prazo'],
 };
 
-type CardFilter = 'todas' | 'liberada' | 'sem_nf' | 'pendente';
+type CardFilter = 'todas' | 'liberada' | 'nao_liberada' | 'pendente' | 'justificadas';
 
 const CARD_FILTER_LABEL: Record<CardFilter, string> = {
   todas: 'Todas',
-  liberada: 'OC liberada',
-  sem_nf: 'OC não liberada',
-  pendente: 'Pend. justificativa',
+  liberada: 'OC Liberada',
+  nao_liberada: 'OC Não Liberada',
+  pendente: 'Pend. Justificativa',
+  justificadas: 'Justificadas',
 };
+
+// Status da solicitação que indicam que a OC já foi liberada para o fornecedor
+// (backoffice já enviou). Vem do ecossistema de status do backoffice.
+const STATUS_LIBERADA = new Set([
+  'liberado_fornecedor',
+  'enviado_fornecedor',
+  'aguardando_execucao',
+  'aguardando_nf_boleto',
+  'nf_boleto_enviados',
+  'enviado_pagamento',
+]);
+
+// Status onde a OC está com o solicitante (aguardando aceite para o backoffice
+// poder enviar ao fornecedor) ou ainda em lançamento/aprovação.
+const STATUS_NAO_LIBERADA = new Set([
+  'aguardando_aceite',
+  'oc_ac_emitida',
+  'em_processamento',
+]);
 
 const STATUS_LABEL_MAP: Record<OcVisualStatus, string> = {
   em_prazo: 'Em prazo',
