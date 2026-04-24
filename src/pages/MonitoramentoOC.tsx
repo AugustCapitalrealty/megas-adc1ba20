@@ -57,6 +57,16 @@ const TAB_STATUS: Record<TabKey, OcVisualStatus[]> = {
   justificadas: ['adiado', 'aguardando_nf', 'em_prazo', 'cancel_solicitado', 'cancelado'],
 };
 
+type CardFilter = 'todas' | 'ativas' | 'sem_nf' | 'pendente' | 'cancel';
+
+const CARD_FILTER_LABEL: Record<CardFilter, string> = {
+  todas: 'Todas',
+  ativas: 'OCs ativas',
+  sem_nf: 'Sem NF',
+  pendente: 'Pend. justificativa',
+  cancel: 'Cancel. pendentes',
+};
+
 const STATUS_LABEL_MAP: Record<OcVisualStatus, string> = {
   em_prazo: 'Em prazo',
   atencao: 'Atenção',
@@ -145,6 +155,7 @@ export default function MonitoramentoOC() {
   const [activeTab, setActiveTab] = useState<TabKey>('pendencia');
   const [searchTerm, setSearchTerm] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [cardFilter, setCardFilter] = useState<CardFilter>('todas');
 
   const [historyOpen, setHistoryOpen] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<OCGroupRow | null>(null);
@@ -156,11 +167,20 @@ export default function MonitoramentoOC() {
   const [cancelJustificativa, setCancelJustificativa] = useState('');
   const [cancelSaving, setCancelSaving] = useState(false);
 
-  const hasActiveFilters = filterEmpreendimento !== 'todos' || searchTerm !== '';
+  const hasActiveFilters = filterEmpreendimento !== 'todos' || searchTerm !== '' || cardFilter !== 'todas';
 
   const clearFilters = () => {
     setFilterEmpreendimento('todos');
     setSearchTerm('');
+    setCardFilter('todas');
+  };
+
+  const toggleCardFilter = (next: CardFilter, targetTab?: TabKey) => {
+    setCardFilter(prev => {
+      const isSame = prev === next;
+      if (!isSame && targetTab) setActiveTab(targetTab);
+      return isSame ? 'todas' : next;
+    });
   };
 
   const toggleExpand = (id: string) => {
@@ -188,28 +208,53 @@ export default function MonitoramentoOC() {
     });
   }, [groups, filterEmpreendimento, searchTerm]);
 
-  // Agregados reativos ao filtro de empreendimento + busca
-  const aggregates = useMemo(() => computeAggregates(baseFilteredGroups), [baseFilteredGroups]);
-  const { kpis, distribution, topOfensores, valorEmAberto, agingMedio } = aggregates;
+  // KPIs (4 cards) sempre vêm do conjunto base — para que clicar em um card
+  // não zere os outros números.
+  const baseAggregates = useMemo(() => computeAggregates(baseFilteredGroups), [baseFilteredGroups]);
+  const { kpis } = baseAggregates;
 
-  // Contagem por aba (a partir do conjunto base filtrado)
+  // Recorte aplicado pelo card ativo — alimenta Aging, Valor, Distribuição,
+  // Top ofensores e a tabela.
+  const cardFilteredGroups = useMemo(() => {
+    if (cardFilter === 'todas') return baseFilteredGroups;
+    return baseFilteredGroups.filter(g => {
+      const ativo = g.status !== 'cancelado' && g.status !== 'concluida';
+      switch (cardFilter) {
+        case 'ativas':
+          return ativo;
+        case 'sem_nf':
+          return ativo && g.ocs.some(oc => !oc.tem_nf);
+        case 'pendente':
+          return ativo && g.ocs.some(oc => computeOcStatus(oc, g) === 'pendente_justificativa');
+        case 'cancel':
+          return g.cancelamento_pendente;
+        default:
+          return true;
+      }
+    });
+  }, [baseFilteredGroups, cardFilter]);
+
+  const viewAggregates = useMemo(() => computeAggregates(cardFilteredGroups), [cardFilteredGroups]);
+  const { distribution, topOfensores, valorEmAberto, agingMedio } = viewAggregates;
+
+  // Contagem por aba (a partir do recorte do card)
   const tabCounts = useMemo(() => {
     const counts = { pendencia: 0, justificadas: 0 };
-    baseFilteredGroups.forEach(g => {
+    cardFilteredGroups.forEach(g => {
       const st = computeGroupStatus(g);
       if (TAB_STATUS.pendencia.includes(st)) counts.pendencia++;
       else counts.justificadas++;
     });
     return counts;
-  }, [baseFilteredGroups]);
+  }, [cardFilteredGroups]);
 
-  // Tabela = aplica filtro de aba sobre o conjunto base
+  // Tabela = aplica filtro de aba sobre o recorte do card
   const filteredGroups = useMemo(() => {
-    return baseFilteredGroups.filter(g => {
+    return cardFilteredGroups.filter(g => {
       const st = computeGroupStatus(g);
       return TAB_STATUS[activeTab].includes(st);
     });
-  }, [baseFilteredGroups, activeTab]);
+  }, [cardFilteredGroups, activeTab]);
 
   const availableEmpreendimentos = useMemo(() => {
     if (hasAllAccess) {
@@ -314,6 +359,12 @@ export default function MonitoramentoOC() {
                   <CardTitle className="text-sm flex items-center gap-2">
                     <Layers className="h-4 w-4 text-primary" />
                     Distribuição operacional
+                    {cardFilter !== 'todas' && (
+                      <Badge variant="outline" className="ml-2 gap-1 text-[10px] font-normal py-0">
+                        <span className="text-muted-foreground">Recorte:</span>
+                        {CARD_FILTER_LABEL[cardFilter]} · {cardFilteredGroups.length}
+                      </Badge>
+                    )}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-5">
@@ -360,7 +411,8 @@ export default function MonitoramentoOC() {
                   value={kpis.total_ativas}
                   icon={<FileCheck className="h-4 w-4" />}
                   tone="neutral"
-                  active={false}
+                  active={cardFilter === 'ativas'}
+                  onClick={() => toggleCardFilter('ativas')}
                   hint="Total de OCs ativas no recorte filtrado (exclui concluídas/canceladas)."
                 />
                 <SlaKpiCard
@@ -368,8 +420,8 @@ export default function MonitoramentoOC() {
                   value={kpis.sem_nf}
                   icon={<Clock className="h-4 w-4" />}
                   tone="warning"
-                  active={activeTab === 'justificadas'}
-                  onClick={() => setActiveTab('justificadas')}
+                  active={cardFilter === 'sem_nf'}
+                  onClick={() => toggleCardFilter('sem_nf', 'justificadas')}
                   hint="OCs ativas que ainda não receberam NF."
                 />
                 <SlaKpiCard
@@ -377,8 +429,8 @@ export default function MonitoramentoOC() {
                   value={kpis.pendente_justificativa}
                   icon={<AlertTriangle className="h-4 w-4" />}
                   tone="destructive"
-                  active={activeTab === 'pendencia'}
-                  onClick={() => setActiveTab('pendencia')}
+                  active={cardFilter === 'pendente'}
+                  onClick={() => toggleCardFilter('pendente', 'pendencia')}
                   hint="OCs sem NF do mês anterior, ou do mês atual após dia 23 sem previsão futura."
                 />
                 <SlaKpiCard
@@ -386,7 +438,8 @@ export default function MonitoramentoOC() {
                   value={kpis.cancelamento_pendente}
                   icon={<XCircle className="h-4 w-4" />}
                   tone="warning"
-                  active={false}
+                  active={cardFilter === 'cancel'}
+                  onClick={() => toggleCardFilter('cancel')}
                   hint="Solicitações com cancelamento aguardando aprovação."
                 />
               </div>
@@ -514,6 +567,20 @@ export default function MonitoramentoOC() {
                   {EMPREENDIMENTO_LABELS[filterEmpreendimento as Empreendimento] || filterEmpreendimento}
                 </Badge>
               )}
+              {cardFilter !== 'todas' && (
+                <Badge variant="outline" className="ml-1 gap-1 text-xs">
+                  <span className="text-muted-foreground">Card:</span>
+                  {CARD_FILTER_LABEL[cardFilter]}
+                  <button
+                    type="button"
+                    onClick={() => setCardFilter('todas')}
+                    className="ml-1 hover:text-destructive"
+                    title="Remover filtro do card"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
             </div>
 
             {/* Tabela agrupada — colunas mescladas e ações com label */}
@@ -525,12 +592,12 @@ export default function MonitoramentoOC() {
                       <TableRow>
                         <TableHead className="w-8"></TableHead>
                         <TableHead>Protocolo</TableHead>
-                        <TableHead>Solicitante</TableHead>
-                        <TableHead>Empreendimento</TableHead>
-                        <TableHead>Fornecedor</TableHead>
+                        <TableHead className="text-center">Solicitante</TableHead>
+                        <TableHead className="text-center">Empreendimento</TableHead>
+                        <TableHead className="text-center">Fornecedor</TableHead>
                         <TableHead className="text-right">Valor</TableHead>
-                        <TableHead>OC / Aging</TableHead>
-                        <TableHead>Status &amp; Última ação</TableHead>
+                        <TableHead className="text-center">OC / Aging</TableHead>
+                        <TableHead className="text-center">Status &amp; Última ação</TableHead>
                         <TableHead className="text-right w-[180px]">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -571,7 +638,7 @@ export default function MonitoramentoOC() {
                             <Fragment key={group.solicitacao_id}>
                               <TableRow
                                 className={cn(
-                                  'cursor-pointer group border-l-4 hover:bg-muted/40 transition-colors',
+                                  'cursor-pointer group border-l-4 hover:bg-muted/40 transition-colors h-[60px]',
                                   leftAccent,
                                   group.cancelamento_pendente && 'bg-destructive/[0.03]',
                                 )}
@@ -602,29 +669,29 @@ export default function MonitoramentoOC() {
                                   </div>
                                 </TableCell>
                                 <TableCell>
-                                  <div className="flex items-center gap-2 min-w-0">
+                                  <div className="flex items-center justify-center gap-2 min-w-0">
                                     <Avatar className="h-6 w-6 shrink-0">
                                       <AvatarFallback className="text-[10px] bg-muted">
                                         {getInitials(group.solicitante_nome)}
                                       </AvatarFallback>
                                     </Avatar>
-                                    <span className="text-xs truncate max-w-[140px]" title={group.solicitante_nome || ''}>
+                                    <span className="text-xs truncate max-w-[160px]" title={group.solicitante_nome || ''}>
                                       {group.solicitante_nome || '—'}
                                     </span>
                                   </div>
                                 </TableCell>
-                                <TableCell>
+                                <TableCell className="text-center">
                                   <Badge variant="outline" className={cn('text-xs', EMPREENDIMENTO_BADGE_COLORS[group.empreendimento] || '')}>
                                     {EMPREENDIMENTO_LABELS[group.empreendimento] || group.empreendimento}
                                   </Badge>
                                 </TableCell>
-                                <TableCell className="text-sm max-w-[200px] truncate" title={group.fornecedor_razao || ''}>
+                                <TableCell className="text-sm max-w-[200px] truncate text-center" title={group.fornecedor_razao || ''}>
                                   {group.fornecedor_razao || '—'}
                                 </TableCell>
                                 <TableCell className="text-right text-sm font-medium tabular-nums">{formatCurrency(group.valor)}</TableCell>
                                 {/* OC + Aging mesclados */}
                                 <TableCell>
-                                  <div className="flex flex-col gap-1">
+                                  <div className="flex flex-col gap-1 items-center">
                                     <span className="text-sm tabular-nums font-medium leading-none">
                                       {primary.numero_documento}
                                       {group.has_multiple && (
@@ -636,7 +703,7 @@ export default function MonitoramentoOC() {
                                 </TableCell>
                                 {/* Status + Última ação mesclados */}
                                 <TableCell>
-                                  <div className="flex flex-col gap-0.5 min-w-[160px]">
+                                  <div className="flex flex-col gap-0.5 min-w-[160px] items-center text-center">
                                     <StatusBadge status={groupStatus} />
                                     {groupStatus === 'adiado' && primary.previsao_nf && (
                                       <span className="text-[10px] text-muted-foreground">
