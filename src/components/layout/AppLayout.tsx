@@ -31,6 +31,7 @@ import {
   Moon,
   Sun,
   Bell,
+  CalendarDays,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -78,13 +79,14 @@ export function AppLayout() {
   const mainNavItems = [
     { href: '/minhas-solicitacoes', label: 'Solicitações', icon: FileText, show: true },
     { href: '/backoffice', label: 'Backoffice', icon: LayoutDashboard, show: isBackofficeOrAdmin },
-    { href: '/painel-fluig', label: 'Painel Fluig', icon: BarChart3, show: true },
-    { href: '/garantias', label: 'Garantias', icon: Shield, show: !isSolicitante },
+    { href: '/painel-fluig', label: 'Painel', icon: BarChart3, show: true },
+    { href: '/calendario', label: 'Calendário', icon: CalendarDays, show: true },
     { href: '/monitoramento-oc', label: 'Monitoramento', icon: FileCheck, show: true },
     { href: '/notificacoes', label: 'Notificações', icon: Bell, show: isSolicitante },
   ];
 
   const adminItems = [
+    { href: '/garantias', label: 'Garantias', icon: Shield },
     { href: '/admin/usuarios', label: 'Usuários', icon: Users },
     { href: '/admin/sla', label: 'Dashboard SLA', icon: Timer },
     { href: '/admin/eficiencia', label: 'Eficiência', icon: BarChart3 },
@@ -114,6 +116,7 @@ export function AppLayout() {
       '/painel-fluig': () => import('@/pages/PainelFluig'),
       '/garantias': () => import('@/pages/GarantiasVigentes'),
       '/monitoramento-oc': () => import('@/pages/MonitoramentoOC'),
+      '/calendario': () => import('@/pages/Calendario'),
       '/admin/usuarios': () => import('@/pages/Admin'),
       '/admin/sla': () => import('@/pages/DashboardSLA'),
       '/admin/eficiencia': () => import('@/pages/DashboardEficiencia'),
