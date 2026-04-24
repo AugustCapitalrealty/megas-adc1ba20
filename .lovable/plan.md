@@ -1,69 +1,75 @@
-## Objetivo
+## Problema
 
-Ao **concluir uma solicitação** no backoffice, capturar o **número Fluig do pagamento lançado** e gravá-lo na solicitação (campo novo, separado do `numero_chamado_fluig` da compra e do `numero_fluig_cadastro` do produto/serviço).
+Na tela **Monitoramento OC × NF**, ao clicar no card **"OC Liberada"** com filtro Mega Curitiba, os números aparecem desencontrados:
 
----
+| Elemento | Valor mostrado | Unidade |
+|---|---|---|
+| Chip "Card: OC Liberada" | **9** | grupos (solicitações) |
+| Chip "Recorte: OC Liberada · 9" (no header da Distribuição) | **9** | grupos — **duplica** a info do chip acima |
+| Distribuição operacional | **6** pend. justif. + **3** adiado = **9** | **OCs** (não grupos) |
+| Aba "Todas" | **9** | grupos |
+| Aba "Pendência" | **6** | grupos |
+| Aba "Justificadas" | **3** | grupos |
+| Contador no canto superior | "3 sol. · 3 OCs" | reflete só a aba ativa |
 
-## 1. Banco de dados (migração)
+O resultado parece coincidir (9 = 9), mas:
+1. A **Distribuição conta OCs**, enquanto **abas e cards contam grupos** → semânticas misturadas.
+2. O chip **"Recorte: OC Liberada · 9"** duplica visualmente o chip **"Card: OC Liberada"** já presente acima da tabela.
+3. O contador "3 sol. · 3 OCs" mostra só o que está visível na tabela, sem contexto do total filtrado.
+4. Card "OC Liberada" mostra **9** mas, ao ser clicado, parte dessas 9 nem aparecem em nenhuma aba (ex.: OCs com status `aguardando_nf` ou `em_prazo` não estão em `pendencia` nem em `justificadas`, só em "Todas").
 
-Adicionar coluna em `public.solicitacoes`:
+## Solução
 
-```sql
-ALTER TABLE public.solicitacoes
-  ADD COLUMN IF NOT EXISTS numero_fluig_pagamento text;
+### 1. Padronizar todas as contagens em **grupos (solicitações)**
 
-COMMENT ON COLUMN public.solicitacoes.numero_fluig_pagamento IS
-  'Número do Fluig lançado para pagamento, preenchido na conclusão da solicitação pelo backoffice.';
-```
+Hoje, `distribution` no hook conta OCs individuais (uma solicitação pode ter várias OCs). Como o resto da tela (cards, abas, tabela, chips) já trabalha com grupos, vamos alinhar a Distribuição também:
 
-> Sem RLS adicional — herda das policies existentes da tabela.
+- Em `useMonitoramentoOC.ts` (e em `computeAggregates`), trocar o cálculo de `distribution` para contar **grupos** com base em `computeGroupStatus(group)`, não OCs individuais.
+- Isto faz `pend. justif. + adiado` somar exatamente o mesmo número que os cards mostram.
 
----
+### 2. Remover redundância do chip "Recorte" no header da Distribuição
 
-## 2. Modal "Concluir Solicitação" (`src/components/backoffice/BackofficeModals.tsx`)
+- Em `MonitoramentoOC.tsx` linhas 406-411: remover o `Badge` "Recorte: OC Liberada · N" do `CardHeader` da Distribuição operacional.
+- A informação já fica visível: o card de KPI ativo tem o anel azul (`ring-primary/40`) e o chip "Card: OC Liberada" aparece acima da tabela.
 
-No componente `ConcluirSolicitacaoModal`:
+### 3. Tornar o contador do canto superior direito mais claro
 
-- Adicionar state `numeroFluigPagamento` (string).
-- A 2ª linha do checklist passa de um simples checkbox para:
-  - **Checkbox** "Pagamento lançado no Fluig"
-  - Quando marcado, exibir um `<Input>` obrigatório logo abaixo, com placeholder `Nº do Fluig de pagamento (ex: 123456)`.
-- `isReady = checkNF && checkFluig && numeroFluigPagamento.trim().length > 0`.
-- Mensagem de ajuda discreta abaixo do input quando vazio: "Informe o nº Fluig para concluir".
-- Trim do valor antes de enviar; reset ao fechar/cancelar.
-- Ajustar a assinatura do `onConfirm` para receber também `numeroFluigPagamento`:
-  - `onConfirm: (sol, numeroFluigPagamento) => Promise<void>`.
-- Atualizar o tipo da prop `handleConcluirLiberadaConfirmed` no `BackofficeModalsProps` (linha 152) para aceitar o segundo argumento.
+Hoje mostra `"3 sol. · 3 OCs"` (só o filtro de aba). Trocar por algo que reflita o recorte completo:
 
----
+- `"3 de 9 sol. · 3 OCs"` quando há filtro de aba ativo dentro do card.
+- `"9 sol. · N OCs"` quando aba = "Todas".
 
-## 3. Handler de conclusão (`src/pages/Backoffice.tsx`)
+Padrão: **{visível} de {total no recorte do card} sol. · {OCs visíveis} OCs**.
 
-Em `handleConcluirLiberadaConfirmed`:
+### 4. Ajustar a aba "Justificadas"
 
-- Aceitar segundo argumento `numeroFluigPagamento: string`.
-- No `update` da solicitação, gravar também `numero_fluig_pagamento`:
-  ```ts
-  .update({
-    status: 'concluida' as any,
-    numero_fluig_pagamento: numeroFluigPagamento,
-    data_conclusao: new Date().toISOString(),
-  } as any)
-  ```
-  (Inclui `data_conclusao` para garantir consistência caso ainda não exista trigger que preencha; campo já existe na tabela.)
-- No insert do `historico_solicitacoes`, atualizar o `motivo` para:
-  `NF recebida e pagamento lançado no Fluig #${numeroFluigPagamento}`.
+A aba "Justificadas" hoje só inclui `adiado`, `aguardando_nf` e `em_prazo`. Mas o card **"Justificadas"** conta grupos com pelo menos uma OC `adiado`. Isso causa divergência. Padronizar:
 
----
+- Card "Justificadas" e aba "Justificadas" passam a usar a **mesma definição**: grupos cuja pior OC é `adiado` (já tem justificativa ativa com previsão futura). Removemos `aguardando_nf` e `em_prazo` da aba para alinhar com o card.
+- Aba "Pendência" continua com `pendente_justificativa` + `atencao`.
+- Aba "Todas" continua mostrando tudo (incluindo `aguardando_nf`, `em_prazo`, `cancel_solicitado`).
 
-## 4. Sem alterações imediatas em listagens
+Assim, ao clicar no card "Justificadas", o número (3) bate exatamente com a aba "Justificadas" (3) e com a tabela (3 linhas).
 
-A coluna fica disponível no banco para uso futuro (exibir o número Fluig de pagamento em telas de detalhes, exportações etc.). O RPC `get_solicitacoes_backoffice` e o tipo `SolicitacaoBackoffice` **não** precisam ser tocados agora — fica como melhoria opcional caso o usuário peça.
+### 5. Legenda da Distribuição operacional
 
----
+Como a Distribuição passa a contar grupos pela pior OC, o segmento azul "adiado" passa a representar **grupos justificados** (mesma população do card "Justificadas") e o segmento vermelho "pend. justif." representa **grupos com pendência**. Manter os mesmos rótulos: `pend. justif.` e `adiado`.
 
-## Arquivos modificados
+## Arquivos afetados
 
-- **migration**: nova coluna `solicitacoes.numero_fluig_pagamento`.
-- `src/components/backoffice/BackofficeModals.tsx` — input no modal + tipo da prop.
-- `src/pages/Backoffice.tsx` — handler grava o campo + histórico enriquecido.
+- `src/hooks/useMonitoramentoOC.ts` — `computeAggregates` passa a contar grupos em `distribution` usando `computeGroupStatus`.
+- `src/pages/MonitoramentoOC.tsx`:
+  - Remover badge "Recorte: …" do header da Distribuição (linhas ~406-411).
+  - Atualizar `TAB_STATUS.justificadas` para `['adiado']` apenas.
+  - Atualizar contador "X sol. · Y OCs" para "X de Y sol. · Z OCs".
+
+## Resultado esperado (mesmo cenário do print)
+
+- Card "OC Liberada" ativo: **9**
+- Distribuição operacional: **6** pend. justif. · **3** adiado (= 9, em grupos)
+- Aba "Todas" 9 · "Pendência" 6 · "Justificadas" 3
+- Aba "Justificadas" ativa → tabela mostra 3 linhas
+- Contador: **"3 de 9 sol. · 3 OCs"**
+- Sem chip duplicado de "Recorte" no header da Distribuição.
+
+Tudo passa a falar a mesma língua: **grupos (solicitações)** em todos os indicadores.

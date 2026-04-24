@@ -55,7 +55,7 @@ type TabKey = 'todas' | 'pendencia' | 'justificadas';
 const TAB_STATUS: Record<TabKey, OcVisualStatus[]> = {
   todas: ['pendente_justificativa', 'atencao', 'adiado', 'aguardando_nf', 'em_prazo', 'cancel_solicitado'],
   pendencia: ['pendente_justificativa', 'atencao'],
-  justificadas: ['adiado', 'aguardando_nf', 'em_prazo'],
+  justificadas: ['adiado'],
 };
 
 type CardFilter = 'todas' | 'liberada' | 'nao_liberada' | 'pendente' | 'justificadas';
@@ -403,12 +403,6 @@ export default function MonitoramentoOC() {
                   <CardTitle className="text-sm flex items-center gap-2">
                     <Layers className="h-4 w-4 text-primary" />
                     Distribuição operacional
-                    {cardFilter !== 'todas' && (
-                      <Badge variant="outline" className="ml-2 gap-1 text-[10px] font-normal py-0">
-                        <span className="text-muted-foreground">Recorte:</span>
-                        {CARD_FILTER_LABEL[cardFilter]} · {cardFilteredGroups.length}
-                      </Badge>
-                    )}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-5">
@@ -560,7 +554,11 @@ export default function MonitoramentoOC() {
                   Exportar
                 </Button>
                 <span className="text-sm text-muted-foreground tabular-nums">
-                  {filteredGroups.length} sol. · {filteredGroups.reduce((acc, g) => acc + g.ocs.length, 0)} OCs
+                  {filteredGroups.length === cardFilteredGroups.length
+                    ? `${filteredGroups.length} sol.`
+                    : `${filteredGroups.length} de ${cardFilteredGroups.length} sol.`}
+                  {' · '}
+                  {filteredGroups.reduce((acc, g) => acc + g.ocs.length, 0)} OCs
                 </span>
               </div>
             </div>

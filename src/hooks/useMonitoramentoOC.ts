@@ -151,8 +151,6 @@ export function computeAggregates(groups: OCGroupRow[]): OcAggregates {
         pendente++;
         ofensores.push({ group: g, oc });
       }
-      if (st === 'pendente_justificativa') dist.pendente++;
-      else if (st === 'adiado') dist.adiado++;
 
       if (!oc.tem_nf && ativo) {
         agingSoma += oc.dias_aberto;
@@ -160,6 +158,15 @@ export function computeAggregates(groups: OCGroupRow[]): OcAggregates {
       }
     });
     if (groupTemNfPendente) valorEmAberto += Number(g.valor) || 0;
+
+    // Distribuição operacional conta GRUPOS (solicitações) pelo pior status
+    // do grupo, alinhando com cards e abas.
+    const groupStatus = computeGroupStatus(g);
+    if (groupStatus === 'pendente_justificativa' || groupStatus === 'atencao') {
+      dist.pendente++;
+    } else if (groupStatus === 'adiado') {
+      dist.adiado++;
+    }
   });
 
   return {
