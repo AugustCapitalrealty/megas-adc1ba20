@@ -164,7 +164,7 @@
   }
 
   .status-badge {
-    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[13px] font-medium min-h-[28px] focus-visible:ring-2 focus-visible:ring-ring;
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[13px] font-medium min-h-[28px] whitespace-nowrap focus-visible:ring-2 focus-visible:ring-ring;
   }
 
   .status-recebido {
