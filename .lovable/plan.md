@@ -1,53 +1,66 @@
-## Objetivo
+# Corrigir falhas ao enviar Nova Solicitação
 
-Permitir que usuários do backoffice/admin alterem a **Natureza Orçamentária** de uma solicitação direto pelo modal de detalhes, registrando a mudança no histórico (e, por consequência, na timeline visível ao solicitante).
+## Problema observado
 
-## Como vai funcionar
+Alguns usuários relatam:
+1. **Não conseguem finalizar** uma nova solicitação — clicam em "Enviar Solicitação" e nada acontece (ou aparece erro).
+2. **Ao clicar repetidamente**, o sistema parece "abrir várias" (múltiplos toasts/erros, sensação de que está duplicando).
+3. Sem feedback claro do que está faltando.
 
-No card "Classificação Orçamentária" do modal de detalhes (BackofficeModals), o backoffice verá um botão **Editar** (ícone de lápis) ao lado do badge atual. Clicar abre um modal pequeno com um `Select` listando todas as opções de `NATUREZA_ORCAMENTARIA_LABELS`, pré-selecionado no valor atual. Ao salvar:
+## Causa raiz identificada
 
-1. UPDATE em `solicitacoes.natureza_orcamentaria`.
-2. INSERT em `historico_solicitacoes` com:
-   - `acao = 'natureza_orcamentaria_alterada'`
-   - `motivo = 'Natureza Orçamentária alterada de {LABEL_ANTIGO} para {LABEL_NOVO}'`
-   - `status_anterior` e `status_novo` iguais ao status atual (sem mudança de status).
-3. Toast de confirmação + refresh da listagem e do modal.
+No arquivo `src/pages/NovaSolicitacao.tsx`, a função `handleSubmit`:
 
-## Mudanças técnicas
+```ts
+if (isSubmittingRef.current || submitting) return;
+if (!user || !formState.empreendimento || !formState.naturezaOrcamentaria || !formState.fornecedor) return;
+```
 
-### 1. `src/pages/Backoffice.tsx`
-- Novos estados: `editNaturezaOpen`, `editNaturezaValue`, `editNaturezaLoading`.
-- Novo handler `handleSaveNatureza` no mesmo padrão de `handleSaveProjuris`:
-  - Valida `selectedSolicitacao` e `user`.
-  - Faz `supabase.from('solicitacoes').update({ natureza_orcamentaria: novoValor }).eq('id', ...)`.
-  - Se houve mudança real, insere em `historico_solicitacoes` com a ação descrita acima.
-  - Atualiza `selectedSolicitacao` no estado local (para o card refletir imediatamente) e chama `fetchSolicitacoes()`.
-- Encaminha as 4 props novas para `<BackofficeModals .../>`.
+- O segundo `return` é **silencioso** — sem `toast`, sem `setSubmitting(true)`. O botão fica habilitado e o usuário pode clicar várias vezes sem entender por quê.
+- `FormNavigation` recebe `canProceed={true}` hardcoded e o botão Enviar só desabilita por `submitting`. Se faltar dado obrigatório, o botão fica clicável mas a submissão não acontece.
+- Um usuário pode chegar à etapa de Revisão, clicar repetidamente e cada clique gera ruído (logs, mas sem ação útil).
+- Em alguns casos a sessão Supabase já expirou (toast aparece mas usuário não relê) e o clique seguinte tenta de novo.
 
-### 2. `src/components/backoffice/BackofficeModals.tsx`
-- Adicionar à interface `BackofficeModalsProps`:
-  ```ts
-  editNaturezaOpen: boolean;
-  setEditNaturezaOpen: (open: boolean) => void;
-  editNaturezaValue: string;
-  setEditNaturezaValue: (v: string) => void;
-  editNaturezaLoading: boolean;
-  handleSaveNatureza: () => void;
-  ```
-- No bloco "Classificação Orçamentária" (linhas ~526–534), adicionar um botão `Edit` (variant ghost, size icon) ao lado do `Label`, visível apenas quando o usuário é backoffice/admin. Ao clicar: pré-popular `editNaturezaValue` com `detalhes.solicitacao.natureza_orcamentaria` e abrir o modal.
-- Novo `<Dialog>` `EditNaturezaModal` no mesmo padrão visual do `editProjurisOpen`, mas usando `Select` com as opções de `NATUREZA_ORCAMENTARIA_LABELS`.
+Não foram encontradas duplicatas reais no banco, então o problema é de UX/feedback — o usuário **percebe** múltiplos cliques porque o botão parece "engolir" sem reagir.
 
-### 3. `src/components/SolicitacaoTimeline.tsx` e `src/components/SlaTimelineModal.tsx`
-- Mapear a nova ação `natureza_orcamentaria_alterada` para um label legível ("Classificação Orçamentária alterada") com ícone `Edit` e cor neutra (ex.: `bg-amber-500 text-white`), seguindo o mesmo estilo das ações `numero_fluig_alterado` / `numero_projuris_alterado`. O `motivo` (com de→para) já é renderizado abaixo do label automaticamente.
+## Solução
 
-## Permissões e segurança
+### 1. `src/pages/NovaSolicitacao.tsx` — `handleSubmit`
+- Substituir o `return` silencioso por um **toast destrutivo** explicando o que falta (Empreendimento, Natureza, Fornecedor) e voltar para a etapa correspondente automaticamente (`setCurrentStep('empreendimento' | 'detalhes' | 'fornecedor')`).
+- Garantir que **toda saída antecipada** dispare toast claro com `description` descrevendo o motivo.
+- Antes da submissão, revalidar `canProceed()` de **todas as etapas visíveis** — se alguma falhar, pular para essa etapa, ativar `showErrors=true` e mostrar toast.
 
-- A RLS atual de `solicitacoes` já permite `Backoffice can update all solicitacoes`, portanto o UPDATE funciona.
-- A RLS atual de `historico_solicitacoes` exige `auth.uid() = user_id` no INSERT, o que é satisfeito.
-- O botão Editar só será exibido se `effectiveProfile === 'backoffice'` ou `'admin'` (podemos detectar pelo hook já existente `useUserRole`/`useAuth` do projeto, conforme padrão já usado nesta tela).
+### 2. `src/components/nova-solicitacao/FormNavigation.tsx`
+- O botão "Enviar Solicitação" deve aceitar `canSubmit: boolean` (vindo do pai) e ficar **`disabled={submitting || !canSubmit}`**.
+- Adicionar `aria-disabled` e tooltip leve ("Complete todas as etapas obrigatórias") quando bloqueado.
+- Texto do botão muda para "Enviando…" quando `submitting`.
 
-## Fora do escopo
+### 3. `src/pages/NovaSolicitacao.tsx` — passar `canSubmit`
+- Calcular `const canSubmit = visibleSteps.every(s => stepIsValid(s.id))` usando a lógica já existente em `canProceed`/`useStepErrors`.
+- Passar para `FormNavigation`.
 
-- Não alteramos schema do banco, RLS, nem Edge Functions.
-- Não recalculamos `instrumento_juridico` (esse é definido por outras flags via trigger `set_instrumento_juridico` apenas no INSERT/UPDATE de campos relevantes — natureza orçamentária não dispara recálculo).
-- Não enviamos notificação automática extra ao solicitante; a mudança aparecerá na timeline de histórico que ele já visualiza.
+### 4. Proteção extra contra cliques múltiplos
+- Adicionar **debounce visual** de 1s no botão Enviar mesmo após erro: após `catch`, manter `submitting=true` por 800ms antes de liberar (evita spam de cliques quando rede lenta retorna erro).
+- Mensagem do toast de erro fica visível por 8s (já é o padrão).
+
+### 5. Verificação de sessão antes da submissão
+- Manter o `supabase.auth.getSession()` que já existe, mas se sessão expirou, **redirecionar para `/login`** após o toast, não apenas voltar para a tela.
+
+### 6. Teste manual sugerido após deploy
+- Logar com usuário sem empreendimento atrelado → tentar criar solicitação → deve mostrar mensagem clara.
+- Logar normalmente → preencher tudo → clicar várias vezes em Enviar → deve criar 1 só.
+- Forçar erro de rede (DevTools offline) → clicar Enviar → toast claro e botão volta a habilitar após 800ms.
+
+## Detalhes técnicos
+
+- Mantém o duplo guard `isSubmittingRef` + `setSubmitting` (já existe).
+- Não altera schema de banco.
+- Não mexe em RLS.
+- Sem migrações.
+
+## Arquivos modificados
+
+- `src/pages/NovaSolicitacao.tsx` — handleSubmit com toasts em vez de returns silenciosos, cálculo de `canSubmit`, debounce pós-erro.
+- `src/components/nova-solicitacao/FormNavigation.tsx` — aceitar `canSubmit`, desabilitar Enviar quando inválido, texto "Enviando…".
+
+Sem novos arquivos.
