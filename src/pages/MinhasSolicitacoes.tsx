@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { Card, CardContent } from '@/components/ui/card';
@@ -21,7 +21,7 @@ import {
   type DocumentoEmitido,
   type DocumentoFiscal,
 } from '@/types';
-import { Loader2, FileText, AlertTriangle, User, Building2, Download, CheckCircle, X, PartyPopper, ArrowUpDown } from 'lucide-react';
+import { Loader2, FileText, AlertTriangle, User, Building2, Download, CheckCircle, X, PartyPopper } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ContextualEmptyState } from '@/components/ui/ContextualEmptyState';
 import { saveAs } from 'file-saver';
@@ -34,7 +34,7 @@ import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 
 // Design System Components
 import { FilterBar, type TabGroup } from '@/components/ui/FilterBar';
-import { PendingActionsCard } from '@/components/PendingActionsCard';
+import { PendingHeaderChips } from '@/components/solicitante/PendingHeaderChips';
 
 // Extracted components
 // SolicitanteKPIs removed — FilterBar tabs provide the same info
@@ -90,6 +90,26 @@ export default function MinhasSolicitacoes() {
       return () => clearTimeout(timer);
     }
   }, [createdProtocolo]);
+
+  // Keyboard shortcut: "/" focuses the search input
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== '/') return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || target?.isContentEditable) return;
+      const input = document.querySelector<HTMLInputElement>(
+        'input[placeholder^="Buscar por protocolo"]'
+      );
+      if (input) {
+        e.preventDefault();
+        input.focus();
+        input.select();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
   
   // Edit modal state
   const [editOpen, setEditOpen] = useState(false);
@@ -1002,12 +1022,13 @@ export default function MinhasSolicitacoes() {
         </div>
 
 
-        {/* Pending Actions Card */}
+        {/* Pending Header Chips (compact) */}
         {viewMode === 'minhas' && (
-          <PendingActionsCard
-            pendingCorrections={pendingCounts.corrections}
+          <PendingHeaderChips
+            pendingCorrections={solicitacoes.filter(s => s.status === 'pendente_correcao').length}
+            pendingInfoRequests={solicitacoes.filter(s => s.status === 'aguardando_informacoes').length}
             pendingAcceptance={pendingCounts.acceptance}
-            pendingNfBoleto={pendingCounts.nfBoleto}
+            pendingNfBoleto={solicitacoes.filter(s => s.status === 'aguardando_nf_boleto').length}
             pendingCiencia={pendingCounts.ciencia}
             onViewPending={(filter) => setActiveTab(filter as FilterTab)}
             onDarCiencia={() => setActiveTab('ciencia')}
@@ -1017,7 +1038,7 @@ export default function MinhasSolicitacoes() {
         {/* Filter Bar */}
         <FilterBar
           showSearch
-          searchPlaceholder="Buscar por protocolo, descrição ou fornecedor..."
+          searchPlaceholder="Buscar por protocolo, descrição ou fornecedor… (atalho: /)"
           searchValue={searchTerm}
           onSearchChange={setSearchTerm}
           tabGroups={filterTabGroups}
@@ -1028,15 +1049,15 @@ export default function MinhasSolicitacoes() {
           }}
           rightSlot={
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setSortBy(prev => prev === 'created_at' ? 'updated_at' : 'created_at')}
-                className="gap-1.5 text-xs"
-              >
-                <ArrowUpDown className="h-3.5 w-3.5" />
-                {sortBy === 'updated_at' ? 'Última alteração' : 'Abertura'}
-              </Button>
+              <Select value={sortBy} onValueChange={(v) => setSortBy(v as 'created_at' | 'updated_at')}>
+                <SelectTrigger className="h-8 w-[180px] text-xs" aria-label="Ordenar por">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="updated_at">Última alteração</SelectItem>
+                  <SelectItem value="created_at">Data de abertura</SelectItem>
+                </SelectContent>
+              </Select>
               <Button
                 variant="outline"
                 size="sm"
