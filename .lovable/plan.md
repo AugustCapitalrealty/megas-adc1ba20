@@ -1,75 +1,141 @@
-## Problema
+## Calendário de Serviços (Monitoramento)
 
-Na tela **Monitoramento OC × NF**, ao clicar no card **"OC Liberada"** com filtro Mega Curitiba, os números aparecem desencontrados:
+Hoje, quando o solicitante libera uma OC de **serviço**, ele informa a `data_execucao_servico` (já salva no banco). Para o backoffice/operação saber "o que está previsto para o dia 10", precisa abrir solicitação por solicitação. Vamos criar uma visão de calendário em **Monitoramento** que mostra exatamente isso, reaproveitando todos os componentes que já existem.
 
-| Elemento | Valor mostrado | Unidade |
+### Onde fica
+
+Adicionar uma **3ª aba** em `Monitoramento`, ao lado de "OC × NF" e "Projuris":
+
+```text
+[ OC × NF ]  [ Projuris ]  [ Calendário de Serviços ]
+```
+
+### Layout
+
+```text
+┌────────────────────────────────────────────────────────────────┐
+│  ◀  Abril 2026  ▶          Empreendimento ▾   Status ▾   Hoje │
+│  • OC enviada   • Aguardando NF   • Executado  • Agendado     │
+├────────────────────────────────────────────────────────────────┤
+│  Seg   Ter   Qua   Qui   Sex   Sáb   Dom                       │
+│   1     2     3     4     5     6     7                        │
+│         ●●          ●●●               ●                        │
+│   8     9    10    11    12    13   14                         │
+│         ●     ●●●●  ●            ●                             │
+│  ...                                                          │
+└────────────────────────────────────────────────────────────────┘
+```
+
+- Cada **dia** mostra até 3 chips coloridos (com `+N` se houver mais), cada chip = 1 serviço previsto/executado naquela data.
+- Cor do chip = status atual da solicitação (ver legenda abaixo).
+- **Clique no dia** abre um *Sheet* lateral listando todos os serviços daquele dia (com mini-cards: protocolo, fornecedor, valor, status, ações "Ver detalhes / Histórico").
+- **Clique no chip** já abre direto o `OCDetalhesModal` (componente que já usamos em OC × NF).
+
+### Painel de KPIs no topo (reaproveitando `SlaKpiCard`)
+
+Reutilizando o estilo já consolidado:
+
+| KPI | Definição |
+|---|---|
+| **Hoje** | Serviços com `data_execucao_servico = hoje` |
+| **Próximos 7 dias** | Serviços agendados para os próximos 7 dias |
+| **Atrasados** | Data passou e status ainda não chegou em `aguardando_nf_boleto` ou posterior |
+| **Aguardando NF** | Serviços já executados (data ≤ hoje) e status `aguardando_nf_boleto` |
+
+Cards são clicáveis e filtram o calendário (mesmo padrão do "OC × NF").
+
+### Cores / Legenda (alinhadas com o ecossistema existente)
+
+| Cor | Status | Significado |
 |---|---|---|
-| Chip "Card: OC Liberada" | **9** | grupos (solicitações) |
-| Chip "Recorte: OC Liberada · 9" (no header da Distribuição) | **9** | grupos — **duplica** a info do chip acima |
-| Distribuição operacional | **6** pend. justif. + **3** adiado = **9** | **OCs** (não grupos) |
-| Aba "Todas" | **9** | grupos |
-| Aba "Pendência" | **6** | grupos |
-| Aba "Justificadas" | **3** | grupos |
-| Contador no canto superior | "3 sol. · 3 OCs" | reflete só a aba ativa |
+| 🟦 azul | `aguardando_aceite`, `oc_ac_emitida` | OC Não liberada (com solicitante) |
+| 🟢 verde | `liberado_fornecedor`, `enviado_fornecedor` | OC enviada ao fornecedor |
+| 🟡 amarelo | `aguardando_execucao` futuro | Serviço **agendado** (data > hoje) |
+| 🟠 laranja | `aguardando_execucao` vencido | Serviço **atrasado** (data ≤ hoje, sem NF) |
+| 🟣 roxo | `aguardando_nf_boleto` | Aguardando NF |
+| ⚪ cinza | `nf_boleto_enviados`, `enviado_pagamento`, `concluida` | Concluído / em pagamento |
+| 🔴 vermelho | `cancelamento_pendente = true` ou `cancelado` | Cancelamento |
 
-O resultado parece coincidir (9 = 9), mas:
-1. A **Distribuição conta OCs**, enquanto **abas e cards contam grupos** → semânticas misturadas.
-2. O chip **"Recorte: OC Liberada · 9"** duplica visualmente o chip **"Card: OC Liberada"** já presente acima da tabela.
-3. O contador "3 sol. · 3 OCs" mostra só o que está visível na tabela, sem contexto do total filtrado.
-4. Card "OC Liberada" mostra **9** mas, ao ser clicado, parte dessas 9 nem aparecem em nenhuma aba (ex.: OCs com status `aguardando_nf` ou `em_prazo` não estão em `pendencia` nem em `justificadas`, só em "Todas").
+Mesmas cores do design system (`bg-success`, `bg-warning`, `bg-destructive`, `bg-blue-*`, `bg-purple-*`) já em uso na tela de Monitoramento.
 
-## Solução
+### Filtros (reaproveitando padrão existente)
 
-### 1. Padronizar todas as contagens em **grupos (solicitações)**
+- **Empreendimento**: mesmo `Select` da OC × NF, respeitando `useUserEmpreendimentos`.
+- **Status**: multi-select com os status acima.
+- **Mês**: navegação ◀ ▶ + botão "Hoje".
+- **Modo**: toggle Mês / Semana / Lista (Mês como default).
 
-Hoje, `distribution` no hook conta OCs individuais (uma solicitação pode ter várias OCs). Como o resto da tela (cards, abas, tabela, chips) já trabalha com grupos, vamos alinhar a Distribuição também:
+### Filtro de dados (somente o que faz sentido)
 
-- Em `useMonitoramentoOC.ts` (e em `computeAggregates`), trocar o cálculo de `distribution` para contar **grupos** com base em `computeGroupStatus(group)`, não OCs individuais.
-- Isto faz `pend. justif. + adiado` somar exatamente o mesmo número que os cards mostram.
+A consulta busca solicitações onde:
+- `tipo_entrega = 'servico'` **e** `data_execucao_servico IS NOT NULL`
+- `status` ≠ `cancelado` e ≠ `rejeitado` (cancelados aparecem no filtro opcional)
+- Empreendimento dentro do `user_empreendimentos`
+- `data_execucao_servico` dentro do mês visível (± 7 dias para preencher bordas da grade)
 
-### 2. Remover redundância do chip "Recorte" no header da Distribuição
+### Mini-card no Sheet do dia
 
-- Em `MonitoramentoOC.tsx` linhas 406-411: remover o `Badge` "Recorte: OC Liberada · N" do `CardHeader` da Distribuição operacional.
-- A informação já fica visível: o card de KPI ativo tem o anel azul (`ring-primary/40`) e o chip "Card: OC Liberada" aparece acima da tabela.
+Reutiliza o estilo `SolicitacaoCard` simplificado:
 
-### 3. Tornar o contador do canto superior direito mais claro
+```text
+┌─────────────────────────────────────────┐
+│ #2026000397   Mega Curitiba             │
+│ Fornecedor: AQUAPRO PURIFICACAO         │
+│ Valor: R$ 880,08    [Aguardando NF]    │
+│ Solicitante: Felipe Eduardo             │
+│ Aging: 5d desde a execução              │
+│ ── [ Ver detalhes ]  [ Histórico ]      │
+└─────────────────────────────────────────┘
+```
 
-Hoje mostra `"3 sol. · 3 OCs"` (só o filtro de aba). Trocar por algo que reflita o recorte completo:
+Botão "Ver detalhes" abre o `OCDetalhesModal` já existente.
 
-- `"3 de 9 sol. · 3 OCs"` quando há filtro de aba ativo dentro do card.
-- `"9 sol. · N OCs"` quando aba = "Todas".
+## Componentes / Arquivos
 
-Padrão: **{visível} de {total no recorte do card} sol. · {OCs visíveis} OCs**.
+### Novos
+- `src/components/monitoramento/calendario/CalendarioServicos.tsx` — container principal (KPIs + grade + filtros).
+- `src/components/monitoramento/calendario/CalendarioGrid.tsx` — grade mensal (usa `date-fns` para gerar dias).
+- `src/components/monitoramento/calendario/DiaServicosSheet.tsx` — Sheet lateral com lista do dia.
+- `src/components/monitoramento/calendario/ServicoChip.tsx` — chip colorido com tooltip.
+- `src/hooks/useCalendarioServicos.ts` — hook que consulta `solicitacoes` filtrando `tipo_entrega = 'servico'` e `data_execucao_servico` no range visível, agrupa por dia e calcula KPIs.
 
-### 4. Ajustar a aba "Justificadas"
+### Modificados
+- `src/pages/MonitoramentoOC.tsx` — adicionar 3ª `TabsTrigger` "Calendário de Serviços" e seu `TabsContent` renderizando `<CalendarioServicos />`.
 
-A aba "Justificadas" hoje só inclui `adiado`, `aguardando_nf` e `em_prazo`. Mas o card **"Justificadas"** conta grupos com pelo menos uma OC `adiado`. Isso causa divergência. Padronizar:
+### Reaproveitado (sem alterações)
+- `SlaKpiCard` — KPIs do topo
+- `OCDetalhesModal` — ao clicar num serviço
+- `Calendar` (shadcn DayPicker) **não** é o ideal aqui (ele é date picker); construímos a grade mensal manualmente com `date-fns` (`startOfMonth`, `endOfMonth`, `eachDayOfInterval`) que já está em uso no projeto.
+- `Sheet`, `Dialog`, `Badge`, `Tooltip` — shadcn já instalados.
+- `useUserEmpreendimentos`, `EMPREENDIMENTO_LABELS`, `STATUS_LABELS` — já existentes.
 
-- Card "Justificadas" e aba "Justificadas" passam a usar a **mesma definição**: grupos cuja pior OC é `adiado` (já tem justificativa ativa com previsão futura). Removemos `aguardando_nf` e `em_prazo` da aba para alinhar com o card.
-- Aba "Pendência" continua com `pendente_justificativa` + `atencao`.
-- Aba "Todas" continua mostrando tudo (incluindo `aguardando_nf`, `em_prazo`, `cancel_solicitado`).
+## Regras de status visual (para cada serviço)
 
-Assim, ao clicar no card "Justificadas", o número (3) bate exatamente com a aba "Justificadas" (3) e com a tabela (3 linhas).
+```text
+function statusVisual(sol):
+  hoje = today()
+  exec = sol.data_execucao_servico
+  if sol.status in ['cancelado','rejeitado']        → 'cancelado'
+  if sol.cancelamento_pendente                       → 'cancel_solicitado'
+  if sol.status in ['concluida','enviado_pagamento','nf_boleto_enviados']
+                                                     → 'concluido'
+  if sol.status === 'aguardando_nf_boleto'           → 'aguardando_nf'
+  if sol.status === 'aguardando_execucao':
+     if exec > hoje                                  → 'agendado'
+     else                                            → 'atrasado'
+  if sol.status in ['enviado_fornecedor','liberado_fornecedor']
+                                                     → 'oc_enviada'
+  if sol.status in ['aguardando_aceite','oc_ac_emitida']
+                                                     → 'oc_nao_liberada'
+  default                                            → 'em_processamento'
+```
 
-### 5. Legenda da Distribuição operacional
+Cada um mapeia para uma cor da legenda acima.
 
-Como a Distribuição passa a contar grupos pela pior OC, o segmento azul "adiado" passa a representar **grupos justificados** (mesma população do card "Justificadas") e o segmento vermelho "pend. justif." representa **grupos com pendência**. Manter os mesmos rótulos: `pend. justif.` e `adiado`.
+## Banco de dados
 
-## Arquivos afetados
+**Nenhuma migração necessária.** As colunas `data_execucao_servico`, `tipo_entrega`, `status` e `cancelamento_pendente` já existem em `public.solicitacoes`, e as RLS atuais já permitem que solicitantes vejam suas próprias e usuários do empreendimento vejam as do empreendimento.
 
-- `src/hooks/useMonitoramentoOC.ts` — `computeAggregates` passa a contar grupos em `distribution` usando `computeGroupStatus`.
-- `src/pages/MonitoramentoOC.tsx`:
-  - Remover badge "Recorte: …" do header da Distribuição (linhas ~406-411).
-  - Atualizar `TAB_STATUS.justificadas` para `['adiado']` apenas.
-  - Atualizar contador "X sol. · Y OCs" para "X de Y sol. · Z OCs".
+## Resultado
 
-## Resultado esperado (mesmo cenário do print)
-
-- Card "OC Liberada" ativo: **9**
-- Distribuição operacional: **6** pend. justif. · **3** adiado (= 9, em grupos)
-- Aba "Todas" 9 · "Pendência" 6 · "Justificadas" 3
-- Aba "Justificadas" ativa → tabela mostra 3 linhas
-- Contador: **"3 de 9 sol. · 3 OCs"**
-- Sem chip duplicado de "Recorte" no header da Distribuição.
-
-Tudo passa a falar a mesma língua: **grupos (solicitações)** em todos os indicadores.
+Ao abrir Monitoramento → "Calendário de Serviços", o usuário vê todos os serviços previstos do mês de uma vez, identifica visualmente o que está agendado/atrasado/aguardando NF, e consegue clicar para ver detalhes — sem precisar abrir solicitação por solicitação.
