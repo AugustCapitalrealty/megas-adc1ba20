@@ -55,6 +55,8 @@ import { TopOfensoresCard } from '@/components/sla/TopOfensoresCard';
 
 type QuickRange = '7d' | '30d' | '90d' | 'mes' | 'ytd';
 
+const SLA_DIAS_META = 3;
+
 function rangeFor(q: QuickRange): { dataInicio: string; dataFim: string } {
   const today = new Date();
   const fim = format(today, 'yyyy-MM-dd');
@@ -178,7 +180,11 @@ export default function DashboardSLA() {
                 {loading ? (
                   <Skeleton className="h-[180px] w-[180px] rounded-full" />
                 ) : (
-                  <MetaGauge value={stats.percentualNoPrazo} meta={meta} />
+                  <MetaGauge
+                    value={stats.percentualNoPrazo}
+                    meta={meta}
+                    metaLabel={`Meta ${SLA_DIAS_META} dias`}
+                  />
                 )}
               </div>
 
@@ -188,45 +194,83 @@ export default function DashboardSLA() {
                   <div className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
                     Atingimento da meta no período
                   </div>
-                  <div className="mt-1 flex items-baseline gap-3 flex-wrap">
-                    {loading ? (
-                      <Skeleton className="h-10 w-48" />
-                    ) : (
-                      <>
-                        <span
-                          className={cn(
-                            'text-2xl font-semibold',
-                            stats.percentualNoPrazo >= meta
-                              ? 'text-success'
-                              : stats.percentualNoPrazo >= meta - 20
-                              ? 'text-warning'
-                              : 'text-destructive',
-                          )}
-                        >
-                          {stats.percentualNoPrazo >= meta
-                            ? 'Meta atingida'
-                            : stats.percentualNoPrazo >= meta - 20
-                            ? 'Próximo da meta'
-                            : 'Abaixo da meta'}
-                        </span>
-                        {stats.totalAnterior > 0 && (
-                          <span
-                            className={cn(
-                              'text-xs font-medium px-2 py-1 rounded-full',
-                              deltaPercentual > 0
-                                ? 'bg-success/10 text-success'
-                                : deltaPercentual < 0
-                                ? 'bg-destructive/10 text-destructive'
-                                : 'bg-muted text-muted-foreground',
+                  {loading ? (
+                    <Skeleton className="mt-2 h-12 w-72" />
+                  ) : (
+                    (() => {
+                      const tempo = stats.tempoMedio;
+                      const toneTempo =
+                        tempo <= SLA_DIAS_META
+                          ? 'text-success'
+                          : tempo <= SLA_DIAS_META + 1
+                          ? 'text-warning'
+                          : 'text-destructive';
+                      const statusLabel =
+                        stats.percentualNoPrazo >= meta
+                          ? 'Meta atingida'
+                          : stats.percentualNoPrazo >= meta - 20
+                          ? 'Próximo da meta'
+                          : 'Abaixo da meta';
+                      const statusChipTone =
+                        stats.percentualNoPrazo >= meta
+                          ? 'bg-success/10 text-success'
+                          : stats.percentualNoPrazo >= meta - 20
+                          ? 'bg-warning/10 text-warning'
+                          : 'bg-destructive/10 text-destructive';
+                      return (
+                        <>
+                          <div className="mt-1 flex items-baseline gap-x-4 gap-y-1 flex-wrap">
+                            <span className="text-base font-medium text-muted-foreground">
+                              Meta{' '}
+                              <span className="text-foreground font-semibold">
+                                {SLA_DIAS_META} dias úteis
+                              </span>
+                            </span>
+                            <span className="text-muted-foreground/60">·</span>
+                            <span className="text-base font-medium text-muted-foreground">
+                              Resultado
+                            </span>
+                            <span
+                              className={cn(
+                                'text-4xl font-bold tabular-nums leading-none',
+                                toneTempo,
+                              )}
+                            >
+                              {tempo}
+                            </span>
+                            <span className="text-sm font-medium text-muted-foreground">
+                              dias úteis
+                            </span>
+                          </div>
+                          <div className="mt-2 flex items-center gap-2 flex-wrap">
+                            <span
+                              className={cn(
+                                'text-xs font-medium px-2 py-0.5 rounded-full',
+                                statusChipTone,
+                              )}
+                            >
+                              {statusLabel}
+                            </span>
+                            {stats.totalAnterior > 0 && (
+                              <span
+                                className={cn(
+                                  'text-xs font-medium px-2 py-0.5 rounded-full',
+                                  deltaPercentual > 0
+                                    ? 'bg-success/10 text-success'
+                                    : deltaPercentual < 0
+                                    ? 'bg-destructive/10 text-destructive'
+                                    : 'bg-muted text-muted-foreground',
+                                )}
+                              >
+                                {deltaPercentual > 0 ? '▲' : deltaPercentual < 0 ? '▼' : '—'}{' '}
+                                {Math.abs(deltaPercentual)}pp vs. período anterior
+                              </span>
                             )}
-                          >
-                            {deltaPercentual > 0 ? '▲' : deltaPercentual < 0 ? '▼' : '—'}{' '}
-                            {Math.abs(deltaPercentual)}pp vs. período anterior
-                          </span>
-                        )}
-                      </>
-                    )}
-                  </div>
+                          </div>
+                        </>
+                      );
+                    })()
+                  )}
                 </div>
 
                 <SlaDistributionBar
@@ -235,16 +279,7 @@ export default function DashboardSLA() {
                   estourado={stats.estourado}
                 />
 
-                <div className="grid grid-cols-2 gap-4 pt-2 border-t">
-                  <div>
-                    <div className="text-xs text-muted-foreground">Tempo médio</div>
-                    <div className="text-xl font-bold tabular-nums">
-                      {stats.tempoMedio}
-                      <span className="text-xs font-normal text-muted-foreground ml-1">
-                        dias úteis
-                      </span>
-                    </div>
-                  </div>
+                <div className="pt-2 border-t">
                   <div>
                     <div className="text-xs text-muted-foreground">
                       Total no período
