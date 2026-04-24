@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { Card, CardContent } from '@/components/ui/card';
@@ -21,7 +21,7 @@ import {
   type DocumentoEmitido,
   type DocumentoFiscal,
 } from '@/types';
-import { Loader2, FileText, AlertTriangle, User, Building2, Download, CheckCircle, X, PartyPopper, ArrowUpDown } from 'lucide-react';
+import { Loader2, FileText, AlertTriangle, User, Building2, Download, CheckCircle, X, PartyPopper } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ContextualEmptyState } from '@/components/ui/ContextualEmptyState';
 import { saveAs } from 'file-saver';
@@ -34,7 +34,7 @@ import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 
 // Design System Components
 import { FilterBar, type TabGroup } from '@/components/ui/FilterBar';
-import { PendingActionsCard } from '@/components/PendingActionsCard';
+import { PendingHeaderChips } from '@/components/solicitante/PendingHeaderChips';
 
 // Extracted components
 // SolicitanteKPIs removed — FilterBar tabs provide the same info
