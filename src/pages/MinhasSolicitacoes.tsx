@@ -958,8 +958,7 @@ export default function MinhasSolicitacoes() {
       id: 'acoes_pendentes', label: 'Ações Pendentes',
       icon: <AlertTriangle className="h-3 w-3" />, labelClassName: 'text-warning',
       tabs: [
-        { id: 'correcoes', label: 'Correções', count: statusCounts.correcoes, variant: 'warning' as const, icon: <AlertTriangle className="h-3.5 w-3.5" />, showCountWhenZero: false },
-        { id: 'informacoes', label: 'Informações', count: statusCounts.informacoes, variant: 'warning' as const, showCountWhenZero: false },
+        { id: 'pendentes', label: 'Pendentes em você', count: statusCounts.pendentes, variant: 'destructive' as const, icon: <AlertTriangle className="h-3.5 w-3.5" />, showCountWhenZero: false },
         { id: 'oc_emitida', label: 'OC/AC Emitida', count: statusCounts.oc_emitida, variant: 'success' as const, showCountWhenZero: false },
         { id: 'liberadas', label: 'Liberadas', count: statusCounts.liberadas, variant: 'default' as const, showCountWhenZero: false },
         { id: 'enviadas', label: 'Enviadas', count: statusCounts.enviadas, variant: 'purple' as const, showCountWhenZero: false },
