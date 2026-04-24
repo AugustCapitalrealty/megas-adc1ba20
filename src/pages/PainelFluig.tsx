@@ -33,6 +33,8 @@ import {
   getFluigApprovalStatus, formatResponsavelFluig, isUserResponsibleFluig,
 } from '@/lib/fluig-utils';
 import { FluigImport } from '@/components/FluigImport';
+import { TabProjuris } from '@/components/monitoramento/TabProjuris';
+import { Scale, BarChart3 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
