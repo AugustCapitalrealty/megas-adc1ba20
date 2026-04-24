@@ -27,6 +27,7 @@ import {
 } from '@/types';
 import { 
   Loader2, CheckCircle, XCircle, Search, AlertTriangle, Download, Filter,
+  LayoutGrid, Rows3, Keyboard,
 } from 'lucide-react';
 import { differenceInDays, differenceInHours } from 'date-fns';
 import { formatBR } from '@/lib/date-utils';
@@ -43,6 +44,9 @@ import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 import { BackofficeSolicitacaoCard, type CardCallbacks } from '@/components/backoffice/BackofficeSolicitacaoCard';
 import { BackofficeModals } from '@/components/backoffice/BackofficeModals';
 import { BatchActionBar } from '@/components/backoffice/BatchActionBar';
+import { BackofficeTable } from '@/components/backoffice/BackofficeTable';
+import { useBackofficeShortcuts } from '@/hooks/useBackofficeShortcuts';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ContextualEmptyState } from '@/components/ui/ContextualEmptyState';
 
 // PDF validation types
