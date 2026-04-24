@@ -54,7 +54,8 @@ const ATTACHMENT_TYPES = {
   orcamento_concorrente_2: 'Orçamento Concorrente 2',
 } as const;
 
-type FilterTab = 'todas' | 'com_backoffice' | 'correcoes' | 'informacoes' | 'oc_emitida' | 'liberadas' | 'enviadas' | 'canceladas' | 'ciencia' | 'concluidas';
+type FilterTab = 'todas' | 'com_backoffice' | 'pendentes' | 'correcoes' | 'informacoes' | 'oc_emitida' | 'liberadas' | 'enviadas' | 'canceladas' | 'ciencia' | 'concluidas';
+type PendentesSubFilter = 'todos' | 'corrigir' | 'responder';
 type ViewMode = 'minhas' | 'empreendimento';
 
 export default function MinhasSolicitacoes() {
@@ -75,6 +76,7 @@ export default function MinhasSolicitacoes() {
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<FilterTab>(urlFilter ? (urlFilter as FilterTab) : 'todas');
+  const [pendentesSubFilter, setPendentesSubFilter] = useState<PendentesSubFilter>('todos');
   const [rejectionReasons, setRejectionReasons] = useState<Record<string, RejectionInfo>>({});
   const [infoRequests, setInfoRequests] = useState<Record<string, InfoRequest>>({});
   const [viewMode, setViewMode] = useState<ViewMode>((urlSearch || urlFilter) ? 'empreendimento' : 'minhas');
