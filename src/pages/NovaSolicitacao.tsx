@@ -1,10 +1,11 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { useTrackEvent } from '@/hooks/useTrackEvent';
 import { useNavigate } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,12 +13,15 @@ import {
   EMPREENDIMENTO_LABELS,
   type Empreendimento,
 } from '@/types';
-import { AlertTriangle, RotateCcw, History, X } from 'lucide-react';
+import { AlertTriangle, RotateCcw, History, X, Command } from 'lucide-react';
 import { notifyBackofficeNewSolicitacao } from '@/hooks/useNotificationEmail';
 import { StepIndicator, type Step as StepIndicatorStep } from '@/components/StepIndicator';
 import { NaturezaServicoStep } from '@/components/NaturezaServicoStep';
 import { useNovaSolicitacaoForm } from '@/hooks/useNovaSolicitacaoForm';
 import type { Step, StepDefinition } from '@/components/nova-solicitacao/types';
+import { FormSummarySidebar } from '@/components/nova-solicitacao/FormSummarySidebar';
+import { FieldError } from '@/components/nova-solicitacao/FieldError';
+import { useStepErrors } from '@/hooks/useNovaSolicitacaoErrors';
 
 // Step components
 import { EmpreendimentoStep } from '@/components/nova-solicitacao/steps/EmpreendimentoStep';
@@ -60,6 +64,16 @@ export default function NovaSolicitacao() {
 
   const visibleSteps = steps.filter((s) => s.show);
   const currentIndex = visibleSteps.findIndex((s) => s.id === currentStep);
+
+  // Inline validation errors (only shown after attempt to advance)
+  const requiredAttachments = getRequiredAttachments();
+  const stepErrors = useStepErrors(currentStep, formState, derived, requiredAttachments);
+  const [showErrors, setShowErrors] = useState(false);
+
+  // Reset error display when step changes
+  useEffect(() => {
+    setShowErrors(false);
+  }, [currentStep]);
 
   // Focus management: move focus to step heading when step changes
   const stepContainerRef = useRef<HTMLDivElement>(null);
@@ -111,6 +125,11 @@ export default function NovaSolicitacao() {
   };
 
   const goNext = () => {
+    // Block advance and surface inline errors if any
+    if (Object.keys(stepErrors).length > 0) {
+      setShowErrors(true);
+      return;
+    }
     if (currentIndex < visibleSteps.length - 1) {
       const nextStep = visibleSteps[currentIndex + 1];
       track('step_viewed', { step: nextStep.id, index: currentIndex + 1 }, '/nova-solicitacao');
@@ -121,6 +140,23 @@ export default function NovaSolicitacao() {
   const goBack = () => {
     if (currentIndex > 0) setCurrentStep(visibleSteps[currentIndex - 1].id);
   };
+
+  // Keyboard shortcuts: Ctrl/Cmd + ArrowRight = next, Ctrl/Cmd + ArrowLeft = back
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        if (currentStep !== 'revisao') goNext();
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        goBack();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep, currentIndex, stepErrors]);
 
   // Upload attachments
   const uploadAnexos = async (solicitacaoId: string) => {
@@ -369,7 +405,9 @@ export default function NovaSolicitacao() {
 
   return (
     <>
-      <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
+      <div className="max-w-7xl mx-auto animate-fade-in">
+      <div className="grid lg:grid-cols-[1fr_280px] gap-6 items-start">
+        <div className="space-y-6 min-w-0">
         <div>
           <h1 className="text-2xl font-bold">Nova Solicitação</h1>
           <p className="text-muted-foreground">Preencha os dados para criar uma solicitação</p>
@@ -449,12 +487,36 @@ export default function NovaSolicitacao() {
           <CardContent className="space-y-4" ref={stepContainerRef}>
             <div key={currentStep} className="animate-fade-in">
             {currentStep === 'empreendimento' && (
-              <EmpreendimentoStep {...stepProps} allowedEmpreendimentos={allowedEmpreendimentos} loadingEmpreendimentos={loadingEmpreendimentos} />
+              <>
+                {loadingEmpreendimentos ? (
+                  <div className="space-y-2" aria-label="Carregando empreendimentos">
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
+                  </div>
+                ) : (
+                  <EmpreendimentoStep {...stepProps} allowedEmpreendimentos={allowedEmpreendimentos} loadingEmpreendimentos={false} />
+                )}
+                {showErrors && <FieldError message={stepErrors.empreendimento} />}
+              </>
             )}
             {currentStep === 'descricao' && (
-              <DescricaoStep {...stepProps} isValidatingDescription={isValidatingDescription} descriptionValidation={descriptionValidation} formatCurrency={formatCurrency} />
+              <>
+                <DescricaoStep {...stepProps} isValidatingDescription={isValidatingDescription} descriptionValidation={descriptionValidation} formatCurrency={formatCurrency} />
+                {showErrors && (
+                  <>
+                    <FieldError message={stepErrors.descricao} />
+                    <FieldError message={stepErrors.valor} />
+                  </>
+                )}
+              </>
             )}
-            {currentStep === 'tipo' && <TipoStep {...stepProps} />}
+            {currentStep === 'tipo' && (
+              <>
+                <TipoStep {...stepProps} />
+                {showErrors && <FieldError message={stepErrors.tipoContratacao} />}
+              </>
+            )}
             {currentStep === 'natureza_servico' && (
               <NaturezaServicoStep
                 valorNumerico={derived.valorNumerico}
@@ -471,14 +533,54 @@ export default function NovaSolicitacao() {
               />
             )}
             {currentStep === 'detalhes' && (
-              <DetalhesStep {...stepProps} formatCurrency={formatCurrency} handleContratoMensalChange={handleContratoMensalChange} />
+              <>
+                <DetalhesStep {...stepProps} formatCurrency={formatCurrency} handleContratoMensalChange={handleContratoMensalChange} />
+                {showErrors && (
+                  <div className="space-y-1">
+                    <FieldError message={stepErrors.naturezaOrcamentaria} />
+                    <FieldError message={stepErrors.clienteId} />
+                    <FieldError message={stepErrors.faturamentoDireto} />
+                    <FieldError message={stepErrors.escopoDetalhadoMinuta} />
+                    <FieldError message={stepErrors.dueDiligenceConfirmada} />
+                  </div>
+                )}
+              </>
             )}
-            {currentStep === 'fornecedor' && <FornecedorStep {...stepProps} />}
-            {currentStep === 'anexos' && <AnexosStep {...stepProps} getRequiredAttachments={getRequiredAttachments} />}
+            {currentStep === 'fornecedor' && (
+              <>
+                <FornecedorStep {...stepProps} />
+                {showErrors && (
+                  <div className="space-y-1">
+                    <FieldError message={stepErrors.fornecedor} />
+                    <FieldError message={stepErrors.justificativaExclusividade} />
+                    <FieldError message={stepErrors.fornecedorConcorrente1} />
+                    <FieldError message={stepErrors.fornecedorConcorrente2} />
+                    <FieldError message={stepErrors.justificativaFornecedores} />
+                  </div>
+                )}
+              </>
+            )}
+            {currentStep === 'anexos' && (
+              <>
+                <AnexosStep {...stepProps} getRequiredAttachments={getRequiredAttachments} />
+                {showErrors && (
+                  <div className="space-y-1">
+                    <FieldError message={stepErrors.anexos} />
+                    <FieldError message={stepErrors.justificativaSemMemorial} />
+                  </div>
+                )}
+              </>
+            )}
             {currentStep === 'revisao' && <RevisaoStep {...stepProps} formatCurrency={formatCurrency} />}
             </div>
           </CardContent>
         </Card>
+
+        {/* Keyboard shortcut hint (desktop only) */}
+        <div className="hidden lg:flex items-center justify-end gap-2 text-xs text-muted-foreground">
+          <Command className="h-3 w-3" aria-hidden="true" />
+          <span>Use <kbd className="px-1.5 py-0.5 rounded border bg-muted font-mono text-[10px]">Ctrl</kbd> + <kbd className="px-1.5 py-0.5 rounded border bg-muted font-mono text-[10px]">←</kbd>/<kbd className="px-1.5 py-0.5 rounded border bg-muted font-mono text-[10px]">→</kbd> para navegar</span>
+        </div>
 
         <div className="h-20 sm:hidden" />
 
@@ -487,11 +589,18 @@ export default function NovaSolicitacao() {
           visibleSteps={visibleSteps}
           currentIndex={currentIndex}
           submitting={submitting}
-          canProceed={canProceed()}
+          canProceed={true}
           onNext={goNext}
           onBack={goBack}
           onSubmit={handleSubmit}
         />
+        </div>
+
+        {/* Persistent summary sidebar (desktop only) */}
+        <aside className="hidden lg:block" aria-label="Resumo da solicitação">
+          <FormSummarySidebar formState={formState} derived={derived} />
+        </aside>
+      </div>
       </div>
     </>
   );
