@@ -1029,15 +1029,15 @@ export default function MinhasSolicitacoes() {
           }}
           rightSlot={
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setSortBy(prev => prev === 'created_at' ? 'updated_at' : 'created_at')}
-                className="gap-1.5 text-xs"
-              >
-                <ArrowUpDown className="h-3.5 w-3.5" />
-                {sortBy === 'updated_at' ? 'Última alteração' : 'Abertura'}
-              </Button>
+              <Select value={sortBy} onValueChange={(v) => setSortBy(v as 'created_at' | 'updated_at')}>
+                <SelectTrigger className="h-8 w-[180px] text-xs" aria-label="Ordenar por">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="updated_at">Última alteração</SelectItem>
+                  <SelectItem value="created_at">Data de abertura</SelectItem>
+                </SelectContent>
+              </Select>
               <Button
                 variant="outline"
                 size="sm"
