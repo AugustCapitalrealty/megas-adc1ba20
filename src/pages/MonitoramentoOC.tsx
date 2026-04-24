@@ -592,12 +592,12 @@ export default function MonitoramentoOC() {
                       <TableRow>
                         <TableHead className="w-8"></TableHead>
                         <TableHead>Protocolo</TableHead>
-                        <TableHead>Solicitante</TableHead>
-                        <TableHead>Empreendimento</TableHead>
-                        <TableHead>Fornecedor</TableHead>
+                        <TableHead className="text-center">Solicitante</TableHead>
+                        <TableHead className="text-center">Empreendimento</TableHead>
+                        <TableHead className="text-center">Fornecedor</TableHead>
                         <TableHead className="text-right">Valor</TableHead>
-                        <TableHead>OC / Aging</TableHead>
-                        <TableHead>Status &amp; Última ação</TableHead>
+                        <TableHead className="text-center">OC / Aging</TableHead>
+                        <TableHead className="text-center">Status &amp; Última ação</TableHead>
                         <TableHead className="text-right w-[180px]">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
