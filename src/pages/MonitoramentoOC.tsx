@@ -403,12 +403,6 @@ export default function MonitoramentoOC() {
                   <CardTitle className="text-sm flex items-center gap-2">
                     <Layers className="h-4 w-4 text-primary" />
                     Distribuição operacional
-                    {cardFilter !== 'todas' && (
-                      <Badge variant="outline" className="ml-2 gap-1 text-[10px] font-normal py-0">
-                        <span className="text-muted-foreground">Recorte:</span>
-                        {CARD_FILTER_LABEL[cardFilter]} · {cardFilteredGroups.length}
-                      </Badge>
-                    )}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-5">
