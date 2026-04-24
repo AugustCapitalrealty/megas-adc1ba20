@@ -402,18 +402,18 @@ export default function MonitoramentoOC() {
 
             {/* KPIs + Top ofensores */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="grid grid-cols-2 gap-3 lg:col-span-2">
+              <div className="grid grid-cols-3 gap-3 lg:col-span-2">
                 <SlaKpiCard
-                  label="OCs Ativas"
-                  value={kpis.total_ativas}
-                  icon={<FileCheck className="h-4 w-4" />}
-                  tone="neutral"
-                  active={cardFilter === 'ativas'}
-                  onClick={() => toggleCardFilter('ativas')}
-                  hint="Total de OCs ativas no recorte filtrado (exclui concluídas/canceladas)."
+                  label="OC Liberada"
+                  value={Math.max(0, kpis.total_ativas - kpis.sem_nf)}
+                  icon={<CheckCircle className="h-4 w-4" />}
+                  tone="success"
+                  active={cardFilter === 'liberada'}
+                  onClick={() => toggleCardFilter('liberada', 'justificadas')}
+                  hint="OCs ativas que já têm NF emitida (fluxo concluído do lado fiscal)."
                 />
                 <SlaKpiCard
-                  label="Sem NF"
+                  label="OC Não Liberada"
                   value={kpis.sem_nf}
                   icon={<Clock className="h-4 w-4" />}
                   tone="warning"
@@ -429,15 +429,6 @@ export default function MonitoramentoOC() {
                   active={cardFilter === 'pendente'}
                   onClick={() => toggleCardFilter('pendente', 'pendencia')}
                   hint="OCs sem NF do mês anterior, ou do mês atual após dia 23 sem previsão futura."
-                />
-                <SlaKpiCard
-                  label="Cancel. Pendentes"
-                  value={kpis.cancelamento_pendente}
-                  icon={<XCircle className="h-4 w-4" />}
-                  tone="warning"
-                  active={cardFilter === 'cancel'}
-                  onClick={() => toggleCardFilter('cancel')}
-                  hint="Solicitações com cancelamento aguardando aprovação."
                 />
               </div>
               <div className="lg:col-span-1">
