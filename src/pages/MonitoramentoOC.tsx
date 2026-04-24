@@ -24,7 +24,7 @@ import { useUserEmpreendimentos } from '@/hooks/useUserEmpreendimentos';
 import { EMPREENDIMENTO_LABELS, type Empreendimento } from '@/types';
 import {
   FileCheck, Clock, AlertTriangle, XCircle, CheckCircle,
-  CalendarDays, Loader2, Download, AlertOctagon as AlertOctagonIcon,
+  CalendarDays, Loader2, Download,
   FileText, Ban, History, AlertCircle, Search, XOctagon, Scale, X, Inbox,
   ChevronDown, ChevronRight, Wallet, Layers, MoreHorizontal, Eye, ShieldAlert, ShieldCheck,
 } from 'lucide-react';
