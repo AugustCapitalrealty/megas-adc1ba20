@@ -661,7 +661,7 @@ export default function MonitoramentoOC() {
                         <TableHead className="text-right">Valor</TableHead>
                         <TableHead className="text-center">OC / Aging</TableHead>
                         <TableHead className="text-center">Status &amp; Última ação</TableHead>
-                        <TableHead className="text-right w-[180px]">Ações</TableHead>
+                        <TableHead className="text-center w-[180px]">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -673,7 +673,9 @@ export default function MonitoramentoOC() {
                               <p className="text-sm font-medium">
                                 {activeTab === 'pendencia'
                                   ? 'Nenhuma OC com pendência de justificativa'
-                                  : 'Nenhuma OC justificada neste recorte'}
+                                  : activeTab === 'justificadas'
+                                  ? 'Nenhuma OC justificada neste recorte'
+                                  : 'Nenhuma OC neste recorte'}
                               </p>
                               {hasActiveFilters && (
                                 <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-1 mt-1">
@@ -739,7 +741,7 @@ export default function MonitoramentoOC() {
                                       </AvatarFallback>
                                     </Avatar>
                                     <span className="text-xs truncate max-w-[160px]" title={group.solicitante_nome || ''}>
-                                      {group.solicitante_nome || '—'}
+                                      {getShortName(group.solicitante_nome) || '—'}
                                     </span>
                                   </div>
                                 </TableCell>
@@ -783,8 +785,8 @@ export default function MonitoramentoOC() {
                                   </div>
                                 </TableCell>
                                 {/* Ações com label */}
-                                <TableCell className="text-right">
-                                  <div className="flex items-center gap-1.5 justify-end" onClick={(e) => e.stopPropagation()}>
+                                <TableCell className="text-center">
+                                  <div className="flex items-center gap-1.5 justify-center" onClick={(e) => e.stopPropagation()}>
                                     {(groupStatus === 'pendente_justificativa' || groupStatus === 'atencao') && (
                                       <Button
                                         size="sm"
