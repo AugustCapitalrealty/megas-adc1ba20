@@ -149,7 +149,7 @@ export interface BackofficeModalsProps {
   // Concluir Modal
   concluirModal: SolicitacaoBackoffice | null;
   setConcluirModal: (v: SolicitacaoBackoffice | null) => void;
-  handleConcluirLiberadaConfirmed: (sol: SolicitacaoBackoffice) => Promise<void>;
+  handleConcluirLiberadaConfirmed: (sol: SolicitacaoBackoffice, numeroFluigPagamento: string) => Promise<void>;
 
   // Envio Fornecedor Modal
   envioFornecedorModal: SolicitacaoBackoffice | null;
@@ -182,19 +182,21 @@ function ConcluirSolicitacaoModal({
 }: {
   sol: SolicitacaoBackoffice | null;
   onClose: () => void;
-  onConfirm: (sol: SolicitacaoBackoffice) => Promise<void>;
+  onConfirm: (sol: SolicitacaoBackoffice, numeroFluigPagamento: string) => Promise<void>;
 }) {
   const [checkNF, setCheckNF] = useState(false);
   const [checkFluig, setCheckFluig] = useState(false);
+  const [numeroFluigPagamento, setNumeroFluigPagamento] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const isReady = checkNF && checkFluig;
+  const fluigTrimmed = numeroFluigPagamento.trim();
+  const isReady = checkNF && checkFluig && fluigTrimmed.length > 0;
 
   const handleConfirm = async () => {
     if (!sol || !isReady) return;
     setLoading(true);
     try {
-      await onConfirm(sol);
+      await onConfirm(sol, fluigTrimmed);
       onClose();
     } finally {
       setLoading(false);
@@ -205,6 +207,7 @@ function ConcluirSolicitacaoModal({
     if (!open) {
       setCheckNF(false);
       setCheckFluig(false);
+      setNumeroFluigPagamento('');
       onClose();
     }
   };
@@ -236,13 +239,32 @@ function ConcluirSolicitacaoModal({
               <span className="text-sm font-medium">NF recebida e conferida</span>
             </label>
 
-            <label className="flex items-center gap-3 cursor-pointer">
-              <Checkbox
-                checked={checkFluig}
-                onCheckedChange={(v) => setCheckFluig(v === true)}
-              />
-              <span className="text-sm font-medium">Pagamento lançado no Fluig</span>
-            </label>
+            <div className="space-y-2">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <Checkbox
+                  checked={checkFluig}
+                  onCheckedChange={(v) => setCheckFluig(v === true)}
+                />
+                <span className="text-sm font-medium">Pagamento lançado no Fluig</span>
+              </label>
+              {checkFluig && (
+                <div className="pl-7 space-y-1">
+                  <Input
+                    autoFocus
+                    inputMode="numeric"
+                    placeholder="Nº do Fluig de pagamento (ex: 123456)"
+                    value={numeroFluigPagamento}
+                    onChange={(e) => setNumeroFluigPagamento(e.target.value)}
+                    className="h-9"
+                  />
+                  {fluigTrimmed.length === 0 && (
+                    <p className="text-[11px] text-muted-foreground">
+                      Informe o nº Fluig para concluir.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
