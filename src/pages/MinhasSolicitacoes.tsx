@@ -1146,6 +1146,49 @@ export default function MinhasSolicitacoes() {
 
         {/* Content */}
         <div id="solicitacoes-list"></div>
+        {activeTab === 'pendentes' && statusCounts.pendentes > 0 && (
+          <div className="flex flex-wrap items-center gap-2 -mt-2">
+            <span className="text-xs text-muted-foreground">Filtrar:</span>
+            <div className="inline-flex rounded-md border bg-card p-0.5">
+              <Button
+                variant={pendentesSubFilter === 'todos' ? 'default' : 'ghost'}
+                size="sm"
+                className="h-7 text-xs px-2.5"
+                onClick={() => setPendentesSubFilter('todos')}
+                aria-pressed={pendentesSubFilter === 'todos'}
+              >
+                Todas
+                <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold bg-muted text-muted-foreground">
+                  {statusCounts.pendentes}
+                </span>
+              </Button>
+              <Button
+                variant={pendentesSubFilter === 'corrigir' ? 'default' : 'ghost'}
+                size="sm"
+                className="h-7 text-xs px-2.5"
+                onClick={() => setPendentesSubFilter('corrigir')}
+                aria-pressed={pendentesSubFilter === 'corrigir'}
+              >
+                Corrigir
+                <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold bg-warning text-warning-foreground">
+                  {statusCounts.correcoes}
+                </span>
+              </Button>
+              <Button
+                variant={pendentesSubFilter === 'responder' ? 'default' : 'ghost'}
+                size="sm"
+                className="h-7 text-xs px-2.5"
+                onClick={() => setPendentesSubFilter('responder')}
+                aria-pressed={pendentesSubFilter === 'responder'}
+              >
+                Responder
+                <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold bg-info text-info-foreground">
+                  {statusCounts.informacoes}
+                </span>
+              </Button>
+            </div>
+          </div>
+        )}
         {sortedAndFilteredSolicitacoes.length === 0 ? (
           <ContextualEmptyState
             tab={activeTab}
