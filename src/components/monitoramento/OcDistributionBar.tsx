@@ -13,11 +13,8 @@ const SEGMENTS: Array<{
   bg: string;
   dot: string;
 }> = [
-  { key: 'em_prazo', label: 'em prazo', bg: 'bg-success', dot: 'bg-success' },
-  { key: 'atencao', label: 'atenção', bg: 'bg-warning', dot: 'bg-warning' },
   { key: 'pendente', label: 'pend. justif.', bg: 'bg-destructive', dot: 'bg-destructive' },
   { key: 'adiado', label: 'adiado', bg: 'bg-blue-500', dot: 'bg-blue-500' },
-  { key: 'cancel', label: 'cancel.', bg: 'bg-muted-foreground', dot: 'bg-muted-foreground' },
 ];
 
 export function OcDistributionBar({ data, className, onSegmentClick }: OcDistributionBarProps) {
