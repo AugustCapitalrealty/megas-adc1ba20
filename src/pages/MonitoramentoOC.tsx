@@ -19,7 +19,7 @@ import {
   FileCheck, Clock, AlertTriangle, XCircle, CheckCircle,
   CalendarDays, Loader2, Download, AlertOctagon as AlertOctagonIcon,
   FileText, Ban, History, AlertCircle, Search, XOctagon, Scale, X, Inbox,
-  ChevronDown, ChevronRight, Wallet, Activity, Layers,
+  ChevronDown, ChevronRight, Wallet, Layers,
 } from 'lucide-react';
 import { formatBR } from '@/lib/date-utils';
 import { formatDistanceToNowStrict } from 'date-fns';
