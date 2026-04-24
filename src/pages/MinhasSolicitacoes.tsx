@@ -21,7 +21,7 @@ import {
   type DocumentoEmitido,
   type DocumentoFiscal,
 } from '@/types';
-import { Loader2, FileText, AlertTriangle, User, Building2, Download, CheckCircle, X, PartyPopper } from 'lucide-react';
+import { Loader2, FileText, AlertTriangle, User, Building2, Download, CheckCircle, X, PartyPopper, LayoutGrid, Rows3, Keyboard } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ContextualEmptyState } from '@/components/ui/ContextualEmptyState';
 import { saveAs } from 'file-saver';
@@ -35,11 +35,14 @@ import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 // Design System Components
 import { FilterBar, type TabGroup } from '@/components/ui/FilterBar';
 import { PendingHeaderChips } from '@/components/solicitante/PendingHeaderChips';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 // Extracted components
 // SolicitanteKPIs removed — FilterBar tabs provide the same info
 import { SolicitanteModals } from '@/components/solicitante/SolicitanteModals';
 import { SolicitanteSolicitacaoCard } from '@/components/solicitante/SolicitanteSolicitacaoCard';
+import { SolicitanteTable } from '@/components/solicitante/SolicitanteTable';
+import { useSolicitanteShortcuts } from '@/hooks/useSolicitanteShortcuts';
 import type { SolicitacaoComFornecedor, RejectionInfo, InfoRequest } from '@/components/solicitante/types';
 
 const ATTACHMENT_TYPES = {
