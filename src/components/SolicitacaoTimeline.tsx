@@ -80,6 +80,13 @@ const getActionDetails = (acao: string, statusNovo: string | null, isBackoffice?
     label: 'Número Fluig/RM removido', 
     color: 'bg-orange-500 text-white' 
   };
+
+  // Natureza orçamentária corrigida pelo backoffice
+  if (acao === 'natureza_orcamentaria_alterada') return {
+    icon: <Edit className="h-4 w-4" />,
+    label: 'Classificação Orçamentária alterada',
+    color: 'bg-amber-500 text-white'
+  };
   
   // Handle Fluig integration updates
   if (acao === 'atualizacao_fluig') return { 
