@@ -935,11 +935,9 @@ export default function MinhasSolicitacoes() {
     return solicitacoes.filter(s => {
       if (s.status !== 'cancelado') return false;
       if ((s as any).cancelamento_ciencia_em) return false;
-      const reason = rejectionReasons[s.id];
-      if (!reason?.motivo) return false;
-      return reason.motivo.includes('prazo') && reason.motivo.includes('expirou');
+      return true;
     });
-  }, [solicitacoes, rejectionReasons]);
+  }, [solicitacoes]);
 
   const pendingCounts = useMemo(() => ({
     corrections: solicitacoes.filter(s => s.status === 'pendente_correcao' || s.status === 'aguardando_informacoes').length,
