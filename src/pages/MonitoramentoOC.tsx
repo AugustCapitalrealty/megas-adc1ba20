@@ -255,6 +255,23 @@ export default function MonitoramentoOC() {
   const viewAggregates = useMemo(() => computeAggregates(cardFilteredGroups), [cardFilteredGroups]);
   const { distribution, topOfensores, valorEmAberto, agingMedio } = viewAggregates;
 
+  // Contagens dos cards a partir do recorte base (empreendimento + busca),
+  // assim os números de cada card permanecem visíveis ao alternar entre eles.
+  const cardCounts = useMemo(() => {
+    let liberada = 0;
+    let naoLiberada = 0;
+    let pendente = 0;
+    let justificadas = 0;
+    baseFilteredGroups.forEach(g => {
+      if (STATUS_LIBERADA.has(g.status)) liberada++;
+      else if (STATUS_NAO_LIBERADA.has(g.status)) naoLiberada++;
+      const ocStatuses = g.ocs.map(oc => computeOcStatus(oc, g));
+      if (ocStatuses.some(st => st === 'pendente_justificativa')) pendente++;
+      if (ocStatuses.some(st => st === 'adiado')) justificadas++;
+    });
+    return { liberada, naoLiberada, pendente, justificadas };
+  }, [baseFilteredGroups]);
+
   // Contagem por aba (a partir do recorte do card)
   const tabCounts = useMemo(() => {
     const counts = { pendencia: 0, justificadas: 0 };
