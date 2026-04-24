@@ -1,76 +1,61 @@
+# Ajustes nas abas de Minhas Solicitações
 
-# Plano — Correções no Backoffice + Paridade no Solicitações
+## Diagnóstico (qual a diferença hoje)
 
-## Parte 1 — Correções urgentes no Backoffice (bugs visuais)
+**Correções** (`status = pendente_correcao`)
+- O Backoffice rejeitou/devolveu a solicitação porque algum dado está errado ou faltando.
+- Ação esperada: **abrir o formulário, corrigir e reenviar**.
+- Botão típico: "Corrigir solicitação".
 
-### Bug 1: "Sem fornecedor" aparecendo indevidamente
-**Causa raiz confirmada no banco:** o RPC `get_solicitacoes_backoffice` usa `COALESCE(f.nome_fantasia, f.razao_social)`. Vários fornecedores têm `nome_fantasia` como **string vazia `''`** (não NULL), então o `COALESCE` retorna `''` em vez de cair para `razao_social`. Solicitações como #2026000402 (S. Vargas), #2026000401 (Dell) e #2026000398 (J.G da Silva) ficam sem nome, mesmo tendo fornecedor.
+**Informações** (`status = aguardando_informacoes`)
+- O Backoffice precisa de um esclarecimento textual (uma dúvida pontual) — a solicitação **não** precisa ser refeita.
+- Ação esperada: **responder a mensagem** (chat/observação), sem reabrir o formulário.
+- Botão típico: "Responder".
 
-**Correção (migration):** alterar a função para usar `NULLIF` antes do `COALESCE`:
-```sql
-COALESCE(NULLIF(TRIM(f.nome_fantasia), ''), NULLIF(TRIM(f.razao_social), '')) AS fornecedor_razao
-```
-Aplicar a mesma lógica defensiva no front (`BackofficeTable.tsx`) como segurança extra: tratar string vazia como ausência.
+Ou seja, embora os dois sejam "pendência com o solicitante", a **ação é diferente** (editar formulário vs. apenas responder). Hoje estão separados justamente para deixar isso claro no chip e no contador.
 
-### Bug 2: Status "Em Fila" quebrando em duas linhas
-O `StatusBadge` usa label completo de `STATUS_LABELS` e dentro da célula de tabela com `w-[110px]` ele quebra. Soluções aplicadas em conjunto:
-- Adicionar `whitespace-nowrap` ao `.status-badge` (ajuste em `index.css` já que essa classe é global).
-- Aumentar a largura da coluna Status para `w-[130px]` e usar versão compacta (sem ícone OU ícone + label, mas em uma linha só).
-- Para a coluna Empreendimento, normalizar o label via `EMPREENDIMENTO_LABELS` (atualmente faz replace manual e fica "Mega curitiba" minúsculo) e adicionar `whitespace-nowrap`.
+**Aguardando Ciência** (`status = cancelado` AND `cancelamento_ciencia_em IS NULL`)
+- Hoje captura **qualquer** solicitação cancelada sem ciência marcada — inclusive as que o próprio solicitante pediu para cancelar e o Backoffice aprovou.
+- De fato é redundante: se o solicitante mesmo pediu o cancelamento, ele já sabe — não precisa "dar ciência" disso. A ciência faz sentido apenas para auto-cancelamentos do sistema (30 dias de inatividade) ou cancelamentos feitos pelo Backoffice sem o pedido do solicitante.
 
-### Bug 3: Linhas com altura desigual / desalinhadas
-- Definir altura mínima fixa nas linhas (`h-14`) para padronização.
-- Mover o badge "emergencial" (ícone vermelho) para inline ao lado do status, **dentro** do mesmo bloco flex `items-center` (hoje fica abaixo, jogando a linha pra baixo).
-- Truncar a descrição em uma única linha com `truncate`, com `max-w` controlado pela coluna pai.
-- Padronizar tipografia (tudo `text-sm` exceto valor que fica `font-medium tabular-nums`).
+## O que vamos fazer
 
-## Parte 2 — Paridade Solicitações ↔ Backoffice
+### 1. Unificar "Correções" + "Informações" em uma única aba "Pendentes"
+- Nova aba/chip único chamado **"Pendentes em você"** (ou simplesmente **"Pendentes"**), com o total somado dos dois status.
+- Ao abrir a aba, mostrar **subfiltros internos** (segmented control fino acima da lista):
+  - "Todas" · "Corrigir" (badge laranja) · "Responder" (badge azul)
+- Cada card/linha continua com seu badge de status próprio (mantém clareza da ação esperada).
+- O `PendingHeaderChips` no topo da página passa a exibir **um único chip "Pendentes (N)"** combinando os dois — fica menos poluído e mais alinhado com o padrão do Backoffice.
 
-Hoje o **Backoffice** tem: toolbar sticky, chips de filtros ativos, toggle Cards/Tabela, atalhos `j/k/Enter/x/a`, tooltip de teclado. O **Solicitações** tem só FilterBar + cards. Vamos trazer o que faz sentido para o solicitante, **mantendo as visões distintas**:
+### 2. Excluir cancelamentos pedidos pelo solicitante de "Aguardando Ciência"
+- Lógica atual: `status = 'cancelado' AND cancelamento_ciencia_em IS NULL`.
+- Lógica nova: além das duas condições acima, **excluir** os registros em que o último evento foi `cancelamento_solicitado` pelo próprio `user_id` da solicitação.
+- Critério prático: olhar `solicitacao_acoes` (ou `solicitacao_historico`) e verificar se existe uma ação `cancelamento_solicitado` feita pelo solicitante antes do cancelamento. Se sim, marcar `cancelamento_ciencia_em` automaticamente no momento em que o Backoffice aprovar o cancelamento (assim ela já entra direto em "Canceladas", sem passar por "Aguardando Ciência").
+- Para os registros **já existentes** nesse caso, rodar um backfill na migração: `UPDATE solicitacoes SET cancelamento_ciencia_em = updated_at WHERE status='cancelado' AND cancelamento_ciencia_em IS NULL AND id IN (SELECT solicitacao_id FROM solicitacao_acoes WHERE tipo_acao='cancelamento_solicitado' AND user_id = solicitacoes.user_id)`.
+- O chip "Dar ciência" no `PendingHeaderChips` e a aba "Aguardando Ciência" continuam existindo, mas só aparecem quando houver cancelamento de fato **não solicitado pelo usuário**.
 
-### O que vai para o Solicitante (igual ao Backoffice)
-1. **Toggle Cards/Tabela** persistido em localStorage (`solicitante:viewMode`).
-2. **Nova `SolicitanteTable`** densa, espelho do `BackofficeTable`, mas com colunas adaptadas:
-   - Protocolo (com badge AC/OC + data) · Status · Fornecedor / Descrição · Empreend. · Valor · **Idade** (tempo desde criação) · **Pendência** (corrigir / aceitar OC / enviar NF — chip colorido) · Ações (Ver / Editar / Cancelar conforme status).
-   - **Sem** coluna "Responsável" (não faz sentido para o solicitante).
-   - **Com** ícone de favorito clicável na coluna do protocolo (paridade com card).
-3. **Atalhos de teclado** `j / k / ↑ / ↓` para navegar e `Enter` para expandir/abrir detalhes. (Sem `a`/`x` que são exclusivos do backoffice.)
-4. **Tooltip de teclado** no header (mesmo ícone `Keyboard`) listando: `/` busca, `j/k` navegar, `Enter` abrir.
-5. **Chips de filtros ativos** abaixo da FilterBar (busca, empreendimento, viewMode), com botão "Limpar tudo".
-6. **Toolbar sticky** (search + select empreendimento + sort + Minhas/Empreendimento + Exportar + toggle view + atalhos), no mesmo padrão visual do Backoffice (`sticky top-0 bg-background/95 backdrop-blur`).
+### 3. Espelhar a mesma simplificação no Backoffice
+- Para manter paridade visual, os contadores de pendência por solicitante no Backoffice (cards/tabela) também passam a mostrar "Pendentes em solicitante" agregando os dois status, com tooltip detalhando "X corrigir / Y responder".
 
-### O que **NÃO** vai (mantém visão própria)
-- Backoffice mantém: coluna Responsável, atalho `a` (assumir), `x` (selecionar), checkbox de seleção em massa, BatchActionBar.
-- Solicitante mantém: `PendingHeaderChips` (chips de pendências do solicitante: correções/info/aceite/NF) acima da toolbar — equivalente conceitual aos KPIs do Backoffice, mas focado em "o que EU preciso fazer".
-- Banner de sucesso ao criar (verde com PartyPopper) só no solicitante.
+## Detalhes técnicos
 
-## Parte 3 — Padronização visual conjunta
+**Frontend — `src/pages/MinhasSolicitacoes.tsx`**
+- Trocar as duas entradas de aba `correcoes` e `informacoes` por uma única `pendentes` no array de tabs (linhas ~949-950).
+- Manter o type `FilterTab` aceitando `'pendentes'`; preservar `'correcoes'` e `'informacoes'` apenas como subfiltros internos da view.
+- Atualizar `statusCounts` (linhas ~412-413) para somar os dois.
+- Ajustar `case 'ciencia'` (linha ~363) para excluir cancelamentos solicitados pelo próprio usuário; idem para `pendingCiencia` (linha ~920).
 
-- Criar utilitários compartilhados em `src/lib/solicitacao-display.ts`:
-  - `getFornecedorDisplay(razao, fantasia)` — função única que pula vazio/null/whitespace.
-  - `formatEmpreendimento(emp)` — usa `EMPREENDIMENTO_LABELS` em vez de `replace` ad-hoc.
-  - `getSlaTone(sol)` — extrair do `BackofficeTable` para reuso.
-- Atualizar **ambas** as tabelas para usar esses helpers, garantindo nunca mais "Sem fornecedor" indevido.
-- Ajustar `.status-badge` no `index.css`: `whitespace-nowrap`, `inline-flex`, altura fixa `h-6`, padding compacto.
+**Frontend — `src/components/solicitante/PendingHeaderChips.tsx`**
+- Substituir os chips `correcoes` e `informacoes` por um único chip `pendentes` (com tooltip discriminando a quebra). Manter a paleta `destructive`.
+- Ajustar a prop API: trocar `pendingCorrections` + `pendingInfoRequests` por `pendingActions` (e opcionalmente uma quebra para o tooltip).
 
-## Arquivos afetados
+**Backend — migração SQL**
+- Backfill descrito acima em `solicitacoes.cancelamento_ciencia_em`.
+- Trigger `AFTER UPDATE OF status ON solicitacoes`: quando `NEW.status = 'cancelado'` e existir uma ação `cancelamento_solicitado` do próprio `user_id` em `solicitacao_acoes`, setar `NEW.cancelamento_ciencia_em = now()` automaticamente. Isso garante que cancelamentos pedidos pelo solicitante nunca caiam em "Aguardando Ciência" daqui pra frente.
 
-**Migration:**
-- Nova migration corrigindo `get_solicitacoes_backoffice` (NULLIF + TRIM no COALESCE de fornecedor).
+**Backoffice — `src/components/backoffice/BackofficeSolicitacaoCard.tsx` e `BackofficeTable.tsx`**
+- Onde houver indicador de pendência por status do lado do solicitante, agregar `pendente_correcao + aguardando_informacoes` em "Pendente em solicitante" com tooltip.
 
-**Novos:**
-- `src/components/solicitante/SolicitanteTable.tsx`
-- `src/hooks/useSolicitanteShortcuts.ts`
-- `src/lib/solicitacao-display.ts`
-
-**Editados:**
-- `src/components/backoffice/BackofficeTable.tsx` (whitespace-nowrap, altura padrão, EMPREENDIMENTO_LABELS, helper de fornecedor, emergencial inline)
-- `src/pages/MinhasSolicitacoes.tsx` (toolbar sticky, toggle view, chips de filtros ativos, atalhos, tooltip teclado, render condicional Cards/Tabela)
-- `src/pages/Backoffice.tsx` (usar helpers compartilhados)
-- `src/index.css` (`.status-badge` com `whitespace-nowrap`)
-
-## Resultado esperado
-
-- Linhas com altura uniforme, status numa linha só, fornecedor sempre correto.
-- Solicitante e Backoffice com **mesma linguagem visual** (toolbar, tabela, atalhos, chips), mas cada um com colunas e ações específicas do seu papel.
-- Power-users do solicitante ganham densidade igual à do backoffice; backoffice fica visualmente mais limpo.
+## Não escopo
+- Nenhuma mudança em "Canceladas" — continua mostrando todos os `cancelado/rejeitado`.
+- Nenhuma mudança nos status do banco — `pendente_correcao` e `aguardando_informacoes` permanecem distintos no schema (a ação esperada é diferente); a unificação é só na **camada de UI**.
