@@ -1974,6 +1974,12 @@ export default function Backoffice() {
         setEditProjurisValue={setEditProjurisValue}
         editProjurisLoading={editProjurisLoading}
         handleSaveProjuris={handleSaveProjuris}
+        editNaturezaOpen={editNaturezaOpen}
+        setEditNaturezaOpen={setEditNaturezaOpen}
+        editNaturezaValue={editNaturezaValue}
+        setEditNaturezaValue={setEditNaturezaValue}
+        editNaturezaLoading={editNaturezaLoading}
+        handleSaveNatureza={handleSaveNatureza}
         confirmAction={confirmAction}
         setConfirmAction={setConfirmAction}
         handleDarBaixaConfirmed={handleDarBaixaConfirmed}
