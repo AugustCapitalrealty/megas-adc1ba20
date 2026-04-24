@@ -862,6 +862,62 @@ export default function Backoffice() {
     }
   };
 
+  const handleSaveNatureza = async () => {
+    if (!selectedSolicitacao || !user || !editNaturezaValue) return;
+
+    setEditNaturezaLoading(true);
+    try {
+      const previousValue = selectedSolicitacao.natureza_orcamentaria as string | null;
+      const newValue = editNaturezaValue;
+
+      if (previousValue === newValue) {
+        setEditNaturezaOpen(false);
+        setEditNaturezaLoading(false);
+        return;
+      }
+
+      const { error } = await supabase
+        .from('solicitacoes')
+        .update({ natureza_orcamentaria: newValue as any })
+        .eq('id', selectedSolicitacao.id);
+
+      if (error) throw error;
+
+      const labelAntigo = previousValue
+        ? (NATUREZA_ORCAMENTARIA_LABELS as Record<string, string>)[previousValue] ?? previousValue
+        : '—';
+      const labelNovo = (NATUREZA_ORCAMENTARIA_LABELS as Record<string, string>)[newValue] ?? newValue;
+
+      await supabase.from('historico_solicitacoes').insert({
+        solicitacao_id: selectedSolicitacao.id,
+        user_id: user.id,
+        acao: 'natureza_orcamentaria_alterada',
+        motivo: `Classificação Orçamentária alterada de "${labelAntigo}" para "${labelNovo}"`,
+        status_anterior: selectedSolicitacao.status,
+        status_novo: selectedSolicitacao.status,
+      });
+
+      toast({
+        title: 'Classificação atualizada',
+        description: `Atualizada para: ${labelNovo}`,
+      });
+
+      setEditNaturezaOpen(false);
+      // Recarrega detalhes do modal e a listagem
+      fetchDetalhes(selectedSolicitacao.id);
+      fetchSolicitacoes();
+    } catch (error) {
+      console.error('Error updating natureza orçamentária:', error);
+      toast({
+        title: 'Erro ao atualizar',
+        description: 'Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setEditNaturezaLoading(false);
+    }
+  };
+
   // Fetch cadastro status from history
   const getCadastroStatus = useCallback(async (solId: string): Promise<'solicitado' | 'concluido' | null> => {
     // Check if already cached
