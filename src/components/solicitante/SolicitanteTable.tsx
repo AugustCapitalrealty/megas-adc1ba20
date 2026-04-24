@@ -110,7 +110,7 @@ export const SolicitanteTable = memo(function SolicitanteTable({
                     <FavoriteButton
                       isFavorite={isFav}
                       onToggle={() => onToggleFavorite(sol.id)}
-                      size="sm"
+                      className="h-6 w-6"
                     />
                     <Badge
                       variant={sol.tipo === 'AC' ? 'default' : 'secondary'}
