@@ -104,7 +104,7 @@ export const BackofficeTable = memo(function BackofficeTable({
                     <span className="font-semibold">#{sol.protocolo}</span>
                   </div>
                   <div className="text-[10px] text-muted-foreground mt-0.5">
-                    {formatBR(new Date(sol.created_at))}
+                    {formatBR(sol.created_at, 'dd/MM/yyyy')}
                   </div>
                 </TableCell>
                 <TableCell>
