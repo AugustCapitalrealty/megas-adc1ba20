@@ -344,6 +344,15 @@ export default function MinhasSolicitacoes() {
       case 'com_backoffice':
         filtered = filtered.filter(s => ['recebido', 'em_analise', 'aprovado', 'em_processamento'].includes(s.status));
         break;
+      case 'pendentes':
+        if (pendentesSubFilter === 'corrigir') {
+          filtered = filtered.filter(s => s.status === 'pendente_correcao');
+        } else if (pendentesSubFilter === 'responder') {
+          filtered = filtered.filter(s => s.status === 'aguardando_informacoes');
+        } else {
+          filtered = filtered.filter(s => s.status === 'pendente_correcao' || s.status === 'aguardando_informacoes');
+        }
+        break;
       case 'correcoes':
         filtered = filtered.filter(s => s.status === 'pendente_correcao');
         break;
@@ -363,6 +372,8 @@ export default function MinhasSolicitacoes() {
         filtered = filtered.filter(s => s.status === 'rejeitado' || s.status === 'cancelado');
         break;
       case 'ciencia':
+        // Apenas cancelamentos não-iniciados pelo solicitante (auto-cancel ou cancelado pelo backoffice).
+        // O trigger no banco já marca cancelamento_ciencia_em quando o solicitante pediu o cancelamento.
         filtered = filtered.filter(s => s.status === 'cancelado' && !(s as any).cancelamento_ciencia_em);
         break;
       case 'concluidas':
