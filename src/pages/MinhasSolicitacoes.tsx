@@ -1078,6 +1078,7 @@ export default function MinhasSolicitacoes() {
           activeTab={activeTab}
           onTabChange={(tab) => {
             setActiveTab(tab as FilterTab);
+            if (tab !== 'pendentes') setPendentesSubFilter('todos');
             document.getElementById('solicitacoes-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }}
           rightSlot={
