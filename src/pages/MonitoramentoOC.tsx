@@ -407,7 +407,7 @@ export default function MonitoramentoOC() {
                     data={distribution}
                     onSegmentClick={(key) => {
                       // Mapeia segmento -> aba apropriada
-                      if (key === 'pendente' || key === 'atencao') setActiveTab('pendencia');
+                      if (key === 'pendente') setActiveTab('pendencia');
                       else setActiveTab('justificadas');
                     }}
                   />
@@ -440,33 +440,42 @@ export default function MonitoramentoOC() {
 
             {/* KPIs + Top ofensores */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="grid grid-cols-3 gap-3 lg:col-span-2">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:col-span-2">
                 <SlaKpiCard
                   label="OC Liberada"
-                  value={Math.max(0, kpis.total_ativas - kpis.sem_nf)}
+                  value={cardCounts.liberada}
                   icon={<CheckCircle className="h-4 w-4" />}
                   tone="success"
                   active={cardFilter === 'liberada'}
                   onClick={() => toggleCardFilter('liberada', 'justificadas')}
-                  hint="OCs ativas que já têm NF emitida (fluxo concluído do lado fiscal)."
+                  hint="OC já está com o fornecedor — backoffice já enviou."
                 />
                 <SlaKpiCard
                   label="OC Não Liberada"
-                  value={kpis.sem_nf}
+                  value={cardCounts.naoLiberada}
                   icon={<Clock className="h-4 w-4" />}
                   tone="warning"
-                  active={cardFilter === 'sem_nf'}
-                  onClick={() => toggleCardFilter('sem_nf', 'justificadas')}
-                  hint="OCs ativas que ainda não receberam NF."
+                  active={cardFilter === 'nao_liberada'}
+                  onClick={() => toggleCardFilter('nao_liberada', 'pendencia')}
+                  hint="OC está com o solicitante aguardando liberar para o backoffice realizar o envio."
                 />
                 <SlaKpiCard
                   label="Pend. Justificativa"
-                  value={kpis.pendente_justificativa}
+                  value={cardCounts.pendente}
                   icon={<AlertTriangle className="h-4 w-4" />}
                   tone="destructive"
                   active={cardFilter === 'pendente'}
                   onClick={() => toggleCardFilter('pendente', 'pendencia')}
-                  hint="OCs sem NF do mês anterior, ou do mês atual após dia 23 sem previsão futura."
+                  hint="OCs que ainda precisam de justificativa pela regra (mês anterior sem NF, ou mês atual após dia 23 sem previsão futura)."
+                />
+                <SlaKpiCard
+                  label="Justificadas"
+                  value={cardCounts.justificadas}
+                  icon={<ShieldCheck className="h-4 w-4" />}
+                  tone="neutral"
+                  active={cardFilter === 'justificadas'}
+                  onClick={() => toggleCardFilter('justificadas', 'justificadas')}
+                  hint="OCs já justificadas com previsão futura válida — sem ação por enquanto."
                 />
               </div>
               <div className="lg:col-span-1">
