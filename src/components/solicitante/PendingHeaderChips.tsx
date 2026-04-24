@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, CheckCircle, Receipt, MessageSquare, Eye, PartyPopper } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Receipt, Eye, PartyPopper } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 interface PendingHeaderChipsProps {
@@ -52,8 +53,9 @@ export function PendingHeaderChips({
   onDarCiencia,
   className,
 }: PendingHeaderChipsProps) {
+  const pendentesEmVoce = pendingCorrections + pendingInfoRequests;
   const total =
-    pendingCorrections + pendingAcceptance + pendingNfBoleto + pendingInfoRequests + pendingCiencia;
+    pendentesEmVoce + pendingAcceptance + pendingNfBoleto + pendingCiencia;
 
   if (total === 0) {
     return (
@@ -72,20 +74,12 @@ export function PendingHeaderChips({
 
   const allChips: Chip[] = [
     {
-      key: 'correcoes',
-      label: 'Correções',
-      count: pendingCorrections,
+      key: 'pendentes',
+      label: 'Pendentes em você',
+      count: pendentesEmVoce,
       icon: <AlertTriangle className="h-3.5 w-3.5" />,
-      filter: 'correcoes',
+      filter: 'pendentes',
       variant: 'destructive',
-    },
-    {
-      key: 'informacoes',
-      label: 'Informações',
-      count: pendingInfoRequests,
-      icon: <MessageSquare className="h-3.5 w-3.5" />,
-      filter: 'informacoes',
-      variant: 'info',
     },
     {
       key: 'aceite',
@@ -115,6 +109,7 @@ export function PendingHeaderChips({
   const chips = allChips.filter((c) => c.count > 0);
 
   return (
+    <TooltipProvider delayDuration={150}>
     <div
       className={cn(
         'flex flex-wrap items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2',
@@ -129,29 +124,46 @@ export function PendingHeaderChips({
           {total} {total === 1 ? 'pendência' : 'pendências'}
         </span>
       </div>
-      {chips.map((chip) => (
-        <Button
-          key={chip.key}
-          variant="outline"
-          size="sm"
-          onClick={() =>
-            chip.key === 'ciencia' && onDarCiencia ? onDarCiencia() : onViewPending(chip.filter)
-          }
-          className={cn('h-7 gap-1.5 text-xs px-2.5', variantClasses[chip.variant])}
-          aria-label={`${chip.label}: ${chip.count} ${chip.count === 1 ? 'item' : 'itens'}`}
-        >
-          {chip.icon}
-          <span>{chip.label}</span>
-          <span
-            className={cn(
-              'inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold',
-              countBg[chip.variant]
-            )}
+      {chips.map((chip) => {
+        const button = (
+          <Button
+            key={chip.key}
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              chip.key === 'ciencia' && onDarCiencia ? onDarCiencia() : onViewPending(chip.filter)
+            }
+            className={cn('h-7 gap-1.5 text-xs px-2.5', variantClasses[chip.variant])}
+            aria-label={`${chip.label}: ${chip.count} ${chip.count === 1 ? 'item' : 'itens'}`}
           >
-            {chip.count}
-          </span>
-        </Button>
-      ))}
+            {chip.icon}
+            <span>{chip.label}</span>
+            <span
+              className={cn(
+                'inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold',
+                countBg[chip.variant]
+              )}
+            >
+              {chip.count}
+            </span>
+          </Button>
+        );
+        if (chip.key === 'pendentes' && (pendingCorrections > 0 || pendingInfoRequests > 0)) {
+          return (
+            <Tooltip key={chip.key}>
+              <TooltipTrigger asChild>{button}</TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">
+                <div className="space-y-0.5">
+                  <div>{pendingCorrections} para corrigir</div>
+                  <div>{pendingInfoRequests} para responder</div>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          );
+        }
+        return button;
+      })}
     </div>
+    </TooltipProvider>
   );
 }

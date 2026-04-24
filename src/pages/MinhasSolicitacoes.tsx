@@ -54,7 +54,8 @@ const ATTACHMENT_TYPES = {
   orcamento_concorrente_2: 'Orçamento Concorrente 2',
 } as const;
 
-type FilterTab = 'todas' | 'com_backoffice' | 'correcoes' | 'informacoes' | 'oc_emitida' | 'liberadas' | 'enviadas' | 'canceladas' | 'ciencia' | 'concluidas';
+type FilterTab = 'todas' | 'com_backoffice' | 'pendentes' | 'correcoes' | 'informacoes' | 'oc_emitida' | 'liberadas' | 'enviadas' | 'canceladas' | 'ciencia' | 'concluidas';
+type PendentesSubFilter = 'todos' | 'corrigir' | 'responder';
 type ViewMode = 'minhas' | 'empreendimento';
 
 export default function MinhasSolicitacoes() {
@@ -75,6 +76,7 @@ export default function MinhasSolicitacoes() {
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<FilterTab>(urlFilter ? (urlFilter as FilterTab) : 'todas');
+  const [pendentesSubFilter, setPendentesSubFilter] = useState<PendentesSubFilter>('todos');
   const [rejectionReasons, setRejectionReasons] = useState<Record<string, RejectionInfo>>({});
   const [infoRequests, setInfoRequests] = useState<Record<string, InfoRequest>>({});
   const [viewMode, setViewMode] = useState<ViewMode>((urlSearch || urlFilter) ? 'empreendimento' : 'minhas');
@@ -342,6 +344,15 @@ export default function MinhasSolicitacoes() {
       case 'com_backoffice':
         filtered = filtered.filter(s => ['recebido', 'em_analise', 'aprovado', 'em_processamento'].includes(s.status));
         break;
+      case 'pendentes':
+        if (pendentesSubFilter === 'corrigir') {
+          filtered = filtered.filter(s => s.status === 'pendente_correcao');
+        } else if (pendentesSubFilter === 'responder') {
+          filtered = filtered.filter(s => s.status === 'aguardando_informacoes');
+        } else {
+          filtered = filtered.filter(s => s.status === 'pendente_correcao' || s.status === 'aguardando_informacoes');
+        }
+        break;
       case 'correcoes':
         filtered = filtered.filter(s => s.status === 'pendente_correcao');
         break;
@@ -361,6 +372,8 @@ export default function MinhasSolicitacoes() {
         filtered = filtered.filter(s => s.status === 'rejeitado' || s.status === 'cancelado');
         break;
       case 'ciencia':
+        // Apenas cancelamentos não-iniciados pelo solicitante (auto-cancel ou cancelado pelo backoffice).
+        // O trigger no banco já marca cancelamento_ciencia_em quando o solicitante pediu o cancelamento.
         filtered = filtered.filter(s => s.status === 'cancelado' && !(s as any).cancelamento_ciencia_em);
         break;
       case 'concluidas':
@@ -377,7 +390,7 @@ export default function MinhasSolicitacoes() {
     });
     
     return sortWithFavorites(filtered);
-  }, [solicitacoes, activeTab, debouncedSearch, sortWithFavorites, viewMode, empreendimentoFilter, sortBy]);
+  }, [solicitacoes, activeTab, pendentesSubFilter, debouncedSearch, sortWithFavorites, viewMode, empreendimentoFilter, sortBy]);
 
   // Power-user shortcuts (j/k/Enter) — only active in table mode for parity with Backoffice
   useSolicitanteShortcuts({
@@ -409,6 +422,7 @@ export default function MinhasSolicitacoes() {
   const statusCounts = useMemo(() => ({
     todas: solicitacoesFiltradasBase.length,
     com_backoffice: solicitacoesFiltradasBase.filter(s => ['recebido', 'em_analise', 'aprovado', 'em_processamento'].includes(s.status)).length,
+    pendentes: solicitacoesFiltradasBase.filter(s => s.status === 'pendente_correcao' || s.status === 'aguardando_informacoes').length,
     correcoes: solicitacoesFiltradasBase.filter(s => s.status === 'pendente_correcao').length,
     informacoes: solicitacoesFiltradasBase.filter(s => s.status === 'aguardando_informacoes').length,
     oc_emitida: solicitacoesFiltradasBase.filter(s => s.status === 'aguardando_aceite' || s.status === 'oc_ac_emitida').length,
@@ -921,11 +935,9 @@ export default function MinhasSolicitacoes() {
     return solicitacoes.filter(s => {
       if (s.status !== 'cancelado') return false;
       if ((s as any).cancelamento_ciencia_em) return false;
-      const reason = rejectionReasons[s.id];
-      if (!reason?.motivo) return false;
-      return reason.motivo.includes('prazo') && reason.motivo.includes('expirou');
+      return true;
     });
-  }, [solicitacoes, rejectionReasons]);
+  }, [solicitacoes]);
 
   const pendingCounts = useMemo(() => ({
     corrections: solicitacoes.filter(s => s.status === 'pendente_correcao' || s.status === 'aguardando_informacoes').length,
@@ -946,8 +958,7 @@ export default function MinhasSolicitacoes() {
       id: 'acoes_pendentes', label: 'Ações Pendentes',
       icon: <AlertTriangle className="h-3 w-3" />, labelClassName: 'text-warning',
       tabs: [
-        { id: 'correcoes', label: 'Correções', count: statusCounts.correcoes, variant: 'warning' as const, icon: <AlertTriangle className="h-3.5 w-3.5" />, showCountWhenZero: false },
-        { id: 'informacoes', label: 'Informações', count: statusCounts.informacoes, variant: 'warning' as const, showCountWhenZero: false },
+        { id: 'pendentes', label: 'Pendentes em você', count: statusCounts.pendentes, variant: 'destructive' as const, icon: <AlertTriangle className="h-3.5 w-3.5" />, showCountWhenZero: false },
         { id: 'oc_emitida', label: 'OC/AC Emitida', count: statusCounts.oc_emitida, variant: 'success' as const, showCountWhenZero: false },
         { id: 'liberadas', label: 'Liberadas', count: statusCounts.liberadas, variant: 'default' as const, showCountWhenZero: false },
         { id: 'enviadas', label: 'Enviadas', count: statusCounts.enviadas, variant: 'purple' as const, showCountWhenZero: false },
@@ -1067,6 +1078,7 @@ export default function MinhasSolicitacoes() {
           activeTab={activeTab}
           onTabChange={(tab) => {
             setActiveTab(tab as FilterTab);
+            if (tab !== 'pendentes') setPendentesSubFilter('todos');
             document.getElementById('solicitacoes-list')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }}
           rightSlot={
@@ -1134,6 +1146,49 @@ export default function MinhasSolicitacoes() {
 
         {/* Content */}
         <div id="solicitacoes-list"></div>
+        {activeTab === 'pendentes' && statusCounts.pendentes > 0 && (
+          <div className="flex flex-wrap items-center gap-2 -mt-2">
+            <span className="text-xs text-muted-foreground">Filtrar:</span>
+            <div className="inline-flex rounded-md border bg-card p-0.5">
+              <Button
+                variant={pendentesSubFilter === 'todos' ? 'default' : 'ghost'}
+                size="sm"
+                className="h-7 text-xs px-2.5"
+                onClick={() => setPendentesSubFilter('todos')}
+                aria-pressed={pendentesSubFilter === 'todos'}
+              >
+                Todas
+                <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold bg-muted text-muted-foreground">
+                  {statusCounts.pendentes}
+                </span>
+              </Button>
+              <Button
+                variant={pendentesSubFilter === 'corrigir' ? 'default' : 'ghost'}
+                size="sm"
+                className="h-7 text-xs px-2.5"
+                onClick={() => setPendentesSubFilter('corrigir')}
+                aria-pressed={pendentesSubFilter === 'corrigir'}
+              >
+                Corrigir
+                <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold bg-warning text-warning-foreground">
+                  {statusCounts.correcoes}
+                </span>
+              </Button>
+              <Button
+                variant={pendentesSubFilter === 'responder' ? 'default' : 'ghost'}
+                size="sm"
+                className="h-7 text-xs px-2.5"
+                onClick={() => setPendentesSubFilter('responder')}
+                aria-pressed={pendentesSubFilter === 'responder'}
+              >
+                Responder
+                <span className="ml-1.5 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold bg-info text-info-foreground">
+                  {statusCounts.informacoes}
+                </span>
+              </Button>
+            </div>
+          </div>
+        )}
         {sortedAndFilteredSolicitacoes.length === 0 ? (
           <ContextualEmptyState
             tab={activeTab}
