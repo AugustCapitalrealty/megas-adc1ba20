@@ -57,14 +57,13 @@ const TAB_STATUS: Record<TabKey, OcVisualStatus[]> = {
   justificadas: ['adiado', 'aguardando_nf', 'em_prazo', 'cancel_solicitado', 'cancelado'],
 };
 
-type CardFilter = 'todas' | 'ativas' | 'sem_nf' | 'pendente' | 'cancel';
+type CardFilter = 'todas' | 'liberada' | 'sem_nf' | 'pendente';
 
 const CARD_FILTER_LABEL: Record<CardFilter, string> = {
   todas: 'Todas',
-  ativas: 'OCs ativas',
-  sem_nf: 'Sem NF',
+  liberada: 'OC liberada',
+  sem_nf: 'OC não liberada',
   pendente: 'Pend. justificativa',
-  cancel: 'Cancel. pendentes',
 };
 
 const STATUS_LABEL_MAP: Record<OcVisualStatus, string> = {
@@ -220,14 +219,12 @@ export default function MonitoramentoOC() {
     return baseFilteredGroups.filter(g => {
       const ativo = g.status !== 'cancelado' && g.status !== 'concluida';
       switch (cardFilter) {
-        case 'ativas':
-          return ativo;
+        case 'liberada':
+          return ativo && g.ocs.length > 0 && g.ocs.every(oc => oc.tem_nf);
         case 'sem_nf':
           return ativo && g.ocs.some(oc => !oc.tem_nf);
         case 'pendente':
           return ativo && g.ocs.some(oc => computeOcStatus(oc, g) === 'pendente_justificativa');
-        case 'cancel':
-          return g.cancelamento_pendente;
         default:
           return true;
       }
