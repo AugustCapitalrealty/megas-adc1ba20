@@ -1002,12 +1002,13 @@ export default function MinhasSolicitacoes() {
         </div>
 
 
-        {/* Pending Actions Card */}
+        {/* Pending Header Chips (compact) */}
         {viewMode === 'minhas' && (
-          <PendingActionsCard
-            pendingCorrections={pendingCounts.corrections}
+          <PendingHeaderChips
+            pendingCorrections={solicitacoes.filter(s => s.status === 'pendente_correcao').length}
+            pendingInfoRequests={solicitacoes.filter(s => s.status === 'aguardando_informacoes').length}
             pendingAcceptance={pendingCounts.acceptance}
-            pendingNfBoleto={pendingCounts.nfBoleto}
+            pendingNfBoleto={solicitacoes.filter(s => s.status === 'aguardando_nf_boleto').length}
             pendingCiencia={pendingCounts.ciencia}
             onViewPending={(filter) => setActiveTab(filter as FilterTab)}
             onDarCiencia={() => setActiveTab('ciencia')}
