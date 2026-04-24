@@ -77,6 +77,8 @@ export function DescricaoStep({ formState, derived, setters, isValidatingDescrip
             value={descricao}
             onChange={(e) => setters.setDescricao(e.target.value)}
             rows={5}
+            autoComplete="off"
+            enterKeyHint="next"
             className={cn(
               "min-h-[120px] border-2 transition-colors",
               descricao.length > 0 && descriptionValidation?.isVague
@@ -121,6 +123,9 @@ export function DescricaoStep({ formState, derived, setters, isValidatingDescrip
           <Input
             id="valor"
             placeholder="R$ 0,00"
+            inputMode="numeric"
+            autoComplete="off"
+            enterKeyHint="next"
             value={valor ? formatCurrency(valor) : ''}
             onChange={(e) => setters.setValor(e.target.value.replace(/\D/g, ''))}
             className="text-lg font-medium"

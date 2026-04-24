@@ -46,7 +46,7 @@ function parseFornecedorRow(data: any): Fornecedor {
 export function useNovaSolicitacaoForm(effectiveUserId: string | undefined) {
   const { toast } = useToast();
   const location = useLocation();
-  const { hasDraft, saveDraft, loadDraft, clearDraft } = useFormPersistence();
+  const { hasDraft, lastSavedAt, justRestored, dismissRestoredBanner, saveDraft, loadDraft, clearDraft } = useFormPersistence();
 
   const duplicateFrom = (location.state as { duplicateFrom?: DuplicateData })?.duplicateFrom;
   const draftLoadedRef = useRef(false);
@@ -510,6 +510,9 @@ export function useNovaSolicitacaoForm(effectiveUserId: string | undefined) {
     // Draft
     hasDraft,
     clearDraft,
+    lastSavedAt,
+    justRestored,
+    dismissRestoredBanner,
 
     // AI validations
     isValidatingDescription,

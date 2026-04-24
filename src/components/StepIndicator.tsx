@@ -1,5 +1,6 @@
 import { Check, Save } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useEffect, useState } from 'react';
 
 export interface Step {
   id: string;
@@ -14,14 +15,35 @@ interface StepIndicatorProps {
   className?: string;
   showTimeEstimate?: boolean;
   draftSaved?: boolean;
+  lastSavedAt?: number | null;
 }
 
 const MINUTES_PER_STEP = 1.5;
 
-export function StepIndicator({ steps, currentStepIndex, onStepClick, className, showTimeEstimate = false, draftSaved }: StepIndicatorProps) {
+function formatRelative(ts: number): string {
+  const diff = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+  if (diff < 5) return 'agora';
+  if (diff < 60) return `há ${diff}s`;
+  const m = Math.floor(diff / 60);
+  if (m < 60) return `há ${m}min`;
+  const h = Math.floor(m / 60);
+  return `há ${h}h`;
+}
+
+export function StepIndicator({ steps, currentStepIndex, onStepClick, className, showTimeEstimate = false, draftSaved, lastSavedAt }: StepIndicatorProps) {
   const progressPercent = Math.round(((currentStepIndex + 1) / steps.length) * 100);
   const remainingSteps = steps.length - currentStepIndex - 1;
   const estimatedMinutes = Math.ceil(remainingSteps * MINUTES_PER_STEP);
+
+  // Re-render every 15s to update relative timestamp
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!lastSavedAt) return;
+    const id = setInterval(() => setTick((t) => t + 1), 15000);
+    return () => clearInterval(id);
+  }, [lastSavedAt]);
+
+  const savedLabel = lastSavedAt ? `Salvo ${formatRelative(lastSavedAt)}` : 'Salvo';
 
   return (
     <div className={cn('w-full', className)}>
@@ -34,7 +56,7 @@ export function StepIndicator({ steps, currentStepIndex, onStepClick, className,
           <div className="flex items-center gap-2">
             {draftSaved && (
               <span className="text-xs text-muted-foreground flex items-center gap-1">
-                <Save className="h-3 w-3" /> Salvo
+                <Save className="h-3 w-3" /> {savedLabel}
               </span>
             )}
             <span className="text-sm text-muted-foreground">
@@ -71,7 +93,7 @@ export function StepIndicator({ steps, currentStepIndex, onStepClick, className,
           </div>
           {draftSaved && (
             <span className="text-xs text-muted-foreground flex items-center gap-1">
-              <Save className="h-3 w-3" /> Rascunho salvo
+              <Save className="h-3 w-3" /> {savedLabel}
             </span>
           )}
         </div>
