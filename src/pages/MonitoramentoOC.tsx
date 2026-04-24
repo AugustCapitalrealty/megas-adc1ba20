@@ -230,7 +230,8 @@ export default function MonitoramentoOC() {
   // KPIs (4 cards) sempre vêm do conjunto base — para que clicar em um card
   // não zere os outros números.
   const baseAggregates = useMemo(() => computeAggregates(baseFilteredGroups), [baseFilteredGroups]);
-  const { kpis } = baseAggregates;
+  // baseAggregates pode ser usado no futuro; KPIs dos cards vêm de cardCounts
+  void baseAggregates;
 
   // Recorte aplicado pelo card ativo — alimenta Aging, Valor, Distribuição,
   // Top ofensores e a tabela.
