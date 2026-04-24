@@ -569,6 +569,25 @@ export default function MonitoramentoOC() {
             <div className="flex flex-wrap gap-2 items-center">
               <button
                 type="button"
+                onClick={() => setActiveTab('todas')}
+                className={cn(
+                  'inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-all',
+                  activeTab === 'todas'
+                    ? 'bg-primary/10 border-primary/40 text-primary shadow-sm'
+                    : 'bg-background border-border text-muted-foreground hover:bg-muted hover:text-foreground'
+                )}
+              >
+                <Layers className="h-4 w-4" />
+                <span>Todas</span>
+                <span className={cn(
+                  'inline-flex items-center justify-center min-w-[22px] h-[20px] px-1.5 rounded-full text-[11px] font-bold tabular-nums',
+                  activeTab === 'todas' ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'
+                )}>
+                  {tabCounts.todas}
+                </span>
+              </button>
+              <button
+                type="button"
                 onClick={() => setActiveTab('pendencia')}
                 className={cn(
                   'inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-all',
