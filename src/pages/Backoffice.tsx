@@ -130,6 +130,11 @@ export default function Backoffice() {
   const [editProjurisValue, setEditProjurisValue] = useState('');
   const [editProjurisLoading, setEditProjurisLoading] = useState(false);
 
+  // Edit Natureza Orçamentária Modal
+  const [editNaturezaOpen, setEditNaturezaOpen] = useState(false);
+  const [editNaturezaValue, setEditNaturezaValue] = useState('');
+  const [editNaturezaLoading, setEditNaturezaLoading] = useState(false);
+
   // Anexos com problema (para modal de solicitar ajuste)
   const [anexosComProblema, setAnexosComProblema] = useState<string[]>([]);
   const [anexosDisponiveis, setAnexosDisponiveis] = useState<Array<{ tipo: string; nome_arquivo: string }>>([]);
