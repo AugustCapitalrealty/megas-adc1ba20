@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { differenceInDays, subDays, startOfMonth } from 'date-fns';
+import { differenceInDays, startOfMonth } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import type { Empreendimento } from '@/types';
 
@@ -113,6 +113,78 @@ export const computeGroupStatus = (group: OCGroupRow): OcVisualStatus => {
   for (const s of order) if (statuses.includes(s)) return s;
   return 'em_prazo';
 };
+
+/**
+ * Compute aggregated KPIs/distribution/aging from an arbitrary set of groups.
+ * Used to make hero cards reactive to filters (empreendimento + busca).
+ */
+export interface OcAggregates {
+  kpis: OcKpis;
+  distribution: OcDistribution;
+  topOfensores: { group: OCGroupRow; oc: OCItem }[];
+  valorEmAberto: number;
+  agingMedio: number;
+}
+
+export function computeAggregates(groups: OCGroupRow[]): OcAggregates {
+  let semNf = 0;
+  let pendente = 0;
+  let cancel = 0;
+  let totalAtivas = 0;
+  let valorEmAberto = 0;
+  let agingSoma = 0;
+  let agingCount = 0;
+
+  const dist: OcDistribution = { em_prazo: 0, atencao: 0, pendente: 0, adiado: 0, cancel: 0 };
+  const ofensores: { group: OCGroupRow; oc: OCItem }[] = [];
+
+  groups.forEach(g => {
+    const ativo = g.status !== 'cancelado' && g.status !== 'concluida';
+    if (ativo) totalAtivas += g.ocs.length;
+    if (g.cancelamento_pendente) cancel++;
+
+    let groupTemNfPendente = false;
+    g.ocs.forEach(oc => {
+      const st = computeOcStatus(oc, g);
+      if (ativo && !oc.tem_nf) {
+        semNf++;
+        groupTemNfPendente = true;
+      }
+      if (st === 'pendente_justificativa') {
+        pendente++;
+        ofensores.push({ group: g, oc });
+      }
+      if (st === 'em_prazo' || st === 'aguardando_nf') dist.em_prazo++;
+      else if (st === 'atencao') dist.atencao++;
+      else if (st === 'pendente_justificativa') dist.pendente++;
+      else if (st === 'adiado') dist.adiado++;
+      else if (st === 'cancel_solicitado' || st === 'cancelado') dist.cancel++;
+
+      if (!oc.tem_nf && ativo) {
+        agingSoma += oc.dias_aberto;
+        agingCount++;
+      }
+    });
+    if (groupTemNfPendente) valorEmAberto += Number(g.valor) || 0;
+  });
+
+  return {
+    kpis: {
+      total_ativas: totalAtivas,
+      sem_nf: semNf,
+      pendente_justificativa: pendente,
+      cancelamento_pendente: cancel,
+      delta_total: 0,
+      delta_sem_nf: 0,
+      delta_pendente: 0,
+      delta_cancel: 0,
+    },
+    distribution: dist,
+    topOfensores: ofensores.sort((a, b) => b.oc.dias_aberto - a.oc.dias_aberto).slice(0, 5),
+    valorEmAberto,
+    agingMedio: agingCount === 0 ? 0 : Math.round(agingSoma / agingCount),
+  };
+}
 
 export function useMonitoramentoOC(opts: {
   userEmpreendimentos: string[];
