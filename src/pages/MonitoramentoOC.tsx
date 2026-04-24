@@ -394,6 +394,10 @@ export default function MonitoramentoOC() {
               <Scale className="h-4 w-4" />
               Projuris
             </TabsTrigger>
+            <TabsTrigger value="calendario" className="gap-1.5">
+              <CalendarDays className="h-4 w-4" />
+              Calendário de Serviços
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="oc-nf" className="space-y-6">
