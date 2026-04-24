@@ -379,6 +379,15 @@ export default function MinhasSolicitacoes() {
     return sortWithFavorites(filtered);
   }, [solicitacoes, activeTab, debouncedSearch, sortWithFavorites, viewMode, empreendimentoFilter, sortBy]);
 
+  // Power-user shortcuts (j/k/Enter) — only active in table mode for parity with Backoffice
+  useSolicitanteShortcuts({
+    items: layoutMode === 'table' ? (sortedAndFilteredSolicitacoes as any) : [],
+    focusedId: focusedRowId,
+    setFocusedId: setFocusedRowId,
+    onOpen: (sol) => toggleExpand(sol.id),
+    enabled: layoutMode === 'table',
+  });
+
   // Base filtered (search + empreendimento) — used for tab counts so they reflect active filters
   const solicitacoesFiltradasBase = useMemo(() => {
     let filtered = [...solicitacoes];
