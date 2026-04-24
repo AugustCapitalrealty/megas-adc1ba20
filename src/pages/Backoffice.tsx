@@ -1545,71 +1545,115 @@ export default function Backoffice() {
         </div>
 
 
-        {/* Filters */}
-        <Card>
-          <CardContent className="pt-4">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar por protocolo, descrição ou solicitante..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-              <Select value={selectedEmpreendimento} onValueChange={setSelectedEmpreendimento}>
-                <SelectTrigger className="w-full md:w-[200px]">
-                  <SelectValue placeholder="Empreendimento" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos</SelectItem>
-                  <SelectItem value="mega_curitiba">Mega Curitiba</SelectItem>
-                  <SelectItem value="mega_itajai">Mega Itajaí</SelectItem>
-                  <SelectItem value="mega_esteio">Mega Esteio</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={selectedFornecedor} onValueChange={setSelectedFornecedor}>
-                <SelectTrigger className="w-full md:w-[200px]">
-                  <SelectValue placeholder="Fornecedor" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos Fornecedores</SelectItem>
-                  {uniqueVendors.map((v) => (
-                    <SelectItem key={v} value={v}>{v.length > 30 ? v.slice(0, 30) + '…' : v}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button 
-                variant={showOnlyMine ? "default" : "outline"} 
-                onClick={() => setShowOnlyMine(!showOnlyMine)}
-                className="w-full md:w-auto"
-              >
-                <Filter className="h-4 w-4 mr-2" />
-                Minhas ({myResponsibilityCount})
-              </Button>
+        {/* Sticky compact toolbar */}
+        <div className="sticky top-0 z-30 -mx-4 sm:mx-0 px-4 sm:px-0 py-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border/40">
+          <div className="flex flex-col md:flex-row md:items-center gap-2">
+            <div className="relative flex-1 min-w-0">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por protocolo, descrição ou solicitante… (atalho: /)"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9 h-9"
+              />
+            </div>
+            <Select value={selectedEmpreendimento} onValueChange={setSelectedEmpreendimento}>
+              <SelectTrigger className="h-9 w-full md:w-[170px] text-sm">
+                <SelectValue placeholder="Empreendimento" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos empreendimentos</SelectItem>
+                <SelectItem value="mega_curitiba">Mega Curitiba</SelectItem>
+                <SelectItem value="mega_itajai">Mega Itajaí</SelectItem>
+                <SelectItem value="mega_esteio">Mega Esteio</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={selectedFornecedor} onValueChange={setSelectedFornecedor}>
+              <SelectTrigger className="h-9 w-full md:w-[170px] text-sm">
+                <SelectValue placeholder="Fornecedor" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos fornecedores</SelectItem>
+                {uniqueVendors.map((v) => (
+                  <SelectItem key={v} value={v}>{v.length > 30 ? v.slice(0, 30) + '…' : v}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as 'created_at' | 'updated_at')}>
+              <SelectTrigger className="h-9 w-full md:w-[160px] text-sm" aria-label="Ordenar por">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="created_at">Data de abertura</SelectItem>
+                <SelectItem value="updated_at">Última alteração</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              size="sm"
+              variant={showOnlyMine ? 'default' : 'outline'}
+              onClick={() => setShowOnlyMine(!showOnlyMine)}
+              className="h-9 gap-1.5 shrink-0"
+            >
+              <Filter className="h-4 w-4" />
+              Minhas
+              <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">{myResponsibilityCount}</Badge>
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => exportToExcel(getActiveTabItems(), `backoffice_${activeTab}`)}
+              disabled={getActiveTabItems().length === 0}
+              className="h-9 gap-1.5 shrink-0"
+            >
+              <Download className="h-4 w-4" />
+              Exportar
+            </Button>
+          </div>
+
+          {/* Active filter chips (removable) */}
+          {(searchTerm || selectedEmpreendimento !== 'todos' || selectedFornecedor !== 'todos' || showOnlyMine) && (
+            <div className="flex flex-wrap items-center gap-1.5 mt-2">
+              <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">Filtros ativos:</span>
+              {searchTerm && (
+                <Badge variant="secondary" className="gap-1 cursor-pointer hover:bg-muted" onClick={() => setSearchTerm('')}>
+                  Busca: "{searchTerm.length > 20 ? searchTerm.slice(0, 20) + '…' : searchTerm}"
+                  <XCircle className="h-3 w-3" />
+                </Badge>
+              )}
+              {selectedEmpreendimento !== 'todos' && (
+                <Badge variant="secondary" className="gap-1 cursor-pointer hover:bg-muted" onClick={() => setSelectedEmpreendimento('todos')}>
+                  {EMPREENDIMENTO_LABELS[selectedEmpreendimento as keyof typeof EMPREENDIMENTO_LABELS] || selectedEmpreendimento}
+                  <XCircle className="h-3 w-3" />
+                </Badge>
+              )}
+              {selectedFornecedor !== 'todos' && (
+                <Badge variant="secondary" className="gap-1 cursor-pointer hover:bg-muted" onClick={() => setSelectedFornecedor('todos')}>
+                  {selectedFornecedor.length > 20 ? selectedFornecedor.slice(0, 20) + '…' : selectedFornecedor}
+                  <XCircle className="h-3 w-3" />
+                </Badge>
+              )}
+              {showOnlyMine && (
+                <Badge variant="secondary" className="gap-1 cursor-pointer hover:bg-muted" onClick={() => setShowOnlyMine(false)}>
+                  Apenas minhas
+                  <XCircle className="h-3 w-3" />
+                </Badge>
+              )}
               <Button
-                variant="outline"
-                onClick={() => exportToExcel(getActiveTabItems(), `backoffice_${activeTab}`)}
-                disabled={getActiveTabItems().length === 0}
-                className="w-full md:w-auto"
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs"
+                onClick={() => {
+                  setSearchTerm('');
+                  setSelectedEmpreendimento('todos');
+                  setSelectedFornecedor('todos');
+                  setShowOnlyMine(false);
+                }}
               >
-                <Download className="h-4 w-4 mr-2" />
-                Exportar
-              </Button>
-              <Button
-                variant={sortBy === 'updated_at' ? 'default' : 'outline'}
-                onClick={() => setSortBy(prev => prev === 'created_at' ? 'updated_at' : 'created_at')}
-                className="w-full md:w-auto"
-              >
-                <ArrowUpDown className="h-4 w-4 mr-2" />
-                {sortBy === 'created_at' ? 'Abertura' : 'Última alteração'}
+                Limpar tudo
               </Button>
             </div>
-          </CardContent>
-        </Card>
+          )}
+        </div>
 
         {/* Unified Filter Bar with Groups */}
         <FilterBar
