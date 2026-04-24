@@ -149,7 +149,7 @@ export interface BackofficeModalsProps {
   // Concluir Modal
   concluirModal: SolicitacaoBackoffice | null;
   setConcluirModal: (v: SolicitacaoBackoffice | null) => void;
-  handleConcluirLiberadaConfirmed: (sol: SolicitacaoBackoffice) => Promise<void>;
+  handleConcluirLiberadaConfirmed: (sol: SolicitacaoBackoffice, numeroFluigPagamento: string) => Promise<void>;
 
   // Envio Fornecedor Modal
   envioFornecedorModal: SolicitacaoBackoffice | null;
