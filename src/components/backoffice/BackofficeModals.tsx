@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -802,33 +803,34 @@ export function BackofficeModals(props: BackofficeModalsProps) {
         </DialogContent>
       </Dialog>
 
-      {/* ═══════════════ Action Modal ═══════════════ */}
-      <Dialog open={actionOpen} onOpenChange={setActionOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
+      {/* ═══════════════ Action Sheet (side panel) ═══════════════ */}
+      <Sheet open={actionOpen} onOpenChange={setActionOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-md flex flex-col p-0">
+          <SheetHeader className="px-6 py-4 border-b">
+            <SheetTitle>
               {actionType === 'assumir' && 'Assumir Solicitação'}
               {actionType === 'rejeitar' && 'Rejeitar Solicitação'}
               {actionType === 'processar' && 'Enviar para Processamento'}
               {actionType === 'concluir' && 'Concluir Solicitação'}
               {actionType === 'solicitar_ajuste' && 'Solicitar Ajuste'}
-            </DialogTitle>
-            <DialogDescription>
+            </SheetTitle>
+            <SheetDescription>
               {actionType === 'assumir' && 'A solicitação será assumida e seguirá para processamento.'}
               {actionType === 'rejeitar' && 'Informe o motivo da rejeição.'}
               {actionType === 'processar' && 'A solicitação será marcada como em processamento no Fluig/RM.'}
               {actionType === 'concluir' && 'A solicitação será marcada como concluída.'}
               {actionType === 'solicitar_ajuste' && 'Informe o ajuste ou informação necessária ao solicitante.'}
-            </DialogDescription>
-          </DialogHeader>
+            </SheetDescription>
+          </SheetHeader>
 
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
           {(actionType === 'rejeitar' || actionType === 'solicitar_ajuste') && (
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="motivo">
                   {actionType === 'solicitar_ajuste' ? 'Informações solicitadas *' : 'Motivo *'}
                 </Label>
-                <Textarea id="motivo" placeholder={actionType === 'solicitar_ajuste' ? "Descreva as informações ou ajustes necessários..." : "Descreva o motivo..."} value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={4} />
+                <Textarea id="motivo" autoFocus placeholder={actionType === 'solicitar_ajuste' ? "Descreva as informações ou ajustes necessários..." : "Descreva o motivo..."} value={motivo} onChange={(e) => setMotivo(e.target.value)} rows={5} />
               </div>
 
               {actionType === 'solicitar_ajuste' && anexosDisponiveis.length > 0 && (
@@ -883,16 +885,17 @@ export function BackofficeModals(props: BackofficeModalsProps) {
               <p className="text-xs text-muted-foreground">Marque "RM" se não houver chamado Fluig, ou informe o número para rastreabilidade.</p>
             </div>
           )}
+          </div>
 
-          <DialogFooter>
+          <SheetFooter className="px-6 py-4 border-t flex-row gap-2 sm:justify-end">
             <Button variant="outline" onClick={() => setActionOpen(false)} disabled={actionLoading}>Cancelar</Button>
             <Button onClick={handleAction} disabled={actionLoading || ((actionType === 'rejeitar' || actionType === 'solicitar_ajuste') && !motivo.trim())} variant={actionType === 'rejeitar' ? 'destructive' : 'default'}>
               {actionLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               Confirmar
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
 
       {/* ═══════════════ Registro OC Modal ═══════════════ */}
       <Dialog open={registroOpen} onOpenChange={handleRegistroModalClose}>
