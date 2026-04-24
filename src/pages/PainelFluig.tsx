@@ -904,6 +904,12 @@ export default function PainelFluig() {
         </Tabs>
           </>
         )}
+          </TabsContent>
+
+          <TabsContent value="projuris" className="mt-0">
+            <TabProjuris />
+          </TabsContent>
+        </Tabs>
       </div>
     </>
   );
