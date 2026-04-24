@@ -405,7 +405,8 @@ export default function MonitoramentoOC() {
                   value={kpis.total_ativas}
                   icon={<FileCheck className="h-4 w-4" />}
                   tone="neutral"
-                  active={false}
+                  active={cardFilter === 'ativas'}
+                  onClick={() => toggleCardFilter('ativas')}
                   hint="Total de OCs ativas no recorte filtrado (exclui concluídas/canceladas)."
                 />
                 <SlaKpiCard
@@ -413,8 +414,8 @@ export default function MonitoramentoOC() {
                   value={kpis.sem_nf}
                   icon={<Clock className="h-4 w-4" />}
                   tone="warning"
-                  active={activeTab === 'justificadas'}
-                  onClick={() => setActiveTab('justificadas')}
+                  active={cardFilter === 'sem_nf'}
+                  onClick={() => toggleCardFilter('sem_nf', 'justificadas')}
                   hint="OCs ativas que ainda não receberam NF."
                 />
                 <SlaKpiCard
@@ -422,8 +423,8 @@ export default function MonitoramentoOC() {
                   value={kpis.pendente_justificativa}
                   icon={<AlertTriangle className="h-4 w-4" />}
                   tone="destructive"
-                  active={activeTab === 'pendencia'}
-                  onClick={() => setActiveTab('pendencia')}
+                  active={cardFilter === 'pendente'}
+                  onClick={() => toggleCardFilter('pendente', 'pendencia')}
                   hint="OCs sem NF do mês anterior, ou do mês atual após dia 23 sem previsão futura."
                 />
                 <SlaKpiCard
@@ -431,7 +432,8 @@ export default function MonitoramentoOC() {
                   value={kpis.cancelamento_pendente}
                   icon={<XCircle className="h-4 w-4" />}
                   tone="warning"
-                  active={false}
+                  active={cardFilter === 'cancel'}
+                  onClick={() => toggleCardFilter('cancel')}
                   hint="Solicitações com cancelamento aguardando aprovação."
                 />
               </div>
