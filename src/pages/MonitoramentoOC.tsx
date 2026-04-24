@@ -55,7 +55,7 @@ type TabKey = 'todas' | 'pendencia' | 'justificadas';
 const TAB_STATUS: Record<TabKey, OcVisualStatus[]> = {
   todas: ['pendente_justificativa', 'atencao', 'adiado', 'aguardando_nf', 'em_prazo', 'cancel_solicitado'],
   pendencia: ['pendente_justificativa', 'atencao'],
-  justificadas: ['adiado', 'aguardando_nf', 'em_prazo'],
+  justificadas: ['adiado'],
 };
 
 type CardFilter = 'todas' | 'liberada' | 'nao_liberada' | 'pendente' | 'justificadas';
