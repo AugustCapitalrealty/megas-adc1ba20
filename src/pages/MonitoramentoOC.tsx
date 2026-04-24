@@ -50,9 +50,10 @@ import {
   type OcVisualStatus,
 } from '@/hooks/useMonitoramentoOC';
 
-type TabKey = 'pendencia' | 'justificadas';
+type TabKey = 'todas' | 'pendencia' | 'justificadas';
 
 const TAB_STATUS: Record<TabKey, OcVisualStatus[]> = {
+  todas: ['pendente_justificativa', 'atencao', 'adiado', 'aguardando_nf', 'em_prazo', 'cancel_solicitado'],
   pendencia: ['pendente_justificativa', 'atencao'],
   justificadas: ['adiado', 'aguardando_nf', 'em_prazo'],
 };
@@ -119,6 +120,12 @@ function getInitials(name: string | null) {
   return ((parts[0]?.[0] || '') + (parts[1]?.[0] || '')).toUpperCase() || '?';
 }
 
+function getShortName(name: string | null) {
+  if (!name) return '';
+  const parts = name.trim().split(/\s+/);
+  return parts.slice(0, 2).join(' ');
+}
+
 function StatusBadge({ status }: { status: OcVisualStatus }) {
   const config: Record<OcVisualStatus, { label: string; tone: string; icon: React.ReactNode }> = {
     em_prazo: { label: 'Em prazo', tone: 'bg-success/10 text-success border-success/30', icon: <CheckCircle className="h-3 w-3" /> },
@@ -171,7 +178,7 @@ export default function MonitoramentoOC() {
   } = useMonitoramentoOC({ userEmpreendimentos, hasAllAccess, enabled: !loadingEmpreendimentos });
 
   const [filterEmpreendimento, setFilterEmpreendimento] = useState<string>('todos');
-  const [activeTab, setActiveTab] = useState<TabKey>('pendencia');
+  const [activeTab, setActiveTab] = useState<TabKey>('todas');
   const [searchTerm, setSearchTerm] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [cardFilter, setCardFilter] = useState<CardFilter>('todas');
@@ -197,7 +204,8 @@ export default function MonitoramentoOC() {
   const toggleCardFilter = (next: CardFilter, targetTab?: TabKey) => {
     setCardFilter(prev => {
       const isSame = prev === next;
-      if (!isSame && targetTab) setActiveTab(targetTab);
+      // Se a aba atual já é "Todas", preserva a visão consolidada.
+      if (!isSame && targetTab && activeTab !== 'todas') setActiveTab(targetTab);
       return isSame ? 'todas' : next;
     });
   };
@@ -275,7 +283,7 @@ export default function MonitoramentoOC() {
 
   // Contagem por aba (a partir do recorte do card)
   const tabCounts = useMemo(() => {
-    const counts = { pendencia: 0, justificadas: 0 };
+    const counts = { todas: cardFilteredGroups.length, pendencia: 0, justificadas: 0 };
     cardFilteredGroups.forEach(g => {
       const st = computeGroupStatus(g);
       if (TAB_STATUS.pendencia.includes(st)) counts.pendencia++;
