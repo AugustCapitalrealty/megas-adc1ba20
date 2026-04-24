@@ -13,7 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { formatBR } from '@/lib/date-utils';
 import { 
   Play, 
-  RotateCcw, 
+  PauseCircle,
   StopCircle, 
   ArrowRight,
   Clock,
@@ -53,10 +53,15 @@ const tipoEventoConfig: Record<string, {
     className: 'bg-emerald-100 text-emerald-700 border-emerald-200', 
     label: 'Início' 
   },
+  pausa: { 
+    Icon: PauseCircle, 
+    className: 'bg-warning/10 text-warning border-warning/30', 
+    label: 'Pausa SLA' 
+  },
   zera: { 
-    Icon: RotateCcw, 
-    className: 'bg-red-100 text-red-700 border-red-200', 
-    label: 'Zera SLA' 
+    Icon: PauseCircle, 
+    className: 'bg-warning/10 text-warning border-warning/30', 
+    label: 'Pausa SLA' 
   },
   reinicio: { 
     Icon: Play, 

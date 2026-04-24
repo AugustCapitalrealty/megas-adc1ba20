@@ -1,12 +1,11 @@
-import { useState } from 'react';
-import { subDays, format, parseISO } from 'date-fns';
+import { useState, useMemo } from 'react';
+import { subDays, subMonths, startOfMonth, startOfYear, format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale/pt-BR';
 import { formatBR } from '@/lib/date-utils';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -26,20 +25,19 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import { 
-  Timer, 
-  CheckCircle2, 
-  AlertTriangle, 
+import {
+  Timer,
+  CheckCircle2,
+  AlertTriangle,
   XCircle,
   TrendingUp,
-  Clock,
   Filter,
   RefreshCw,
   Search,
   Calendar as CalendarIcon,
   Building2,
-  Info,
   ExternalLink,
+  AlertOctagon,
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useNavigate } from 'react-router-dom';
@@ -50,15 +48,38 @@ import { SlaTimelineModal } from '@/components/SlaTimelineModal';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { EMPREENDIMENTO_LABELS, Empreendimento, RequestStatus } from '@/types';
 import { cn } from '@/lib/utils';
+import { MetaGauge } from '@/components/sla/MetaGauge';
+import { SlaDistributionBar } from '@/components/sla/SlaDistributionBar';
+import { SlaKpiCard } from '@/components/sla/SlaKpiCard';
+import { TopOfensoresCard } from '@/components/sla/TopOfensoresCard';
+
+type QuickRange = '7d' | '30d' | '90d' | 'mes' | 'ytd';
+
+function rangeFor(q: QuickRange): { dataInicio: string; dataFim: string } {
+  const today = new Date();
+  const fim = format(today, 'yyyy-MM-dd');
+  switch (q) {
+    case '7d':
+      return { dataInicio: format(subDays(today, 6), 'yyyy-MM-dd'), dataFim: fim };
+    case '90d':
+      return { dataInicio: format(subDays(today, 89), 'yyyy-MM-dd'), dataFim: fim };
+    case 'mes':
+      return { dataInicio: format(startOfMonth(today), 'yyyy-MM-dd'), dataFim: fim };
+    case 'ytd':
+      return { dataInicio: format(startOfYear(today), 'yyyy-MM-dd'), dataFim: fim };
+    case '30d':
+    default:
+      return { dataInicio: format(subDays(today, 29), 'yyyy-MM-dd'), dataFim: fim };
+  }
+}
 
 export default function DashboardSLA() {
   const navigate = useNavigate();
   const { isBackofficeOrAdmin } = useAuth();
 
-  // Default to last 30 days
+  const [quickRange, setQuickRange] = useState<QuickRange | null>('30d');
   const [filters, setFilters] = useState<SlaFilters>({
-    dataInicio: formatBR(subDays(new Date(), 30), 'yyyy-MM-dd'),
-    dataFim: formatBR(new Date(), 'yyyy-MM-dd'),
+    ...rangeFor('30d'),
     empreendimento: null,
     statusSla: null,
   });
@@ -71,434 +92,464 @@ export default function DashboardSLA() {
     statusSla: SlaStatus;
   } | null>(null);
 
-  const { data, loading, stats, refetch } = useSlaDashboard(filters);
+  const { data, loading, stats, meta, refetch } = useSlaDashboard(filters);
 
-  // Filter by search term
-  const filteredData = data.filter(item => 
-    item.protocolo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (item.solicitante_nome?.toLowerCase() || '').includes(searchTerm.toLowerCase())
+  const filteredData = useMemo(
+    () =>
+      data.filter(
+        (item) =>
+          item.protocolo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (item.solicitante_nome?.toLowerCase() || '').includes(searchTerm.toLowerCase()),
+      ),
+    [data, searchTerm],
   );
 
-  const handleFilterChange = (key: keyof SlaFilters, value: string | null) => {
-    setFilters(prev => ({
+  const setRange = (q: QuickRange) => {
+    setQuickRange(q);
+    const r = rangeFor(q);
+    setFilters((prev) => ({ ...prev, ...r }));
+  };
+
+  const updateFilter = (key: keyof SlaFilters, value: string | null) => {
+    setQuickRange(null);
+    setFilters((prev) => ({
       ...prev,
       [key]: value === 'all' ? null : value,
     }));
   };
 
+  const toggleSlaFilter = (status: SlaStatus) => {
+    updateFilter('statusSla', filters.statusSla === status ? null : status);
+  };
+
+  const deltaPercentual = stats.percentualNoPrazo - stats.percentualNoPrazoAnterior;
+  const deltaTotal = stats.total - stats.totalAnterior;
+  const deltaTempoMedio =
+    Math.round((stats.tempoMedio - stats.tempoMedioAnterior) * 10) / 10;
+
   return (
-    <>
+    <TooltipProvider>
       <div className="space-y-6 animate-fade-in">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight flex items-center gap-3">
               <Timer className="h-6 w-6 text-primary" />
-              Dashboard de SLA
+              SLA do Backoffice
             </h1>
-            <p className="text-muted-foreground mt-1">
-              Monitoramento do tempo de atendimento do Backoffice (Meta: 3 dias úteis)
+            <p className="text-muted-foreground mt-1 text-sm">
+              Meta: <strong>{meta}%</strong> das solicitações atendidas em até{' '}
+              <strong>3 dias úteis</strong>
             </p>
           </div>
-          <Button onClick={refetch} variant="outline" className="gap-2">
-            <RefreshCw className="h-4 w-4" />
-            Atualizar
-          </Button>
-        </div>
-
-        {/* Stats Cards */}
-        <TooltipProvider>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription className="flex items-center gap-2">
-                <Clock className="h-4 w-4" />
-                Total de Solicitações
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-muted-foreground cursor-help ml-auto" />
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-[220px]">
-                    <p className="text-xs">Total de solicitações no período selecionado, excluindo canceladas e rejeitadas.</p>
-                  </TooltipContent>
-                </Tooltip>
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <Skeleton className="h-8 w-20" />
-              ) : (
-                <div className="text-3xl font-bold">{stats.total}</div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="border-emerald-200 bg-emerald-50/30 dark:border-emerald-800 dark:bg-emerald-950/30">
-            <CardHeader className="pb-2">
-              <CardDescription className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
-                <CheckCircle2 className="h-4 w-4" />
-                No Prazo (≤2 dias)
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="h-3.5 w-3.5 text-emerald-700/60 hover:text-emerald-700 cursor-help ml-auto" />
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-[220px]">
-                    <p className="text-xs">Solicitações onde o backoffice respondeu em até 2 dias úteis. Tempo contado excluindo fins de semana, feriados e períodos em que a solicitação estava aguardando correção.</p>
-                  </TooltipContent>
-                </Tooltip>
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <Skeleton className="h-8 w-20" />
-              ) : (
-                <div className="text-3xl font-bold text-emerald-700 dark:text-emerald-300">
-                  {stats.noPrazo}
-                  <span className="text-sm font-normal ml-2">
-                    ({stats.total > 0 ? Math.round((stats.noPrazo / stats.total) * 100) : 0}%)
-                  </span>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="border-amber-200 bg-amber-50/30 dark:border-amber-800 dark:bg-amber-950/30">
-            <CardHeader className="pb-2">
-              <CardDescription className="flex items-center gap-2 text-amber-700 dark:text-amber-300">
-                <AlertTriangle className="h-4 w-4" />
-                Atenção (3 dias)
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="h-3.5 w-3.5 text-amber-700/60 hover:text-amber-700 cursor-help ml-auto" />
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-[220px]">
-                    <p className="text-xs">Solicitações que atingiram exatamente 3 dias úteis de atendimento — no limite da meta. Requerem atenção imediata.</p>
-                  </TooltipContent>
-                </Tooltip>
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <Skeleton className="h-8 w-20" />
-              ) : (
-                <div className="text-3xl font-bold text-amber-700 dark:text-amber-300">
-                  {stats.atencao}
-                  <span className="text-sm font-normal ml-2">
-                    ({stats.total > 0 ? Math.round((stats.atencao / stats.total) * 100) : 0}%)
-                  </span>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="border-red-200 bg-red-50/30 dark:border-red-800 dark:bg-red-950/30">
-            <CardHeader className="pb-2">
-              <CardDescription className="flex items-center gap-2 text-red-700 dark:text-red-300">
-                <XCircle className="h-4 w-4" />
-                {'Estourado (>3 dias)'}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="h-3.5 w-3.5 text-red-700/60 hover:text-red-700 cursor-help ml-auto" />
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-[220px]">
-                    <p className="text-xs">Solicitações que ultrapassaram a meta de 3 dias úteis de atendimento pelo backoffice. Meta: responder em até 3 dias úteis.</p>
-                  </TooltipContent>
-                </Tooltip>
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <Skeleton className="h-8 w-20" />
-              ) : (
-                <div className="text-3xl font-bold text-red-700 dark:text-red-300">
-                  {stats.estourado}
-                  <span className="text-sm font-normal ml-2">
-                    ({stats.total > 0 ? Math.round((stats.estourado / stats.total) * 100) : 0}%)
-                  </span>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4" />
-                Tempo Médio
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="h-3.5 w-3.5 text-muted-foreground/60 hover:text-muted-foreground cursor-help ml-auto" />
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-[220px]">
-                    <p className="text-xs">Média de dias úteis de atendimento do backoffice no período. Calculado excluindo fins de semana, feriados e tempo aguardando correção do solicitante.</p>
-                  </TooltipContent>
-                </Tooltip>
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <Skeleton className="h-8 w-20" />
-              ) : (
-                <div className="text-3xl font-bold">
-                  {stats.tempoMedio}
-                  <span className="text-sm font-normal ml-1">dias</span>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-        </TooltipProvider>
-
-        {/* Filters */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-              <div className="space-y-2">
-                <Label className="flex items-center gap-1.5 text-xs">
-                  <CalendarIcon className="h-3.5 w-3.5" />
-                  Data Início
-                </Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal h-10",
-                        !filters.dataInicio && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {filters.dataInicio ? format(parseISO(filters.dataInicio), 'dd/MM/yyyy') : 'Selecionar'}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <CalendarComponent
-                      mode="single"
-                      selected={filters.dataInicio ? parseISO(filters.dataInicio) : undefined}
-                      onSelect={(date) => handleFilterChange('dataInicio', date ? format(date, 'yyyy-MM-dd') : null)}
-                      locale={ptBR}
-                      className="pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="flex items-center gap-1.5 text-xs">
-                  <CalendarIcon className="h-3.5 w-3.5" />
-                  Data Fim
-                </Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal h-10",
-                        !filters.dataFim && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {filters.dataFim ? format(parseISO(filters.dataFim), 'dd/MM/yyyy') : 'Selecionar'}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <CalendarComponent
-                      mode="single"
-                      selected={filters.dataFim ? parseISO(filters.dataFim) : undefined}
-                      onSelect={(date) => handleFilterChange('dataFim', date ? format(date, 'yyyy-MM-dd') : null)}
-                      locale={ptBR}
-                      className="pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="flex items-center gap-1.5 text-xs">
-                  <Building2 className="h-3.5 w-3.5" />
-                  Empreendimento
-                </Label>
-                <Select
-                  value={filters.empreendimento || 'all'}
-                  onValueChange={(value) => handleFilterChange('empreendimento', value)}
+          <div className="flex items-center gap-2">
+            <div className="inline-flex rounded-md border bg-card p-0.5">
+              {(['7d', '30d', '90d', 'mes', 'ytd'] as QuickRange[]).map((q) => (
+                <button
+                  key={q}
+                  onClick={() => setRange(q)}
+                  className={cn(
+                    'px-2.5 py-1 text-xs font-medium rounded transition-colors',
+                    quickRange === q
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted',
+                  )}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todos" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    {Object.entries(EMPREENDIMENTO_LABELS).map(([key, label]) => (
-                      <SelectItem key={key} value={key}>{label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="flex items-center gap-1.5 text-xs">
-                  <Timer className="h-3.5 w-3.5" />
-                  Status SLA
-                </Label>
-                <Select
-                  value={filters.statusSla || 'all'}
-                  onValueChange={(value) => handleFilterChange('statusSla', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todos" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="no_prazo">🟢 No Prazo</SelectItem>
-                    <SelectItem value="atencao">🟡 Atenção</SelectItem>
-                    <SelectItem value="estourado">🔴 Estourado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="flex items-center gap-1.5 text-xs">
-                  <Search className="h-3.5 w-3.5" />
-                  Buscar
-                </Label>
-                <Input
-                  placeholder="Protocolo ou solicitante..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
+                  {q === '7d' && '7 dias'}
+                  {q === '30d' && '30 dias'}
+                  {q === '90d' && '90 dias'}
+                  {q === 'mes' && 'Mês'}
+                  {q === 'ytd' && 'Ano'}
+                </button>
+              ))}
             </div>
-          </CardContent>
-        </Card>
+            <Button onClick={refetch} variant="outline" size="icon" title="Atualizar">
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
 
-        {/* Data Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Solicitações</CardTitle>
-            <CardDescription>
-              Clique em uma linha para ver o detalhamento do cálculo de SLA
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="space-y-3">
-                {[...Array(5)].map((_, i) => (
-                  <Skeleton key={i} className="h-12 w-full" />
-                ))}
+        {/* HERO — Atingimento da meta */}
+        <Card className="overflow-hidden border-0 bg-gradient-to-br from-card to-muted/30 shadow-sm">
+          <CardContent className="p-6">
+            <div className="grid gap-6 md:grid-cols-[auto_1fr] items-center">
+              {/* Gauge */}
+              <div className="flex justify-center">
+                {loading ? (
+                  <Skeleton className="h-[180px] w-[180px] rounded-full" />
+                ) : (
+                  <MetaGauge value={stats.percentualNoPrazo} meta={meta} />
+                )}
               </div>
-            ) : filteredData.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                Nenhuma solicitação encontrada para os filtros selecionados
-              </div>
-            ) : (
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Protocolo</TableHead>
-                      <TableHead>Data Abertura</TableHead>
-                      <TableHead>Solicitante</TableHead>
-                      <TableHead>Empreendimento</TableHead>
-                      <TableHead>Status Atual</TableHead>
-                      <TableHead className="text-center">Passou Cadastro?</TableHead>
-                      <TableHead className="text-center">Tempo Backoffice</TableHead>
-                      <TableHead className="text-center">Status SLA</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredData.map((item) => (
-                      <TableRow 
-                        key={item.id}
-                        className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => setSelectedSolicitacao({
-                          id: item.id,
-                          protocolo: item.protocolo,
-                          diasUteis: item.dias_uteis_backoffice,
-                          statusSla: item.status_sla,
-                        })}
-                      >
-                        <TableCell className="font-medium font-mono">
-                          <button
-                            className="hover:underline text-primary font-mono font-medium flex items-center gap-1"
-                            onClick={(e) => { e.stopPropagation(); navigate(isBackofficeOrAdmin ? `/backoffice?search=${item.protocolo}` : `/minhas-solicitacoes?search=${item.protocolo}`); }}
-                          >
-                            {item.protocolo}
-                            <ExternalLink className="h-3 w-3 opacity-60" />
-                          </button>
-                        </TableCell>
-                        <TableCell>
-                          {formatBR(item.created_at, 'dd/MM/yyyy')}
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">{item.solicitante_nome || '-'}</div>
-                            <div className="text-xs text-muted-foreground">{item.solicitante_email}</div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">
-                            {EMPREENDIMENTO_LABELS[item.empreendimento]}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge status={item.status as RequestStatus} />
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {item.passou_cadastro ? (
-                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                              Sim
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="bg-slate-50 text-slate-500">
-                              Não
-                            </Badge>
+
+              {/* Stats summary */}
+              <div className="space-y-4">
+                <div>
+                  <div className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
+                    Atingimento da meta no período
+                  </div>
+                  <div className="mt-1 flex items-baseline gap-3 flex-wrap">
+                    {loading ? (
+                      <Skeleton className="h-10 w-48" />
+                    ) : (
+                      <>
+                        <span
+                          className={cn(
+                            'text-2xl font-semibold',
+                            stats.percentualNoPrazo >= meta
+                              ? 'text-success'
+                              : stats.percentualNoPrazo >= meta - 20
+                              ? 'text-warning'
+                              : 'text-destructive',
                           )}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <span className={cn(
-                            "font-bold",
-                            item.dias_uteis_backoffice <= 2 ? "text-emerald-600" :
-                            item.dias_uteis_backoffice <= 3 ? "text-amber-600" :
-                            "text-red-600"
-                          )}>
-                            {item.dias_uteis_backoffice} {item.dias_uteis_backoffice === 1 ? 'dia' : 'dias'}
+                        >
+                          {stats.percentualNoPrazo >= meta
+                            ? 'Meta atingida'
+                            : stats.percentualNoPrazo >= meta - 20
+                            ? 'Próximo da meta'
+                            : 'Abaixo da meta'}
+                        </span>
+                        {stats.totalAnterior > 0 && (
+                          <span
+                            className={cn(
+                              'text-xs font-medium px-2 py-1 rounded-full',
+                              deltaPercentual > 0
+                                ? 'bg-success/10 text-success'
+                                : deltaPercentual < 0
+                                ? 'bg-destructive/10 text-destructive'
+                                : 'bg-muted text-muted-foreground',
+                            )}
+                          >
+                            {deltaPercentual > 0 ? '▲' : deltaPercentual < 0 ? '▼' : '—'}{' '}
+                            {Math.abs(deltaPercentual)}pp vs. período anterior
                           </span>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <SlaBadge 
-                            status={item.status_sla} 
-                            diasUteis={item.dias_uteis_backoffice}
-                            showDays={false}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
 
-        {/* Legend */}
-        <Card className="bg-muted/30">
-          <CardContent className="py-4">
-            <div className="flex flex-wrap items-center gap-6 text-sm">
-              <span className="font-medium text-muted-foreground">Legenda:</span>
-              <span className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                <span>No Prazo (≤2 dias úteis)</span>
-              </span>
-              <span className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-amber-500" />
-                <span>Atenção (3 dias úteis)</span>
-              </span>
-              <span className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-red-500" />
-                <span>Estourado ({'>'} 3 dias úteis)</span>
-              </span>
+                <SlaDistributionBar
+                  noPrazo={stats.noPrazo}
+                  atencao={stats.atencao}
+                  estourado={stats.estourado}
+                />
+
+                <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+                  <div>
+                    <div className="text-xs text-muted-foreground">Tempo médio</div>
+                    <div className="text-xl font-bold tabular-nums">
+                      {stats.tempoMedio}
+                      <span className="text-xs font-normal text-muted-foreground ml-1">
+                        dias úteis
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">
+                      Total no período
+                    </div>
+                    <div className="text-xl font-bold tabular-nums">
+                      {stats.total}
+                      {stats.totalAnterior > 0 && (
+                        <span
+                          className={cn(
+                            'text-xs font-medium ml-2',
+                            deltaTotal > 0
+                              ? 'text-foreground'
+                              : 'text-muted-foreground',
+                          )}
+                        >
+                          ({deltaTotal > 0 ? '+' : ''}
+                          {deltaTotal})
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
+
+        {/* KPI cards (clicáveis para filtrar) */}
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <SlaKpiCard
+            label="No prazo"
+            value={stats.noPrazo}
+            suffix={`de ${stats.total}`}
+            icon={<CheckCircle2 className="h-4 w-4" />}
+            tone="success"
+            active={filters.statusSla === 'no_prazo'}
+            onClick={() => toggleSlaFilter('no_prazo')}
+            hint="Solicitações respondidas pelo backoffice em até 2 dias úteis."
+          />
+          <SlaKpiCard
+            label="Em atenção"
+            value={stats.atencao}
+            suffix={`de ${stats.total}`}
+            icon={<AlertTriangle className="h-4 w-4" />}
+            tone="warning"
+            active={filters.statusSla === 'atencao'}
+            onClick={() => toggleSlaFilter('atencao')}
+            hint="Solicitações entre 2 e 3 dias úteis — ainda dentro da meta, mas no limite."
+          />
+          <SlaKpiCard
+            label="Estourado"
+            value={stats.estourado}
+            suffix={`de ${stats.total}`}
+            icon={<XCircle className="h-4 w-4" />}
+            tone="destructive"
+            active={filters.statusSla === 'estourado'}
+            onClick={() => toggleSlaFilter('estourado')}
+            hint="Ultrapassou os 3 dias úteis de meta. Requer ação imediata."
+          />
+          <SlaKpiCard
+            label="Tempo médio"
+            value={stats.tempoMedio}
+            suffix="dias"
+            icon={<TrendingUp className="h-4 w-4" />}
+            tone="neutral"
+            delta={
+              stats.tempoMedioAnterior > 0 ? deltaTempoMedio : null
+            }
+            deltaPositive="down"
+            hint="Média de dias úteis de atendimento. Tempo conta apenas em horário comercial e exclui pendências do solicitante."
+          />
+        </div>
+
+        {/* Toolbar de filtros + Conteúdo (tabela + top ofensores) */}
+        <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+          <div className="space-y-3">
+            {/* Toolbar */}
+            <Card>
+              <CardContent className="p-3">
+                <div className="flex flex-wrap items-end gap-2">
+                  <div className="min-w-[140px]">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-9 justify-start text-left font-normal w-full"
+                        >
+                          <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                          {filters.dataInicio
+                            ? format(parseISO(filters.dataInicio), 'dd/MM/yy')
+                            : 'Início'}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={
+                            filters.dataInicio ? parseISO(filters.dataInicio) : undefined
+                          }
+                          onSelect={(date) =>
+                            updateFilter(
+                              'dataInicio',
+                              date ? format(date, 'yyyy-MM-dd') : null,
+                            )
+                          }
+                          locale={ptBR}
+                          className="pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  <div className="min-w-[140px]">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-9 justify-start text-left font-normal w-full"
+                        >
+                          <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                          {filters.dataFim
+                            ? format(parseISO(filters.dataFim), 'dd/MM/yy')
+                            : 'Fim'}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={
+                            filters.dataFim ? parseISO(filters.dataFim) : undefined
+                          }
+                          onSelect={(date) =>
+                            updateFilter(
+                              'dataFim',
+                              date ? format(date, 'yyyy-MM-dd') : null,
+                            )
+                          }
+                          locale={ptBR}
+                          className="pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  <div className="min-w-[160px]">
+                    <Select
+                      value={filters.empreendimento || 'all'}
+                      onValueChange={(value) => updateFilter('empreendimento', value)}
+                    >
+                      <SelectTrigger className="h-9">
+                        <Building2 className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+                        <SelectValue placeholder="Empreendimento" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos empreendimentos</SelectItem>
+                        {Object.entries(EMPREENDIMENTO_LABELS).map(([key, label]) => (
+                          <SelectItem key={key} value={key}>
+                            {label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="relative flex-1 min-w-[180px]">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar por protocolo ou solicitante..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="h-9 pl-8"
+                    />
+                  </div>
+
+                  {filters.statusSla && (
+                    <Badge
+                      variant="secondary"
+                      className="h-9 px-3 cursor-pointer hover:bg-muted"
+                      onClick={() => updateFilter('statusSla', null)}
+                    >
+                      <Filter className="h-3 w-3 mr-1" />
+                      {filters.statusSla === 'no_prazo' && 'No prazo'}
+                      {filters.statusSla === 'atencao' && 'Atenção'}
+                      {filters.statusSla === 'estourado' && 'Estourado'}
+                      <XCircle className="h-3 w-3 ml-2" />
+                    </Badge>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Tabela */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-base">Solicitações no período</CardTitle>
+                    <CardDescription className="text-xs mt-0.5">
+                      {filteredData.length}{' '}
+                      {filteredData.length === 1 ? 'item' : 'itens'} · clique numa linha
+                      para ver o cálculo detalhado
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="px-0 pb-0">
+                {loading ? (
+                  <div className="space-y-2 px-6 pb-6">
+                    {[...Array(5)].map((_, i) => (
+                      <Skeleton key={i} className="h-12 w-full" />
+                    ))}
+                  </div>
+                ) : filteredData.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground text-sm">
+                    Nenhuma solicitação encontrada para os filtros selecionados.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="h-10">Protocolo</TableHead>
+                          <TableHead className="h-10">Aberto em</TableHead>
+                          <TableHead className="h-10">Solicitante</TableHead>
+                          <TableHead className="h-10">Empreendimento</TableHead>
+                          <TableHead className="h-10">Status</TableHead>
+                          <TableHead className="h-10 text-center">SLA</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredData.map((item) => (
+                          <TableRow
+                            key={item.id}
+                            className={cn(
+                              'cursor-pointer h-12',
+                              item.status_sla === 'estourado' && 'bg-destructive/5',
+                            )}
+                            onClick={() =>
+                              setSelectedSolicitacao({
+                                id: item.id,
+                                protocolo: item.protocolo,
+                                diasUteis: item.dias_uteis_backoffice,
+                                statusSla: item.status_sla,
+                              })
+                            }
+                          >
+                            <TableCell className="font-medium">
+                              <button
+                                className="hover:underline text-primary font-mono text-xs flex items-center gap-1"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(
+                                    isBackofficeOrAdmin
+                                      ? `/backoffice?search=${item.protocolo}`
+                                      : `/minhas-solicitacoes?search=${item.protocolo}`,
+                                  );
+                                }}
+                              >
+                                {item.status_sla === 'estourado' && (
+                                  <AlertOctagon className="h-3 w-3 text-destructive shrink-0" />
+                                )}
+                                {item.protocolo}
+                                <ExternalLink className="h-3 w-3 opacity-60" />
+                              </button>
+                            </TableCell>
+                            <TableCell className="text-xs text-muted-foreground tabular-nums">
+                              {formatBR(item.created_at, 'dd/MM/yyyy')}
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm font-medium truncate max-w-[180px]">
+                                {item.solicitante_nome || '—'}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="text-xs font-normal">
+                                {EMPREENDIMENTO_LABELS[item.empreendimento]}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <StatusBadge status={item.status as RequestStatus} />
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <SlaBadge
+                                status={item.status_sla}
+                                diasUteis={item.dias_uteis_backoffice}
+                                showDays={true}
+                              />
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Sidebar — Top ofensores */}
+          <div className="space-y-3">
+            <TopOfensoresCard items={stats.topOfensores} />
+          </div>
+        </div>
       </div>
 
       {/* Timeline Modal */}
@@ -512,6 +563,6 @@ export default function DashboardSLA() {
           statusSla={selectedSolicitacao.statusSla}
         />
       )}
-    </>
+    </TooltipProvider>
   );
 }
