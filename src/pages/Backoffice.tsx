@@ -26,7 +26,7 @@ import {
   type DocumentoFiscal
 } from '@/types';
 import { 
-  Loader2, CheckCircle, XCircle, Search, AlertTriangle, Download, Filter, ArrowUpDown,
+  Loader2, CheckCircle, XCircle, Search, AlertTriangle, Download, Filter,
 } from 'lucide-react';
 import { differenceInDays, differenceInHours } from 'date-fns';
 import { formatBR } from '@/lib/date-utils';
