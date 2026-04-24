@@ -1,6 +1,6 @@
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale/pt-BR';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -87,62 +87,71 @@ function EditModal(props: EditModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-2xl lg:max-w-3xl max-h-[92vh] p-0 gap-0 flex flex-col">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
           <DialogTitle>
             {editingSolicitacao?.status === 'aguardando_informacoes'
               ? 'Responder Solicitação de Informações'
               : 'Corrigir e Reenviar Solicitação'
             }
           </DialogTitle>
+          <DialogDescription>
+            Revise as informações abaixo e reenvie a solicitação para o backoffice.
+          </DialogDescription>
         </DialogHeader>
 
         {editingSolicitacao && (
-          <div className="space-y-4 py-2">
-            {/* Correction reason */}
+          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+            {/* Correction reason — destaque sticky no topo */}
             {editingSolicitacao.status === 'pendente_correcao' && rejectionReasons[editingSolicitacao.id]?.motivo && (
-              <div className="p-3 bg-warning/10 border border-warning/20 rounded-lg">
-                <p className="font-medium text-warning flex items-center gap-2">
+              <div className="p-4 bg-warning/10 border border-warning/20 border-l-4 border-l-warning rounded-lg">
+                <p className="font-semibold text-warning flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4" />
-                  Motivo da correção:
+                  Motivo da correção
                 </p>
-                <p className="text-sm mt-1">{rejectionReasons[editingSolicitacao.id].motivo}</p>
+                <p className="text-sm mt-1.5 leading-relaxed whitespace-pre-wrap">
+                  {rejectionReasons[editingSolicitacao.id].motivo}
+                </p>
               </div>
             )}
 
             {editingSolicitacao.status === 'aguardando_informacoes' && infoRequests[editingSolicitacao.id]?.motivo && (
-              <div className="p-3 bg-info/10 border border-info/20 rounded-lg">
-                <p className="font-medium text-info flex items-center gap-2">
+              <div className="p-4 bg-info/10 border border-info/20 border-l-4 border-l-info rounded-lg">
+                <p className="font-semibold text-info flex items-center gap-2">
                   <MessageSquare className="h-4 w-4" />
-                  Informações solicitadas:
+                  Informações solicitadas
                 </p>
-                <p className="text-sm mt-1">{infoRequests[editingSolicitacao.id].motivo}</p>
+                <p className="text-sm mt-1.5 leading-relaxed whitespace-pre-wrap">
+                  {infoRequests[editingSolicitacao.id].motivo}
+                </p>
               </div>
             )}
 
-            <div>
+            <div className="space-y-2">
               <Label>Descrição</Label>
-              <Textarea value={editDescricao} onChange={(e) => setEditDescricao(e.target.value)} rows={4} />
+              <Textarea value={editDescricao} onChange={(e) => setEditDescricao(e.target.value)} rows={6} />
             </div>
 
-            <div>
-              <Label>Valor (R$)</Label>
-              <Input
-                value={editValor ? formatCurrencyInput(editValor) : ''}
-                onChange={(e) => setEditValor(e.target.value.replace(/\D/g, ''))}
-              />
-            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Valor (R$)</Label>
+                <Input
+                  value={editValor ? formatCurrencyInput(editValor) : ''}
+                  onChange={(e) => setEditValor(e.target.value.replace(/\D/g, ''))}
+                />
+              </div>
 
-            <div>
-              <Label>Natureza Orçamentária</Label>
-              <Select value={editNaturezaOrcamentaria} onValueChange={(v) => setEditNaturezaOrcamentaria(v as NaturezaOrcamentaria)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Object.entries(NATUREZA_ORCAMENTARIA_LABELS).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>{label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="space-y-2">
+                <Label>Natureza Orçamentária</Label>
+                <Select value={editNaturezaOrcamentaria} onValueChange={(v) => setEditNaturezaOrcamentaria(v as NaturezaOrcamentaria)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(NATUREZA_ORCAMENTARIA_LABELS).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {/* Escopo Detalhado for non-OC instruments */}
@@ -169,7 +178,7 @@ function EditModal(props: EditModalProps) {
 
             {/* Supplier swap */}
             {(fornecedoresInfo.concorrente1 || fornecedoresInfo.concorrente2) && fornecedoresInfo.principal && (
-              <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
+              <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
                 <div className="flex items-center justify-between">
                   <Label className="text-sm font-medium flex items-center gap-2">
                     <Building2 className="h-4 w-4" />
@@ -177,7 +186,7 @@ function EditModal(props: EditModalProps) {
                   </Label>
                 </div>
                 <div className="p-3 bg-background rounded-md border">
-                  <p className="font-medium">{fornecedoresInfo.principal.razao_social || 'Sem razão social'}</p>
+                  <p className="font-medium text-sm">{fornecedoresInfo.principal.razao_social || 'Sem razão social'}</p>
                   <p className="text-sm text-muted-foreground">
                     CNPJ: {fornecedoresInfo.principal.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')}
                   </p>
@@ -247,7 +256,7 @@ function EditModal(props: EditModalProps) {
 
             {/* Existing attachments */}
             {existingAnexos.length > 0 && (
-              <div className="space-y-2">
+              <div className="space-y-2 border-t pt-4">
                 <Label>Anexos já enviados</Label>
                 <p className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded px-3 py-1.5">
                   💡 Clique em <strong>Excluir</strong> para remover anexos incorretos e adicione novos abaixo.
@@ -335,7 +344,7 @@ function EditModal(props: EditModalProps) {
               </div>
             )}
 
-            <div>
+            <div className="border-t pt-4">
               <Label className="mb-2 block">Adicionar Novos Anexos (opcional)</Label>
               <p className="text-sm text-muted-foreground mb-4">Anexe novos documentos se necessário</p>
               <MultiFileUpload
@@ -349,32 +358,33 @@ function EditModal(props: EditModalProps) {
                 maxFiles={99}
               />
             </div>
-          </div>
-        )}
 
-        {editingSolicitacao?.status && ['pendente_correcao', 'aguardando_informacoes'].includes(editingSolicitacao.status) && (
-          <div className="space-y-2 border-t pt-4">
-            <Label htmlFor="mensagem-correcao" className="text-sm font-medium">
-              O que foi corrigido? <span className="text-destructive">*</span>
-            </Label>
-            <Textarea
-              id="mensagem-correcao"
-              placeholder="Descreva as correções realizadas..."
-              value={editMensagemCorrecao}
-              onChange={(e) => setEditMensagemCorrecao(e.target.value)}
-              className="min-h-[80px]"
-            />
-            {!editMensagemCorrecao.trim() && (
-              <p className="text-xs text-destructive">É obrigatório descrever o que foi corrigido antes de reenviar.</p>
+            {editingSolicitacao?.status && ['pendente_correcao', 'aguardando_informacoes'].includes(editingSolicitacao.status) && (
+              <div className="space-y-2 border-t pt-4">
+                <Label htmlFor="mensagem-correcao" className="text-sm font-medium">
+                  O que foi corrigido? <span className="text-destructive">*</span>
+                </Label>
+                <Textarea
+                  id="mensagem-correcao"
+                  placeholder="Descreva as correções realizadas..."
+                  value={editMensagemCorrecao}
+                  onChange={(e) => setEditMensagemCorrecao(e.target.value)}
+                  className="min-h-[80px]"
+                />
+                {!editMensagemCorrecao.trim() && (
+                  <p className="text-xs text-destructive">É obrigatório descrever o que foi corrigido antes de reenviar.</p>
+                )}
+              </div>
             )}
           </div>
         )}
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+        <DialogFooter className="px-6 py-4 border-t shrink-0 bg-background">
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">Cancelar</Button>
           <Button
             onClick={handleResubmit}
             disabled={submitting || (editingSolicitacao?.status && ['pendente_correcao', 'aguardando_informacoes'].includes(editingSolicitacao.status) && !editMensagemCorrecao.trim())}
+            className="w-full sm:w-auto"
           >
             {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
             Reenviar Solicitação
