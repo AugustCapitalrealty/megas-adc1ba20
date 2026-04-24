@@ -141,6 +141,14 @@ export interface BackofficeModalsProps {
   editProjurisLoading: boolean;
   handleSaveProjuris: () => void;
 
+  // Edit Natureza Orçamentária Modal
+  editNaturezaOpen: boolean;
+  setEditNaturezaOpen: (open: boolean) => void;
+  editNaturezaValue: string;
+  setEditNaturezaValue: (v: string) => void;
+  editNaturezaLoading: boolean;
+  handleSaveNatureza: () => void;
+
   // Confirmation Modal (baixa only now)
   confirmAction: { type: string; sol: SolicitacaoBackoffice; title: string; description: string } | null;
   setConfirmAction: (v: any) => void;
