@@ -70,7 +70,7 @@ export function PendingHeaderChips({
     );
   }
 
-  const chips: Chip[] = [
+  const allChips: Chip[] = [
     {
       key: 'correcoes',
       label: 'Correções',
@@ -111,7 +111,8 @@ export function PendingHeaderChips({
       filter: 'ciencia',
       variant: 'warning',
     },
-  ].filter((c) => c.count > 0);
+  ];
+  const chips = allChips.filter((c) => c.count > 0);
 
   return (
     <div
