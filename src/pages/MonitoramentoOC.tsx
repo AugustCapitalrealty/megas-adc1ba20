@@ -237,14 +237,15 @@ export default function MonitoramentoOC() {
   const cardFilteredGroups = useMemo(() => {
     if (cardFilter === 'todas') return baseFilteredGroups;
     return baseFilteredGroups.filter(g => {
-      const ativo = g.status !== 'cancelado' && g.status !== 'concluida';
       switch (cardFilter) {
         case 'liberada':
-          return ativo && g.ocs.length > 0 && g.ocs.every(oc => oc.tem_nf);
-        case 'sem_nf':
-          return ativo && g.ocs.some(oc => !oc.tem_nf);
+          return STATUS_LIBERADA.has(g.status);
+        case 'nao_liberada':
+          return STATUS_NAO_LIBERADA.has(g.status);
         case 'pendente':
-          return ativo && g.ocs.some(oc => computeOcStatus(oc, g) === 'pendente_justificativa');
+          return g.ocs.some(oc => computeOcStatus(oc, g) === 'pendente_justificativa');
+        case 'justificadas':
+          return g.ocs.some(oc => computeOcStatus(oc, g) === 'adiado');
         default:
           return true;
       }
