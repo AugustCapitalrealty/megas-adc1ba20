@@ -19,6 +19,9 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { ProjurisDetalhesModal } from './ProjurisDetalhesModal';
 import { OCDetalhesModal } from '../OCDetalhesModal';
+import { useAuth } from '@/hooks/useAuth';
+import { useUserEmpreendimentos } from '@/hooks/useUserEmpreendimentos';
+import { canViewEmpreendimentoLivre } from '@/lib/empreendimento-match';
 
 interface ProjurisRow {
   id: string;
@@ -139,6 +142,9 @@ function SortableRow({ row, index, onSelect, vinculo, onOpenVinculo }: {
 }
 
 export function ProjurisVisaoStatus() {
+  const { user, effectiveProfile, isImpersonating } = useAuth();
+  const effectiveUserId = isImpersonating ? effectiveProfile?.id : user?.id;
+  const { empreendimentos: userEmpreendimentos, hasAllAccess, loading: loadingEmps } = useUserEmpreendimentos(effectiveUserId);
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<ProjurisRow[]>([]);
   const [search, setSearch] = useState('');
@@ -167,7 +173,9 @@ export function ProjurisVisaoStatus() {
         .select('id, protocolo, numero_projuris, status')
         .not('numero_projuris', 'is', null),
     ]);
-    setRows((projurisData as ProjurisRow[]) || []);
+    const all = (projurisData as ProjurisRow[]) || [];
+    const visible = all.filter(r => canViewEmpreendimentoLivre(r.empreendimento, userEmpreendimentos, hasAllAccess));
+    setRows(visible);
     
     const map: Record<string, SolicitacaoVinculo> = {};
     if (solData) {
@@ -179,9 +187,9 @@ export function ProjurisVisaoStatus() {
     }
     setVinculos(map);
     setLoading(false);
-  }, []);
+  }, [userEmpreendimentos, hasAllAccess]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { if (!loadingEmps) fetchData(); }, [fetchData, loadingEmps]);
 
   const filteredRows = useMemo(() => {
     return rows.filter(r => {
