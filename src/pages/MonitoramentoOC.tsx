@@ -57,6 +57,16 @@ const TAB_STATUS: Record<TabKey, OcVisualStatus[]> = {
   justificadas: ['adiado', 'aguardando_nf', 'em_prazo', 'cancel_solicitado', 'cancelado'],
 };
 
+type CardFilter = 'todas' | 'ativas' | 'sem_nf' | 'pendente' | 'cancel';
+
+const CARD_FILTER_LABEL: Record<CardFilter, string> = {
+  todas: 'Todas',
+  ativas: 'OCs ativas',
+  sem_nf: 'Sem NF',
+  pendente: 'Pend. justificativa',
+  cancel: 'Cancel. pendentes',
+};
+
 const STATUS_LABEL_MAP: Record<OcVisualStatus, string> = {
   em_prazo: 'Em prazo',
   atencao: 'Atenção',
@@ -145,6 +155,7 @@ export default function MonitoramentoOC() {
   const [activeTab, setActiveTab] = useState<TabKey>('pendencia');
   const [searchTerm, setSearchTerm] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [cardFilter, setCardFilter] = useState<CardFilter>('todas');
 
   const [historyOpen, setHistoryOpen] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<OCGroupRow | null>(null);
@@ -156,11 +167,20 @@ export default function MonitoramentoOC() {
   const [cancelJustificativa, setCancelJustificativa] = useState('');
   const [cancelSaving, setCancelSaving] = useState(false);
 
-  const hasActiveFilters = filterEmpreendimento !== 'todos' || searchTerm !== '';
+  const hasActiveFilters = filterEmpreendimento !== 'todos' || searchTerm !== '' || cardFilter !== 'todas';
 
   const clearFilters = () => {
     setFilterEmpreendimento('todos');
     setSearchTerm('');
+    setCardFilter('todas');
+  };
+
+  const toggleCardFilter = (next: CardFilter, targetTab?: TabKey) => {
+    setCardFilter(prev => {
+      const isSame = prev === next;
+      if (!isSame && targetTab) setActiveTab(targetTab);
+      return isSame ? 'todas' : next;
+    });
   };
 
   const toggleExpand = (id: string) => {
@@ -188,28 +208,53 @@ export default function MonitoramentoOC() {
     });
   }, [groups, filterEmpreendimento, searchTerm]);
 
-  // Agregados reativos ao filtro de empreendimento + busca
-  const aggregates = useMemo(() => computeAggregates(baseFilteredGroups), [baseFilteredGroups]);
-  const { kpis, distribution, topOfensores, valorEmAberto, agingMedio } = aggregates;
+  // KPIs (4 cards) sempre vêm do conjunto base — para que clicar em um card
+  // não zere os outros números.
+  const baseAggregates = useMemo(() => computeAggregates(baseFilteredGroups), [baseFilteredGroups]);
+  const { kpis } = baseAggregates;
 
-  // Contagem por aba (a partir do conjunto base filtrado)
+  // Recorte aplicado pelo card ativo — alimenta Aging, Valor, Distribuição,
+  // Top ofensores e a tabela.
+  const cardFilteredGroups = useMemo(() => {
+    if (cardFilter === 'todas') return baseFilteredGroups;
+    return baseFilteredGroups.filter(g => {
+      const ativo = g.status !== 'cancelado' && g.status !== 'concluida';
+      switch (cardFilter) {
+        case 'ativas':
+          return ativo;
+        case 'sem_nf':
+          return ativo && g.ocs.some(oc => !oc.tem_nf);
+        case 'pendente':
+          return ativo && g.ocs.some(oc => computeOcStatus(oc, g) === 'pendente_justificativa');
+        case 'cancel':
+          return g.cancelamento_pendente;
+        default:
+          return true;
+      }
+    });
+  }, [baseFilteredGroups, cardFilter]);
+
+  const viewAggregates = useMemo(() => computeAggregates(cardFilteredGroups), [cardFilteredGroups]);
+  const { distribution, topOfensores, valorEmAberto, agingMedio } = viewAggregates;
+
+  // Contagem por aba (a partir do recorte do card)
   const tabCounts = useMemo(() => {
     const counts = { pendencia: 0, justificadas: 0 };
-    baseFilteredGroups.forEach(g => {
+    cardFilteredGroups.forEach(g => {
       const st = computeGroupStatus(g);
       if (TAB_STATUS.pendencia.includes(st)) counts.pendencia++;
       else counts.justificadas++;
     });
     return counts;
-  }, [baseFilteredGroups]);
+  }, [cardFilteredGroups]);
 
-  // Tabela = aplica filtro de aba sobre o conjunto base
+  // Tabela = aplica filtro de aba sobre o recorte do card
   const filteredGroups = useMemo(() => {
-    return baseFilteredGroups.filter(g => {
+    return cardFilteredGroups.filter(g => {
       const st = computeGroupStatus(g);
       return TAB_STATUS[activeTab].includes(st);
     });
-  }, [baseFilteredGroups, activeTab]);
+  }, [cardFilteredGroups, activeTab]);
 
   const availableEmpreendimentos = useMemo(() => {
     if (hasAllAccess) {
