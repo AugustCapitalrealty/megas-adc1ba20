@@ -11,6 +11,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserEmpreendimentos } from '@/hooks/useUserEmpreendimentos';
@@ -19,7 +26,7 @@ import {
   FileCheck, Clock, AlertTriangle, XCircle, CheckCircle,
   CalendarDays, Loader2, Download, AlertOctagon as AlertOctagonIcon,
   FileText, Ban, History, AlertCircle, Search, XOctagon, Scale, X, Inbox,
-  ChevronDown, ChevronRight, Wallet, Layers,
+  ChevronDown, ChevronRight, Wallet, Layers, MoreHorizontal, Eye, ShieldAlert, ShieldCheck,
 } from 'lucide-react';
 import { formatBR } from '@/lib/date-utils';
 import { formatDistanceToNowStrict } from 'date-fns';
@@ -37,15 +44,20 @@ import {
   useMonitoramentoOC,
   computeOcStatus,
   computeGroupStatus,
+  computeAggregates,
   type OCGroupRow,
   type OCItem,
   type OcVisualStatus,
 } from '@/hooks/useMonitoramentoOC';
 
-type StatusFilter = 'todos' | OcVisualStatus;
+type TabKey = 'pendencia' | 'justificadas';
 
-const STATUS_LABELS: Record<StatusFilter, string> = {
-  todos: 'Todos',
+const TAB_STATUS: Record<TabKey, OcVisualStatus[]> = {
+  pendencia: ['pendente_justificativa', 'atencao'],
+  justificadas: ['adiado', 'aguardando_nf', 'em_prazo', 'cancel_solicitado', 'cancelado'],
+};
+
+const STATUS_LABEL_MAP: Record<OcVisualStatus, string> = {
   em_prazo: 'Em prazo',
   atencao: 'Atenção',
   pendente_justificativa: 'Pendente justif.',
@@ -126,16 +138,11 @@ export default function MonitoramentoOC() {
   const {
     loading,
     groups,
-    kpis,
-    distribution,
-    topOfensores,
-    valorEmAberto,
-    agingMedio,
     refetch,
   } = useMonitoramentoOC({ userEmpreendimentos, hasAllAccess, enabled: !loadingEmpreendimentos });
 
   const [filterEmpreendimento, setFilterEmpreendimento] = useState<string>('todos');
-  const [filterStatus, setFilterStatus] = useState<StatusFilter>('todos');
+  const [activeTab, setActiveTab] = useState<TabKey>('pendencia');
   const [searchTerm, setSearchTerm] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -149,11 +156,10 @@ export default function MonitoramentoOC() {
   const [cancelJustificativa, setCancelJustificativa] = useState('');
   const [cancelSaving, setCancelSaving] = useState(false);
 
-  const hasActiveFilters = filterEmpreendimento !== 'todos' || filterStatus !== 'todos' || searchTerm !== '';
+  const hasActiveFilters = filterEmpreendimento !== 'todos' || searchTerm !== '';
 
   const clearFilters = () => {
     setFilterEmpreendimento('todos');
-    setFilterStatus('todos');
     setSearchTerm('');
   };
 
@@ -165,13 +171,10 @@ export default function MonitoramentoOC() {
     });
   };
 
-  const filteredGroups = useMemo(() => {
+  // Filtros base (empreendimento + busca) — alimentam KPIs e distribuição
+  const baseFilteredGroups = useMemo(() => {
     return groups.filter(g => {
       if (filterEmpreendimento !== 'todos' && g.empreendimento !== filterEmpreendimento) return false;
-      if (filterStatus !== 'todos') {
-        const groupStatus = computeGroupStatus(g);
-        if (groupStatus !== filterStatus) return false;
-      }
       if (searchTerm) {
         const term = searchTerm.toLowerCase();
         const match =
@@ -183,7 +186,30 @@ export default function MonitoramentoOC() {
       }
       return true;
     });
-  }, [groups, filterEmpreendimento, filterStatus, searchTerm]);
+  }, [groups, filterEmpreendimento, searchTerm]);
+
+  // Agregados reativos ao filtro de empreendimento + busca
+  const aggregates = useMemo(() => computeAggregates(baseFilteredGroups), [baseFilteredGroups]);
+  const { kpis, distribution, topOfensores, valorEmAberto, agingMedio } = aggregates;
+
+  // Contagem por aba (a partir do conjunto base filtrado)
+  const tabCounts = useMemo(() => {
+    const counts = { pendencia: 0, justificadas: 0 };
+    baseFilteredGroups.forEach(g => {
+      const st = computeGroupStatus(g);
+      if (TAB_STATUS.pendencia.includes(st)) counts.pendencia++;
+      else counts.justificadas++;
+    });
+    return counts;
+  }, [baseFilteredGroups]);
+
+  // Tabela = aplica filtro de aba sobre o conjunto base
+  const filteredGroups = useMemo(() => {
+    return baseFilteredGroups.filter(g => {
+      const st = computeGroupStatus(g);
+      return TAB_STATUS[activeTab].includes(st);
+    });
+  }, [baseFilteredGroups, activeTab]);
 
   const availableEmpreendimentos = useMemo(() => {
     if (hasAllAccess) {
