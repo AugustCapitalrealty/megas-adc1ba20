@@ -1190,6 +1190,39 @@ export function BackofficeModals(props: BackofficeModalsProps) {
         </DialogContent>
       </Dialog>
 
+      {/* ═══════════════ Edit Natureza Orçamentária Modal ═══════════════ */}
+      <Dialog open={editNaturezaOpen} onOpenChange={setEditNaturezaOpen}>
+        <DialogContent className="max-w-lg w-[80vw]">
+          <DialogHeader>
+            <DialogTitle>Corrigir Classificação Orçamentária</DialogTitle>
+            <DialogDescription>
+              A alteração será registrada no histórico da solicitação e ficará visível para o solicitante.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-natureza">Nova Classificação</Label>
+              <Select value={editNaturezaValue} onValueChange={setEditNaturezaValue}>
+                <SelectTrigger id="edit-natureza">
+                  <SelectValue placeholder="Selecione a classificação" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(NATUREZA_ORCAMENTARIA_LABELS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditNaturezaOpen(false)} disabled={editNaturezaLoading}>Cancelar</Button>
+            <Button onClick={handleSaveNatureza} disabled={editNaturezaLoading || !editNaturezaValue}>
+              {editNaturezaLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />} Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* ═══════════════ Confirmation Modal (baixa only) ═══════════════ */}
       <ConfirmModal
         open={!!confirmAction}
