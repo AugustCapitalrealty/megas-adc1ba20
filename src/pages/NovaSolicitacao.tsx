@@ -89,9 +89,9 @@ export default function NovaSolicitacao() {
     }
   }, [currentStep]);
 
-  // canProceed logic
-  const canProceed = (): boolean => {
-    switch (currentStep) {
+  // canProceed logic — validates a specific step
+  const validateStep = (stepId: Step): boolean => {
+    switch (stepId) {
       case 'empreendimento': return !!formState.empreendimento;
       case 'descricao': return !!formState.descricao && derived.valorNumerico > 0;
       case 'tipo': return derived.valorNumerico <= 1000 || !!formState.tipoContratacao;
@@ -123,6 +123,18 @@ export default function NovaSolicitacao() {
       default: return true;
     }
   };
+
+  const canProceed = (): boolean => validateStep(currentStep);
+
+  // First invalid step (excluding revisao) — used to gate the Submit button
+  const firstInvalidStep: Step | null = (() => {
+    for (const s of visibleSteps) {
+      if (s.id === 'revisao') continue;
+      if (!validateStep(s.id)) return s.id;
+    }
+    return null;
+  })();
+  const canSubmit = firstInvalidStep === null;
 
   const goNext = () => {
     // Block advance and surface inline errors if any
@@ -197,8 +209,43 @@ export default function NovaSolicitacao() {
 
   const handleSubmit = async () => {
     if (isSubmittingRef.current || submitting) return;
-    if (!user || !formState.empreendimento || !formState.naturezaOrcamentaria || !formState.fornecedor) return;
-    
+
+    if (!user) {
+      toast({ title: 'Sessão não encontrada', description: 'Faça login novamente para enviar a solicitação.', variant: 'destructive' });
+      navigate('/login');
+      return;
+    }
+
+    // Revalidate every step before submitting; jump to the first invalid step
+    if (firstInvalidStep) {
+      const stepLabel = visibleSteps.find(s => s.id === firstInvalidStep)?.label ?? 'etapa pendente';
+      toast({
+        title: 'Faltam informações',
+        description: `Complete a etapa "${stepLabel}" antes de enviar.`,
+        variant: 'destructive',
+      });
+      setCurrentStep(firstInvalidStep);
+      setShowErrors(true);
+      return;
+    }
+
+    if (!formState.empreendimento || !formState.naturezaOrcamentaria || !formState.fornecedor) {
+      const faltando: string[] = [];
+      if (!formState.empreendimento) faltando.push('Empreendimento');
+      if (!formState.naturezaOrcamentaria) faltando.push('Natureza Orçamentária');
+      if (!formState.fornecedor) faltando.push('Fornecedor');
+      toast({
+        title: 'Faltam informações obrigatórias',
+        description: `Preencha: ${faltando.join(', ')}.`,
+        variant: 'destructive',
+      });
+      if (!formState.empreendimento) setCurrentStep('empreendimento');
+      else if (!formState.naturezaOrcamentaria) setCurrentStep('detalhes');
+      else if (!formState.fornecedor) setCurrentStep('fornecedor');
+      setShowErrors(true);
+      return;
+    }
+
     // Lock immediately — both ref and state
     isSubmittingRef.current = true;
     setSubmitting(true);
@@ -395,9 +442,18 @@ export default function NovaSolicitacao() {
         ? 'Conflito ao gerar número de protocolo. Por favor, tente novamente em alguns segundos.'
         : errorMessage;
       toast({ title: 'Erro ao criar solicitação', description: userMessage, variant: 'destructive' });
+      // Cooldown anti-spam: keep button disabled briefly after error
+      setTimeout(() => {
+        setSubmitting(false);
+        isSubmittingRef.current = false;
+      }, 800);
+      return;
     } finally {
-      setSubmitting(false);
-      isSubmittingRef.current = false;
+      // On success path, release the lock here. On error path the timeout above handles it.
+      if (isSubmittingRef.current) {
+        setSubmitting(false);
+        isSubmittingRef.current = false;
+      }
     }
   };
 
@@ -590,6 +646,7 @@ export default function NovaSolicitacao() {
           currentIndex={currentIndex}
           submitting={submitting}
           canProceed={true}
+          canSubmit={canSubmit}
           onNext={goNext}
           onBack={goBack}
           onSubmit={handleSubmit}
