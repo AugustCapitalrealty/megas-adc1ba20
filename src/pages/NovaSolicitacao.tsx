@@ -299,6 +299,7 @@ export default function NovaSolicitacao() {
         toast({ title: 'Sessão expirada', description: 'Por favor, faça login novamente.', variant: 'destructive' });
         isSubmittingRef.current = false;
         setSubmitting(false);
+        navigate('/login');
         return;
       }
 
