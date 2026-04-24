@@ -8,6 +8,9 @@ import { Loader2, Clock, AlertTriangle, Inbox } from 'lucide-react';
 import { differenceInDays } from 'date-fns';
 import { formatBR } from '@/lib/date-utils';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
+import { useUserEmpreendimentos } from '@/hooks/useUserEmpreendimentos';
+import { canViewEmpreendimentoLivre } from '@/lib/empreendimento-match';
 
 interface ParadoRow {
   id: string;
@@ -20,10 +23,13 @@ interface ParadoRow {
 }
 
 export function ProjurisParadosAssinatura() {
+  const { user, effectiveProfile, isImpersonating } = useAuth();
+  const effectiveUserId = isImpersonating ? effectiveProfile?.id : user?.id;
+  const { empreendimentos: userEmpreendimentos, hasAllAccess, loading: loadingEmps } = useUserEmpreendimentos(effectiveUserId);
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<ParadoRow[]>([]);
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { if (!loadingEmps) fetchData(); }, [loadingEmps, userEmpreendimentos, hasAllAccess]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -33,7 +39,8 @@ export function ProjurisParadosAssinatura() {
       .eq('status', 'AGUARDANDO APROVAÇÃO');
 
     if (data) {
-      const mapped: ParadoRow[] = data
+      const visibleData = data.filter(r => canViewEmpreendimentoLivre(r.empreendimento, userEmpreendimentos, hasAllAccess));
+      const mapped: ParadoRow[] = visibleData
         .map(r => ({
           id: r.id,
           numero_requisicao: r.numero_requisicao,

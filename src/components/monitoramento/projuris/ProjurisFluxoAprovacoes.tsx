@@ -7,6 +7,9 @@ import { Loader2, Clock, AlertTriangle, Inbox, ChevronDown, ChevronUp, ArrowRigh
 import { differenceInDays } from 'date-fns';
 import { formatBR } from '@/lib/date-utils';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
+import { useUserEmpreendimentos } from '@/hooks/useUserEmpreendimentos';
+import { canViewEmpreendimentoLivre } from '@/lib/empreendimento-match';
 
 interface ReqFluxo {
   id: string;
@@ -49,11 +52,14 @@ function buildTimeline(req: ReqFluxo): EtapaTimeline[] {
 }
 
 export function ProjurisFluxoAprovacoes() {
+  const { user, effectiveProfile, isImpersonating } = useAuth();
+  const effectiveUserId = isImpersonating ? effectiveProfile?.id : user?.id;
+  const { empreendimentos: userEmpreendimentos, hasAllAccess, loading: loadingEmps } = useUserEmpreendimentos(effectiveUserId);
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<ReqFluxo[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { if (!loadingEmps) fetchData(); }, [loadingEmps, userEmpreendimentos, hasAllAccess]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -63,7 +69,8 @@ export function ProjurisFluxoAprovacoes() {
       .not('status', 'in', '(FINALIZADA,CANCELADA,REPROVADA)');
 
     if (data) {
-      const mapped: ReqFluxo[] = data.map(r => ({
+      const visibleData = data.filter(r => canViewEmpreendimentoLivre(r.empreendimento, userEmpreendimentos, hasAllAccess));
+      const mapped: ReqFluxo[] = visibleData.map(r => ({
         ...r,
         dias_total: r.data_requisicao ? differenceInDays(new Date(), new Date(r.data_requisicao)) : 0,
       })).sort((a, b) => b.dias_total - a.dias_total);

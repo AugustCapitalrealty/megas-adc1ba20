@@ -9,6 +9,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { Loader2, Search, CheckCircle, XCircle, Ban } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
+import { useUserEmpreendimentos } from '@/hooks/useUserEmpreendimentos';
+import { canViewEmpreendimentoLivre } from '@/lib/empreendimento-match';
 
 interface ProjurisRow {
   id: string;
@@ -36,6 +39,9 @@ function fmt(d: string | null) {
 }
 
 export function ProjurisFinalizadas() {
+  const { user, effectiveProfile, isImpersonating } = useAuth();
+  const effectiveUserId = isImpersonating ? effectiveProfile?.id : user?.id;
+  const { empreendimentos: userEmpreendimentos, hasAllAccess, loading: loadingEmps } = useUserEmpreendimentos(effectiveUserId);
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState<ProjurisRow[]>([]);
   const [search, setSearch] = useState('');
@@ -49,11 +55,13 @@ export function ProjurisFinalizadas() {
       .in('status', CLOSED_STATUSES)
       .order('data_finalizacao', { ascending: false, nullsFirst: false })
       .order('updated_at', { ascending: false });
-    setRows((data as ProjurisRow[]) || []);
+    const all = (data as ProjurisRow[]) || [];
+    const visible = all.filter(r => canViewEmpreendimentoLivre(r.empreendimento, userEmpreendimentos, hasAllAccess));
+    setRows(visible);
     setLoading(false);
-  }, []);
+  }, [userEmpreendimentos, hasAllAccess]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { if (!loadingEmps) fetchData(); }, [fetchData, loadingEmps]);
 
   const filtered = useMemo(() => {
     return rows.filter(r => {
