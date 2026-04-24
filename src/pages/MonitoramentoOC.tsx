@@ -320,14 +320,9 @@ export default function MonitoramentoOC() {
                   <OcDistributionBar
                     data={distribution}
                     onSegmentClick={(key) => {
-                      const map: Record<string, StatusFilter> = {
-                        em_prazo: 'em_prazo',
-                        atencao: 'atencao',
-                        pendente: 'pendente_justificativa',
-                        adiado: 'adiado',
-                        cancel: 'cancel_solicitado',
-                      };
-                      setFilterStatus(map[key] || 'todos');
+                      // Mapeia segmento -> aba apropriada
+                      if (key === 'pendente' || key === 'atencao') setActiveTab('pendencia');
+                      else setActiveTab('justificadas');
                     }}
                   />
                   <div className="grid grid-cols-2 gap-3 pt-2">
@@ -365,17 +360,16 @@ export default function MonitoramentoOC() {
                   value={kpis.total_ativas}
                   icon={<FileCheck className="h-4 w-4" />}
                   tone="neutral"
-                  active={filterStatus === 'todos' && !searchTerm && filterEmpreendimento === 'todos'}
-                  onClick={() => setFilterStatus('todos')}
-                  hint="Total de Ordens de Compra ativas (excluindo concluídas e canceladas)."
+                  active={false}
+                  hint="Total de OCs ativas no recorte filtrado (exclui concluídas/canceladas)."
                 />
                 <SlaKpiCard
                   label="Sem NF"
                   value={kpis.sem_nf}
                   icon={<Clock className="h-4 w-4" />}
                   tone="warning"
-                  active={filterStatus === 'aguardando_nf'}
-                  onClick={() => setFilterStatus(filterStatus === 'aguardando_nf' ? 'todos' : 'aguardando_nf')}
+                  active={activeTab === 'justificadas'}
+                  onClick={() => setActiveTab('justificadas')}
                   hint="OCs ativas que ainda não receberam NF."
                 />
                 <SlaKpiCard
@@ -383,8 +377,8 @@ export default function MonitoramentoOC() {
                   value={kpis.pendente_justificativa}
                   icon={<AlertTriangle className="h-4 w-4" />}
                   tone="destructive"
-                  active={filterStatus === 'pendente_justificativa'}
-                  onClick={() => setFilterStatus(filterStatus === 'pendente_justificativa' ? 'todos' : 'pendente_justificativa')}
+                  active={activeTab === 'pendencia'}
+                  onClick={() => setActiveTab('pendencia')}
                   hint="OCs sem NF do mês anterior, ou do mês atual após dia 23 sem previsão futura."
                 />
                 <SlaKpiCard
@@ -392,8 +386,7 @@ export default function MonitoramentoOC() {
                   value={kpis.cancelamento_pendente}
                   icon={<XCircle className="h-4 w-4" />}
                   tone="warning"
-                  active={filterStatus === 'cancel_solicitado'}
-                  onClick={() => setFilterStatus(filterStatus === 'cancel_solicitado' ? 'todos' : 'cancel_solicitado')}
+                  active={false}
                   hint="Solicitações com cancelamento aguardando aprovação."
                 />
               </div>
@@ -425,14 +418,6 @@ export default function MonitoramentoOC() {
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as StatusFilter)}>
-                <SelectTrigger className="w-56"><SelectValue placeholder="Status" /></SelectTrigger>
-                <SelectContent>
-                  {Object.entries(STATUS_LABELS).map(([key, label]) => (
-                    <SelectItem key={key} value={key}>{label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
 
               <div className="ml-auto flex items-center gap-3">
                 {hasActiveFilters && (
@@ -455,7 +440,7 @@ export default function MonitoramentoOC() {
                         'Valor (R$)': g.valor,
                         'Data OC': formatBR(oc.data_oc, 'dd/MM/yyyy'),
                         'Dias Aberto': oc.dias_aberto,
-                        'Status': STATUS_LABELS[computeOcStatus(oc, g) as StatusFilter] || '-',
+                        'Status': STATUS_LABEL_MAP[computeOcStatus(oc, g)] || '-',
                         'Tem NF': oc.tem_nf ? 'Sim' : 'Não',
                         'Previsão NF': oc.previsao_nf || '-',
                       }))
