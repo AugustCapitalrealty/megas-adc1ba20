@@ -156,6 +156,26 @@ export default function NovaSolicitacao() {
     ? visibleSteps.find((s) => s.id === firstInvalidStep)?.label ?? null
     : null;
 
+  // List of all invalid step ids (for visual hint in StepIndicator)
+  const invalidStepIds: string[] = visibleSteps
+    .filter((s) => s.id !== 'revisao' && !validateStep(s.id))
+    .map((s) => s.id);
+
+  // Detect: draft restored on anexos/revisao but no anexos uploaded yet
+  const restoredWithoutAnexos =
+    justRestored &&
+    (currentStep === 'anexos' || currentStep === 'revisao') &&
+    Object.values(formState.anexos).every((f) => !f) &&
+    formState.outrosAnexos.length === 0;
+
+  useEffect(() => {
+    if (restoredWithoutAnexos && currentStep === 'revisao') {
+      // Send user back to anexos so they can re-upload and see the issue clearly
+      setCurrentStep('anexos');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restoredWithoutAnexos]);
+
   const goNext = () => {
     // Block advance and surface inline errors if any
     if (Object.keys(stepErrors).length > 0) {
