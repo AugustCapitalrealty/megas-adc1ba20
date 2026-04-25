@@ -264,7 +264,7 @@ function buildDigestCard(
     movementWidgets.push({ textParagraph: { text: `<font color="${COLORS.muted}">Sem movimentação hoje.</font>` } })
   }
 
-  const sections = [
+  const sections: any[] = [
     { widgets: [{ textParagraph: { text: introText } }] },
     { header: `🔴 PRIORIDADES IMEDIATAS (${urgentCount})`, widgets: priorityWidgets },
     { widgets: [{ divider: {} }] },
