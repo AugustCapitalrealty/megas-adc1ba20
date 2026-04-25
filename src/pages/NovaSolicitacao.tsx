@@ -573,6 +573,21 @@ export default function NovaSolicitacao() {
           invalidStepIds={invalidStepIds}
         />
 
+        {pendingAnexosFor && (
+          <Alert variant="destructive" className="animate-fade-in">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription className="flex items-center justify-between gap-3 flex-wrap">
+              <span>
+                <span className="font-medium">Solicitação {pendingAnexosFor.protocolo} criada</span>, mas alguns
+                anexos não foram enviados. Tente novamente para concluir.
+              </span>
+              <Button size="sm" variant="default" onClick={retryPendingAnexos} disabled={submitting}>
+                {submitting ? 'Reenviando…' : 'Reenviar anexos'}
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {restoredWithoutAnexos && (
           <Alert variant="destructive" className="animate-fade-in">
             <AlertTriangle className="h-4 w-4" />
