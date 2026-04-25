@@ -10,13 +10,17 @@ interface FormNavigationProps {
   submitting: boolean;
   canProceed: boolean;
   canSubmit?: boolean;
+  firstInvalidStepLabel?: string | null;
   onNext: () => void;
   onBack: () => void;
   onSubmit: () => void;
 }
 
-export function FormNavigation({ currentStep, visibleSteps, currentIndex, submitting, canProceed, canSubmit = true, onNext, onBack, onSubmit }: FormNavigationProps) {
+export function FormNavigation({ currentStep, visibleSteps, currentIndex, submitting, canProceed, canSubmit = true, firstInvalidStepLabel = null, onNext, onBack, onSubmit }: FormNavigationProps) {
   const submitDisabled = submitting || !canSubmit;
+  const tooltipMessage = firstInvalidStepLabel
+    ? `Falta completar a etapa "${firstInvalidStepLabel}" para enviar.`
+    : 'Complete todas as etapas obrigatórias para enviar.';
   const submitButton = (
     <Button
       onClick={onSubmit}
@@ -40,7 +44,7 @@ export function FormNavigation({ currentStep, visibleSteps, currentIndex, submit
               <TooltipTrigger asChild>
                 <span tabIndex={0}>{submitButton}</span>
               </TooltipTrigger>
-              <TooltipContent>Complete todas as etapas obrigatórias para enviar.</TooltipContent>
+              <TooltipContent>{tooltipMessage}</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         ) : submitButton

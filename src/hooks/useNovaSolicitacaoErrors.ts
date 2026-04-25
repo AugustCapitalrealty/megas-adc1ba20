@@ -35,6 +35,22 @@ export function computeStepErrors(
       }
       break;
 
+    case 'natureza_servico': {
+      // For AC, require an explicit choice (any natureza checkbox OR "nenhuma")
+      if (derived.showNaturezaServicoStep) {
+        const algumaMarcada =
+          formState.naturezaObraCivil ||
+          formState.naturezaAlturaRisco ||
+          formState.naturezaFossaFiltro ||
+          formState.naturezaPrecoVariavel ||
+          formState.nenhumaOpcaoNatureza;
+        if (!algumaMarcada) {
+          errors.naturezaServico = 'Marque pelo menos uma opção (ou "Nenhuma das opções acima").';
+        }
+      }
+      break;
+    }
+
     case 'detalhes': {
       if (!formState.naturezaOrcamentaria) {
         errors.naturezaOrcamentaria = 'Selecione a natureza orçamentária.';
@@ -53,6 +69,20 @@ export function computeStepErrors(
       }
       if (derived.requerDueDiligence && !formState.dueDiligenceConfirmada) {
         errors.dueDiligenceConfirmada = 'Confirme a due diligence para prosseguir.';
+      }
+      // Rateio: required when empreendimento === 'todos'
+      if (formState.empreendimento === 'todos') {
+        if (!formState.rateioValores || formState.rateioValores.length < 2) {
+          errors.rateio = 'Configure o rateio entre pelo menos 2 empreendimentos.';
+        } else {
+          const somaRateio = formState.rateioValores.reduce(
+            (acc, r: any) => acc + (Number(r?.valor) || 0),
+            0,
+          );
+          if (Math.abs(somaRateio - derived.valorNumerico) > 0.01) {
+            errors.rateio = `A soma do rateio (${somaRateio.toFixed(2)}) deve ser igual ao valor total (${derived.valorNumerico.toFixed(2)}).`;
+          }
+        }
       }
       break;
     }

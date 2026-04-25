@@ -95,7 +95,16 @@ export default function NovaSolicitacao() {
       case 'empreendimento': return !!formState.empreendimento;
       case 'descricao': return !!formState.descricao && derived.valorNumerico > 0;
       case 'tipo': return derived.valorNumerico <= 1000 || !!formState.tipoContratacao;
-      case 'natureza_servico': return true;
+      case 'natureza_servico': {
+        if (!derived.showNaturezaServicoStep) return true;
+        return (
+          formState.naturezaObraCivil ||
+          formState.naturezaAlturaRisco ||
+          formState.naturezaFossaFiltro ||
+          formState.naturezaPrecoVariavel ||
+          formState.nenhumaOpcaoNatureza
+        );
+      }
       case 'detalhes': {
         if (!formState.naturezaOrcamentaria) return false;
         if (formState.origemCusto === 'cliente' && !formState.clienteId) return false;
@@ -105,6 +114,14 @@ export default function NovaSolicitacao() {
         }
         if (derived.requerEscopoDetalhado && formState.escopoDetalhadoMinuta.length < 100) return false;
         if (derived.requerDueDiligence && !formState.dueDiligenceConfirmada) return false;
+        if (formState.empreendimento === 'todos') {
+          if (!formState.rateioValores || formState.rateioValores.length < 2) return false;
+          const soma = formState.rateioValores.reduce(
+            (acc: number, r: any) => acc + (Number(r?.valor) || 0),
+            0,
+          );
+          if (Math.abs(soma - derived.valorNumerico) > 0.01) return false;
+        }
         return true;
       }
       case 'fornecedor': {
@@ -135,6 +152,29 @@ export default function NovaSolicitacao() {
     return null;
   })();
   const canSubmit = firstInvalidStep === null;
+  const firstInvalidStepLabel = firstInvalidStep
+    ? visibleSteps.find((s) => s.id === firstInvalidStep)?.label ?? null
+    : null;
+
+  // List of all invalid step ids (for visual hint in StepIndicator)
+  const invalidStepIds: string[] = visibleSteps
+    .filter((s) => s.id !== 'revisao' && !validateStep(s.id))
+    .map((s) => s.id);
+
+  // Detect: draft restored on anexos/revisao but no anexos uploaded yet
+  const restoredWithoutAnexos =
+    justRestored &&
+    (currentStep === 'anexos' || currentStep === 'revisao') &&
+    Object.values(formState.anexos).every((f) => !f) &&
+    formState.outrosAnexos.length === 0;
+
+  useEffect(() => {
+    if (restoredWithoutAnexos && currentStep === 'revisao') {
+      // Send user back to anexos so they can re-upload and see the issue clearly
+      setCurrentStep('anexos');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restoredWithoutAnexos]);
 
   const goNext = () => {
     // Block advance and surface inline errors if any
@@ -206,6 +246,31 @@ export default function NovaSolicitacao() {
 
   // Submit
   const isSubmittingRef = useRef(false);
+  // When attachment upload fails after a successful insert, we keep the id here
+  // and offer a manual retry button instead of leaving the user without remediation.
+  const [pendingAnexosFor, setPendingAnexosFor] = useState<{ id: string; protocolo: string } | null>(null);
+
+  const retryPendingAnexos = async () => {
+    if (!pendingAnexosFor) return;
+    setSubmitting(true);
+    try {
+      await uploadAnexos(pendingAnexosFor.id);
+      toast({ title: 'Anexos enviados!', description: `Protocolo ${pendingAnexosFor.protocolo} concluído.` });
+      clearDraft();
+      const protocolo = pendingAnexosFor.protocolo;
+      setPendingAnexosFor(null);
+      navigate(`/minhas-solicitacoes?created=${protocolo}`);
+    } catch (err: any) {
+      console.error('[RETRY-UPLOAD] Falha:', err);
+      toast({
+        title: 'Falha ao reenviar',
+        description: err?.message || 'Verifique sua conexão e tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (isSubmittingRef.current || submitting) return;
@@ -213,6 +278,7 @@ export default function NovaSolicitacao() {
 
     if (!user) {
       toast({ title: 'Sessão não encontrada', description: 'Faça login novamente para enviar a solicitação.', variant: 'destructive' });
+      track('submit_failed', { reason: 'no_session' }, '/nova-solicitacao');
       navigate('/login');
       return;
     }
@@ -220,11 +286,22 @@ export default function NovaSolicitacao() {
     // Revalidate every step before submitting; jump to the first invalid step
     if (firstInvalidStep) {
       const stepLabel = visibleSteps.find(s => s.id === firstInvalidStep)?.label ?? 'etapa pendente';
+      // If anexos step is the issue, list missing attachments to speed up correction
+      let extraDescription = '';
+      if (firstInvalidStep === 'anexos') {
+        const missing = getRequiredAttachments()
+          .filter((a) => a.required && !formState.anexos[a.tipo])
+          .map((a) => a.label);
+        if (missing.length > 0) {
+          extraDescription = ` Faltando: ${missing.join(', ')}.`;
+        }
+      }
       toast({
         title: 'Faltam informações',
-        description: `Complete a etapa "${stepLabel}" antes de enviar.`,
+        description: `Complete a etapa "${stepLabel}" antes de enviar.${extraDescription}`,
         variant: 'destructive',
       });
+      track('submit_failed', { reason: 'invalid_step', step: firstInvalidStep }, '/nova-solicitacao');
       setCurrentStep(firstInvalidStep);
       setShowErrors(true);
       return;
@@ -240,6 +317,7 @@ export default function NovaSolicitacao() {
         description: `Preencha: ${faltando.join(', ')}.`,
         variant: 'destructive',
       });
+      track('submit_failed', { reason: 'missing_required', fields: faltando.join(',') }, '/nova-solicitacao');
       if (!formState.empreendimento) setCurrentStep('empreendimento');
       else if (!formState.naturezaOrcamentaria) setCurrentStep('detalhes');
       else if (!formState.fornecedor) setCurrentStep('fornecedor');
@@ -304,7 +382,7 @@ export default function NovaSolicitacao() {
       }
 
       const insertData = {
-        user_id: user.id,
+        user_id: effectiveUserId ?? user.id,
         empreendimento: formState.empreendimento as any,
         descricao: formState.descricao,
         valor: derived.valorNumerico,
@@ -386,20 +464,26 @@ export default function NovaSolicitacao() {
           await uploadAnexos(data.id);
         } catch (retryError) {
           console.error('[SUBMIT] Falha no retry de anexos:', retryError);
-          // Solicitação criada mas anexos falharam — notificar o usuário
+          // Solicitação criada mas anexos falharam — manter usuário na tela com retry manual.
+          // Não limpar o draft: anexos continuam no estado.
+          setPendingAnexosFor({ id: data.id, protocolo: data.protocolo });
           toast({
-            title: 'Solicitação criada com pendência',
-            description: `Protocolo: ${data.protocolo}. Alguns anexos podem não ter sido enviados. Entre em contato com o backoffice.`,
+            title: 'Falha ao enviar anexos',
+            description: `Protocolo ${data.protocolo} criado. Clique em "Reenviar anexos" abaixo para concluir.`,
             variant: 'destructive',
-            duration: 10000,
+            duration: 12000,
           });
-          clearDraft();
-          navigate(`/minhas-solicitacoes?created=${data.protocolo}`);
+          track('submit_failed', { reason: 'upload_failed', protocolo: data.protocolo }, '/nova-solicitacao');
           return;
         }
       }
 
-      await supabase.from('historico_solicitacoes').insert({ solicitacao_id: data.id, user_id: user.id, acao: 'criacao', status_novo: 'recebido' });
+      await supabase.from('historico_solicitacoes').insert({
+        solicitacao_id: data.id,
+        user_id: user.id, // historico is who actually performed the action
+        acao: 'criacao',
+        status_novo: 'recebido',
+      });
 
       const { data: userProfile } = await supabase.from('profiles').select('full_name, email').eq('id', user.id).single();
 
@@ -435,6 +519,7 @@ export default function NovaSolicitacao() {
 
       clearDraft();
       toast({ title: 'Solicitação criada!', description: `Protocolo: ${data.protocolo}` });
+      track('submit_success', { protocolo: data.protocolo, empreendimento: formState.empreendimento }, '/nova-solicitacao');
       navigate(`/minhas-solicitacoes?created=${data.protocolo}`);
     } catch (error: any) {
       const errorMessage = error?.message || 'Erro desconhecido';
@@ -474,11 +559,44 @@ export default function NovaSolicitacao() {
         <StepIndicator
           steps={visibleSteps.map(s => ({ id: s.id, label: s.label })) as StepIndicatorStep[]}
           currentStepIndex={currentIndex}
-          onStepClick={(index) => { if (index < currentIndex) setCurrentStep(visibleSteps[index].id); }}
+          onStepClick={(index) => {
+            // Allow jumping to any step that is either before current OR currently invalid
+            const target = visibleSteps[index];
+            if (!target) return;
+            if (index < currentIndex || invalidStepIds.includes(target.id)) {
+              setCurrentStep(target.id);
+            }
+          }}
           showTimeEstimate
           draftSaved={hasDraft}
           lastSavedAt={lastSavedAt}
+          invalidStepIds={invalidStepIds}
         />
+
+        {pendingAnexosFor && (
+          <Alert variant="destructive" className="animate-fade-in">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription className="flex items-center justify-between gap-3 flex-wrap">
+              <span>
+                <span className="font-medium">Solicitação {pendingAnexosFor.protocolo} criada</span>, mas alguns
+                anexos não foram enviados. Tente novamente para concluir.
+              </span>
+              <Button size="sm" variant="default" onClick={retryPendingAnexos} disabled={submitting}>
+                {submitting ? 'Reenviando…' : 'Reenviar anexos'}
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {restoredWithoutAnexos && (
+          <Alert variant="destructive" className="animate-fade-in">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              <span className="font-medium">Reanexar arquivos:</span> seu rascunho foi restaurado, mas
+              os arquivos não ficam salvos no navegador. Reenvie os anexos obrigatórios para concluir.
+            </AlertDescription>
+          </Alert>
+        )}
 
         {justRestored && (
           <Alert className="bg-primary/5 border-primary/30 animate-fade-in">
@@ -576,19 +694,22 @@ export default function NovaSolicitacao() {
               </>
             )}
             {currentStep === 'natureza_servico' && (
-              <NaturezaServicoStep
-                valorNumerico={derived.valorNumerico}
-                obraCivil={formState.naturezaObraCivil}
-                alturaRisco={formState.naturezaAlturaRisco}
-                fossaFiltro={formState.naturezaFossaFiltro}
-                precoVariavel={formState.naturezaPrecoVariavel}
-                nenhumaOpcao={formState.nenhumaOpcaoNatureza}
-                onObraCivilChange={setters.setNaturezaObraCivil}
-                onAlturaRiscoChange={setters.setNaturezaAlturaRisco}
-                onFossaFiltroChange={setters.setNaturezaFossaFiltro}
-                onPrecoVariavelChange={setters.setNaturezaPrecoVariavel}
-                onNenhumaOpcaoChange={setters.setNenhumaOpcaoNatureza}
-              />
+              <>
+                <NaturezaServicoStep
+                  valorNumerico={derived.valorNumerico}
+                  obraCivil={formState.naturezaObraCivil}
+                  alturaRisco={formState.naturezaAlturaRisco}
+                  fossaFiltro={formState.naturezaFossaFiltro}
+                  precoVariavel={formState.naturezaPrecoVariavel}
+                  nenhumaOpcao={formState.nenhumaOpcaoNatureza}
+                  onObraCivilChange={setters.setNaturezaObraCivil}
+                  onAlturaRiscoChange={setters.setNaturezaAlturaRisco}
+                  onFossaFiltroChange={setters.setNaturezaFossaFiltro}
+                  onPrecoVariavelChange={setters.setNaturezaPrecoVariavel}
+                  onNenhumaOpcaoChange={setters.setNenhumaOpcaoNatureza}
+                />
+                {showErrors && <FieldError message={stepErrors.naturezaServico} />}
+              </>
             )}
             {currentStep === 'detalhes' && (
               <>
@@ -600,6 +721,7 @@ export default function NovaSolicitacao() {
                     <FieldError message={stepErrors.faturamentoDireto} />
                     <FieldError message={stepErrors.escopoDetalhadoMinuta} />
                     <FieldError message={stepErrors.dueDiligenceConfirmada} />
+                    <FieldError message={stepErrors.rateio} />
                   </div>
                 )}
               </>
@@ -649,6 +771,7 @@ export default function NovaSolicitacao() {
           submitting={submitting}
           canProceed={true}
           canSubmit={canSubmit}
+          firstInvalidStepLabel={firstInvalidStepLabel}
           onNext={goNext}
           onBack={goBack}
           onSubmit={handleSubmit}
