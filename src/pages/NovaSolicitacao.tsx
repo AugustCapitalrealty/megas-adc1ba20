@@ -464,15 +464,16 @@ export default function NovaSolicitacao() {
           await uploadAnexos(data.id);
         } catch (retryError) {
           console.error('[SUBMIT] Falha no retry de anexos:', retryError);
-          // Solicitação criada mas anexos falharam — notificar o usuário
+          // Solicitação criada mas anexos falharam — manter usuário na tela com retry manual.
+          // Não limpar o draft: anexos continuam no estado.
+          setPendingAnexosFor({ id: data.id, protocolo: data.protocolo });
           toast({
-            title: 'Solicitação criada com pendência',
-            description: `Protocolo: ${data.protocolo}. Alguns anexos podem não ter sido enviados. Entre em contato com o backoffice.`,
+            title: 'Falha ao enviar anexos',
+            description: `Protocolo ${data.protocolo} criado. Clique em "Reenviar anexos" abaixo para concluir.`,
             variant: 'destructive',
-            duration: 10000,
+            duration: 12000,
           });
-          clearDraft();
-          navigate(`/minhas-solicitacoes?created=${data.protocolo}`);
+          track('submit_failed', { reason: 'upload_failed', protocolo: data.protocolo }, '/nova-solicitacao');
           return;
         }
       }
