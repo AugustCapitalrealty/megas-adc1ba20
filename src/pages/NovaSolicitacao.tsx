@@ -694,19 +694,22 @@ export default function NovaSolicitacao() {
               </>
             )}
             {currentStep === 'natureza_servico' && (
-              <NaturezaServicoStep
-                valorNumerico={derived.valorNumerico}
-                obraCivil={formState.naturezaObraCivil}
-                alturaRisco={formState.naturezaAlturaRisco}
-                fossaFiltro={formState.naturezaFossaFiltro}
-                precoVariavel={formState.naturezaPrecoVariavel}
-                nenhumaOpcao={formState.nenhumaOpcaoNatureza}
-                onObraCivilChange={setters.setNaturezaObraCivil}
-                onAlturaRiscoChange={setters.setNaturezaAlturaRisco}
-                onFossaFiltroChange={setters.setNaturezaFossaFiltro}
-                onPrecoVariavelChange={setters.setNaturezaPrecoVariavel}
-                onNenhumaOpcaoChange={setters.setNenhumaOpcaoNatureza}
-              />
+              <>
+                <NaturezaServicoStep
+                  valorNumerico={derived.valorNumerico}
+                  obraCivil={formState.naturezaObraCivil}
+                  alturaRisco={formState.naturezaAlturaRisco}
+                  fossaFiltro={formState.naturezaFossaFiltro}
+                  precoVariavel={formState.naturezaPrecoVariavel}
+                  nenhumaOpcao={formState.nenhumaOpcaoNatureza}
+                  onObraCivilChange={setters.setNaturezaObraCivil}
+                  onAlturaRiscoChange={setters.setNaturezaAlturaRisco}
+                  onFossaFiltroChange={setters.setNaturezaFossaFiltro}
+                  onPrecoVariavelChange={setters.setNaturezaPrecoVariavel}
+                  onNenhumaOpcaoChange={setters.setNenhumaOpcaoNatureza}
+                />
+                {showErrors && <FieldError message={stepErrors.naturezaServico} />}
+              </>
             )}
             {currentStep === 'detalhes' && (
               <>
@@ -718,6 +721,7 @@ export default function NovaSolicitacao() {
                     <FieldError message={stepErrors.faturamentoDireto} />
                     <FieldError message={stepErrors.escopoDetalhadoMinuta} />
                     <FieldError message={stepErrors.dueDiligenceConfirmada} />
+                    <FieldError message={stepErrors.rateio} />
                   </div>
                 )}
               </>
