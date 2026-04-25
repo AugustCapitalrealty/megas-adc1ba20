@@ -95,7 +95,16 @@ export default function NovaSolicitacao() {
       case 'empreendimento': return !!formState.empreendimento;
       case 'descricao': return !!formState.descricao && derived.valorNumerico > 0;
       case 'tipo': return derived.valorNumerico <= 1000 || !!formState.tipoContratacao;
-      case 'natureza_servico': return true;
+      case 'natureza_servico': {
+        if (!derived.showNaturezaServicoStep) return true;
+        return (
+          formState.naturezaObraCivil ||
+          formState.naturezaAlturaRisco ||
+          formState.naturezaFossaFiltro ||
+          formState.naturezaPrecoVariavel ||
+          formState.nenhumaOpcaoNatureza
+        );
+      }
       case 'detalhes': {
         if (!formState.naturezaOrcamentaria) return false;
         if (formState.origemCusto === 'cliente' && !formState.clienteId) return false;
@@ -105,6 +114,14 @@ export default function NovaSolicitacao() {
         }
         if (derived.requerEscopoDetalhado && formState.escopoDetalhadoMinuta.length < 100) return false;
         if (derived.requerDueDiligence && !formState.dueDiligenceConfirmada) return false;
+        if (formState.empreendimento === 'todos') {
+          if (!formState.rateioValores || formState.rateioValores.length < 2) return false;
+          const soma = formState.rateioValores.reduce(
+            (acc: number, r: any) => acc + (Number(r?.valor) || 0),
+            0,
+          );
+          if (Math.abs(soma - derived.valorNumerico) > 0.01) return false;
+        }
         return true;
       }
       case 'fornecedor': {
