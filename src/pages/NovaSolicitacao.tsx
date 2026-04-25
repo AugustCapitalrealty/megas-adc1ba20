@@ -152,6 +152,9 @@ export default function NovaSolicitacao() {
     return null;
   })();
   const canSubmit = firstInvalidStep === null;
+  const firstInvalidStepLabel = firstInvalidStep
+    ? visibleSteps.find((s) => s.id === firstInvalidStep)?.label ?? null
+    : null;
 
   const goNext = () => {
     // Block advance and surface inline errors if any
@@ -230,6 +233,7 @@ export default function NovaSolicitacao() {
 
     if (!user) {
       toast({ title: 'Sessão não encontrada', description: 'Faça login novamente para enviar a solicitação.', variant: 'destructive' });
+      track('submit_failed', { reason: 'no_session' }, '/nova-solicitacao');
       navigate('/login');
       return;
     }
@@ -237,11 +241,22 @@ export default function NovaSolicitacao() {
     // Revalidate every step before submitting; jump to the first invalid step
     if (firstInvalidStep) {
       const stepLabel = visibleSteps.find(s => s.id === firstInvalidStep)?.label ?? 'etapa pendente';
+      // If anexos step is the issue, list missing attachments to speed up correction
+      let extraDescription = '';
+      if (firstInvalidStep === 'anexos') {
+        const missing = getRequiredAttachments()
+          .filter((a) => a.required && !formState.anexos[a.tipo])
+          .map((a) => a.label);
+        if (missing.length > 0) {
+          extraDescription = ` Faltando: ${missing.join(', ')}.`;
+        }
+      }
       toast({
         title: 'Faltam informações',
-        description: `Complete a etapa "${stepLabel}" antes de enviar.`,
+        description: `Complete a etapa "${stepLabel}" antes de enviar.${extraDescription}`,
         variant: 'destructive',
       });
+      track('submit_failed', { reason: 'invalid_step', step: firstInvalidStep }, '/nova-solicitacao');
       setCurrentStep(firstInvalidStep);
       setShowErrors(true);
       return;
@@ -257,6 +272,7 @@ export default function NovaSolicitacao() {
         description: `Preencha: ${faltando.join(', ')}.`,
         variant: 'destructive',
       });
+      track('submit_failed', { reason: 'missing_required', fields: faltando.join(',') }, '/nova-solicitacao');
       if (!formState.empreendimento) setCurrentStep('empreendimento');
       else if (!formState.naturezaOrcamentaria) setCurrentStep('detalhes');
       else if (!formState.fornecedor) setCurrentStep('fornecedor');
