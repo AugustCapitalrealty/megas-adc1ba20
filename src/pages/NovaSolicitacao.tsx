@@ -246,6 +246,31 @@ export default function NovaSolicitacao() {
 
   // Submit
   const isSubmittingRef = useRef(false);
+  // When attachment upload fails after a successful insert, we keep the id here
+  // and offer a manual retry button instead of leaving the user without remediation.
+  const [pendingAnexosFor, setPendingAnexosFor] = useState<{ id: string; protocolo: string } | null>(null);
+
+  const retryPendingAnexos = async () => {
+    if (!pendingAnexosFor) return;
+    setSubmitting(true);
+    try {
+      await uploadAnexos(pendingAnexosFor.id);
+      toast({ title: 'Anexos enviados!', description: `Protocolo ${pendingAnexosFor.protocolo} concluído.` });
+      clearDraft();
+      const protocolo = pendingAnexosFor.protocolo;
+      setPendingAnexosFor(null);
+      navigate(`/minhas-solicitacoes?created=${protocolo}`);
+    } catch (err: any) {
+      console.error('[RETRY-UPLOAD] Falha:', err);
+      toast({
+        title: 'Falha ao reenviar',
+        description: err?.message || 'Verifique sua conexão e tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (isSubmittingRef.current || submitting) return;
