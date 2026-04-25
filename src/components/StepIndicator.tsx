@@ -1,4 +1,4 @@
-import { Check, Save } from 'lucide-react';
+import { Check, Save, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 
@@ -16,6 +16,7 @@ interface StepIndicatorProps {
   showTimeEstimate?: boolean;
   draftSaved?: boolean;
   lastSavedAt?: number | null;
+  invalidStepIds?: string[];
 }
 
 const MINUTES_PER_STEP = 1.5;
@@ -30,7 +31,7 @@ function formatRelative(ts: number): string {
   return `há ${h}h`;
 }
 
-export function StepIndicator({ steps, currentStepIndex, onStepClick, className, showTimeEstimate = false, draftSaved, lastSavedAt }: StepIndicatorProps) {
+export function StepIndicator({ steps, currentStepIndex, onStepClick, className, showTimeEstimate = false, draftSaved, lastSavedAt, invalidStepIds = [] }: StepIndicatorProps) {
   const progressPercent = Math.round(((currentStepIndex + 1) / steps.length) * 100);
   const remainingSteps = steps.length - currentStepIndex - 1;
   const estimatedMinutes = Math.ceil(remainingSteps * MINUTES_PER_STEP);
@@ -110,7 +111,9 @@ export function StepIndicator({ steps, currentStepIndex, onStepClick, className,
               const isCompleted = index < currentStepIndex;
               const isCurrent = index === currentStepIndex;
               const isPending = index > currentStepIndex;
-              const isClickable = isCompleted && onStepClick;
+              const hasError = invalidStepIds.includes(step.id);
+              // Allow clicking on any step that is not the current one, when handler exists
+              const isClickable = !!onStepClick && !isCurrent;
 
               return (
                 <li 
@@ -135,12 +138,15 @@ export function StepIndicator({ steps, currentStepIndex, onStepClick, className,
                     <span
                       className={cn(
                         'flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-xs font-semibold transition-all duration-300',
-                        isCompleted && 'border-primary bg-primary text-primary-foreground',
+                        hasError && !isCurrent && 'border-destructive bg-destructive/10 text-destructive ring-2 ring-destructive/20',
+                        !hasError && isCompleted && 'border-primary bg-primary text-primary-foreground',
                         isCurrent && 'border-primary bg-primary/10 text-primary ring-2 ring-primary/20',
-                        isPending && 'border-muted-foreground/30 bg-background text-muted-foreground'
+                        !hasError && isPending && 'border-muted-foreground/30 bg-background text-muted-foreground'
                       )}
                     >
-                      {isCompleted ? (
+                      {hasError && !isCurrent ? (
+                        <AlertCircle className="h-4 w-4" aria-label="Pendente" />
+                      ) : isCompleted ? (
                         <Check className="h-4 w-4" />
                       ) : (
                         <span>{index + 1}</span>
@@ -151,9 +157,10 @@ export function StepIndicator({ steps, currentStepIndex, onStepClick, className,
                     <span
                       className={cn(
                         'mt-1.5 text-[11px] font-medium text-center max-w-[100px] leading-tight transition-colors',
-                        isCompleted && 'text-primary',
+                        hasError && !isCurrent && 'text-destructive',
+                        !hasError && isCompleted && 'text-primary',
                         isCurrent && 'text-primary font-semibold',
-                        isPending && 'text-muted-foreground'
+                        !hasError && isPending && 'text-muted-foreground'
                       )}
                     >
                       {step.label}
@@ -166,7 +173,7 @@ export function StepIndicator({ steps, currentStepIndex, onStepClick, className,
                       <div
                         className={cn(
                           'h-0.5 rounded-full transition-all duration-500',
-                          isCompleted ? 'bg-primary' : 'bg-muted'
+                          isCompleted && !hasError ? 'bg-primary' : 'bg-muted'
                         )}
                       />
                     </div>
