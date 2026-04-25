@@ -337,7 +337,7 @@ export default function NovaSolicitacao() {
       }
 
       const insertData = {
-        user_id: user.id,
+        user_id: effectiveUserId ?? user.id,
         empreendimento: formState.empreendimento as any,
         descricao: formState.descricao,
         valor: derived.valorNumerico,
@@ -432,7 +432,12 @@ export default function NovaSolicitacao() {
         }
       }
 
-      await supabase.from('historico_solicitacoes').insert({ solicitacao_id: data.id, user_id: user.id, acao: 'criacao', status_novo: 'recebido' });
+      await supabase.from('historico_solicitacoes').insert({
+        solicitacao_id: data.id,
+        user_id: user.id, // historico is who actually performed the action
+        acao: 'criacao',
+        status_novo: 'recebido',
+      });
 
       const { data: userProfile } = await supabase.from('profiles').select('full_name, email').eq('id', user.id).single();
 
@@ -468,6 +473,7 @@ export default function NovaSolicitacao() {
 
       clearDraft();
       toast({ title: 'Solicitação criada!', description: `Protocolo: ${data.protocolo}` });
+      track('submit_success', { protocolo: data.protocolo, empreendimento: formState.empreendimento }, '/nova-solicitacao');
       navigate(`/minhas-solicitacoes?created=${data.protocolo}`);
     } catch (error: any) {
       const errorMessage = error?.message || 'Erro desconhecido';
