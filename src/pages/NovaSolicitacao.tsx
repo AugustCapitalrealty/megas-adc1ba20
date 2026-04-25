@@ -688,6 +688,7 @@ export default function NovaSolicitacao() {
           submitting={submitting}
           canProceed={true}
           canSubmit={canSubmit}
+          firstInvalidStepLabel={firstInvalidStepLabel}
           onNext={goNext}
           onBack={goBack}
           onSubmit={handleSubmit}
