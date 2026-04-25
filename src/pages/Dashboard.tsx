@@ -15,13 +15,13 @@ import { Badge } from '@/components/ui/badge';
 import { KpiSparkline } from '@/components/KpiSparkline';
 import { WelcomeTour, isOnboardingComplete } from '@/components/WelcomeTour';
 import { ProductivityCard } from '@/components/ProductivityCard';
-import { DailyInsightCard } from '@/components/DailyInsightCard';
 import { 
   Plus, LayoutDashboard, ClipboardList, 
-  CheckCircle2, Clock, ArrowRight, Users, User, AlertTriangle, RefreshCw
+  CheckCircle2, Clock, ArrowRight, Users, User, AlertTriangle, RefreshCw,
+  FileText, ShoppingCart
 } from 'lucide-react';
 import { EMPREENDIMENTO_LABELS } from '@/types';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -122,23 +122,47 @@ export default function Dashboard() {
 
   const hasPendingActions = (metrics.pendingCorrections + metrics.pendingAcceptance + metrics.pendingNfBoleto + (metrics.pendingInfoRequests || 0) + (metrics.pendingJustificativas || 0)) > 0;
 
+  // Persona chip + dynamic date subtitle
+  const personaLabel = isAdmin ? 'Admin' : isBackofficeOrAdmin ? 'Backoffice' : 'Solicitante';
+  const today = new Date();
+  const dateLabel = format(today, "EEEE, d 'de' MMMM", { locale: ptBR });
+  const dateLabelCapitalized = dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1);
+
+  // Smart summary used by PendingActionsCard header
+  const smartSummary = isBackofficeOrAdmin
+    ? [
+        metrics.newInQueue > 0 && `${metrics.newInQueue} ${metrics.newInQueue === 1 ? 'nova na fila' : 'novas na fila'}`,
+        metrics.waitingSolicitor > 0 && `${metrics.waitingSolicitor} aguardando solicitante`,
+      ].filter(Boolean).join(' · ') || undefined
+    : undefined;
+
   return (
-    <div className="space-y-6 animate-fade-in">
-        {/* Greeting + Toggle */}
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">
-              Olá, {effectiveProfile?.full_name?.split(' ')[0] || 'Usuário'}!
-            </h1>
-            <p className="text-muted-foreground text-sm mt-0.5">{greetingSuffix}</p>
+    <div className="space-y-5 sm:space-y-4 animate-fade-in">
+        {/* Hero header — compact + persona chip + date */}
+        <div className="flex items-start sm:items-center justify-between gap-4 flex-wrap">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-2xl font-bold tracking-tight">
+                Olá, {effectiveProfile?.full_name?.split(' ')[0] || 'Usuário'}!
+              </h1>
+              <Badge variant="secondary" className="h-5 px-2 text-[10px] font-medium uppercase tracking-wide">
+                {personaLabel}
+              </Badge>
+            </div>
+            <p className="text-muted-foreground text-xs sm:text-sm mt-1">
+              {dateLabelCapitalized} · {greetingSuffix}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             {canToggle && (
-              <div className="flex items-center bg-muted rounded-lg p-1 gap-0.5">
+              <div className="inline-flex items-center bg-muted/70 rounded-full p-0.5 gap-0.5 shadow-inner">
                 <Button
                   variant={viewMode === 'minhas' ? 'default' : 'ghost'}
                   size="sm"
-                  className="gap-1.5 h-8 text-xs"
+                  className={cn(
+                    'gap-1.5 h-7 px-3 text-xs rounded-full',
+                    viewMode === 'minhas' && 'shadow-sm'
+                  )}
                   onClick={() => setViewMode('minhas')}
                 >
                   <User className="h-3.5 w-3.5" />
@@ -147,20 +171,23 @@ export default function Dashboard() {
                 <Button
                   variant={viewMode === 'geral' ? 'default' : 'ghost'}
                   size="sm"
-                  className="gap-1.5 h-8 text-xs"
+                  className={cn(
+                    'gap-1.5 h-7 px-3 text-xs rounded-full',
+                    viewMode === 'geral' && 'shadow-sm'
+                  )}
                   onClick={() => setViewMode('geral')}
                 >
                   <Users className="h-3.5 w-3.5" />
                   Geral
                   {!metrics.isLoading && viewMode === 'geral' && metrics.total > 0 && (
-                    <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
+                    <span className="ml-1 inline-flex items-center justify-center h-4 min-w-[16px] px-1 text-[10px] font-bold rounded-full bg-background/40 text-current">
                       {metrics.total}
-                    </Badge>
+                    </span>
                   )}
                 </Button>
               </div>
             )}
-            <Button onClick={() => navigate(primaryCtaHref)} className="gap-2 hidden sm:flex">
+            <Button onClick={() => navigate(primaryCtaHref)} className="gap-2 hidden sm:flex shadow-sm">
               <PrimaryCtaIcon className="h-4 w-4" />
               {primaryCtaLabel}
             </Button>
@@ -215,22 +242,7 @@ export default function Dashboard() {
               />
             )}
 
-            {/* Layer 0: Daily Insight */}
-            <DailyInsightCard
-              pendingCorrections={metrics.pendingCorrections}
-              pendingAcceptance={metrics.pendingAcceptance}
-              pendingNfBoleto={metrics.pendingNfBoleto}
-              pendingInfoRequests={metrics.pendingInfoRequests}
-              pendingJustificativas={metrics.pendingJustificativas}
-              pendingCiencia={metrics.pendingCiencia}
-              concluded={metrics.concluded}
-              total={metrics.total}
-              isBackofficeOrAdmin={isBackofficeOrAdmin}
-              newInQueue={metrics.newInQueue}
-              waitingSolicitor={metrics.waitingSolicitor}
-            />
-
-            {/* Layer 1: Pending Actions — FIRST when there are actions */}
+            {/* Hero card: Pending Actions (com summary embutido) — substitui o antigo DailyInsightCard */}
             <PendingActionsCard
               pendingCorrections={metrics.pendingCorrections}
               pendingAcceptance={metrics.pendingAcceptance}
@@ -240,6 +252,7 @@ export default function Dashboard() {
               pendingJustificativasOwn={metrics.pendingJustificativasOwn}
               pendingCiencia={metrics.pendingCiencia}
               isBackofficeOrAdmin={isBackofficeOrAdmin}
+              summary={smartSummary}
               onViewPending={(filter) => {
                 if (filter === 'justificativa_oc') {
                   navigate('/monitoramento-oc?status=pendente_justificativa');
@@ -251,15 +264,15 @@ export default function Dashboard() {
             />
 
             {/* Layer 2: KPI Cards */}
-            <div className={cn("grid grid-cols-2 lg:grid-cols-4 gap-3", !hasPendingActions && "")}>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {kpis.map((kpi) => {
                 const Icon = kpi.icon;
                 return (
                   <Card 
                     key={kpi.label}
                     className={cn(
-                      'cursor-pointer hover:shadow-md transition-all active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring',
-                      kpi.highlight ? 'border-destructive/50 shadow-sm' : 'hover:border-primary/30'
+                      'group cursor-pointer rounded-xl border-border/60 transition-all hover:shadow-md hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-ring',
+                      kpi.highlight ? 'ring-2 ring-primary/30 shadow-sm' : 'hover:border-primary/40'
                     )}
                     role="button"
                     tabIndex={0}
@@ -286,18 +299,14 @@ export default function Dashboard() {
                     }}
                   >
                     <CardContent className="p-4">
-                      <div className="flex items-center gap-3">
-                        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${kpi.bgColor}`}>
-                          <Icon className={`h-5 w-5 ${kpi.color}`} />
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className={cn('flex h-8 w-8 items-center justify-center rounded-lg transition-transform group-hover:scale-110', kpi.bgColor)}>
+                          <Icon className={cn('h-4 w-4', kpi.color)} />
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center justify-between">
-                            <p className="text-2xl font-bold leading-none">{kpi.value}</p>
-                            <KpiSparkline data={kpi.trend} />
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-1">{kpi.label}</p>
-                        </div>
+                        <KpiSparkline data={kpi.trend} />
                       </div>
+                      <p className="text-3xl font-bold leading-none tracking-tight tabular-nums">{kpi.value}</p>
+                      <p className="text-xs text-muted-foreground mt-1.5">{kpi.label}</p>
                     </CardContent>
                   </Card>
                 );
@@ -307,9 +316,9 @@ export default function Dashboard() {
             {/* Layer 2.5: Productivity Card — backoffice only */}
             {isBackofficeOrAdmin && <ProductivityCard />}
 
-            {/* Layer 3: Recent Requests — more discrete header */}
+            {/* Layer 3: Recent Requests — lista densa moderna */}
             {metrics.recentSolicitacoes.length > 0 && (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
                     Últimas Solicitações
@@ -325,52 +334,64 @@ export default function Dashboard() {
                   </Button>
                 </div>
 
-                <div className="space-y-2">
-                  {metrics.recentSolicitacoes.map((sol) => (
-                    <Card 
-                      key={sol.id}
-                      className="cursor-pointer hover:shadow-sm hover:border-primary/30 transition-all focus-visible:ring-2 focus-visible:ring-ring"
-                      tabIndex={0}
-                      onClick={() => navigate(`/minhas-solicitacoes?search=${sol.protocolo}`)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          navigate(`/minhas-solicitacoes?search=${sol.protocolo}`);
-                        }
-                      }}
-                    >
-                      <CardContent className="p-3">
-                        <div className="flex items-start justify-between gap-3">
+                <Card className="rounded-xl border-border/60 overflow-hidden">
+                  <ul className="divide-y divide-border/60">
+                    {metrics.recentSolicitacoes.map((sol) => {
+                      const isOC = (sol.tipo || '').toUpperCase().includes('OC');
+                      const TypeIcon = isOC ? ShoppingCart : FileText;
+                      return (
+                        <li
+                          key={sol.id}
+                          tabIndex={0}
+                          role="button"
+                          aria-label={`Solicitação ${sol.protocolo}: ${sol.descricao}`}
+                          className="flex items-start gap-3 px-3 sm:px-4 py-3 cursor-pointer transition-colors hover:bg-muted/40 focus-visible:bg-muted/60 focus-visible:outline-none"
+                          onClick={() => navigate(`/minhas-solicitacoes?search=${sol.protocolo}`)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              navigate(`/minhas-solicitacoes?search=${sol.protocolo}`);
+                            }
+                          }}
+                        >
+                          <div className={cn(
+                            'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg',
+                            isOC ? 'bg-primary/10 text-primary' : 'bg-info/10 text-info'
+                          )}>
+                            <TypeIcon className="h-4 w-4" />
+                          </div>
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 flex-wrap mb-1">
-                              <span className="font-semibold text-sm">#{sol.protocolo}</span>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold text-sm tabular-nums">#{sol.protocolo}</span>
                               <StatusBadge status={sol.status} showActionHint />
-                              <Badge variant="outline" className="text-xs">{sol.tipo}</Badge>
+                              <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/80">
+                                {sol.tipo}
+                              </span>
                             </div>
-                            <p className="text-sm text-muted-foreground truncate">
+                            <p className="text-sm text-foreground/90 truncate mt-0.5">
                               {sol.descricao}
                             </p>
-                            <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                              <span>{EMPREENDIMENTO_LABELS[sol.empreendimento]}</span>
+                            <div className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground">
+                              <span className="truncate">{EMPREENDIMENTO_LABELS[sol.empreendimento]}</span>
                               {sol.fornecedor_nome && (
                                 <>
-                                  <span>•</span>
+                                  <span className="opacity-60">•</span>
                                   <span className="truncate">{sol.fornecedor_nome}</span>
                                 </>
                               )}
                             </div>
                           </div>
                           <div className="text-right shrink-0">
-                            <p className="font-semibold text-sm">{formatCurrency(sol.valor)}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">
+                            <p className="font-semibold text-sm tabular-nums">{formatCurrency(sol.valor)}</p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5">
                               {formatDistanceToNow(new Date(sol.created_at), { addSuffix: true, locale: ptBR })}
                             </p>
                           </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </Card>
               </div>
             )}
 
