@@ -1,66 +1,84 @@
-# Corrigir falhas ao enviar Nova Solicitação
+# Revisão ponta a ponta — Nova Solicitação
 
-## Problema observado
+Após auditar o fluxo completo (`NovaSolicitacao.tsx`, `useNovaSolicitacaoForm`, `useNovaSolicitacaoErrors`, `FormNavigation`, `useFormPersistence`, guards de rota e RLS), identifiquei pontos que afetam usuários em diferentes situações. A maior parte da fundação está correta (lock anti-duplicidade, retry de protocolo, cooldown, validação por etapa). Os ajustes abaixo cobrem os casos restantes.
 
-Alguns usuários relatam:
-1. **Não conseguem finalizar** uma nova solicitação — clicam em "Enviar Solicitação" e nada acontece (ou aparece erro).
-2. **Ao clicar repetidamente**, o sistema parece "abrir várias" (múltiplos toasts/erros, sensação de que está duplicando).
-3. Sem feedback claro do que está faltando.
+## Problemas encontrados
 
-## Causa raiz identificada
+### 1. Rascunho restaurado deixa o usuário travado em "Anexos"
+O draft salvo no localStorage **não inclui arquivos** (são `File` não-serializáveis). Quando o usuário restaura um rascunho que estava na etapa "Anexos" ou "Revisão", o `canSubmit` fica `false` porque `formState.anexos` está vazio, mas o usuário não percebe — ele vê a etapa "Revisão" e o botão desabilitado sem entender o motivo claramente.
 
-No arquivo `src/pages/NovaSolicitacao.tsx`, a função `handleSubmit`:
+**Correção:** quando o draft for restaurado, voltar automaticamente o `currentStep` para `'anexos'` se existir alguma etapa anterior à de anexos já preenchida; e mostrar um aviso explícito informando que os anexos precisam ser reenviados.
 
-```ts
-if (isSubmittingRef.current || submitting) return;
-if (!user || !formState.empreendimento || !formState.naturezaOrcamentaria || !formState.fornecedor) return;
-```
+### 2. Empreendimento "todos" (rateio) não é validado
+Se o usuário escolhe `empreendimento = todos`, o sistema espera `tipoRateio` e `rateioValores`, mas `validateStep` e `useStepErrors` não cobrem esse caso. O usuário pode enviar com rateio inválido (soma diferente do valor total ou nenhum empreendimento selecionado) e a solicitação cai com rateio nulo no banco.
 
-- O segundo `return` é **silencioso** — sem `toast`, sem `setSubmitting(true)`. O botão fica habilitado e o usuário pode clicar várias vezes sem entender por quê.
-- `FormNavigation` recebe `canProceed={true}` hardcoded e o botão Enviar só desabilita por `submitting`. Se faltar dado obrigatório, o botão fica clicável mas a submissão não acontece.
-- Um usuário pode chegar à etapa de Revisão, clicar repetidamente e cada clique gera ruído (logs, mas sem ação útil).
-- Em alguns casos a sessão Supabase já expirou (toast aparece mas usuário não relê) e o clique seguinte tenta de novo.
+**Correção:** adicionar validação da etapa `detalhes` (ou `descricao`, conforme onde o componente Rateio aparece) quando `empreendimento === 'todos'`:
+- `rateioValores.length >= 2`
+- soma de `rateioValores` igual a `valorNumerico` (tolerância 0.01)
+- exibir `FieldError` correspondente
 
-Não foram encontradas duplicatas reais no banco, então o problema é de UX/feedback — o usuário **percebe** múltiplos cliques porque o botão parece "engolir" sem reagir.
+### 3. Origem "cliente" + anexo `comunicado_cliente` sem visibilidade no toast
+Quando a origem é `cliente`, o anexo `comunicado_cliente` é exigido. Está coberto via `getRequiredAttachments`, mas se o usuário pular para a revisão sem ter passado por anexos, o toast só diz "Faltam informações". Já melhorado pelo `firstInvalidStep`, porém o toast pode listar quais anexos faltam para acelerar a correção.
 
-## Solução
+**Correção:** quando o passo inválido for `anexos`, incluir no toast os labels dos anexos faltantes (já temos `stepErrors.anexos` com a lista).
 
-### 1. `src/pages/NovaSolicitacao.tsx` — `handleSubmit`
-- Substituir o `return` silencioso por um **toast destrutivo** explicando o que falta (Empreendimento, Natureza, Fornecedor) e voltar para a etapa correspondente automaticamente (`setCurrentStep('empreendimento' | 'detalhes' | 'fornecedor')`).
-- Garantir que **toda saída antecipada** dispare toast claro com `description` descrevendo o motivo.
-- Antes da submissão, revalidar `canProceed()` de **todas as etapas visíveis** — se alguma falhar, pular para essa etapa, ativar `showErrors=true` e mostrar toast.
+### 4. "Solicitação criada com pendência" deixa estado inconsistente
+Se o insert da solicitação é OK mas todos os retries de upload de anexos falham (ex: usuário em rede ruim), o código navega para `/minhas-solicitacoes` deixando a solicitação **sem os anexos obrigatórios**. O backoffice recebe o caso incompleto.
 
-### 2. `src/components/nova-solicitacao/FormNavigation.tsx`
-- O botão "Enviar Solicitação" deve aceitar `canSubmit: boolean` (vindo do pai) e ficar **`disabled={submitting || !canSubmit}`**.
-- Adicionar `aria-disabled` e tooltip leve ("Complete todas as etapas obrigatórias") quando bloqueado.
-- Texto do botão muda para "Enviando…" quando `submitting`.
+**Correção:** ao invés de aceitar a solicitação parcial, oferecer um botão "Reenviar anexos agora" no toast (ação) e manter o usuário na tela com `solicitacao_id` armazenado, permitindo o re-upload sem recriar a solicitação. O draft é limpo só após o upload bem-sucedido.
 
-### 3. `src/pages/NovaSolicitacao.tsx` — passar `canSubmit`
-- Calcular `const canSubmit = visibleSteps.every(s => stepIsValid(s.id))` usando a lógica já existente em `canProceed`/`useStepErrors`.
-- Passar para `FormNavigation`.
+### 5. `effectiveProfile` x `user.id` no insert
+`useNovaSolicitacaoForm` usa `effectiveProfile?.id ?? user?.id` para carregar empreendimentos (suporta impersonation), mas o `insertData.user_id` no `handleSubmit` usa **sempre** `user.id`. Em modo impersonation, isso cria a solicitação no nome do super_admin em vez do usuário simulado.
 
-### 4. Proteção extra contra cliques múltiplos
-- Adicionar **debounce visual** de 1s no botão Enviar mesmo após erro: após `catch`, manter `submitting=true` por 800ms antes de liberar (evita spam de cliques quando rede lenta retorna erro).
-- Mensagem do toast de erro fica visível por 8s (já é o padrão).
+**Correção:** usar `effectiveUserId` consistentemente no insert (e no log de histórico). Mantém comportamento normal para usuários comuns e funciona corretamente em impersonation para QA.
 
-### 5. Verificação de sessão antes da submissão
-- Manter o `supabase.auth.getSession()` que já existe, mas se sessão expirou, **redirecionar para `/login`** após o toast, não apenas voltar para a tela.
+### 6. Botão "Enviar" sem hint quando o problema está em outra etapa
+O Tooltip atual diz apenas "Complete todas as etapas obrigatórias". O usuário não sabe **qual** etapa.
 
-### 6. Teste manual sugerido após deploy
-- Logar com usuário sem empreendimento atrelado → tentar criar solicitação → deve mostrar mensagem clara.
-- Logar normalmente → preencher tudo → clicar várias vezes em Enviar → deve criar 1 só.
-- Forçar erro de rede (DevTools offline) → clicar Enviar → toast claro e botão volta a habilitar após 800ms.
+**Correção:** quando `canSubmit === false`, o tooltip mostra o nome da `firstInvalidStep` ("Falta completar: Fornecedor"). Tornar o conteúdo dinâmico passando `firstInvalidStepLabel` para `FormNavigation`.
 
-## Detalhes técnicos
+### 7. Indicador de etapa não destaca etapas inválidas
+Hoje o `StepIndicator` mostra apenas a etapa corrente. Usuário não vê de relance quais etapas têm pendência ao chegar na "Revisão".
 
-- Mantém o duplo guard `isSubmittingRef` + `setSubmitting` (já existe).
-- Não altera schema de banco.
-- Não mexe em RLS.
-- Sem migrações.
+**Correção:** marcar visualmente no `StepIndicator` as etapas com `validateStep(s.id) === false` (badge de alerta). Permite clique direto na etapa pendente.
 
-## Arquivos modificados
+### 8. Resetar `outrosAnexos` no `resetForm`
+`resetForm` zera `anexos` mas no log atual não está em contexto: `setOutrosAnexos([])` está presente — ok. Mantido.
 
-- `src/pages/NovaSolicitacao.tsx` — handleSubmit com toasts em vez de returns silenciosos, cálculo de `canSubmit`, debounce pós-erro.
-- `src/components/nova-solicitacao/FormNavigation.tsx` — aceitar `canSubmit`, desabilitar Enviar quando inválido, texto "Enviando…".
+### 9. `nenhumaOpcaoNatureza` na etapa Natureza não bloqueia avanço
+A etapa `natureza_servico` retorna `true` sempre em `validateStep`. Para AC, o usuário deveria marcar pelo menos uma opção ou "Nenhuma das opções acima" para registrar a escolha consciente.
 
-Sem novos arquivos.
+**Correção:** na etapa `natureza_servico`, exigir que ao menos uma das checkboxes (incluindo `nenhumaOpcaoNatureza`) esteja marcada. Adicionar erro inline.
+
+### 10. Telemetria de falhas
+Hoje só fica em `console.error`. Não há rastro para diagnosticar por que um usuário específico não consegue enviar.
+
+**Correção:** disparar `track('submit_failed', { step, reason })` em cada return cedo de `handleSubmit` e `track('submit_success', { protocolo })` no caminho feliz. Já temos `useTrackEvent` ativo.
+
+## Arquivos a alterar
+
+- `src/pages/NovaSolicitacao.tsx`
+  - usar `effectiveUserId` no insert/histórico
+  - passar `firstInvalidStepLabel` para `FormNavigation`
+  - melhorar toast de "Faltam informações" (incluir lista de anexos)
+  - tratamento de pendência de anexos com retry manual
+  - eventos de telemetria
+  - lógica de redirecionamento ao restaurar draft sem anexos
+- `src/hooks/useNovaSolicitacaoForm.ts`
+  - validação extra exposta para rateio quando `empreendimento === 'todos'`
+- `src/hooks/useNovaSolicitacaoErrors.ts`
+  - novo case para `natureza_servico`
+  - erros de rateio em `detalhes` (ou onde o componente é exibido)
+- `src/components/nova-solicitacao/FormNavigation.tsx`
+  - tooltip dinâmico com nome da etapa pendente
+- `src/components/StepIndicator.tsx`
+  - aceitar prop opcional `invalidSteps: string[]` e renderizar badge de alerta
+
+## Não muda
+
+- Schema do banco, RLS, edge functions, triggers.
+- Estrutura geral do wizard, persistência de rascunho (24h), retry de protocolo.
+
+## Resultado esperado
+
+Qualquer usuário (solicitante, backoffice, admin, super_admin com impersonation) consegue criar uma solicitação até o fim com mensagens claras a cada bloqueio, sem ficar com botão desabilitado "sem motivo aparente" e sem criar registros parciais quando o upload falha.
