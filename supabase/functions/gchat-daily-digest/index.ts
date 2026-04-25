@@ -180,6 +180,8 @@ function buildDigestCard(
   endOfDay: string,
   subtitle: string,
   cardIdSuffix: string,
+  servicosHoje: any[] = [],
+  todayStr: string = '',
 ) {
   const newToday = sol.filter((s) => {
     const d = new Date(s.created_at)
@@ -269,7 +271,18 @@ function buildDigestCard(
     { header: `📊 ATIVAS (${totalActive})`, widgets: activeWidgets },
     { widgets: [{ divider: {} }] },
     { header: `📉 MOVIMENTO DO DIA`, widgets: movementWidgets },
-    {
+  ]
+
+  // Apenas no Radar da Manhã: lista os serviços previstos para hoje
+  if (greeting.title === 'Radar da Manhã') {
+    sections.push({ widgets: [{ divider: {} }] })
+    sections.push({
+      header: `📅 SERVIÇOS PREVISTOS PARA HOJE (${servicosHoje.length})`,
+      widgets: buildServicosHojeWidgets(servicosHoje, todayStr),
+    })
+  }
+
+  sections.push({
       widgets: [{
         columns: {
           columnItems: [{
@@ -280,8 +293,7 @@ function buildDigestCard(
           }],
         },
       }],
-    },
-  ]
+  })
 
   return {
     card: {
