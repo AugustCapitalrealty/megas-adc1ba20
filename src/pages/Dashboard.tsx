@@ -120,8 +120,6 @@ export default function Dashboard() {
   const primaryCtaHref = isSolicitante ? '/nova-solicitacao' : '/backoffice';
   const PrimaryCtaIcon = isSolicitante ? Plus : LayoutDashboard;
 
-  const hasPendingActions = (metrics.pendingCorrections + metrics.pendingAcceptance + metrics.pendingNfBoleto + (metrics.pendingInfoRequests || 0) + (metrics.pendingJustificativas || 0)) > 0;
-
   // Persona chip + dynamic date subtitle
   const personaLabel = isAdmin ? 'Admin' : isBackofficeOrAdmin ? 'Backoffice' : 'Solicitante';
   const today = new Date();
