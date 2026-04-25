@@ -346,6 +346,23 @@ Deno.serve(async (req) => {
     if (solErr) throw solErr
     const solicitacoes = allSol || []
 
+    // Serviços previstos para hoje (apenas no Radar da Manhã)
+    let servicosHojeAll: any[] = []
+    if (greeting.title === 'Radar da Manhã') {
+      const { data: servicos, error: servErr } = await supabase
+        .from('solicitacoes')
+        .select(`
+          id, protocolo, status, cancelamento_pendente, empreendimento,
+          valor, descricao, data_execucao_servico, tipo_entrega,
+          fornecedor:fornecedores(razao_social, nome_fantasia)
+        `)
+        .eq('tipo_entrega', 'servico')
+        .eq('data_execucao_servico', todayStr)
+        .not('status', 'in', '(cancelado,rejeitado,concluida,enviado_pagamento,nf_boleto_enviados)')
+      if (servErr) console.error('Erro ao buscar serviços do dia:', servErr)
+      servicosHojeAll = servicos || []
+    }
+
     const results: any[] = []
 
     // Group spaces by space_name to handle multi-empreendimento (e.g. Esteio+Canoas)
@@ -377,10 +394,15 @@ Deno.serve(async (req) => {
 
       const subtitle = `${empLabel} • ${dayFormatted} às ${generatedAt}`
 
+      const servicosFiltered = isBackoffice
+        ? servicosHojeAll
+        : servicosHojeAll.filter((s) => config.empreendimentos.includes(s.empreendimento))
+
       const { card, stats } = buildDigestCard(
         filtered, greeting, dayFormatted, generatedAt,
         startOfDay, endOfDay, subtitle,
         isBackoffice ? 'backoffice' : config.empreendimentos.join('-'),
+        servicosFiltered, todayStr,
       )
 
       try {
@@ -402,6 +424,7 @@ Deno.serve(async (req) => {
         const { card, stats } = buildDigestCard(
           solicitacoes, greeting, dayFormatted, generatedAt,
           startOfDay, endOfDay, subtitle, 'coordenacao',
+          servicosHojeAll, todayStr,
         )
         try {
           await sendGChatMessageAuth(card, coordenacaoSpace)
