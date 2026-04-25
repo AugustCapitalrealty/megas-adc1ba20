@@ -1,84 +1,75 @@
-# Revisão ponta a ponta — Nova Solicitação
+## Objetivo
 
-Após auditar o fluxo completo (`NovaSolicitacao.tsx`, `useNovaSolicitacaoForm`, `useNovaSolicitacaoErrors`, `FormNavigation`, `useFormPersistence`, guards de rota e RLS), identifiquei pontos que afetam usuários em diferentes situações. A maior parte da fundação está correta (lock anti-duplicidade, retry de protocolo, cooldown, validação por etapa). Os ajustes abaixo cobrem os casos restantes.
+Adicionar uma nova seção "📅 Serviços Previstos para Hoje" no card do **Radar da Manhã** (notificação Google Chat), listando os serviços com `data_execucao_servico` igual ao dia atual, agora que o Calendário de Serviços existe.
 
-## Problemas encontrados
+## Contexto técnico
 
-### 1. Rascunho restaurado deixa o usuário travado em "Anexos"
-O draft salvo no localStorage **não inclui arquivos** (são `File` não-serializáveis). Quando o usuário restaura um rascunho que estava na etapa "Anexos" ou "Revisão", o `canSubmit` fica `false` porque `formState.anexos` está vazio, mas o usuário não percebe — ele vê a etapa "Revisão" e o botão desabilitado sem entender o motivo claramente.
+A função `supabase/functions/gchat-daily-digest/index.ts` é executada de manhã (Radar da Manhã) e à tarde (Pulso da Tarde). Ela já envia para múltiplos espaços do Google Chat (Backoffice, espaços por empreendimento e Coordenação/Gerência).
 
-**Correção:** quando o draft for restaurado, voltar automaticamente o `currentStep` para `'anexos'` se existir alguma etapa anterior à de anexos já preenchida; e mostrar um aviso explícito informando que os anexos precisam ser reenviados.
+O Calendário de Serviços (`useCalendarioServicos.ts`) busca solicitações com:
+- `tipo_entrega = 'servico'`
+- `data_execucao_servico` no intervalo
+- Status visual calculado (`agendado`, `atrasado`, `oc_enviada`, etc.)
 
-### 2. Empreendimento "todos" (rateio) não é validado
-Se o usuário escolhe `empreendimento = todos`, o sistema espera `tipoRateio` e `rateioValores`, mas `validateStep` e `useStepErrors` não cobrem esse caso. O usuário pode enviar com rateio inválido (soma diferente do valor total ou nenhum empreendimento selecionado) e a solicitação cai com rateio nulo no banco.
+## Mudanças
 
-**Correção:** adicionar validação da etapa `detalhes` (ou `descricao`, conforme onde o componente Rateio aparece) quando `empreendimento === 'todos'`:
-- `rateioValores.length >= 2`
-- soma de `rateioValores` igual a `valorNumerico` (tolerância 0.01)
-- exibir `FieldError` correspondente
+### 1. Nova seção no card (apenas no Radar da Manhã)
 
-### 3. Origem "cliente" + anexo `comunicado_cliente` sem visibilidade no toast
-Quando a origem é `cliente`, o anexo `comunicado_cliente` é exigido. Está coberto via `getRequiredAttachments`, mas se o usuário pular para a revisão sem ter passado por anexos, o toast só diz "Faltam informações". Já melhorado pelo `firstInvalidStep`, porém o toast pode listar quais anexos faltam para acelerar a correção.
+A seção só aparece quando `greeting.title === 'Radar da Manhã'` (não duplica no Pulso da Tarde, já que de manhã é o momento de planejar o dia).
 
-**Correção:** quando o passo inválido for `anexos`, incluir no toast os labels dos anexos faltantes (já temos `stepErrors.anexos` com a lista).
+Conteúdo da seção, por espaço:
+- **Header**: `📅 SERVIÇOS PREVISTOS PARA HOJE (N)`
+- Para cada serviço, um `decoratedText`:
+  - **Top label**: empreendimento + protocolo (ex: `Mega Curitiba • 2025001234`)
+  - **Text**: descrição truncada (60 chars) + valor formatado
+  - **Bottom label**: fornecedor + status visual (ex: `Acme Ltda • Agendado` / `⚠️ Atrasado` / `OC enviada`)
+  - **Ícone**: `EVENT_SEAT` para agendado, `CLOCK` para atrasado/aguardando NF
+- Limite de **8 serviços** exibidos; se houver mais, adiciona linha `+ N outros — ver Calendário`
+- Botão extra: `Ver Calendário` apontando para `${APP_URL}/monitoramento-oc?tab=calendario` (ou rota equivalente — confirmar)
+- Se não houver serviços hoje: `<font color="muted">Nenhum serviço previsto para hoje.</font>`
 
-### 4. "Solicitação criada com pendência" deixa estado inconsistente
-Se o insert da solicitação é OK mas todos os retries de upload de anexos falham (ex: usuário em rede ruim), o código navega para `/minhas-solicitacoes` deixando a solicitação **sem os anexos obrigatórios**. O backoffice recebe o caso incompleto.
+### 2. Busca dos dados
 
-**Correção:** ao invés de aceitar a solicitação parcial, oferecer um botão "Reenviar anexos agora" no toast (ação) e manter o usuário na tela com `solicitacao_id` armazenado, permitindo o re-upload sem recriar a solicitação. O draft é limpo só após o upload bem-sucedido.
+No início do `Deno.serve`, após buscar `solicitacoes`, fazer uma query adicional escopada ao dia:
 
-### 5. `effectiveProfile` x `user.id` no insert
-`useNovaSolicitacaoForm` usa `effectiveProfile?.id ?? user?.id` para carregar empreendimentos (suporta impersonation), mas o `insertData.user_id` no `handleSubmit` usa **sempre** `user.id`. Em modo impersonation, isso cria a solicitação no nome do super_admin em vez do usuário simulado.
+```ts
+const { data: servicosHoje } = await supabase
+  .from('solicitacoes')
+  .select(`
+    id, protocolo, status, cancelamento_pendente, empreendimento,
+    valor, descricao, data_execucao_servico, tipo_entrega,
+    fornecedor:fornecedores(razao_social, nome_fantasia)
+  `)
+  .eq('tipo_entrega', 'servico')
+  .eq('data_execucao_servico', todayStr)
+  .not('status', 'in', '(cancelado,rejeitado,concluida,enviado_pagamento,nf_boleto_enviados)');
+```
 
-**Correção:** usar `effectiveUserId` consistentemente no insert (e no log de histórico). Mantém comportamento normal para usuários comuns e funciona corretamente em impersonation para QA.
+Calcular o status visual usando a mesma lógica de `computeCalendarioVisual` (reimplementada inline na edge function — não dá para importar de `src/`).
 
-### 6. Botão "Enviar" sem hint quando o problema está em outra etapa
-O Tooltip atual diz apenas "Complete todas as etapas obrigatórias". O usuário não sabe **qual** etapa.
+### 3. Filtragem por espaço
 
-**Correção:** quando `canSubmit === false`, o tooltip mostra o nome da `firstInvalidStep` ("Falta completar: Fornecedor"). Tornar o conteúdo dinâmico passando `firstInvalidStepLabel` para `FormNavigation`.
+- **Backoffice / Coordenação**: recebe todos os serviços do dia.
+- **Espaços por empreendimento**: filtra `servicosHoje.filter(s => config.empreendimentos.includes(s.empreendimento))`.
+- Se `filtered.length === 0` para o espaço, ainda mostra a linha "Nenhum serviço previsto" (mantém consistência visual).
 
-### 7. Indicador de etapa não destaca etapas inválidas
-Hoje o `StepIndicator` mostra apenas a etapa corrente. Usuário não vê de relance quais etapas têm pendência ao chegar na "Revisão".
+### 4. Ordenação
 
-**Correção:** marcar visualmente no `StepIndicator` as etapas com `validateStep(s.id) === false` (badge de alerta). Permite clique direto na etapa pendente.
+Serviços ordenados por:
+1. Atrasados primeiro (visual = `atrasado`)
+2. Status crítico (`oc_nao_liberada`, `aguardando_nf`)
+3. Restante por empreendimento + protocolo
 
-### 8. Resetar `outrosAnexos` no `resetForm`
-`resetForm` zera `anexos` mas no log atual não está em contexto: `setOutrosAnexos([])` está presente — ok. Mantido.
+### 5. Apenas no turno da manhã
 
-### 9. `nenhumaOpcaoNatureza` na etapa Natureza não bloqueia avanço
-A etapa `natureza_servico` retorna `true` sempre em `validateStep`. Para AC, o usuário deveria marcar pelo menos uma opção ou "Nenhuma das opções acima" para registrar a escolha consciente.
+Adicionar condicional: a seção é incluída em `sections` somente se `greeting.title === 'Radar da Manhã'`. À tarde, o card permanece igual ao atual.
 
-**Correção:** na etapa `natureza_servico`, exigir que ao menos uma das checkboxes (incluindo `nenhumaOpcaoNatureza`) esteja marcada. Adicionar erro inline.
+## Arquivos modificados
 
-### 10. Telemetria de falhas
-Hoje só fica em `console.error`. Não há rastro para diagnosticar por que um usuário específico não consegue enviar.
+- `supabase/functions/gchat-daily-digest/index.ts` — busca de serviços do dia, helper `computeCalendarioVisual` inline, nova função `buildServicosHojeSection`, e injeção condicional no array `sections` dentro de `buildDigestCard`. Assinatura de `buildDigestCard` ganha parâmetro `servicosHoje: any[]`.
 
-**Correção:** disparar `track('submit_failed', { step, reason })` em cada return cedo de `handleSubmit` e `track('submit_success', { protocolo })` no caminho feliz. Já temos `useTrackEvent` ativo.
-
-## Arquivos a alterar
-
-- `src/pages/NovaSolicitacao.tsx`
-  - usar `effectiveUserId` no insert/histórico
-  - passar `firstInvalidStepLabel` para `FormNavigation`
-  - melhorar toast de "Faltam informações" (incluir lista de anexos)
-  - tratamento de pendência de anexos com retry manual
-  - eventos de telemetria
-  - lógica de redirecionamento ao restaurar draft sem anexos
-- `src/hooks/useNovaSolicitacaoForm.ts`
-  - validação extra exposta para rateio quando `empreendimento === 'todos'`
-- `src/hooks/useNovaSolicitacaoErrors.ts`
-  - novo case para `natureza_servico`
-  - erros de rateio em `detalhes` (ou onde o componente é exibido)
-- `src/components/nova-solicitacao/FormNavigation.tsx`
-  - tooltip dinâmico com nome da etapa pendente
-- `src/components/StepIndicator.tsx`
-  - aceitar prop opcional `invalidSteps: string[]` e renderizar badge de alerta
-
-## Não muda
-
-- Schema do banco, RLS, edge functions, triggers.
-- Estrutura geral do wizard, persistência de rascunho (24h), retry de protocolo.
+Nenhuma mudança em schema do banco, RLS ou frontend.
 
 ## Resultado esperado
 
-Qualquer usuário (solicitante, backoffice, admin, super_admin com impersonation) consegue criar uma solicitação até o fim com mensagens claras a cada bloqueio, sem ficar com botão desabilitado "sem motivo aparente" e sem criar registros parciais quando o upload falha.
+Toda manhã, cada espaço do Google Chat (incluindo Coordenação) receberá, junto do Radar da Manhã, a lista clara dos serviços previstos para o dia — com destaque visual para atrasados — e um botão direto para o Calendário.

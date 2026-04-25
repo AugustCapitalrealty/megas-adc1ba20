@@ -27,6 +27,131 @@ const EMP_LABELS: Record<string, string> = {
 
 const FINISHED_STATUSES = ['concluida', 'cancelado', 'rejeitado']
 
+const SERVICE_VISUAL_ICON: Record<string, string> = {
+  agendado: 'EVENT_SEAT',
+  atrasado: 'CLOCK',
+  oc_enviada: 'INVITE',
+  oc_nao_liberada: 'CLOCK',
+  aguardando_nf: 'DESCRIPTION',
+  cancel_solicitado: 'STAR',
+  em_processamento: 'CLOCK',
+}
+
+const SERVICE_VISUAL_LABEL: Record<string, string> = {
+  agendado: 'Agendado',
+  atrasado: '⚠️ Atrasado',
+  oc_enviada: 'OC enviada',
+  oc_nao_liberada: 'OC não liberada',
+  aguardando_nf: 'Aguardando NF',
+  cancel_solicitado: 'Cancelamento solicitado',
+  em_processamento: 'Em processamento',
+}
+
+const SERVICE_VISUAL_COLOR: Record<string, string> = {
+  atrasado: COLORS.critical,
+  oc_nao_liberada: COLORS.warning,
+  aguardando_nf: COLORS.warning,
+  cancel_solicitado: COLORS.warning,
+  agendado: COLORS.info,
+  oc_enviada: COLORS.info,
+  em_processamento: COLORS.muted,
+}
+
+function computeServiceVisual(sol: { status: string; cancelamento_pendente: boolean; data_execucao_servico: string }, todayStr: string): string {
+  if (sol.status === 'cancelado' || sol.status === 'rejeitado') return 'cancelado'
+  if (sol.cancelamento_pendente) return 'cancel_solicitado'
+  if (['concluida', 'enviado_pagamento', 'nf_boleto_enviados'].includes(sol.status)) return 'concluido'
+  if (sol.status === 'aguardando_nf_boleto') return 'aguardando_nf'
+  if (sol.status === 'aguardando_execucao') {
+    return sol.data_execucao_servico > todayStr ? 'agendado' : 'atrasado'
+  }
+  if (['enviado_fornecedor', 'liberado_fornecedor'].includes(sol.status)) return 'oc_enviada'
+  if (['aguardando_aceite', 'oc_ac_emitida'].includes(sol.status)) return 'oc_nao_liberada'
+  return 'em_processamento'
+}
+
+function fmtCurrency(v: number): string {
+  try {
+    return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+  } catch {
+    return `R$ ${v.toFixed(2)}`
+  }
+}
+
+function buildServicosHojeWidgets(servicos: any[], todayStr: string): any[] {
+  if (!servicos || servicos.length === 0) {
+    return [{ textParagraph: { text: `<font color="${COLORS.muted}">Nenhum serviço previsto para hoje.</font>` } }]
+  }
+
+  const enriched = servicos.map((s) => ({
+    ...s,
+    visual: computeServiceVisual(
+      { status: s.status, cancelamento_pendente: !!s.cancelamento_pendente, data_execucao_servico: s.data_execucao_servico },
+      todayStr,
+    ),
+  }))
+
+  const priority: Record<string, number> = {
+    atrasado: 0,
+    oc_nao_liberada: 1,
+    aguardando_nf: 1,
+    cancel_solicitado: 2,
+    oc_enviada: 3,
+    agendado: 4,
+    em_processamento: 5,
+  }
+  enriched.sort((a, b) => {
+    const pa = priority[a.visual] ?? 9
+    const pb = priority[b.visual] ?? 9
+    if (pa !== pb) return pa - pb
+    const ea = (a.empreendimento || '').localeCompare(b.empreendimento || '')
+    if (ea !== 0) return ea
+    return (a.protocolo || '').localeCompare(b.protocolo || '')
+  })
+
+  const MAX = 8
+  const visible = enriched.slice(0, MAX)
+  const widgets: any[] = []
+
+  for (const s of visible) {
+    const empLabel = EMP_LABELS[s.empreendimento] || s.empreendimento || ''
+    const fornecedor = s.fornecedor?.nome_fantasia || s.fornecedor?.razao_social || 'Sem fornecedor'
+    const desc = (s.descricao || '').slice(0, 60) + ((s.descricao || '').length > 60 ? '…' : '')
+    const valor = Number(s.valor) || 0
+    const color = SERVICE_VISUAL_COLOR[s.visual] || COLORS.text
+    const statusLabel = SERVICE_VISUAL_LABEL[s.visual] || s.status
+    widgets.push({
+      decoratedText: {
+        topLabel: `${empLabel} • ${s.protocolo || ''}`,
+        text: `<b>${desc}</b> — ${fmtCurrency(valor)}`,
+        bottomLabel: `${fornecedor} • <font color="${color}">${statusLabel}</font>`,
+        startIcon: { knownIcon: SERVICE_VISUAL_ICON[s.visual] || 'EVENT_SEAT' },
+        wrapText: true,
+        onClick: { openLink: { url: `${APP_URL}/solicitacao/${s.id}` } },
+      },
+    })
+  }
+
+  if (enriched.length > MAX) {
+    widgets.push({
+      textParagraph: {
+        text: `<font color="${COLORS.muted}">+ ${enriched.length - MAX} outro${enriched.length - MAX === 1 ? '' : 's'} — ver Calendário.</font>`,
+      },
+    })
+  }
+
+  widgets.push({
+    buttonList: {
+      buttons: [{
+        text: 'Ver Calendário',
+        onClick: { openLink: { url: `${APP_URL}/monitoramento-oc?tab=calendario` } },
+      }],
+    },
+  })
+
+  return widgets
+}
+
 function getGreeting(): { title: string; salute: string; verbo: string } {
   const now = new Date()
   const brtHour = (now.getUTCHours() - 3 + 24) % 24
@@ -55,6 +180,8 @@ function buildDigestCard(
   endOfDay: string,
   subtitle: string,
   cardIdSuffix: string,
+  servicosHoje: any[] = [],
+  todayStr: string = '',
 ) {
   const newToday = sol.filter((s) => {
     const d = new Date(s.created_at)
@@ -137,14 +264,25 @@ function buildDigestCard(
     movementWidgets.push({ textParagraph: { text: `<font color="${COLORS.muted}">Sem movimentação hoje.</font>` } })
   }
 
-  const sections = [
+  const sections: any[] = [
     { widgets: [{ textParagraph: { text: introText } }] },
     { header: `🔴 PRIORIDADES IMEDIATAS (${urgentCount})`, widgets: priorityWidgets },
     { widgets: [{ divider: {} }] },
     { header: `📊 ATIVAS (${totalActive})`, widgets: activeWidgets },
     { widgets: [{ divider: {} }] },
     { header: `📉 MOVIMENTO DO DIA`, widgets: movementWidgets },
-    {
+  ]
+
+  // Apenas no Radar da Manhã: lista os serviços previstos para hoje
+  if (greeting.title === 'Radar da Manhã') {
+    sections.push({ widgets: [{ divider: {} }] })
+    sections.push({
+      header: `📅 SERVIÇOS PREVISTOS PARA HOJE (${servicosHoje.length})`,
+      widgets: buildServicosHojeWidgets(servicosHoje, todayStr),
+    })
+  }
+
+  sections.push({
       widgets: [{
         columns: {
           columnItems: [{
@@ -155,8 +293,7 @@ function buildDigestCard(
           }],
         },
       }],
-    },
-  ]
+  })
 
   return {
     card: {
@@ -209,6 +346,23 @@ Deno.serve(async (req) => {
     if (solErr) throw solErr
     const solicitacoes = allSol || []
 
+    // Serviços previstos para hoje (apenas no Radar da Manhã)
+    let servicosHojeAll: any[] = []
+    if (greeting.title === 'Radar da Manhã') {
+      const { data: servicos, error: servErr } = await supabase
+        .from('solicitacoes')
+        .select(`
+          id, protocolo, status, cancelamento_pendente, empreendimento,
+          valor, descricao, data_execucao_servico, tipo_entrega,
+          fornecedor:fornecedores(razao_social, nome_fantasia)
+        `)
+        .eq('tipo_entrega', 'servico')
+        .eq('data_execucao_servico', todayStr)
+        .not('status', 'in', '(cancelado,rejeitado,concluida,enviado_pagamento,nf_boleto_enviados)')
+      if (servErr) console.error('Erro ao buscar serviços do dia:', servErr)
+      servicosHojeAll = servicos || []
+    }
+
     const results: any[] = []
 
     // Group spaces by space_name to handle multi-empreendimento (e.g. Esteio+Canoas)
@@ -240,10 +394,15 @@ Deno.serve(async (req) => {
 
       const subtitle = `${empLabel} • ${dayFormatted} às ${generatedAt}`
 
+      const servicosFiltered = isBackoffice
+        ? servicosHojeAll
+        : servicosHojeAll.filter((s) => config.empreendimentos.includes(s.empreendimento))
+
       const { card, stats } = buildDigestCard(
         filtered, greeting, dayFormatted, generatedAt,
         startOfDay, endOfDay, subtitle,
         isBackoffice ? 'backoffice' : config.empreendimentos.join('-'),
+        servicosFiltered, todayStr,
       )
 
       try {
@@ -265,6 +424,7 @@ Deno.serve(async (req) => {
         const { card, stats } = buildDigestCard(
           solicitacoes, greeting, dayFormatted, generatedAt,
           startOfDay, endOfDay, subtitle, 'coordenacao',
+          servicosHojeAll, todayStr,
         )
         try {
           await sendGChatMessageAuth(card, coordenacaoSpace)
