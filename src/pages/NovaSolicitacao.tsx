@@ -533,11 +533,29 @@ export default function NovaSolicitacao() {
         <StepIndicator
           steps={visibleSteps.map(s => ({ id: s.id, label: s.label })) as StepIndicatorStep[]}
           currentStepIndex={currentIndex}
-          onStepClick={(index) => { if (index < currentIndex) setCurrentStep(visibleSteps[index].id); }}
+          onStepClick={(index) => {
+            // Allow jumping to any step that is either before current OR currently invalid
+            const target = visibleSteps[index];
+            if (!target) return;
+            if (index < currentIndex || invalidStepIds.includes(target.id)) {
+              setCurrentStep(target.id);
+            }
+          }}
           showTimeEstimate
           draftSaved={hasDraft}
           lastSavedAt={lastSavedAt}
+          invalidStepIds={invalidStepIds}
         />
+
+        {restoredWithoutAnexos && (
+          <Alert variant="destructive" className="animate-fade-in">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              <span className="font-medium">Reanexar arquivos:</span> seu rascunho foi restaurado, mas
+              os arquivos não ficam salvos no navegador. Reenvie os anexos obrigatórios para concluir.
+            </AlertDescription>
+          </Alert>
+        )}
 
         {justRestored && (
           <Alert className="bg-primary/5 border-primary/30 animate-fade-in">
