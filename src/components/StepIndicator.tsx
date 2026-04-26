@@ -1,4 +1,5 @@
 import { Check, Save, AlertCircle } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useEffect, useState } from 'react';
 
@@ -6,6 +7,7 @@ export interface Step {
   id: string;
   label: string;
   description?: string;
+  icon?: LucideIcon;
 }
 
 interface StepIndicatorProps {
@@ -148,6 +150,8 @@ export function StepIndicator({ steps, currentStepIndex, onStepClick, className,
                         <AlertCircle className="h-4 w-4" aria-label="Pendente" />
                       ) : isCompleted ? (
                         <Check className="h-4 w-4" />
+                      ) : step.icon ? (
+                        <step.icon className="h-4 w-4" />
                       ) : (
                         <span>{index + 1}</span>
                       )}

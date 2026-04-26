@@ -13,7 +13,7 @@ import {
   EMPREENDIMENTO_LABELS,
   type Empreendimento,
 } from '@/types';
-import { AlertTriangle, RotateCcw, History, X, Command } from 'lucide-react';
+import { AlertTriangle, RotateCcw, History, X, Command, Sparkles, ShieldCheck, User as UserIcon, Building2, FileText, Tag, Settings, Truck, Paperclip, Send } from 'lucide-react';
 import { notifyBackofficeNewSolicitacao } from '@/hooks/useNotificationEmail';
 import { StepIndicator, type Step as StepIndicatorStep } from '@/components/StepIndicator';
 import { NaturezaServicoStep } from '@/components/NaturezaServicoStep';
@@ -21,6 +21,7 @@ import { useNovaSolicitacaoForm } from '@/hooks/useNovaSolicitacaoForm';
 import type { Step, StepDefinition } from '@/components/nova-solicitacao/types';
 import { FormSummarySidebar } from '@/components/nova-solicitacao/FormSummarySidebar';
 import { FieldError } from '@/components/nova-solicitacao/FieldError';
+import { FluxoBadge } from '@/components/nova-solicitacao/FluxoBadge';
 import { useStepErrors } from '@/hooks/useNovaSolicitacaoErrors';
 
 // Step components
@@ -34,7 +35,7 @@ import { RevisaoStep } from '@/components/nova-solicitacao/steps/RevisaoStep';
 import { FormNavigation } from '@/components/nova-solicitacao/FormNavigation';
 
 export default function NovaSolicitacao() {
-  const { user, effectiveProfile } = useAuth();
+  const { user, effectiveProfile, effectiveRoles } = useAuth();
   const track = useTrackEvent();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -546,18 +547,74 @@ export default function NovaSolicitacao() {
 
   const stepProps = { formState, derived, setters };
 
+  // Persona label for the hero badge
+  const personaLabel = (() => {
+    if (effectiveRoles?.includes('admin')) return { label: 'Admin', icon: ShieldCheck };
+    if (effectiveRoles?.includes('backoffice')) return { label: 'Backoffice', icon: ShieldCheck };
+    return { label: 'Solicitante', icon: UserIcon };
+  })();
+
+  // First inline error message (used by FormNavigation tooltip)
+  const firstErrorMessage = Object.values(stepErrors).find(Boolean) ?? null;
+  const hasStepErrors = Object.keys(stepErrors).length > 0;
+
+  // Steps with icons for the StepIndicator
+  const stepIcons: Record<Step, any> = {
+    empreendimento: Building2,
+    descricao: FileText,
+    tipo: Tag,
+    natureza_servico: Sparkles,
+    detalhes: Settings,
+    fornecedor: Truck,
+    anexos: Paperclip,
+    revisao: Send,
+  };
+
   return (
     <>
       <div className="max-w-7xl mx-auto animate-fade-in">
       <div className="grid lg:grid-cols-[1fr_280px] gap-6 items-start">
         <div className="space-y-6 min-w-0">
-        <div>
-          <h1 className="text-2xl font-bold">Nova Solicitação</h1>
-          <p className="text-muted-foreground">Preencha os dados para criar uma solicitação</p>
-        </div>
+        {/* Hero compacto */}
+        <header className="rounded-xl border bg-card/60 backdrop-blur-sm ring-1 ring-border/40 p-4 sm:p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-bold tracking-tight">Nova Solicitação</h1>
+                <span className="inline-flex items-center gap-1 rounded-full border bg-muted/50 px-2 py-0.5 text-[11px] font-medium text-foreground/70">
+                  <personaLabel.icon className="h-3 w-3" />
+                  {personaLabel.label}
+                </span>
+              </div>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Wizard guiado · validações em tempo real · classificação automática AC/OC
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {derived.valorNumerico > 0 && (
+                <FluxoBadge formState={formState} derived={derived} compact />
+              )}
+              {hasDraft && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    clearDraft();
+                    resetForm();
+                    toast({ title: 'Rascunho limpo', description: 'O formulário foi reiniciado.' });
+                  }}
+                  className="text-muted-foreground hover:text-destructive h-8"
+                >
+                  <RotateCcw className="h-3.5 w-3.5 mr-1" />
+                  Limpar rascunho
+                </Button>
+              )}
+            </div>
+          </div>
+        </header>
 
         <StepIndicator
-          steps={visibleSteps.map(s => ({ id: s.id, label: s.label })) as StepIndicatorStep[]}
+          steps={visibleSteps.map(s => ({ id: s.id, label: s.label, icon: stepIcons[s.id] })) as StepIndicatorStep[]}
           currentStepIndex={currentIndex}
           onStepClick={(index) => {
             // Allow jumping to any step that is either before current OR currently invalid
@@ -633,10 +690,13 @@ export default function NovaSolicitacao() {
           </Alert>
         )}
 
-        <Card>
+        <Card className="ring-1 ring-border/40 shadow-sm">
           <CardHeader className="flex flex-row items-start justify-between space-y-0">
             <div className="space-y-1">
-              <CardTitle>{visibleSteps[currentIndex]?.label}</CardTitle>
+              <CardTitle className="text-xl">{visibleSteps[currentIndex]?.label}</CardTitle>
+              {visibleSteps[currentIndex]?.description && (
+                <CardDescription>{visibleSteps[currentIndex]?.description}</CardDescription>
+              )}
               {currentStep === 'fornecedor' && derived.requires3CNPJs && (
                 <CardDescription className="text-warning flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4" />
@@ -644,20 +704,8 @@ export default function NovaSolicitacao() {
                 </CardDescription>
               )}
             </div>
-            {hasDraft && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  clearDraft();
-                  resetForm();
-                  toast({ title: 'Rascunho limpo', description: 'O formulário foi reiniciado.' });
-                }}
-                className="text-muted-foreground hover:text-destructive"
-              >
-                <RotateCcw className="h-4 w-4 mr-1" />
-                Limpar rascunho
-              </Button>
+            {currentStep !== 'descricao' && currentStep !== 'empreendimento' && derived.valorNumerico > 0 && (
+              <FluxoBadge formState={formState} derived={derived} compact className="hidden sm:inline-flex" />
             )}
           </CardHeader>
           <CardContent className="space-y-4" ref={stepContainerRef}>
@@ -679,9 +727,13 @@ export default function NovaSolicitacao() {
             {currentStep === 'descricao' && (
               <>
                 <DescricaoStep {...stepProps} isValidatingDescription={isValidatingDescription} descriptionValidation={descriptionValidation} formatCurrency={formatCurrency} />
-                {showErrors && (
+                {(showErrors || formState.descricao.length > 0) && (
                   <>
                     <FieldError message={stepErrors.descricao} />
+                  </>
+                )}
+                {(showErrors || derived.valorNumerico > 0 || formState.valor.length > 0) && (
+                  <>
                     <FieldError message={stepErrors.valor} />
                   </>
                 )}
@@ -772,6 +824,8 @@ export default function NovaSolicitacao() {
           canProceed={true}
           canSubmit={canSubmit}
           firstInvalidStepLabel={firstInvalidStepLabel}
+          firstErrorMessage={firstErrorMessage}
+          hasStepErrors={hasStepErrors}
           onNext={goNext}
           onBack={goBack}
           onSubmit={handleSubmit}
@@ -780,7 +834,20 @@ export default function NovaSolicitacao() {
 
         {/* Persistent summary sidebar (desktop only) */}
         <aside className="hidden lg:block" aria-label="Resumo da solicitação">
-          <FormSummarySidebar formState={formState} derived={derived} />
+          <FormSummarySidebar
+            formState={formState}
+            derived={derived}
+            currentStepIndex={currentIndex}
+            totalSteps={visibleSteps.length}
+            onJumpToStep={(targetId) => {
+              const target = visibleSteps.find((s) => s.id === targetId);
+              if (!target) return;
+              const targetIndex = visibleSteps.findIndex((s) => s.id === targetId);
+              if (targetIndex < currentIndex || invalidStepIds.includes(targetId)) {
+                setCurrentStep(targetId);
+              }
+            }}
+          />
         </aside>
       </div>
       </div>

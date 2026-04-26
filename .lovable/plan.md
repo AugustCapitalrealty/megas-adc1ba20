@@ -1,67 +1,88 @@
-## Objetivo
 
-Aplicar à página inicial (Dashboard) o mesmo padrão moderno, limpo e intuitivo das refatorações recentes (Nova Solicitação, Notificações, Calendário). Hoje a home tem informação útil, mas é visualmente pesada: 3 banners empilhados no topo (Resumo + Ações Pendentes + KPIs), redundância entre o card "Resumo" e "Ações Pendentes", cores fortes competindo entre si, e CTA primário sem hierarquia clara.
+## Contexto
 
-## Mudanças propostas
+A tela `/nova-solicitacao` já tem uma base sólida: wizard de 8 etapas (`Local → Descrição → Tipo → Natureza → Detalhes → Fornecedor → Anexos → Enviar`), classificação automática AC/OC pelo valor, validação de descrição via IA, validação CNAE, persistência de rascunho, navegação por teclado e `FormSummarySidebar`.
 
-### 1. Hero compacto e hierárquico
-- Título "Olá, {Nome}!" mantém peso, mas ganha **chip de contexto** ao lado (ex.: badge sutil "Admin" / "Backoffice" / "Solicitante") em vez de só texto cinza.
-- Subtítulo vira microcopy mais útil: dia da semana + data por extenso (ex.: "Quinta, 25 de abril · Painel administrativo").
-- Toggle Minhas/Geral migra para um **segmented control** menor, mais alinhado ao padrão Apple-like.
-- CTA primário ganha variante mais sólida + ícone à esquerda; em mobile vira FAB (já existe) mas com label visível em telas md.
+O objetivo aqui **não é refazer**, e sim alinhar a UI ao novo padrão visual do Dashboard (hero compacto, segmented controls, action tiles, tokens consistentes) e tornar o feedback de validação em tempo real mais visível e útil.
 
-### 2. Unificar "Resumo" + "Ações Pendentes" num único Hero Card inteligente
-Hoje o `DailyInsightCard` repete o que o `PendingActionsCard` já mostra logo abaixo. Proposta:
-- **Quando há pendências**: mostrar apenas o `PendingActionsCard` redesenhado, com a frase-resumo embutida no topo ("57 itens precisam da sua atenção · 5 novas na fila"). Remover o `DailyInsightCard` redundante.
-- **Quando está tudo em dia**: card único verde discreto com mensagem positiva e atalho "Criar nova solicitação" / "Ir ao Backoffice".
-- **PendingActionsCard redesenhado**:
-  - Remover borda dupla destrutiva e gradiente forte; usar superfície neutra com **barra lateral colorida** (4px) indicando prioridade.
-  - Botões viram **action tiles** em grid (2 col mobile, auto-fit desktop) com ícone grande, contagem em destaque, label e descrição curta — em vez de botões espremidos lado a lado.
-  - Item mais urgente (correções/justificativas) ganha destaque visual sutil (ring, não cor saturada).
+## O que vai mudar
 
-### 3. KPIs mais limpos e escaneáveis
-- Remover `bg-muted` do ícone do card "Total" (fica genérico); adotar paleta consistente.
-- Aumentar o número (text-3xl) e diminuir o ícone para hierarquia clara (número é o herói).
-- Sparkline alinhada à direita com cor que segue a tendência (verde sobe / vermelho cai) em vez de cor fixa.
-- Hover: leve elevação + borda primária sutil; remover `active:scale` (jitter desnecessário).
-- Card destacado (highlight) usa **ring-2 ring-primary/40** em vez de borda destrutiva — menos alarmista.
+### 1. Hero / cabeçalho da página (`NovaSolicitacao.tsx`)
+- Substituir cabeçalho atual por um header compacto com:
+  - Título + subtítulo curto
+  - Badge de persona (Solicitante/Backoffice/Admin) — mesmo padrão do Dashboard
+  - Chip de "rascunho salvo há Xs" + botão "Descartar rascunho"
+  - Atalho `Ctrl+K` / `←` `→` exposto discretamente
+- Remover Card aninhado de fora; usar superfície limpa `rounded-xl` + `ring`.
 
-### 4. Últimas Solicitações com layout de timeline
-- Header da seção fica como está (discreto), mas adicionar um **filtro inline** (chips: Todas · Em andamento · Pendentes) para dar agência sem trocar de página.
-- Cards das últimas solicitações:
-  - Remover `Card` wrapper para cada item; usar **lista densa** com divisores sutis (mais moderna, menos "caixinhas").
-  - Adicionar **avatar/ícone do tipo** (OC/AC) à esquerda.
-  - Status badge mantém, mas valor + tempo relativo agrupados verticalmente à direita com tipografia mais leve.
-  - Hover: bg-muted/40, sem mover layout.
+### 2. Banner dinâmico AC/OC (novo componente)
+Criar `src/components/nova-solicitacao/FluxoBadge.tsx` que mostra em tempo real, conforme o usuário digita o valor:
 
-### 5. Empty state e loading
-- Loading dos KPIs: skeleton com shimmer mais suave (já existe `Skeleton`, ajustar dimensões).
-- Empty state: manter SVG, mas card sem borda dashed (mais limpo), com 2 CTAs (primário "Nova Solicitação" + secundário "Ver tutorial").
+```text
+┌──────────────────────────────────────────────┐
+│ 📦 OC · Ordem de Compra                      │
+│ Valor ≤ R$ 1.000 — fluxo simplificado        │
+└──────────────────────────────────────────────┘
 
-### 6. Refinamentos de design system
-- Usar `space-y-4` (em vez de `space-y-6`) para densidade mais moderna em desktop, mantendo `space-y-6` no mobile via `sm:space-y-4`.
-- Padronizar cantos arredondados (`rounded-xl` nos cards principais).
-- Garantir contraste AA em todos os textos secundários.
-- Adicionar `animate-fade-in` escalonado nas seções para sensação de carregamento progressivo.
+┌──────────────────────────────────────────────┐
+│ 📋 AC · Autorização de Compra                │
+│ Serviço acima de R$ 1.000                    │
+│ • Requer 3 CNPJs · • Instrumento: Termo      │
+└──────────────────────────────────────────────┘
+```
+
+- Cores semânticas: OC = azul/info, AC = âmbar/warning, AC + emergencial = vermelho/destructive
+- Aparece já na etapa de Descrição (assim que valor > 0) e persiste como sticky chip nas etapas seguintes
+- Mostra microbadges secundárias: "Emergencial", "Requer Due Diligence", "Retenção 6%", "Instrumento: Contrato Empreitada/Termo/OC", calculadas pelo `derived` que já existe
+
+### 3. StepIndicator modernizado (`StepIndicator.tsx`)
+- Tornar steps **clicáveis para qualquer etapa já visitada** (manter a regra atual de não pular para frente sem validar)
+- Adicionar mini-ícone por etapa (Building2, FileText, Tag, Sparkles, Settings, Truck, Paperclip, Send) em vez de só números
+- Conector animado com gradient sutil quando concluído
+- Versão mobile: trocar barra plana por **stepper horizontal scrollable** com snap
+
+### 4. Validação em tempo real reforçada
+Mudanças no `useNovaSolicitacaoErrors.ts` + componentes de step:
+- **Mostrar erros inline imediatamente** após o campo perder o foco (touch-based), não apenas após tentar avançar. Adicionar estado `touchedFields` no hook.
+- Indicador visual por campo: borda verde (válido), âmbar (warning IA) ou vermelha (erro), com ícone à direita do label
+- Adicionar **medidor de qualidade da descrição** (Fraca / Boa / Ótima) baseado em comprimento + resultado IA, com barra de progresso slim
+- No campo Valor, mostrar abaixo o tier do fluxo em tempo real (≤1000 OC | >1000 AC/OC) com chip colorido
+
+### 5. FormSummarySidebar atualizado
+- Adicionar mini-progresso (`x/8 etapas`) no topo
+- Cada item clicável navega para a etapa correspondente
+- Adicionar bloco "Fluxo detectado" abaixo, refletindo AC/OC + instrumento jurídico
+- Usar `text-3xl tabular-nums` para o valor total formatado
+- Sticky com sombra mais sutil (consistente com Dashboard)
+
+### 6. FormNavigation aprimorada
+- Botão "Próximo" mostra preview da próxima etapa (ícone + label)
+- Quando há erros, botão fica desabilitado **e** mostra tooltip com a primeira mensagem de erro (não mais um genérico "complete a etapa")
+- Submit final ganha estado "pré-validação OK" (verde) quando tudo estiver válido
+
+### 7. Tokens e estilo
+- Padronizar `rounded-xl`, `ring-1 ring-border/40`, `bg-card/60 backdrop-blur` nas cards das etapas
+- Tipografia: títulos de step `text-xl font-semibold`, label de campo `text-sm font-medium`, hint `text-xs text-muted-foreground`
+- Spacing: `space-y-6` consistente entre blocos
+- Sem mudanças em cores globais — reuso dos tokens semânticos já existentes
 
 ## Arquivos afetados
 
-- `src/pages/Dashboard.tsx` — reorganização da composição (remover DailyInsightCard quando há pendências, segmented control, hero compacto, lista de últimas solicitações sem cards, espaçamentos).
-- `src/components/PendingActionsCard.tsx` — redesign para action tiles em grid, barra lateral, header com resumo embutido, estado "tudo em dia" mais discreto.
-- `src/components/DailyInsightCard.tsx` — manter como componente, mas usado apenas no estado "tudo em dia" / quando não há ações pendentes (ou removido se a mensagem for absorvida no PendingActionsCard).
-- `src/components/KpiSparkline.tsx` — aceitar prop opcional `direction` para colorir conforme tendência.
-- (Opcional) `src/components/ui/SolicitacaoCard.tsx` — variante "compact-list" sem wrapper de Card, para a lista densa de últimas solicitações.
+- `src/pages/NovaSolicitacao.tsx` — novo hero, integração do FluxoBadge sticky
+- `src/components/nova-solicitacao/FluxoBadge.tsx` — **novo**, banner dinâmico AC/OC
+- `src/components/StepIndicator.tsx` — ícones por step, conectores animados, mobile stepper
+- `src/components/nova-solicitacao/FormSummarySidebar.tsx` — itens clicáveis, bloco fluxo, progresso
+- `src/components/nova-solicitacao/FormNavigation.tsx` — preview próxima etapa, tooltip de erro real
+- `src/components/nova-solicitacao/steps/DescricaoStep.tsx` — medidor de qualidade, chip de fluxo no valor
+- `src/components/nova-solicitacao/steps/EmpreendimentoStep.tsx` — visual modernizado
+- `src/components/nova-solicitacao/steps/DetalhesStep.tsx` — bordas semânticas por validação
+- `src/components/nova-solicitacao/steps/FornecedorStep.tsx` — bordas semânticas
+- `src/hooks/useNovaSolicitacaoErrors.ts` — adicionar suporte a campos "tocados"
+- `src/hooks/useNovaSolicitacaoForm.ts` — expor `touchedFields` + setter
 
-## Detalhes técnicos
+## Fora do escopo
 
-- Toda paleta segue tokens do design system (`primary`, `success`, `destructive`, `warning`, `info`) — sem cores hardcoded em hex/HSL inline. Substituir o `text-[hsl(260,70%,50%)]` atual do PendingActionsCard por um token semântico (criar `--accent-purple` no `index.css` se necessário ou reaproveitar `info`).
-- Manter compatibilidade total com props atuais do `PendingActionsCard` (não quebrar callers fora do Dashboard, se houver — verificar com rg).
-- Acessibilidade: manter `role="alert" aria-live` no hero de pendências, manter focus rings, manter aria-labels descritivos nos KPIs e tiles.
-- Sem mudanças de dados, hooks, queries ou backend — puramente UI/UX.
-- Dark mode: validar todas as superfícies novas em ambos os temas.
-
-## Fora de escopo
-
-- Mudanças no NotificationBell, sidebar ou layout global.
-- Lógica de negócio dos KPIs e contagens.
-- Páginas internas (Backoffice, Minhas Solicitações).
+- Mudanças na lógica de submissão/persistência
+- Mudanças no schema do banco ou edge functions
+- Refatoração do fluxo de upload de anexos
+- Alteração das regras de instrumento jurídico/SLA/IA (são de negócio, já corretas)
