@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Check, Loader2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Loader2, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { Step, StepDefinition, FormState, DerivedValues } from './types';
@@ -11,12 +11,14 @@ interface FormNavigationProps {
   canProceed: boolean;
   canSubmit?: boolean;
   firstInvalidStepLabel?: string | null;
+  firstErrorMessage?: string | null;
+  hasStepErrors?: boolean;
   onNext: () => void;
   onBack: () => void;
   onSubmit: () => void;
 }
 
-export function FormNavigation({ currentStep, visibleSteps, currentIndex, submitting, canProceed, canSubmit = true, firstInvalidStepLabel = null, onNext, onBack, onSubmit }: FormNavigationProps) {
+export function FormNavigation({ currentStep, visibleSteps, currentIndex, submitting, canProceed, canSubmit = true, firstInvalidStepLabel = null, firstErrorMessage = null, hasStepErrors = false, onNext, onBack, onSubmit }: FormNavigationProps) {
   const submitDisabled = submitting || !canSubmit;
   const tooltipMessage = firstInvalidStepLabel
     ? `Falta completar a etapa "${firstInvalidStepLabel}" para enviar.`
@@ -26,10 +28,26 @@ export function FormNavigation({ currentStep, visibleSteps, currentIndex, submit
       onClick={onSubmit}
       disabled={submitDisabled}
       aria-disabled={submitDisabled}
-      className="shadow-lg sm:shadow-none"
+      className="shadow-lg sm:shadow-none gap-2"
     >
-      {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
-      {submitting ? 'Enviando…' : 'Enviar Solicitação'}
+      {submitting ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : canSubmit ? (
+        <ShieldCheck className="h-4 w-4" />
+      ) : (
+        <Check className="h-4 w-4" />
+      )}
+      {submitting ? 'Enviando…' : canSubmit ? 'Enviar Solicitação' : 'Enviar Solicitação'}
+    </Button>
+  );
+  const nextStep = visibleSteps[currentIndex + 1];
+  const nextLabel = nextStep && currentIndex < visibleSteps.length - 2
+    ? `Ir para ${nextStep.label}`
+    : 'Próximo';
+  const nextButton = (
+    <Button onClick={onNext} disabled={hasStepErrors} className="shadow-lg sm:shadow-none gap-2">
+      {nextLabel}
+      <ArrowRight className="h-4 w-4" />
     </Button>
   );
   return (
@@ -48,13 +66,17 @@ export function FormNavigation({ currentStep, visibleSteps, currentIndex, submit
             </Tooltip>
           </TooltipProvider>
         ) : submitButton
+      ) : hasStepErrors && firstErrorMessage ? (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span tabIndex={0}>{nextButton}</span>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-xs">{firstErrorMessage}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       ) : (
-        <Button onClick={onNext} disabled={!canProceed} className="shadow-lg sm:shadow-none">
-          {currentIndex < visibleSteps.length - 2
-            ? `Ir para ${visibleSteps[currentIndex + 1]?.label}`
-            : 'Próximo'}
-          <ArrowRight className="h-4 w-4 ml-2" />
-        </Button>
+        nextButton
       )}
     </div>
   );
