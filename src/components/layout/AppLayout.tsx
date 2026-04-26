@@ -32,6 +32,7 @@ import {
   Sun,
   Bell,
   CalendarDays,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -90,6 +91,7 @@ export function AppLayout() {
     { href: '/admin/usuarios', label: 'Usuários', icon: Users },
     { href: '/admin/sla', label: 'Dashboard SLA', icon: Timer },
     { href: '/admin/eficiencia', label: 'Eficiência', icon: BarChart3 },
+    { href: '/admin/excelencia', label: 'Excelência', icon: Sparkles },
   ];
 
   const getInitials = (name: string | null, email: string) => {
