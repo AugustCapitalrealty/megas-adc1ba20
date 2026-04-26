@@ -1,4 +1,4 @@
-import { Check, AlertTriangle, ChevronDown, FileText, Sparkles, DollarSign, Package } from 'lucide-react';
+import { Check, AlertTriangle, ChevronDown, FileText, Sparkles, DollarSign } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { RateioPreview } from '@/components/RateioPreview';
 import { cn } from '@/lib/utils';
 import type { StepProps } from '../types';
+import { FluxoBadge } from '../FluxoBadge';
 
 interface DescricaoStepProps extends StepProps {
   isValidatingDescription: boolean;
@@ -18,6 +19,30 @@ interface DescricaoStepProps extends StepProps {
 export function DescricaoStep({ formState, derived, setters, isValidatingDescription, descriptionValidation, formatCurrency }: DescricaoStepProps) {
   const { descricao, valor, empreendimento, tipoRateio } = formState;
   const { valorNumerico } = derived;
+
+  // Quality meter (Fraca / Boa / Ótima)
+  const len = descricao.trim().length;
+  const isVague = !!descriptionValidation?.isVague;
+  let quality: { label: string; pct: number; tone: 'low' | 'mid' | 'high' } = {
+    label: 'Comece a digitar…',
+    pct: 0,
+    tone: 'low',
+  };
+  if (len > 0 && len < 50) quality = { label: 'Fraca', pct: 25, tone: 'low' };
+  else if (len >= 50 && len < 100 && !isVague) quality = { label: 'Boa', pct: 65, tone: 'mid' };
+  else if (len >= 100 && !isVague) quality = { label: 'Ótima', pct: 100, tone: 'high' };
+  else if (isVague) quality = { label: 'Pode melhorar', pct: 40, tone: 'mid' };
+
+  const qualityToneBar: Record<typeof quality.tone, string> = {
+    low: 'bg-destructive',
+    mid: 'bg-warning',
+    high: 'bg-success',
+  };
+  const qualityToneText: Record<typeof quality.tone, string> = {
+    low: 'text-destructive',
+    mid: 'text-warning',
+    high: 'text-success',
+  };
 
   return (
     <>
@@ -101,6 +126,22 @@ export function DescricaoStep({ formState, derived, setters, isValidatingDescrip
             )}
           </div>
 
+          {/* Quality meter */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-muted-foreground">Qualidade da descrição</span>
+              <span className={cn('font-semibold', qualityToneText[quality.tone])}>
+                {quality.label}
+              </span>
+            </div>
+            <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className={cn('h-full transition-all duration-500', qualityToneBar[quality.tone])}
+                style={{ width: `${quality.pct}%` }}
+              />
+            </div>
+          </div>
+
           {descriptionValidation?.isVague && !isValidatingDescription && (
             <Alert className="bg-amber-50 border-amber-300 dark:bg-amber-950/30 dark:border-amber-800">
               <AlertTriangle className="h-4 w-4 text-amber-600" />
@@ -131,10 +172,7 @@ export function DescricaoStep({ formState, derived, setters, isValidatingDescrip
             className="text-lg font-medium"
           />
           {valorNumerico > 0 && (
-            <p className="text-sm text-muted-foreground flex items-center gap-1">
-              <Package className="h-3 w-3" />
-              {valorNumerico <= 1000 ? 'Fluxo: OC (até R$ 1.000)' : 'Fluxo: Definir tipo de contratação'}
-            </p>
+            <FluxoBadge formState={formState} derived={derived} className="mt-2" />
           )}
         </div>
       </div>
