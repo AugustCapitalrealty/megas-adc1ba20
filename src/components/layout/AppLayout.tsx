@@ -42,6 +42,7 @@ import { AppBreadcrumbs } from '@/components/layout/AppBreadcrumbs';
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { useTheme } from 'next-themes';
 import logoMega from '@/assets/logos/logo-mega.png';
+import { useTrackEvent } from '@/hooks/useTrackEvent';
 
 export function AppLayout() {
   const { 
@@ -59,6 +60,12 @@ export function AppLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isOnline = useOnlineStatus();
   const { theme, setTheme } = useTheme();
+  const track = useTrackEvent();
+
+  // Page view tracking — leve, debounced via useTrackEvent
+  useEffect(() => {
+    track('page_view', { path: location.pathname }, location.pathname);
+  }, [location.pathname, track]);
 
   // Determine persona
   const isSolicitante = !isBackofficeOrAdmin && !isAdmin;
