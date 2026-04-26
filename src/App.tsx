@@ -25,6 +25,7 @@ const DashboardEficiencia = lazy(() => import("./pages/DashboardEficiencia"));
 const MonitoramentoOC = lazy(() => import("./pages/MonitoramentoOC"));
 const Calendario = lazy(() => import("./pages/Calendario"));
 const Notificacoes = lazy(() => import("./pages/Notificacoes"));
+const AdminExcelencia = lazy(() => import("./pages/AdminExcelencia"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -60,6 +61,7 @@ function AppRoutes() {
           <Route path="admin/sla" element={<RequireRole role="backoffice"><DashboardSLA /></RequireRole>} />
           <Route path="admin/eficiencia" element={<RequireRole role="backoffice"><DashboardEficiencia /></RequireRole>} />
           <Route path="admin/usuarios" element={<RequireRole role="admin"><Admin /></RequireRole>} />
+          <Route path="admin/excelencia" element={<RequireRole role="admin"><AdminExcelencia /></RequireRole>} />
         </Route>
 
         <Route path="*" element={<NotFound />} />
