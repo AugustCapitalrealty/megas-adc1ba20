@@ -1,88 +1,127 @@
+# Auditoria PO/PM — Caminho para Excelência
 
-## Contexto
+Sistema MEGAS está maduro: wizard de Nova Solicitação, Backoffice, Dashboards (Geral/SLA/Eficiência), Monitoramento OC, Projuris, Garantias, GChat/WhatsApp, Fluig, IA de validação. Abaixo, o que falta para entrar no nível "produto de classe alta".
 
-A tela `/nova-solicitacao` já tem uma base sólida: wizard de 8 etapas (`Local → Descrição → Tipo → Natureza → Detalhes → Fornecedor → Anexos → Enviar`), classificação automática AC/OC pelo valor, validação de descrição via IA, validação CNAE, persistência de rascunho, navegação por teclado e `FormSummarySidebar`.
+---
 
-O objetivo aqui **não é refazer**, e sim alinhar a UI ao novo padrão visual do Dashboard (hero compacto, segmented controls, action tiles, tokens consistentes) e tornar o feedback de validação em tempo real mais visível e útil.
+## 1. Diagnóstico — pontos fortes
 
-## O que vai mudar
+- Cobertura funcional ampla (8 personas/fluxos cobertos)
+- Integrações vivas (Fluig, Projuris, GChat, WhatsApp, IA)
+- Regras de negócio sofisticadas (SLA, AC/OC, instrumentos jurídicos, rateio, garantia)
+- Memória de produto bem documentada (mem://)
+- Design system Mega aplicado de forma consistente
 
-### 1. Hero / cabeçalho da página (`NovaSolicitacao.tsx`)
-- Substituir cabeçalho atual por um header compacto com:
-  - Título + subtítulo curto
-  - Badge de persona (Solicitante/Backoffice/Admin) — mesmo padrão do Dashboard
-  - Chip de "rascunho salvo há Xs" + botão "Descartar rascunho"
-  - Atalho `Ctrl+K` / `←` `→` exposto discretamente
-- Remover Card aninhado de fora; usar superfície limpa `rounded-xl` + `ring`.
+## 2. Gaps críticos (bloqueiam excelência)
 
-### 2. Banner dinâmico AC/OC (novo componente)
-Criar `src/components/nova-solicitacao/FluxoBadge.tsx` que mostra em tempo real, conforme o usuário digita o valor:
+### 2.1 Qualidade & Confiabilidade
+- **Testes quase inexistentes**: apenas 2 arquivos (`useAuth.test.ts`, `App.guards.test.tsx`). Nenhum teste de regras de negócio (AC/OC, SLA, rateio, instrumento jurídico).
+- **Sem testes E2E** apesar de Playwright instalado. Fluxos críticos (criar solicitação → aprovar → OC → NF) não são validados automaticamente.
+- **Sem error tracking** (Sentry/PostHog). Erros em produção são invisíveis.
+- **Edge functions sem testes** — risco alto em cron jobs (SLA alerts, service-execution).
 
-```text
-┌──────────────────────────────────────────────┐
-│ 📦 OC · Ordem de Compra                      │
-│ Valor ≤ R$ 1.000 — fluxo simplificado        │
-└──────────────────────────────────────────────┘
+### 2.2 Observabilidade & Métricas de Produto
+- Não há **analytics de uso real** (quais features são usadas, abandono no wizard, tempo por etapa).
+- Não há **métricas de adoção por persona** (quantos solicitantes ativos/semana, % de auto-serviço).
+- Falta painel de **saúde do sistema** (latência IA, falhas Fluig, retries GChat).
 
-┌──────────────────────────────────────────────┐
-│ 📋 AC · Autorização de Compra                │
-│ Serviço acima de R$ 1.000                    │
-│ • Requer 3 CNPJs · • Instrumento: Termo      │
-└──────────────────────────────────────────────┘
-```
+### 2.3 Onboarding & Experiência
+- `WelcomeTour` existe mas não há **onboarding por persona** (Solicitante vs Backoffice vs Admin).
+- Sem **central de ajuda contextual** (tooltips de regras AC/OC, glossário de instrumentos).
+- Sem **changelog visível** ao usuário ("novidades da semana").
+- Sem **modo demo / sandbox** para treinar novos usuários.
 
-- Cores semânticas: OC = azul/info, AC = âmbar/warning, AC + emergencial = vermelho/destructive
-- Aparece já na etapa de Descrição (assim que valor > 0) e persiste como sticky chip nas etapas seguintes
-- Mostra microbadges secundárias: "Emergencial", "Requer Due Diligence", "Retenção 6%", "Instrumento: Contrato Empreitada/Termo/OC", calculadas pelo `derived` que já existe
+### 2.4 Acessibilidade & Inclusão
+- Falta auditoria WCAG AA (contraste em badges, foco visível, ARIA labels em modais).
+- Sem suporte explícito a teclado em tabelas grandes (Backoffice, MonitoramentoOC).
+- Sem teste com leitores de tela.
 
-### 3. StepIndicator modernizado (`StepIndicator.tsx`)
-- Tornar steps **clicáveis para qualquer etapa já visitada** (manter a regra atual de não pular para frente sem validar)
-- Adicionar mini-ícone por etapa (Building2, FileText, Tag, Sparkles, Settings, Truck, Paperclip, Send) em vez de só números
-- Conector animado com gradient sutil quando concluído
-- Versão mobile: trocar barra plana por **stepper horizontal scrollable** com snap
+### 2.5 Performance
+- Tabelas grandes (Backoffice, Monitoramento) usam virtualização parcial — ainda há renders pesados.
+- Sem **code splitting por rota** auditado (bundle pode estar grande).
+- Sem métricas Core Web Vitals coletadas.
+- Imagens/anexos sem compressão automática no upload.
 
-### 4. Validação em tempo real reforçada
-Mudanças no `useNovaSolicitacaoErrors.ts` + componentes de step:
-- **Mostrar erros inline imediatamente** após o campo perder o foco (touch-based), não apenas após tentar avançar. Adicionar estado `touchedFields` no hook.
-- Indicador visual por campo: borda verde (válido), âmbar (warning IA) ou vermelha (erro), com ícone à direita do label
-- Adicionar **medidor de qualidade da descrição** (Fraca / Boa / Ótima) baseado em comprimento + resultado IA, com barra de progresso slim
-- No campo Valor, mostrar abaixo o tier do fluxo em tempo real (≤1000 OC | >1000 AC/OC) com chip colorido
+### 2.6 Governança de Dados & Segurança
+- Não há rotina visível de **revisão de RLS** documentada por release.
+- Sem **trilha de auditoria consultável pela UI** (quem alterou status, valor, fornecedor).
+- Sem **export LGPD** (dados pessoais por usuário) e **direito ao esquecimento**.
+- Backups e plano de recuperação não documentados ao usuário final.
 
-### 5. FormSummarySidebar atualizado
-- Adicionar mini-progresso (`x/8 etapas`) no topo
-- Cada item clicável navega para a etapa correspondente
-- Adicionar bloco "Fluxo detectado" abaixo, refletindo AC/OC + instrumento jurídico
-- Usar `text-3xl tabular-nums` para o valor total formatado
-- Sticky com sombra mais sutil (consistente com Dashboard)
+### 2.7 Mobile & Offline
+- Layout responsivo existe, mas wizard ainda é pesado em telas pequenas.
+- Sem PWA (instalar no celular, push, offline mínimo).
+- Solicitante em campo não consegue tirar foto e anexar com fluxo otimizado.
 
-### 6. FormNavigation aprimorada
-- Botão "Próximo" mostra preview da próxima etapa (ícone + label)
-- Quando há erros, botão fica desabilitado **e** mostra tooltip com a primeira mensagem de erro (não mais um genérico "complete a etapa")
-- Submit final ganha estado "pré-validação OK" (verde) quando tudo estiver válido
+### 2.8 Workflow & Automação
+- **SLA alerts** só em 80% — falta escalonamento (gestor) e SLA por etapa.
+- Sem **regras configuráveis pelo Admin** (hoje thresholds estão hardcoded: 1000, 3 dias, 6%).
+- Sem **templates de solicitação** (recorrências comuns viram 1-clique).
+- Sem **aprovação em lote** para Backoffice de baixo risco.
 
-### 7. Tokens e estilo
-- Padronizar `rounded-xl`, `ring-1 ring-border/40`, `bg-card/60 backdrop-blur` nas cards das etapas
-- Tipografia: títulos de step `text-xl font-semibold`, label de campo `text-sm font-medium`, hint `text-xs text-muted-foreground`
-- Spacing: `space-y-6` consistente entre blocos
-- Sem mudanças em cores globais — reuso dos tokens semânticos já existentes
+### 2.9 IA & Inteligência
+- Validação de descrição via IA existe — falta **sugestão de fornecedor** baseada em histórico.
+- Sem **detecção de duplicatas** (mesma solicitação criada 2x).
+- Sem **previsão de SLA** (esta solicitação tende a estourar?).
+- Sem **resumo executivo automático** para gestores.
 
-## Arquivos afetados
+### 2.10 Integrações
+- Fluig/Projuris dependem de import manual/CSV em vários pontos — falta sincronização programada robusta com retry/backoff visível.
+- Sem webhook de saída (clientes/parceiros consumirem eventos).
+- Sem export agendado (relatório semanal por e-mail para diretoria).
 
-- `src/pages/NovaSolicitacao.tsx` — novo hero, integração do FluxoBadge sticky
-- `src/components/nova-solicitacao/FluxoBadge.tsx` — **novo**, banner dinâmico AC/OC
-- `src/components/StepIndicator.tsx` — ícones por step, conectores animados, mobile stepper
-- `src/components/nova-solicitacao/FormSummarySidebar.tsx` — itens clicáveis, bloco fluxo, progresso
-- `src/components/nova-solicitacao/FormNavigation.tsx` — preview próxima etapa, tooltip de erro real
-- `src/components/nova-solicitacao/steps/DescricaoStep.tsx` — medidor de qualidade, chip de fluxo no valor
-- `src/components/nova-solicitacao/steps/EmpreendimentoStep.tsx` — visual modernizado
-- `src/components/nova-solicitacao/steps/DetalhesStep.tsx` — bordas semânticas por validação
-- `src/components/nova-solicitacao/steps/FornecedorStep.tsx` — bordas semânticas
-- `src/hooks/useNovaSolicitacaoErrors.ts` — adicionar suporte a campos "tocados"
-- `src/hooks/useNovaSolicitacaoForm.ts` — expor `touchedFields` + setter
+---
 
-## Fora do escopo
+## 3. Roadmap proposto (3 ondas)
 
-- Mudanças na lógica de submissão/persistência
-- Mudanças no schema do banco ou edge functions
-- Refatoração do fluxo de upload de anexos
-- Alteração das regras de instrumento jurídico/SLA/IA (são de negócio, já corretas)
+### Onda 1 — Fundação de qualidade (2–3 sprints)
+1. **Bateria de testes de negócio**: SLA, AC/OC, rateio, instrumento jurídico, retenção 6%.
+2. **E2E Playwright**: 5 jornadas críticas (criar OC, criar AC, aprovação backoffice, NF chegada, garantia expirando).
+3. **Sentry + analytics de produto** (eventos via `useTrackEvent` já existente, dashboard interno).
+4. **Painel de saúde do sistema** (admin-only): cron jobs, edge function error rate, fila de retries.
+5. **Auditoria de RLS** documentada + checklist de release.
+
+### Onda 2 — Excelência de UX e operação (3–4 sprints)
+6. **Onboarding por persona** + central de ajuda contextual + changelog in-app.
+7. **Auditoria WCAG AA** com correções (foco, contraste, ARIA).
+8. **PWA + fluxo mobile do solicitante** (foto, anexo rápido, push).
+9. **Trilha de auditoria visível** (timeline expandida) e export LGPD por usuário.
+10. **Regras configuráveis** (Admin define thresholds AC/OC, SLA, retenção).
+11. **Aprovação em lote** e **templates de solicitação recorrente**.
+
+### Onda 3 — Inteligência e escala (4+ sprints)
+12. **IA preditiva**: sugestão de fornecedor, detecção de duplicatas, previsão de estouro de SLA.
+13. **Resumo executivo automático** para diretoria (semanal por e-mail/GChat).
+14. **Webhooks de saída + API pública** para integrações externas.
+15. **Sincronização Fluig/Projuris** com retry/backoff e dashboard de fila.
+16. **Gamificação leve** para solicitantes (qualidade da descrição, % auto-serviço).
+
+---
+
+## 4. KPIs para acompanhar excelência
+
+- **Adoção**: usuários ativos/semana por persona, % solicitações criadas sem retrabalho.
+- **Eficiência**: tempo médio do wizard, % SLA cumprido, lead time médio.
+- **Qualidade**: taxa de erro JS (Sentry), uptime edge functions, % testes passando.
+- **Satisfação**: NPS in-app, tickets de suporte/semana, tempo até primeira solicitação.
+- **Negócio**: % AC com 3 CNPJs, valor médio por instrumento, garantias expirando atendidas.
+
+---
+
+## 5. Entregável imediato (se aprovado)
+
+Crio um **dashboard `/admin/excelencia`** (admin-only) com:
+- Status de cada item do roadmap (a fazer / em andamento / pronto)
+- KPIs acima em tempo real (com base no que já existe no banco)
+- Backlog priorizado editável
+- Export PDF para apresentar à diretoria
+
+Posso também começar pela Onda 1 item 1 (testes de negócio) se preferir entregar valor técnico antes do painel.
+
+---
+
+## Fora do escopo deste plano
+
+- Refatoração de código existente que já funciona
+- Mudanças no schema do banco (apenas adições controladas se necessário)
+- Substituir integrações atuais (Fluig, Projuris, GChat continuam)
