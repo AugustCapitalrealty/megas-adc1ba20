@@ -269,6 +269,14 @@ export default function AdminExcelencia() {
       </header>
 
       {/* KPIs */}
+      <Tabs defaultValue="roadmap" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="roadmap">Roadmap</TabsTrigger>
+          <TabsTrigger value="errors">Erros</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="roadmap" className="space-y-6">
       <section aria-labelledby="kpis-title" className="space-y-3">
         <h2 id="kpis-title" className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
           Saúde do produto
@@ -369,6 +377,16 @@ export default function AdminExcelencia() {
           quando o time decidir o owner de cada item.
         </p>
       </section>
+        </TabsContent>
+
+        <TabsContent value="errors">
+          <ErrorsPanel />
+        </TabsContent>
+
+        <TabsContent value="analytics">
+          <AnalyticsPanel />
+        </TabsContent>
+      </Tabs>
     </main>
   );
 }
