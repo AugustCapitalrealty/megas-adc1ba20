@@ -122,6 +122,7 @@ export function AppLayout() {
       '/admin/usuarios': () => import('@/pages/Admin'),
       '/admin/sla': () => import('@/pages/DashboardSLA'),
       '/admin/eficiencia': () => import('@/pages/DashboardEficiencia'),
+      '/admin/excelencia': () => import('@/pages/AdminExcelencia'),
       '/notificacoes': () => import('@/pages/Notificacoes'),
     };
     routeMap[path]?.();
