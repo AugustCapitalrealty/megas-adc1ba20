@@ -4,6 +4,9 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ErrorsPanel } from '@/components/admin/excelencia/ErrorsPanel';
+import { AnalyticsPanel } from '@/components/admin/excelencia/AnalyticsPanel';
 import { supabase } from '@/integrations/supabase/client';
 import {
   CheckCircle2,
@@ -43,7 +46,7 @@ const INITIAL_ROADMAP: RoadmapItem[] = [
   // Onda 1
   { id: 'qa-rules', area: 'Qualidade', icon: ShieldCheck, title: 'Testes de regras de negócio', desc: 'AC/OC, instrumento jurídico, rateio, SLA — Vitest unitário', status: 'done', wave: 1 },
   { id: 'qa-e2e', area: 'Qualidade', icon: ShieldCheck, title: 'E2E Playwright (5 jornadas críticas)', desc: 'Criar OC, criar AC, aprovação backoffice, NF chegada, garantia', status: 'todo', wave: 1 },
-  { id: 'obs-sentry', area: 'Observabilidade', icon: LineChart, title: 'Sentry + analytics de produto', desc: 'Erros em produção, eventos via useTrackEvent', status: 'todo', wave: 1 },
+  { id: 'obs-sentry', area: 'Observabilidade', icon: LineChart, title: 'Sentry + analytics de produto', desc: 'Erros em produção, eventos via useTrackEvent', status: 'done', wave: 1 },
   { id: 'obs-health', area: 'Observabilidade', icon: Activity, title: 'Painel de saúde do sistema', desc: 'Cron jobs, edge function error rate, fila de retries', status: 'todo', wave: 1 },
   { id: 'sec-rls', area: 'Segurança', icon: ShieldCheck, title: 'Auditoria de RLS por release', desc: 'Checklist documentado e revisão automatizada', status: 'todo', wave: 1 },
   // Onda 2
