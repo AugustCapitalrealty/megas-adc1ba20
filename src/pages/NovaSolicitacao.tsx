@@ -727,9 +727,13 @@ export default function NovaSolicitacao() {
             {currentStep === 'descricao' && (
               <>
                 <DescricaoStep {...stepProps} isValidatingDescription={isValidatingDescription} descriptionValidation={descriptionValidation} formatCurrency={formatCurrency} />
-                {showErrors && (
+                {(showErrors || formState.descricao.length > 0) && (
                   <>
                     <FieldError message={stepErrors.descricao} />
+                  </>
+                )}
+                {(showErrors || derived.valorNumerico > 0 || formState.valor.length > 0) && (
+                  <>
                     <FieldError message={stepErrors.valor} />
                   </>
                 )}
