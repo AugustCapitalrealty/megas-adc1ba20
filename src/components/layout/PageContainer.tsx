@@ -5,34 +5,30 @@ interface PageContainerProps {
   children: ReactNode;
   className?: string;
   /**
-   * Largura máxima.
-   * - 'default' (xl) para páginas comuns
-   * - 'wide' para tabelas grandes (Backoffice, Monitoramento)
-   * - 'narrow' para wizards/forms longos
+   * Largura máxima do conteúdo (sobrepõe a do shell).
+   * - 'default' (xl) páginas comuns
+   * - 'wide' tabelas grandes (Backoffice, Monitoramento)
+   * - 'narrow' wizards/forms longos
+   * - 'full' usa toda a largura do shell
    */
-  width?: 'default' | 'wide' | 'narrow';
+  width?: 'default' | 'wide' | 'narrow' | 'full';
 }
 
 const widthMap = {
-  default: 'max-w-7xl',
-  wide: 'max-w-[1600px]',
-  narrow: 'max-w-3xl',
+  default: 'max-w-7xl mx-auto',
+  wide: 'max-w-[1600px] mx-auto',
+  narrow: 'max-w-3xl mx-auto',
+  full: 'w-full',
 };
 
 /**
  * Container canônico de página.
- * Padroniza padding, max-width e ritmo vertical entre seções.
+ * O AppLayout já provê `container py-6` global; este componente só padroniza
+ * o ritmo vertical entre seções e a largura interna do conteúdo.
  */
-export function PageContainer({ children, className, width = 'default' }: PageContainerProps) {
+export function PageContainer({ children, className, width = 'full' }: PageContainerProps) {
   return (
-    <div
-      id="main-content"
-      className={cn(
-        'mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6',
-        widthMap[width],
-        className,
-      )}
-    >
+    <div className={cn('w-full space-y-6 animate-fade-in', widthMap[width], className)}>
       {children}
     </div>
   );
