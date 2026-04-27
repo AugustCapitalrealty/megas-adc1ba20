@@ -1428,6 +1428,22 @@ export type Database = {
           status: Database["public"]["Enums"]["request_status"]
         }[]
       }
+      get_system_health_cron: {
+        Args: never
+        Returns: {
+          active: boolean
+          failures_last_24h: number
+          jobid: number
+          jobname: string
+          last_duration_ms: number
+          last_run_end: string
+          last_run_start: string
+          last_status: string
+          runs_last_24h: number
+          schedule: string
+        }[]
+      }
+      get_system_health_summary: { Args: never; Returns: Json }
       get_user_empreendimentos: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["empreendimento"][]

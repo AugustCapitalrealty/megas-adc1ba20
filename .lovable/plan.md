@@ -85,7 +85,7 @@ Sistema MEGAS está maduro: wizard de Nova Solicitação, Backoffice, Dashboards
 > - [x] Item 1 — `src/lib/solicitacao-rules.test.ts` (27 testes)
 > - [x] Item 2 — `tests/e2e/*.spec.ts` (Playwright, 6 specs cobrindo login, wizard, backoffice, OC, garantias + contrato de regras)
 > - [x] Item 3 — Sentry-like (`error_logs` + `error-tracker.ts`) + analytics em `/admin/excelencia`
-> - [ ] Item 4 — Painel de saúde de cron jobs / edge functions
+> - [x] Item 4 — `HealthPanel` em `/admin/excelencia` (cron jobs + RPC `get_system_health_*`, erros por origem, pendências paradas, ações não lidas, refresh 60s)
 > - [ ] Item 5 — Checklist de RLS por release
 
 ### Onda 2 — Excelência de UX e operação (3–4 sprints)

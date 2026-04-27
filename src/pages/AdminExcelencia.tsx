@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ErrorsPanel } from '@/components/admin/excelencia/ErrorsPanel';
 import { AnalyticsPanel } from '@/components/admin/excelencia/AnalyticsPanel';
+import { HealthPanel } from '@/components/admin/excelencia/HealthPanel';
 import { supabase } from '@/integrations/supabase/client';
 import {
   CheckCircle2,
@@ -45,9 +46,9 @@ interface RoadmapItem {
 const INITIAL_ROADMAP: RoadmapItem[] = [
   // Onda 1
   { id: 'qa-rules', area: 'Qualidade', icon: ShieldCheck, title: 'Testes de regras de negócio', desc: 'AC/OC, instrumento jurídico, rateio, SLA — Vitest unitário', status: 'done', wave: 1 },
-  { id: 'qa-e2e', area: 'Qualidade', icon: ShieldCheck, title: 'E2E Playwright (5 jornadas críticas)', desc: 'Criar OC, criar AC, aprovação backoffice, NF chegada, garantia', status: 'todo', wave: 1 },
+  { id: 'qa-e2e', area: 'Qualidade', icon: ShieldCheck, title: 'E2E Playwright (5 jornadas críticas)', desc: 'Criar OC, criar AC, aprovação backoffice, NF chegada, garantia', status: 'done', wave: 1 },
   { id: 'obs-sentry', area: 'Observabilidade', icon: LineChart, title: 'Sentry + analytics de produto', desc: 'Erros em produção, eventos via useTrackEvent', status: 'done', wave: 1 },
-  { id: 'obs-health', area: 'Observabilidade', icon: Activity, title: 'Painel de saúde do sistema', desc: 'Cron jobs, edge function error rate, fila de retries', status: 'todo', wave: 1 },
+  { id: 'obs-health', area: 'Observabilidade', icon: Activity, title: 'Painel de saúde do sistema', desc: 'Cron jobs, edge function error rate, fila de retries', status: 'done', wave: 1 },
   { id: 'sec-rls', area: 'Segurança', icon: ShieldCheck, title: 'Auditoria de RLS por release', desc: 'Checklist documentado e revisão automatizada', status: 'todo', wave: 1 },
   // Onda 2
   { id: 'ux-onboard', area: 'UX', icon: GraduationCap, title: 'Onboarding por persona', desc: 'Solicitante, Backoffice e Admin com tours guiados', status: 'todo', wave: 2 },
@@ -272,6 +273,7 @@ export default function AdminExcelencia() {
       <Tabs defaultValue="roadmap" className="space-y-4">
         <TabsList>
           <TabsTrigger value="roadmap">Roadmap</TabsTrigger>
+          <TabsTrigger value="health">Saúde</TabsTrigger>
           <TabsTrigger value="errors">Erros</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
@@ -377,6 +379,10 @@ export default function AdminExcelencia() {
           quando o time decidir o owner de cada item.
         </p>
       </section>
+        </TabsContent>
+
+        <TabsContent value="health">
+          <HealthPanel />
         </TabsContent>
 
         <TabsContent value="errors">
