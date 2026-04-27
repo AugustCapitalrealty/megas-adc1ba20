@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Shield, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { PageContainer } from '@/components/layout/PageContainer';
+import { PageHeader } from '@/components/layout/PageHeader';
 import { useToast } from '@/hooks/use-toast';
 import { useGarantiasVigentes } from '@/hooks/useGarantiasVigentes';
 import { GarantiaKPIs } from '@/components/garantias/GarantiaKPIs';
@@ -47,17 +49,12 @@ export default function GarantiasVigentes() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <Shield className="h-7 w-7 text-primary" />
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Garantias Vigentes</h1>
-          <p className="text-muted-foreground text-sm">
-            Acompanhe as garantias de serviço e produto das solicitações concluídas
-          </p>
-        </div>
-      </div>
+    <PageContainer width="wide">
+      <PageHeader
+        icon={Shield}
+        title="Garantias Vigentes"
+        description="Acompanhe as garantias de serviço e produto das solicitações concluídas"
+      />
 
       {/* KPIs */}
       <GarantiaKPIs
@@ -139,6 +136,6 @@ export default function GarantiasVigentes() {
         solicitacaoId={modalSolicitacaoId}
         protocolo={modalProtocolo}
       />
-    </div>
+    </PageContainer>
   );
 }
