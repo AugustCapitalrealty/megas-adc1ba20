@@ -46,7 +46,7 @@ interface RoadmapItem {
 const INITIAL_ROADMAP: RoadmapItem[] = [
   // Onda 1
   { id: 'qa-rules', area: 'Qualidade', icon: ShieldCheck, title: 'Testes de regras de negócio', desc: 'AC/OC, instrumento jurídico, rateio, SLA — Vitest unitário', status: 'done', wave: 1 },
-  { id: 'qa-e2e', area: 'Qualidade', icon: ShieldCheck, title: 'E2E Playwright (5 jornadas críticas)', desc: 'Criar OC, criar AC, aprovação backoffice, NF chegada, garantia', status: 'todo', wave: 1 },
+  { id: 'qa-e2e', area: 'Qualidade', icon: ShieldCheck, title: 'E2E Playwright (5 jornadas críticas)', desc: 'Criar OC, criar AC, aprovação backoffice, NF chegada, garantia', status: 'done', wave: 1 },
   { id: 'obs-sentry', area: 'Observabilidade', icon: LineChart, title: 'Sentry + analytics de produto', desc: 'Erros em produção, eventos via useTrackEvent', status: 'done', wave: 1 },
   { id: 'obs-health', area: 'Observabilidade', icon: Activity, title: 'Painel de saúde do sistema', desc: 'Cron jobs, edge function error rate, fila de retries', status: 'done', wave: 1 },
   { id: 'sec-rls', area: 'Segurança', icon: ShieldCheck, title: 'Auditoria de RLS por release', desc: 'Checklist documentado e revisão automatizada', status: 'todo', wave: 1 },
