@@ -1911,7 +1911,7 @@ export default function Backoffice() {
             <TabContent items={groupedSolicitacoes.cancelamento_pendente} emptyMessage="Nenhum cancelamento pendente de aprovação" />
           )}
         </div>
-      </div>
+      </PageContainer>
 
       {/* BackofficeModals — all modals extracted */}
       <BackofficeModals
