@@ -581,7 +581,7 @@ export default function DashboardSLA() {
             <TopOfensoresCard items={stats.topOfensores} />
           </div>
         </div>
-      </div>
+      </PageContainer>
 
       {/* Timeline Modal */}
       {selectedSolicitacao && (
