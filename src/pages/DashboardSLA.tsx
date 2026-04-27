@@ -52,6 +52,8 @@ import { MetaGauge } from '@/components/sla/MetaGauge';
 import { SlaDistributionBar } from '@/components/sla/SlaDistributionBar';
 import { SlaKpiCard } from '@/components/sla/SlaKpiCard';
 import { TopOfensoresCard } from '@/components/sla/TopOfensoresCard';
+import { PageContainer } from '@/components/layout/PageContainer';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 type QuickRange = '7d' | '30d' | '90d' | 'mes' | 'ytd';
 
@@ -131,20 +133,12 @@ export default function DashboardSLA() {
 
   return (
     <TooltipProvider>
-      <div className="space-y-6 animate-fade-in">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-3">
-              <Timer className="h-6 w-6 text-primary" />
-              SLA do Backoffice
-            </h1>
-            <p className="text-muted-foreground mt-1 text-sm">
-              Meta: <strong>{meta}%</strong> das solicitações atendidas em até{' '}
-              <strong>3 dias úteis</strong>
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
+      <PageContainer width="wide">
+        <PageHeader
+          icon={Timer}
+          title="SLA do Backoffice"
+          description={`Meta: ${meta}% das solicitações atendidas em até 3 dias úteis`}
+          actions={
             <div className="inline-flex rounded-md border bg-card p-0.5">
               {(['7d', '30d', '90d', 'mes', 'ytd'] as QuickRange[]).map((q) => (
                 <button
