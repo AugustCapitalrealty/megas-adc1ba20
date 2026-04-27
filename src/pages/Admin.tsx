@@ -1077,7 +1077,7 @@ export default function Admin() {
             <WhatsAppAdminTab />
           </TabsContent>
         </Tabs>
-      </div>
+      </PageContainer>
 
       <Dialog open={vacationModalOpen} onOpenChange={setVacationModalOpen}>
         <DialogContent>
