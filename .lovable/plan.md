@@ -54,9 +54,11 @@ Após varredura visual das principais páginas (`Dashboard`, `DashboardSLA`, `Da
 4. **Storybook leve em `/admin/design-system`** (admin-only): mostra todos os componentes com variantes para o time validar.
 
 ### Onda 2 — Migração das páginas core
-5. Migrar `Dashboard`, `DashboardSLA`, `DashboardEficiencia` para usar `PageHeader`, `KpiCard`, `PageContainer`.
-6. Migrar `Backoffice`, `MonitoramentoOC`, `GarantiasVigentes` para `DataTable` + `FilterToolbar` + `StandardModal`.
-7. Migrar `MinhasSolicitacoes`, `Notificacoes`, `PainelFluig`, `Calendario`, `Admin`, `AdminExcelencia` ao mesmo padrão.
+5. [x] Migrar `DashboardSLA`, `DashboardEficiencia` para `PageHeader` + `PageContainer` (Dashboard mantém hero personalizado).
+6. [x] Migrar `Backoffice`, `MonitoramentoOC`, `GarantiasVigentes` para `PageHeader` + `PageContainer`.
+7. [x] Migrar `MinhasSolicitacoes`, `Notificacoes`, `PainelFluig`, `Admin`, `AdminExcelencia` ao mesmo padrão.
+
+> Onda 2 entregue: todas as páginas (exceto Dashboard com hero único e Calendario que apenas reexporta) usam `PageContainer` + `PageHeader`. Próximo passo: substituir tabelas/modais/badges por `DataTable`/`StandardModal`/`StatusPill` página a página.
 
 ### Onda 3 — Wizard e fluxos longos
 8. Padronizar `NovaSolicitacao` (steps com mesma densidade, sidebar e navegação alinhados ao novo header/container).
