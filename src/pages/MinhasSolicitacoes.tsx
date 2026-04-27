@@ -44,6 +44,8 @@ import { SolicitanteSolicitacaoCard } from '@/components/solicitante/Solicitante
 import { SolicitanteTable } from '@/components/solicitante/SolicitanteTable';
 import { useSolicitanteShortcuts } from '@/hooks/useSolicitanteShortcuts';
 import type { SolicitacaoComFornecedor, RejectionInfo, InfoRequest } from '@/components/solicitante/types';
+import { PageContainer } from '@/components/layout/PageContainer';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 const ATTACHMENT_TYPES = {
   chamado_preventiva: 'Chamado / Preventiva (Infraspeak)',
@@ -993,7 +995,7 @@ export default function MinhasSolicitacoes() {
 
   return (
     <>
-      <div className="space-y-6 animate-fade-in">
+      <PageContainer width="wide">
         {/* Success Banner */}
         {showCreatedBanner && createdProtocolo && (
           <div className="bg-success border-l-4 border-success/70 text-success-foreground px-5 py-4 rounded-lg flex items-center justify-between animate-slide-up shadow-lg">
@@ -1015,14 +1017,11 @@ export default function MinhasSolicitacoes() {
         )}
 
         {/* Header */}
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold">Solicitações</h1>
-              <p className="text-muted-foreground text-sm">Acompanhe o andamento e tome ações nas suas solicitações</p>
-            </div>
-          </div>
-          
+        <PageHeader
+          icon={FileText}
+          title="Solicitações"
+          description="Acompanhe o andamento e tome ações nas suas solicitações"
+        >
           {userEmpreendimentos.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
               <Button variant={viewMode === 'minhas' ? 'default' : 'outline'} size="sm"
@@ -1052,7 +1051,7 @@ export default function MinhasSolicitacoes() {
               )}
             </div>
           )}
-        </div>
+        </PageHeader>
 
 
         {/* Pending Header Chips (compact) */}
@@ -1248,7 +1247,7 @@ export default function MinhasSolicitacoes() {
             )}
           />
         )}
-      </div>
+      </PageContainer>
 
       {/* All Modals */}
       <SolicitanteModals
