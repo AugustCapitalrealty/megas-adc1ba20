@@ -30,6 +30,8 @@ import {
   Activity,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PageContainer } from '@/components/layout/PageContainer';
+import { PageHeader as DSPageHeader } from '@/components/layout/PageHeader';
 
 type RoadmapStatus = 'todo' | 'doing' | 'done';
 
@@ -229,8 +231,19 @@ export default function AdminExcelencia() {
   ];
 
   return (
-    <main id="main-content" className="container py-6 space-y-6">
-      {/* Hero */}
+    <PageContainer width="wide">
+      <DSPageHeader
+        icon={Sparkles}
+        title="MEGAS — Caminho para classe alta"
+        description="Backlog priorizado em 3 ondas, KPIs reais do sistema e status editável por iniciativa."
+        actions={
+          <div className="text-right shrink-0">
+            <div className="text-3xl font-semibold tabular-nums">{stats.pct}%</div>
+            <div className="text-xs text-muted-foreground">{stats.done}/{stats.total} concluídos</div>
+          </div>
+        }
+      />
+      <div className="hidden">
       <header className="rounded-2xl border bg-card/60 backdrop-blur p-6 ring-1 ring-border/40">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
