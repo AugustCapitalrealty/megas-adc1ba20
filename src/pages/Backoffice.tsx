@@ -48,6 +48,8 @@ import { BackofficeTable } from '@/components/backoffice/BackofficeTable';
 import { useBackofficeShortcuts } from '@/hooks/useBackofficeShortcuts';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ContextualEmptyState } from '@/components/ui/ContextualEmptyState';
+import { PageContainer } from '@/components/layout/PageContainer';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 // PDF validation types
 interface PdfValidationResult {
@@ -1672,20 +1674,20 @@ export default function Backoffice() {
 
   return (
     <>
-      <div className="space-y-6 animate-fade-in">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Backoffice</h1>
-            <p className="text-muted-foreground">Gerencie as solicitações de AC e OC</p>
-          </div>
-          {processedToday > 0 && (
-            <Badge variant="secondary" className="text-sm gap-1.5 px-3 py-1.5">
-              <CheckCircle className="h-3.5 w-3.5 text-primary" />
-              {processedToday} processada{processedToday > 1 ? 's' : ''} hoje
-            </Badge>
-          )}
-        </div>
+      <PageContainer width="wide">
+        <PageHeader
+          icon={LayoutGrid}
+          title="Backoffice"
+          description="Gerencie as solicitações de AC e OC"
+          actions={
+            processedToday > 0 ? (
+              <Badge variant="secondary" className="text-sm gap-1.5 px-3 py-1.5">
+                <CheckCircle className="h-3.5 w-3.5 text-primary" />
+                {processedToday} processada{processedToday > 1 ? 's' : ''} hoje
+              </Badge>
+            ) : undefined
+          }
+        />
 
 
         {/* Sticky compact toolbar */}
