@@ -139,6 +139,7 @@ export default function DashboardSLA() {
           title="SLA do Backoffice"
           description={`Meta: ${meta}% das solicitações atendidas em até 3 dias úteis`}
           actions={
+            <>
             <div className="inline-flex rounded-md border bg-card p-0.5">
               {(['7d', '30d', '90d', 'mes', 'ytd'] as QuickRange[]).map((q) => (
                 <button
@@ -162,8 +163,9 @@ export default function DashboardSLA() {
             <Button onClick={refetch} variant="outline" size="icon" title="Atualizar">
               <RefreshCw className="h-4 w-4" />
             </Button>
-          </div>
-        </div>
+            </>
+          }
+        />
 
         {/* HERO — Atingimento da meta */}
         <Card className="overflow-hidden border-0 bg-gradient-to-br from-card to-muted/30 shadow-sm">
