@@ -243,32 +243,8 @@ export default function AdminExcelencia() {
           </div>
         }
       />
-      <div className="hidden">
-      <header className="rounded-2xl border bg-card/60 backdrop-blur p-6 ring-1 ring-border/40">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1.5">
-              <Sparkles className="h-4 w-4 text-primary" />
-              <span className="text-xs font-semibold uppercase tracking-wider text-primary">
-                Roadmap de Excelência
-              </span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">
-              MEGAS — Caminho para classe alta
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1.5 max-w-2xl">
-              Backlog priorizado em 3 ondas, KPIs reais do sistema e status editável por iniciativa.
-              Use este painel para acompanhar a evolução do produto com a diretoria.
-            </p>
-          </div>
-          <div className="text-right shrink-0">
-            <div className="text-4xl font-semibold tabular-nums">{stats.pct}%</div>
-            <div className="text-xs text-muted-foreground">
-              {stats.done}/{stats.total} concluídos
-            </div>
-          </div>
-        </div>
-        <Progress value={stats.pct} className="mt-4 h-2" />
+      <div className="rounded-xl border bg-card p-4">
+        <Progress value={stats.pct} className="h-2" />
         <div className="mt-3 flex flex-wrap gap-2 text-xs">
           <Badge variant="outline" className={cn('gap-1', STATUS_TONE.done)}>
             <CheckCircle2 className="h-3 w-3" /> {stats.done} prontos
@@ -280,7 +256,7 @@ export default function AdminExcelencia() {
             <Circle className="h-3 w-3" /> {stats.todo} a fazer
           </Badge>
         </div>
-      </header>
+      </div>
 
       {/* KPIs */}
       <Tabs defaultValue="roadmap" className="space-y-4">
@@ -406,7 +382,7 @@ export default function AdminExcelencia() {
           <AnalyticsPanel />
         </TabsContent>
       </Tabs>
-    </main>
+    </PageContainer>
   );
 }
 
