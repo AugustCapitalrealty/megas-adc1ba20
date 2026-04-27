@@ -975,7 +975,7 @@ export default function DashboardEficiencia() {
             )}
           </CardContent>
         </Card>
-      </div>
+      </PageContainer>
     </>
   );
 }
