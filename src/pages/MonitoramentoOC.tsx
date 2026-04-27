@@ -48,6 +48,8 @@ import {
   type OCItem,
   type OcVisualStatus,
 } from '@/hooks/useMonitoramentoOC';
+import { PageContainer } from '@/components/layout/PageContainer';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 type TabKey = 'todas' | 'pendencia' | 'justificadas';
 
@@ -376,11 +378,12 @@ export default function MonitoramentoOC() {
 
   return (
     <>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Monitoramento</h1>
-          <p className="text-muted-foreground">Acompanhe OCs emitidas e solicitações com trâmite jurídico</p>
-        </div>
+      <PageContainer width="wide">
+        <PageHeader
+          icon={FileCheck}
+          title="Monitoramento"
+          description="Acompanhe OCs emitidas e solicitações com trâmite jurídico"
+        />
 
         <Tabs defaultValue="oc-nf" className="space-y-6">
           <TabsList>
@@ -862,7 +865,7 @@ export default function MonitoramentoOC() {
           </TabsContent>
 
         </Tabs>
-      </div>
+      </PageContainer>
 
       {/* History Modal */}
       <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>

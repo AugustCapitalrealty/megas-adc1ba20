@@ -62,6 +62,8 @@ import {
 import { useEficienciaDashboard, type EficienciaFilters, type BacklogEntry, type LeadTimeEntry } from '@/hooks/useEficienciaDashboard';
 import { EMPREENDIMENTO_LABELS, STATUS_LABELS, type Empreendimento } from '@/types';
 import { cn } from '@/lib/utils';
+import { PageContainer } from '@/components/layout/PageContainer';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 type DrilldownFilter = 'all' | 'same_day' | 'backlog' | string;
 
@@ -202,23 +204,18 @@ export default function DashboardEficiencia() {
 
   return (
     <>
-      <div className="space-y-6 animate-fade-in">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-3">
-              <Activity className="h-7 w-7 text-primary" />
-              Dashboard de Eficiência
-            </h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              Lead Time ponta-a-ponta (dias úteis): da criação até o upload da OC/AC
-            </p>
-          </div>
-          <Button onClick={() => refetch()} variant="outline" size="sm" className="gap-2">
-            <RefreshCw className="h-4 w-4" />
-            Atualizar
-          </Button>
-        </div>
+      <PageContainer width="wide">
+        <PageHeader
+          icon={Activity}
+          title="Dashboard de Eficiência"
+          description="Lead Time ponta-a-ponta (dias úteis): da criação até o upload da OC/AC"
+          actions={
+            <Button onClick={() => refetch()} variant="outline" size="sm" className="gap-2">
+              <RefreshCw className="h-4 w-4" />
+              Atualizar
+            </Button>
+          }
+        />
 
         {/* Filters — inline bar */}
         <div className="flex flex-wrap items-end gap-3">
@@ -978,7 +975,7 @@ export default function DashboardEficiencia() {
             )}
           </CardContent>
         </Card>
-      </div>
+      </PageContainer>
     </>
   );
 }

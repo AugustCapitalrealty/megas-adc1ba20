@@ -14,6 +14,8 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Bell, Search, CheckCheck, Loader2, Eye } from 'lucide-react';
+import { PageContainer } from '@/components/layout/PageContainer';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 interface Notification {
   id: string;
@@ -178,18 +180,12 @@ export default function Notificacoes() {
   }, [navigate, queryClient, user?.id]);
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Bell className="h-6 w-6" />
-            Central de Notificações
-          </h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
-            {unreadCount} não lida(s) de {notifications.length} total
-          </p>
-        </div>
-      </div>
+    <PageContainer>
+      <PageHeader
+        icon={Bell}
+        title="Central de Notificações"
+        description={`${unreadCount} não lida(s) de ${notifications.length} total`}
+      />
 
       {/* Quick-filter tabs */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
@@ -339,6 +335,6 @@ export default function Notificacoes() {
           )}
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

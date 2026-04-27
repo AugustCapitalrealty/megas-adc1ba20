@@ -35,6 +35,8 @@ import {
 import { FluigImport } from '@/components/FluigImport';
 import { TabProjuris } from '@/components/monitoramento/TabProjuris';
 import { Scale, BarChart3 } from 'lucide-react';
+import { PageContainer } from '@/components/layout/PageContainer';
+import { PageHeader } from '@/components/layout/PageHeader';
 import {
   Dialog,
   DialogContent,
@@ -497,15 +499,12 @@ export default function PainelFluig() {
 
   return (
     <>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between mb-2">
-          <div>
-            <h1 className="text-2xl font-bold">Painel</h1>
-            <p className="text-muted-foreground">
-              Fluig e Projuris em um só lugar
-            </p>
-          </div>
-        </div>
+      <PageContainer width="wide">
+        <PageHeader
+          icon={BarChart3}
+          title="Painel"
+          description="Fluig e Projuris em um só lugar"
+        />
 
         <Tabs defaultValue="fluig" className="space-y-4">
           <TabsList>
@@ -910,7 +909,7 @@ export default function PainelFluig() {
             <TabProjuris />
           </TabsContent>
         </Tabs>
-      </div>
+      </PageContainer>
     </>
   );
 }

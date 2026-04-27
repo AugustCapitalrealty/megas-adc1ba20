@@ -26,6 +26,8 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PageContainer } from '@/components/layout/PageContainer';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 const EMPREENDIMENTOS: Empreendimento[] = ['mega_curitiba', 'mega_itajai', 'mega_esteio', 'mega_canoas', 'todos'];
 
@@ -722,13 +724,12 @@ export default function Admin() {
 
   return (
     <>
-      <div className="space-y-6 animate-fade-in">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Administração</h1>
-          <p className="text-muted-foreground mt-1">
-            Gerencie usuários e suas permissões
-          </p>
-        </div>
+      <PageContainer width="wide">
+        <PageHeader
+          icon={Shield}
+          title="Administração"
+          description="Gerencie usuários e suas permissões"
+        />
 
         {/* Impersonation Banner */}
         {isImpersonating && impersonatedProfile && (
@@ -1076,7 +1077,7 @@ export default function Admin() {
             <WhatsAppAdminTab />
           </TabsContent>
         </Tabs>
-      </div>
+      </PageContainer>
 
       <Dialog open={vacationModalOpen} onOpenChange={setVacationModalOpen}>
         <DialogContent>
