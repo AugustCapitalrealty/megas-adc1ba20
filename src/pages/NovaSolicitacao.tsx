@@ -686,12 +686,14 @@ export default function NovaSolicitacao() {
           </Alert>
         )}
 
-        <Card className="ring-1 ring-border/40 shadow-sm">
+        <Card className="ring-1 ring-border/40 shadow-sm transition-shadow duration-200 hover:shadow-md">
           <CardHeader className="flex flex-row items-start justify-between space-y-0">
             <div className="space-y-1">
-              <CardTitle className="text-xl">{visibleSteps[currentIndex]?.label}</CardTitle>
+              <CardTitle className="ds-text-h3">{visibleSteps[currentIndex]?.label}</CardTitle>
               {visibleSteps[currentIndex]?.description && (
-                <CardDescription>{visibleSteps[currentIndex]?.description}</CardDescription>
+                <CardDescription className="ds-text-body text-muted-foreground">
+                  {visibleSteps[currentIndex]?.description}
+                </CardDescription>
               )}
               {currentStep === 'fornecedor' && derived.requires3CNPJs && (
                 <CardDescription className="text-warning flex items-center gap-2">
@@ -705,7 +707,7 @@ export default function NovaSolicitacao() {
             )}
           </CardHeader>
           <CardContent className="space-y-4" ref={stepContainerRef}>
-            <div key={currentStep} className="animate-fade-in">
+            <div key={currentStep} className="animate-fade-in motion-reduce:animate-none">
             {currentStep === 'empreendimento' && (
               <>
                 {loadingEmpreendimentos ? (
