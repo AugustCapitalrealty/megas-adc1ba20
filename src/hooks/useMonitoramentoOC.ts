@@ -263,7 +263,14 @@ export function useMonitoramentoOC(opts: {
 
       const latestAcomp: Record<string, any> = {};
       (acompanhamentos || []).forEach((a: any) => {
-        if (!latestAcomp[a.solicitacao_id]) latestAcomp[a.solicitacao_id] = a;
+        // Normalize unified-history shape into the legacy oc_acompanhamento shape
+        // expected by the rest of this hook.
+        const normalized = {
+          ...a,
+          tipo_acao: a.tipo_acao ?? a.acao,
+          justificativa: a.justificativa ?? a.motivo ?? a.mensagem ?? null,
+        };
+        if (!latestAcomp[a.solicitacao_id]) latestAcomp[a.solicitacao_id] = normalized;
       });
 
       const solMap = Object.fromEntries((sols || []).map(s => [s.id, s]));
