@@ -1276,6 +1276,9 @@ export default function Backoffice() {
   // Cancelamento pendente state
   const [cancelamentoPendenteIds, setCancelamentoPendenteIds] = useState<Set<string>>(new Set());
   const [cancelamentoActionLoading, setCancelamentoActionLoading] = useState(false);
+  // "Verificar Fluig" state — solicitações canceladas com Fluig em aberto sem tratamento
+  const [fluigCancelTratadoIds, setFluigCancelTratadoIds] = useState<Set<string>>(new Set());
+  const [fluigTratarLoading, setFluigTratarLoading] = useState(false);
 
   // Fetch cancelamento_pendente flags
   useEffect(() => {
@@ -1290,6 +1293,67 @@ export default function Backoffice() {
     };
     if (solicitacoes.length > 0) fetchCancelamentoPendente();
   }, [solicitacoes]);
+
+  // Fetch fluig_cancelamento_tratado_em flags (somente das canceladas com fluig)
+  useEffect(() => {
+    const fetchFluigTratado = async () => {
+      const ids = solicitacoes
+        .filter(s => s.status === 'cancelado' && s.numero_chamado_fluig)
+        .map(s => s.id);
+      if (ids.length === 0) {
+        setFluigCancelTratadoIds(new Set());
+        return;
+      }
+      const { data } = await supabase
+        .from('solicitacoes')
+        .select('id, fluig_cancelamento_tratado_em')
+        .in('id', ids);
+      if (data) {
+        const tratadas = new Set(
+          data.filter((d: any) => d.fluig_cancelamento_tratado_em != null).map((d: any) => d.id)
+        );
+        setFluigCancelTratadoIds(tratadas);
+      }
+    };
+    if (solicitacoes.length > 0) fetchFluigTratado();
+  }, [solicitacoes]);
+
+  const handleMarcarFluigCancelado = async (sol: SolicitacaoBackoffice) => {
+    if (!user) return;
+    setFluigTratarLoading(true);
+    setFluigCancelTratadoIds(prev => new Set(prev).add(sol.id));
+    try {
+      const { error } = await supabase
+        .from('solicitacoes')
+        .update({
+          fluig_cancelamento_tratado_em: new Date().toISOString(),
+          fluig_cancelamento_tratado_por: user.id,
+        } as any)
+        .eq('id', sol.id);
+      if (error) throw error;
+      await supabase.from('historico_solicitacoes').insert({
+        solicitacao_id: sol.id,
+        user_id: user.id,
+        acao: 'fluig_cancelamento_tratado',
+        motivo: `Fluig ${sol.numero_chamado_fluig} marcado como cancelado pelo backoffice`,
+      });
+      toast({ title: 'Fluig marcado como cancelado', description: `Solicitação #${sol.protocolo}` });
+    } catch (error: any) {
+      // revert
+      setFluigCancelTratadoIds(prev => {
+        const next = new Set(prev);
+        next.delete(sol.id);
+        return next;
+      });
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao marcar',
+        description: error?.message || 'Tente novamente.',
+      });
+    } finally {
+      setFluigTratarLoading(false);
+    }
+  };
 
   const handleAprovarCancelamento = async (sol: SolicitacaoBackoffice) => {
     if (!user) return;
