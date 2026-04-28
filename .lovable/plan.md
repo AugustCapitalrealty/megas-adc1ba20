@@ -61,8 +61,10 @@ Após varredura visual das principais páginas (`Dashboard`, `DashboardSLA`, `Da
 > Onda 2 entregue: todas as páginas (exceto Dashboard com hero único e Calendario que apenas reexporta) usam `PageContainer` + `PageHeader`. Próximo passo: substituir tabelas/modais/badges por `DataTable`/`StandardModal`/`StatusPill` página a página.
 
 ### Onda 3 — Wizard e fluxos longos
-8. Padronizar `NovaSolicitacao` (steps com mesma densidade, sidebar e navegação alinhados ao novo header/container).
-9. Revisar `WelcomeTour`, `CommandPalette`, `NotificationBell` para usar tipografia/ícones do novo sistema.
+8. [x] Padronizar `NovaSolicitacao` (header/container canônicos, sidebar mantida, persona + FluxoBadge no slot de ações).
+9. [x] Revisar `WelcomeTour`, `CommandPalette`, `NotificationBell` — já alinhados aos tokens semânticos (sem cores hardcoded, ícones consistentes em `h-4`/`h-5`); nenhum ajuste necessário além de documentação.
+
+> Onda 3 entregue: o wizard `NovaSolicitacao` agora usa `PageContainer` + `PageHeader`, herdando ícone, tipografia e ritmo do design system. Componentes globais auditados.
 
 ### Onda 4 — Polimento
 10. Auditoria visual final: print de cada página antes/depois, ajustes finos.
