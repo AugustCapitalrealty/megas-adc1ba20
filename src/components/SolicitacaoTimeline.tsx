@@ -274,52 +274,40 @@ export function SolicitacaoTimeline({ solicitacaoId, showMessages = true, showHi
 
   const fetchData = async () => {
     setLoading(true);
-    
-    // Fetch historico and messages in parallel
-    const [historicoResult, messagesResult] = await Promise.all([
-      supabase
-        .from('historico_solicitacoes')
-        .select('*')
-        .eq('solicitacao_id', solicitacaoId)
-        .order('created_at', { ascending: true }),
-      showMessages ? supabase
-        .from('solicitacao_mensagens')
-        .select('*')
-        .eq('solicitacao_id', solicitacaoId)
-        .order('created_at', { ascending: true }) : Promise.resolve({ data: [], error: null })
-    ]);
 
-    // Get all unique user IDs from both sources
-    const historicoData = historicoResult.data || [];
-    const messagesData = messagesResult.data || [];
-    
-    const allUserIds = [...new Set([
-      ...historicoData.map(h => h.user_id),
-      ...messagesData.map(m => m.user_id)
-    ])];
-
-    // Fetch profiles
-    const { data: profiles } = await supabase
-      .from('profiles')
+    // Single source of truth: historico_solicitacoes (categoria split-out client-side)
+    const { data: rows } = await supabase
+      .from('historico_solicitacoes')
       .select('*')
-      .in('id', allUserIds);
+      .eq('solicitacao_id', solicitacaoId)
+      .order('created_at', { ascending: true });
 
-    const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
-    
-    // Map historico with profiles
-    const historicoWithProfiles = historicoData.map(h => ({
-      ...h,
-      profile: profileMap.get(h.user_id),
-    })) as HistoricoSolicitacao[];
+    const all = (rows || []) as any[];
 
-    // Map messages with profiles
-    const messagesWithProfiles = messagesData.map(m => ({
-      ...m,
-      profile: profileMap.get(m.user_id),
-    }));
+    const userIds = [...new Set(all.map(r => r.user_id).filter(Boolean))];
+    const { data: profiles } = userIds.length
+      ? await supabase.from('profiles').select('*').in('id', userIds)
+      : { data: [] as any[] };
 
-    setHistorico(historicoWithProfiles);
-    setMessages(messagesWithProfiles);
+    const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]));
+
+    const historicoRows = all
+      .filter(r => (r.categoria ?? 'status') !== 'mensagem')
+      .map(r => ({ ...r, profile: profileMap.get(r.user_id) })) as HistoricoSolicitacao[];
+
+    const messageRows = all
+      .filter(r => r.categoria === 'mensagem')
+      .map(r => ({
+        id: r.id,
+        mensagem: r.mensagem ?? r.motivo ?? '',
+        created_at: r.created_at,
+        user_id: r.user_id,
+        interno: !!r.interno,
+        profile: profileMap.get(r.user_id),
+      })) as Message[];
+
+    setHistorico(historicoRows);
+    setMessages(messageRows);
     setLoading(false);
   };
 
@@ -329,12 +317,15 @@ export function SolicitacaoTimeline({ solicitacaoId, showMessages = true, showHi
     setSending(true);
     try {
       const { error } = await supabase
-        .from('solicitacao_mensagens')
+        .from('historico_solicitacoes')
         .insert({
           solicitacao_id: solicitacaoId,
           user_id: user.id,
+          acao: 'mensagem_enviada',
+          categoria: 'mensagem',
           mensagem: newMessage.trim(),
           interno: isInternal,
+          lida: false,
         } as any);
 
       if (error) throw error;

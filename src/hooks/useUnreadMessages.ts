@@ -18,13 +18,22 @@ export function useUnreadMessages({ solicitacaoIds, userId, isBackoffice }: UseU
     }
 
     // Fetch unread messages NOT sent by the current user
-    const { data, error } = await supabase
-      .from('solicitacao_mensagens')
-      .select('id, solicitacao_id, mensagem, created_at, user_id')
+    // Source of truth: unified historico_solicitacoes table (categoria='mensagem')
+    let query = supabase
+      .from('historico_solicitacoes')
+      .select('id, solicitacao_id, mensagem, created_at, user_id, interno')
+      .eq('categoria', 'mensagem')
       .in('solicitacao_id', solicitacaoIds)
       .eq('lida', false)
       .neq('user_id', userId)
       .order('created_at', { ascending: false });
+
+    // Solicitantes never see internal notes
+    if (!isBackoffice) {
+      query = query.eq('interno', false);
+    }
+
+    const { data, error } = await query;
 
     if (error || !data || data.length === 0) {
       setUnreadMap({});
@@ -42,12 +51,12 @@ export function useUnreadMessages({ solicitacaoIds, userId, isBackoffice }: UseU
 
     // Group by solicitacao_id
     const map: Record<string, UnreadMessageInfo> = {};
-    for (const msg of data) {
+    for (const msg of data as any[]) {
       if (!map[msg.solicitacao_id]) {
         map[msg.solicitacao_id] = {
           solicitacao_id: msg.solicitacao_id,
           count: 0,
-          last_message: msg.mensagem,
+          last_message: msg.mensagem ?? '',
           last_sender_name: profileMap.get(msg.user_id) || 'Usuário',
           last_created_at: msg.created_at,
         };
@@ -56,7 +65,7 @@ export function useUnreadMessages({ solicitacaoIds, userId, isBackoffice }: UseU
     }
 
     setUnreadMap(map);
-  }, [userId, solicitacaoIds.join(',')]);
+  }, [userId, solicitacaoIds.join(','), isBackoffice]);
 
   useEffect(() => {
     fetchUnread();
@@ -66,9 +75,10 @@ export function useUnreadMessages({ solicitacaoIds, userId, isBackoffice }: UseU
     if (!userId) return;
 
     await supabase
-      .from('solicitacao_mensagens')
+      .from('historico_solicitacoes')
       .update({ lida: true } as any)
       .eq('solicitacao_id', solicitacaoId)
+      .eq('categoria', 'mensagem')
       .eq('lida', false)
       .neq('user_id', userId);
 

@@ -535,15 +535,15 @@ export default function MinhasSolicitacoes() {
     setCancelLoading(true);
     try {
       await supabase.from('solicitacoes').update({ cancelamento_pendente: true } as any).eq('id', cancelSolicitacao.id);
-      await supabase.from('oc_acompanhamento' as any).insert({
-        solicitacao_id: cancelSolicitacao.id, tipo_acao: 'cancelamento_solicitado',
-        justificativa: motivoCancelamento.trim(), user_id: user.id,
-      } as any);
       await supabase.from('historico_solicitacoes').insert({
-        solicitacao_id: cancelSolicitacao.id, user_id: user.id, acao: 'cancelamento_solicitado',
-        status_anterior: cancelSolicitacao.status, status_novo: cancelSolicitacao.status,
+        solicitacao_id: cancelSolicitacao.id,
+        user_id: user.id,
+        acao: 'cancelamento_solicitado',
+        categoria: 'acompanhamento_oc',
+        status_anterior: cancelSolicitacao.status,
+        status_novo: cancelSolicitacao.status,
         motivo: motivoCancelamento.trim(),
-      });
+      } as any);
       toast({ title: 'Cancelamento solicitado', description: 'Sua solicitação de cancelamento foi enviada para aprovação do Backoffice.' });
       setCancelOpen(false);
       fetchSolicitacoes();
@@ -654,9 +654,15 @@ export default function MinhasSolicitacoes() {
       });
 
       if (editMensagemCorrecao.trim()) {
-        await supabase.from('solicitacao_mensagens').insert({
-          solicitacao_id: editingSolicitacao.id, user_id: user.id, mensagem: editMensagemCorrecao.trim(),
-        });
+        await supabase.from('historico_solicitacoes').insert({
+          solicitacao_id: editingSolicitacao.id,
+          user_id: user.id,
+          acao: 'mensagem_enviada',
+          categoria: 'mensagem',
+          mensagem: editMensagemCorrecao.trim(),
+          interno: false,
+          lida: false,
+        } as any);
       }
 
       // Notify Google Chat spaces (solicitação corrigida)

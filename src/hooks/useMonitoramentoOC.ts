@@ -233,8 +233,9 @@ export function useMonitoramentoOC(opts: {
           .select('solicitacao_id')
           .in('solicitacao_id', solIds),
         supabase
-          .from('oc_acompanhamento')
-          .select('solicitacao_id, tipo_acao, justificativa, previsao_execucao, previsao_nf, created_at')
+          .from('historico_solicitacoes')
+          .select('solicitacao_id, acao, motivo, mensagem, previsao_execucao, previsao_nf, created_at')
+          .eq('categoria', 'acompanhamento_oc')
           .in('solicitacao_id', solIds)
           .order('created_at', { ascending: false }),
       ]);
@@ -262,7 +263,14 @@ export function useMonitoramentoOC(opts: {
 
       const latestAcomp: Record<string, any> = {};
       (acompanhamentos || []).forEach((a: any) => {
-        if (!latestAcomp[a.solicitacao_id]) latestAcomp[a.solicitacao_id] = a;
+        // Normalize unified-history shape into the legacy oc_acompanhamento shape
+        // expected by the rest of this hook.
+        const normalized = {
+          ...a,
+          tipo_acao: a.tipo_acao ?? a.acao,
+          justificativa: a.justificativa ?? a.motivo ?? a.mensagem ?? null,
+        };
+        if (!latestAcomp[a.solicitacao_id]) latestAcomp[a.solicitacao_id] = normalized;
       });
 
       const solMap = Object.fromEntries((sols || []).map(s => [s.id, s]));

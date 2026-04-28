@@ -594,9 +594,16 @@ export type Database = {
         Row: {
           acao: string
           anexos_com_problema: Json | null
+          categoria: string
           created_at: string
+          documento_emitido_id: string | null
           id: string
+          interno: boolean
+          lida: boolean
+          mensagem: string | null
           motivo: string | null
+          previsao_execucao: string | null
+          previsao_nf: string | null
           solicitacao_id: string
           status_anterior: Database["public"]["Enums"]["request_status"] | null
           status_novo: Database["public"]["Enums"]["request_status"] | null
@@ -605,9 +612,16 @@ export type Database = {
         Insert: {
           acao: string
           anexos_com_problema?: Json | null
+          categoria?: string
           created_at?: string
+          documento_emitido_id?: string | null
           id?: string
+          interno?: boolean
+          lida?: boolean
+          mensagem?: string | null
           motivo?: string | null
+          previsao_execucao?: string | null
+          previsao_nf?: string | null
           solicitacao_id: string
           status_anterior?: Database["public"]["Enums"]["request_status"] | null
           status_novo?: Database["public"]["Enums"]["request_status"] | null
@@ -616,9 +630,16 @@ export type Database = {
         Update: {
           acao?: string
           anexos_com_problema?: Json | null
+          categoria?: string
           created_at?: string
+          documento_emitido_id?: string | null
           id?: string
+          interno?: boolean
+          lida?: boolean
+          mensagem?: string | null
           motivo?: string | null
+          previsao_execucao?: string | null
+          previsao_nf?: string | null
           solicitacao_id?: string
           status_anterior?: Database["public"]["Enums"]["request_status"] | null
           status_novo?: Database["public"]["Enums"]["request_status"] | null
