@@ -711,10 +711,15 @@ export default function NovaSolicitacao() {
             {currentStep === 'empreendimento' && (
               <>
                 {loadingEmpreendimentos ? (
-                  <div className="space-y-2" aria-label="Carregando empreendimentos">
-                    <Skeleton className="h-12 w-full" />
-                    <Skeleton className="h-12 w-full" />
-                    <Skeleton className="h-12 w-full" />
+                  <div
+                    className="space-y-2"
+                    role="status"
+                    aria-live="polite"
+                    aria-label="Carregando empreendimentos"
+                  >
+                    <Skeleton className="h-12 w-full ds-skeleton-shimmer" />
+                    <Skeleton className="h-12 w-full ds-skeleton-shimmer" />
+                    <Skeleton className="h-12 w-full ds-skeleton-shimmer" />
                   </div>
                 ) : (
                   <EmpreendimentoStep {...stepProps} allowedEmpreendimentos={allowedEmpreendimentos} loadingEmpreendimentos={false} />
