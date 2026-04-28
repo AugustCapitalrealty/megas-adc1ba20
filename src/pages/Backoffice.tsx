@@ -1389,6 +1389,27 @@ export default function Backoffice() {
       });
       if (histError) throw histError;
 
+      // Se a solicitação tinha Fluig, notificar todo o backoffice/admin para verificar
+      if (sol.numero_chamado_fluig) {
+        const { data: bos } = await supabase
+          .from('user_roles')
+          .select('user_id')
+          .in('role', ['backoffice', 'admin']);
+        const ids = [...new Set((bos || []).map((b: any) => b.user_id))];
+        if (ids.length > 0) {
+          await supabase.from('notifications').insert(
+            ids.map((uid) => ({
+              user_id: uid,
+              tipo: 'action_required',
+              titulo: 'Verifique Fluig após cancelamento',
+              mensagem: `Solicitação ${sol.protocolo} (${sol.empreendimento}) foi cancelada — verifique se o processo Fluig ${sol.numero_chamado_fluig} também precisa ser cancelado.`,
+              solicitacao_id: sol.id,
+              prioridade: 'high',
+            }))
+          );
+        }
+      }
+
       toast({ title: 'Cancelamento aprovado', description: `Solicitação #${sol.protocolo} cancelada.` });
       fetchSolicitacoes();
     } catch (error: any) {
