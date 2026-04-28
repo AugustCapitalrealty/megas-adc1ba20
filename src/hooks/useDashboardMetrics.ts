@@ -122,7 +122,12 @@ export function useDashboardMetrics(viewMode: ViewMode = 'minhas', effectiveUser
 
       const [nfResult, acompResult] = await Promise.all([
         supabase.from('documentos_fiscais').select('solicitacao_id').in('solicitacao_id', solIds),
-        supabase.from('oc_acompanhamento').select('solicitacao_id, previsao_nf').in('solicitacao_id', solIds),
+        supabase
+          .from('historico_solicitacoes')
+          .select('solicitacao_id, previsao_nf')
+          .eq('categoria', 'acompanhamento_oc')
+          .not('previsao_nf', 'is', null)
+          .in('solicitacao_id', solIds),
       ]);
 
       const solsWithNf = new Set((nfResult.data || []).map(d => d.solicitacao_id));
