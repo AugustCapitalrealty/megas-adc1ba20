@@ -34,15 +34,16 @@ export function JustificativaModal({ open, onOpenChange, solicitacaoId, protocol
     setSaving(true);
     try {
       const { error } = await supabase
-        .from('oc_acompanhamento')
+        .from('historico_solicitacoes')
         .insert({
           solicitacao_id: solicitacaoId,
-          tipo_acao: 'justificativa_adiamento' as const,
-          justificativa: justificativa.trim(),
+          user_id: user.id,
+          acao: 'justificativa_adiamento',
+          categoria: 'acompanhamento_oc',
+          motivo: justificativa.trim(),
           previsao_execucao: previsaoExecucao ? formatBR(previsaoExecucao, 'yyyy-MM-dd') : null,
           previsao_nf: previsaoNf ? formatBR(previsaoNf, 'yyyy-MM-dd') : null,
-          user_id: user.id,
-        });
+        } as any);
 
       if (error) throw error;
       toast.success('Justificativa registrada com sucesso');
