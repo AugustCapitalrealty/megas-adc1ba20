@@ -1931,6 +1931,7 @@ export default function Backoffice() {
               tabs: [
                 { id: 'pendentes', label: 'Correções', count: groupedSolicitacoes.pendentes.length, variant: 'warning' as const, icon: <AlertTriangle className="h-3.5 w-3.5" />, showCountWhenZero: false },
                 { id: 'cancelamento_pendente', label: 'Cancel. Pendente', count: groupedSolicitacoes.cancelamento_pendente.length, variant: 'destructive' as const, icon: <XCircle className="h-3.5 w-3.5" />, showCountWhenZero: false },
+                { id: 'verificar_fluig', label: 'Verificar Fluig', count: groupedSolicitacoes.verificar_fluig.length, variant: 'warning' as const, icon: <Clock className="h-3.5 w-3.5" />, showCountWhenZero: false },
               ],
             },
             {
