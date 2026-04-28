@@ -1980,6 +1980,43 @@ export default function Backoffice() {
           {activeTab === 'cancelamento_pendente' && (
             <TabContent items={groupedSolicitacoes.cancelamento_pendente} emptyMessage="Nenhum cancelamento pendente de aprovação" />
           )}
+          {activeTab === 'verificar_fluig' && (
+            <div className="space-y-3">
+              {groupedSolicitacoes.verificar_fluig.length === 0 ? (
+                <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+                  Nenhum Fluig pendente de cancelamento.
+                </div>
+              ) : (
+                <>
+                  <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-warning-foreground/80">
+                    <strong className="text-warning">Atenção:</strong> as solicitações abaixo foram canceladas mas têm número de Fluig em aberto. Confirme o cancelamento no Fluig e marque como tratado.
+                  </div>
+                  {groupedSolicitacoes.verificar_fluig.map(sol => (
+                    <div key={sol.id} className="flex items-center justify-between gap-3 rounded-lg border bg-card p-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono text-sm font-medium">#{sol.protocolo}</span>
+                          <span className="text-xs text-muted-foreground">{sol.empreendimento}</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                            Fluig: {sol.numero_chamado_fluig}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1 truncate">{sol.descricao}</p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Button size="sm" variant="outline" onClick={() => { setSelectedSolicitacao(sol); setDetailsOpen(true); }}>
+                          Ver detalhes
+                        </Button>
+                        <Button size="sm" onClick={() => handleMarcarFluigCancelado(sol)} disabled={fluigTratarLoading}>
+                          <CheckCircle className="h-3.5 w-3.5 mr-1" /> Marcar Fluig cancelado
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          )}
         </div>
       </PageContainer>
 
