@@ -65,7 +65,7 @@ export function useUnreadMessages({ solicitacaoIds, userId, isBackoffice }: UseU
     }
 
     setUnreadMap(map);
-  }, [userId, solicitacaoIds.join(',')]);
+  }, [userId, solicitacaoIds.join(','), isBackoffice]);
 
   useEffect(() => {
     fetchUnread();
