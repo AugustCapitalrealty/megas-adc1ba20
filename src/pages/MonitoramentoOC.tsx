@@ -313,13 +313,24 @@ export default function MonitoramentoOC() {
     setHistoryOpen(true);
     setHistoryLoading(true);
     try {
-      const { data } = await supabase
-        .from('oc_acompanhamento')
-        .select('id, tipo_acao, justificativa, previsao_execucao, previsao_nf, created_at, user_id')
+      const { data: rawHist } = await supabase
+        .from('historico_solicitacoes')
+        .select('id, acao, motivo, mensagem, previsao_execucao, previsao_nf, created_at, user_id, categoria')
         .eq('solicitacao_id', group.solicitacao_id)
+        .eq('categoria', 'acompanhamento_oc')
         .order('created_at', { ascending: false });
 
-      if (data && data.length > 0) {
+      const data = (rawHist || []).map((d: any) => ({
+        id: d.id,
+        tipo_acao: d.acao,
+        justificativa: d.motivo ?? d.mensagem ?? '',
+        previsao_execucao: d.previsao_execucao,
+        previsao_nf: d.previsao_nf,
+        created_at: d.created_at,
+        user_id: d.user_id,
+      }));
+
+      if (data.length > 0) {
         const userIds = [...new Set(data.map((d: any) => d.user_id).filter(Boolean))];
         let profileMap: Record<string, string> = {};
         if (userIds.length) {
@@ -342,14 +353,6 @@ export default function MonitoramentoOC() {
     if (!cancelGroup || !user || cancelJustificativa.trim().length < 10) return;
     setCancelSaving(true);
     try {
-      const { error: acompError } = await supabase.from('oc_acompanhamento').insert({
-        solicitacao_id: cancelGroup.solicitacao_id,
-        tipo_acao: 'cancelamento_solicitado' as const,
-        justificativa: cancelJustificativa.trim(),
-        user_id: user.id,
-      });
-      if (acompError) throw acompError;
-
       const { error: solError } = await supabase
         .from('solicitacoes')
         .update({ cancelamento_pendente: true })
@@ -361,10 +364,11 @@ export default function MonitoramentoOC() {
         solicitacao_id: cancelGroup.solicitacao_id,
         user_id: user.id,
         acao: 'cancelamento_solicitado',
+        categoria: 'acompanhamento_oc',
         status_anterior: cancelGroup.status as any,
         status_novo: cancelGroup.status as any,
         motivo: cancelJustificativa.trim(),
-      });
+      } as any);
       if (histError) throw histError;
 
       toast.success('Solicitação de cancelamento registrada');
