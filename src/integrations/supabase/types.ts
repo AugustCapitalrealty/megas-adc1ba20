@@ -976,6 +976,8 @@ export type Database = {
           escopo_detalhado_minuta: string | null
           excecao_fornecedores: boolean | null
           faturamento_direto: boolean | null
+          fluig_cancelamento_tratado_em: string | null
+          fluig_cancelamento_tratado_por: string | null
           fornecedor_concorrente_1_id: string | null
           fornecedor_concorrente_2_id: string | null
           fornecedor_email_contato: string | null
@@ -1055,6 +1057,8 @@ export type Database = {
           escopo_detalhado_minuta?: string | null
           excecao_fornecedores?: boolean | null
           faturamento_direto?: boolean | null
+          fluig_cancelamento_tratado_em?: string | null
+          fluig_cancelamento_tratado_por?: string | null
           fornecedor_concorrente_1_id?: string | null
           fornecedor_concorrente_2_id?: string | null
           fornecedor_email_contato?: string | null
@@ -1134,6 +1138,8 @@ export type Database = {
           escopo_detalhado_minuta?: string | null
           excecao_fornecedores?: boolean | null
           faturamento_direto?: boolean | null
+          fluig_cancelamento_tratado_em?: string | null
+          fluig_cancelamento_tratado_por?: string | null
           fornecedor_concorrente_1_id?: string | null
           fornecedor_concorrente_2_id?: string | null
           fornecedor_email_contato?: string | null

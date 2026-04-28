@@ -26,7 +26,7 @@ import {
   type DocumentoFiscal
 } from '@/types';
 import { 
-  Loader2, CheckCircle, XCircle, Search, AlertTriangle, Download, Filter,
+  Loader2, CheckCircle, XCircle, Search, AlertTriangle, Download, Filter, Clock,
   LayoutGrid, Rows3, Keyboard,
 } from 'lucide-react';
 import { differenceInDays, differenceInHours } from 'date-fns';
@@ -59,7 +59,7 @@ interface PdfValidationResult {
   diferenca: number | null;
 }
 
-type BackofficeTab = 'recebidas' | 'pendentes' | 'em_processamento' | 'oc_emitidas' | 'liberadas' | 'enviadas' | 'concluidas' | 'canceladas' | 'cancelamento_pendente';
+type BackofficeTab = 'recebidas' | 'pendentes' | 'em_processamento' | 'oc_emitidas' | 'liberadas' | 'enviadas' | 'concluidas' | 'canceladas' | 'cancelamento_pendente' | 'verificar_fluig';
 
 export default function Backoffice() {
   const { user } = useAuth();
@@ -1276,6 +1276,9 @@ export default function Backoffice() {
   // Cancelamento pendente state
   const [cancelamentoPendenteIds, setCancelamentoPendenteIds] = useState<Set<string>>(new Set());
   const [cancelamentoActionLoading, setCancelamentoActionLoading] = useState(false);
+  // "Verificar Fluig" state — solicitações canceladas com Fluig em aberto sem tratamento
+  const [fluigCancelTratadoIds, setFluigCancelTratadoIds] = useState<Set<string>>(new Set());
+  const [fluigTratarLoading, setFluigTratarLoading] = useState(false);
 
   // Fetch cancelamento_pendente flags
   useEffect(() => {
@@ -1290,6 +1293,67 @@ export default function Backoffice() {
     };
     if (solicitacoes.length > 0) fetchCancelamentoPendente();
   }, [solicitacoes]);
+
+  // Fetch fluig_cancelamento_tratado_em flags (somente das canceladas com fluig)
+  useEffect(() => {
+    const fetchFluigTratado = async () => {
+      const ids = solicitacoes
+        .filter(s => s.status === 'cancelado' && s.numero_chamado_fluig)
+        .map(s => s.id);
+      if (ids.length === 0) {
+        setFluigCancelTratadoIds(new Set());
+        return;
+      }
+      const { data } = await supabase
+        .from('solicitacoes')
+        .select('id, fluig_cancelamento_tratado_em')
+        .in('id', ids);
+      if (data) {
+        const tratadas = new Set(
+          data.filter((d: any) => d.fluig_cancelamento_tratado_em != null).map((d: any) => d.id)
+        );
+        setFluigCancelTratadoIds(tratadas);
+      }
+    };
+    if (solicitacoes.length > 0) fetchFluigTratado();
+  }, [solicitacoes]);
+
+  const handleMarcarFluigCancelado = async (sol: SolicitacaoBackoffice) => {
+    if (!user) return;
+    setFluigTratarLoading(true);
+    setFluigCancelTratadoIds(prev => new Set(prev).add(sol.id));
+    try {
+      const { error } = await supabase
+        .from('solicitacoes')
+        .update({
+          fluig_cancelamento_tratado_em: new Date().toISOString(),
+          fluig_cancelamento_tratado_por: user.id,
+        } as any)
+        .eq('id', sol.id);
+      if (error) throw error;
+      await supabase.from('historico_solicitacoes').insert({
+        solicitacao_id: sol.id,
+        user_id: user.id,
+        acao: 'fluig_cancelamento_tratado',
+        motivo: `Fluig ${sol.numero_chamado_fluig} marcado como cancelado pelo backoffice`,
+      });
+      toast({ title: 'Fluig marcado como cancelado', description: `Solicitação #${sol.protocolo}` });
+    } catch (error: any) {
+      // revert
+      setFluigCancelTratadoIds(prev => {
+        const next = new Set(prev);
+        next.delete(sol.id);
+        return next;
+      });
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao marcar',
+        description: error?.message || 'Tente novamente.',
+      });
+    } finally {
+      setFluigTratarLoading(false);
+    }
+  };
 
   const handleAprovarCancelamento = async (sol: SolicitacaoBackoffice) => {
     if (!user) return;
@@ -1324,6 +1388,27 @@ export default function Backoffice() {
         motivo: 'Cancelamento aprovado pelo backoffice',
       });
       if (histError) throw histError;
+
+      // Se a solicitação tinha Fluig, notificar todo o backoffice/admin para verificar
+      if (sol.numero_chamado_fluig) {
+        const { data: bos } = await supabase
+          .from('user_roles')
+          .select('user_id')
+          .in('role', ['backoffice', 'admin']);
+        const ids = [...new Set((bos || []).map((b: any) => b.user_id))];
+        if (ids.length > 0) {
+          await supabase.from('notifications').insert(
+            ids.map((uid) => ({
+              user_id: uid,
+              tipo: 'action_required',
+              titulo: 'Verifique Fluig após cancelamento',
+              mensagem: `Solicitação ${sol.protocolo} (${sol.empreendimento}) foi cancelada — verifique se o processo Fluig ${sol.numero_chamado_fluig} também precisa ser cancelado.`,
+              solicitacao_id: sol.id,
+              prioridade: 'high',
+            }))
+          );
+        }
+      }
 
       toast({ title: 'Cancelamento aprovado', description: `Solicitação #${sol.protocolo} cancelada.` });
       fetchSolicitacoes();
@@ -1413,7 +1498,12 @@ export default function Backoffice() {
     concluidas: filteredSolicitacoes.filter(s => s.status === 'concluida' || s.status === 'enviado_pagamento'),
     canceladas: filteredSolicitacoes.filter(s => s.status === 'rejeitado' || s.status === 'cancelado'),
     cancelamento_pendente: filteredSolicitacoes.filter(s => cancelamentoPendenteIds.has(s.id)),
-  }), [filteredSolicitacoes, cancelamentoPendenteIds]);
+    verificar_fluig: filteredSolicitacoes.filter(s =>
+      s.status === 'cancelado' &&
+      !!s.numero_chamado_fluig &&
+      !fluigCancelTratadoIds.has(s.id)
+    ),
+  }), [filteredSolicitacoes, cancelamentoPendenteIds, fluigCancelTratadoIds]);
 
   // SLA calculation (used in details modal)
   const getSLAInfo = (sol: SolicitacaoBackoffice) => {
@@ -1862,6 +1952,7 @@ export default function Backoffice() {
               tabs: [
                 { id: 'pendentes', label: 'Correções', count: groupedSolicitacoes.pendentes.length, variant: 'warning' as const, icon: <AlertTriangle className="h-3.5 w-3.5" />, showCountWhenZero: false },
                 { id: 'cancelamento_pendente', label: 'Cancel. Pendente', count: groupedSolicitacoes.cancelamento_pendente.length, variant: 'destructive' as const, icon: <XCircle className="h-3.5 w-3.5" />, showCountWhenZero: false },
+                { id: 'verificar_fluig', label: 'Verificar Fluig', count: groupedSolicitacoes.verificar_fluig.length, variant: 'warning' as const, icon: <Clock className="h-3.5 w-3.5" />, showCountWhenZero: false },
               ],
             },
             {
@@ -1909,6 +2000,43 @@ export default function Backoffice() {
           )}
           {activeTab === 'cancelamento_pendente' && (
             <TabContent items={groupedSolicitacoes.cancelamento_pendente} emptyMessage="Nenhum cancelamento pendente de aprovação" />
+          )}
+          {activeTab === 'verificar_fluig' && (
+            <div className="space-y-3">
+              {groupedSolicitacoes.verificar_fluig.length === 0 ? (
+                <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+                  Nenhum Fluig pendente de cancelamento.
+                </div>
+              ) : (
+                <>
+                  <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-xs text-warning-foreground/80">
+                    <strong className="text-warning">Atenção:</strong> as solicitações abaixo foram canceladas mas têm número de Fluig em aberto. Confirme o cancelamento no Fluig e marque como tratado.
+                  </div>
+                  {groupedSolicitacoes.verificar_fluig.map(sol => (
+                    <div key={sol.id} className="flex items-center justify-between gap-3 rounded-lg border bg-card p-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono text-sm font-medium">#{sol.protocolo}</span>
+                          <span className="text-xs text-muted-foreground">{sol.empreendimento}</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                            Fluig: {sol.numero_chamado_fluig}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1 truncate">{sol.descricao}</p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Button size="sm" variant="outline" onClick={() => { setSelectedSolicitacao(sol); setDetailsOpen(true); }}>
+                          Ver detalhes
+                        </Button>
+                        <Button size="sm" onClick={() => handleMarcarFluigCancelado(sol)} disabled={fluigTratarLoading}>
+                          <CheckCircle className="h-3.5 w-3.5 mr-1" /> Marcar Fluig cancelado
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
           )}
         </div>
       </PageContainer>

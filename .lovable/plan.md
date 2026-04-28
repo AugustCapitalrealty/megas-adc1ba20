@@ -1,103 +1,73 @@
-# Roadmap UX/UI — Unificação e Excelência Visual
+## Diagnóstico do comportamento atual
 
-Substitui o roadmap anterior. Foco: elevar a qualidade visual do sistema inteiro mantendo o padrão Mega, eliminando inconsistências entre páginas.
+### Solicitante — "Aguardando Ciência"
+- Métrica `pendingCiencia` e a aba **Aguardando Ciência** contam **toda** solicitação `cancelado` sem `cancelamento_ciencia_em`. Inclui:
+  - Auto-cancelamento por 30 dias ✅ (correto)
+  - Cancelamento aprovado pelo backoffice ✅ (correto, conforme regra)
+  - Mas também antigas solicitações canceladas pelo backoffice antes da feature existir (sem `acao = cancelamento_solicitado` do solicitante) → aparecem indevidamente.
+- O **botão "Confirmar ciência" só aparece** quando `isPrazoExpirado` (texto do motivo contém "prazo" + "expirou"). Para cancelamentos manuais do backoffice, a solicitação aparece na aba/contagem mas **não tem botão visível** dentro do card → usuário não consegue dar ciência facilmente.
+- Há um botão em massa `handleDarCiencia` no header (chip "Dar ciência"), mas dentro do card o CTA está condicionado ao prazo expirado.
 
----
+### Backoffice — Cancelamento por tempo
+- A função `check-correction-deadline` **já notifica** todos os usuários backoffice/admin com `tipo='action_required'`, marcando `prioridade='high'` quando a solicitação tinha `numero_chamado_fluig` (texto da mensagem inclui "verifique se há processo no Fluig para cancelar"). ✅
+- **Porém** não há nenhuma indicação visual persistente no painel do backoffice de que aquela solicitação cancelada exige ação no Fluig. O badge `Cancelado por falta de resposta` existe no card, mas não há:
+  - Sub-aba/filtro dedicado em **Backoffice → Canceladas** para "Auto-canceladas com Fluig (verificar)".
+  - Mecanismo para o backoffice **marcar como tratado** (cancelado no Fluig), zerando a pendência.
+- Notificações ficam na sineta, podem se perder no volume diário.
 
-## Diagnóstico — inconsistências detectadas
-
-Após varredura visual das principais páginas (`Dashboard`, `DashboardSLA`, `DashboardEficiencia`, `Backoffice`, `MonitoramentoOC`, `GarantiasVigentes`, `MinhasSolicitacoes`, `NovaSolicitacao`, `PainelFluig`, `Calendario`, `Notificacoes`, `Admin`, `AdminExcelencia`):
-
-### Problemas estruturais
-- **Cabeçalhos de página inconsistentes**: cada página tem título/subtítulo/ações em layout próprio (alguns com ícone, outros não; alguns com breadcrumb, outros sem; padding variável).
-- **KPI cards divergentes**: `SolicitanteKPIs`, `GarantiaKPIs`, `SlaKpiCard`, blocos do Dashboard usam tamanhos de fonte, ícones, cores e densidades diferentes.
-- **Tabelas e listas**: `BackofficeTable`, `SolicitanteTable`, listas de OC e Garantias têm zebra/hover/spacing diferentes; estados vazios variam (alguns usam `ContextualEmptyState`, outros texto puro).
-- **Filtros e toolbars**: alguns usam `FilterBar`, outros montam inline; chips de filtro ativos aparecem só em parte.
-- **Modais**: `BackofficeModals`, `OCDetalhesModal`, `JustificativaModal`, `SlaTimelineModal` têm headers/footers/larguras diferentes (`ActionModal` existe mas não é usado em todos).
-- **Badges de status**: coexistem `StatusBadge`, `SlaBadge`, `InstrumentoJuridicoBadge`, `FluxoBadge`, `TimeInStatusBadge`, `MEIAlertBadge` com paletas e tamanhos próprios.
-- **Cards de solicitação**: `SolicitacaoCard`, `BackofficeSolicitacaoCard`, `SolicitanteSolicitacaoCard`, `GarantiaCard` repetem layout com pequenas variações.
-- **Espaçamentos**: páginas usam `p-4`, `p-6`, `p-8`, `space-y-4`, `space-y-6` sem regra clara.
-- **Densidade**: Backoffice/Monitoramento são densos; Dashboard é arejado; sem escala consistente.
-
-### Problemas de design system
-- `index.css` define tokens, mas vários componentes ainda usam cores diretas (`text-blue-500`, `bg-green-100`).
-- Tipografia sem escala documentada (h1/h2/h3/body/caption variam por página).
-- Ícones de tamanhos variados (`h-4`, `h-5`, `h-6`) sem regra de uso.
-- Sem padrão para skeletons (alguns usam `SolicitacaoCardSkeleton`, outros `Skeleton` cru, outros nada).
+### Confirmação no banco
+- Há registros como `protocolo 2026000153` (`numero_chamado_fluig: 150705`, status `cancelado`, sem ciência) e `2026000200` que são casos clássicos: cancelados, com Fluig aberto, sem nenhuma marcação de tratamento.
 
 ---
 
-## Princípios do novo padrão
+## Plano de correção
 
-1. **Uma página, uma estrutura**: header → filtros → conteúdo → ações secundárias.
-2. **Tokens, sempre**: zero cores hardcoded. Tudo via `index.css` + Tailwind tokens.
-3. **Componentes únicos**: cada padrão (KPI, card de solicitação, tabela, modal) tem **um** componente canônico reutilizado.
-4. **Densidade controlada**: 3 níveis (`compact`, `normal`, `comfortable`) com regra clara de uso.
-5. **Estados completos**: toda lista/tabela tem loading, empty, erro padronizados.
-6. **Acessibilidade básica**: foco visível, contraste AA, ARIA em modais e botões de ícone.
+### 1. UI do solicitante — generalizar "Confirmar ciência"
+- No `SolicitanteSolicitacaoCard.tsx`, **mostrar o bloco de "Confirmar ciência" para todo cancelamento sem `cancelamento_ciencia_em`**, não só para prazo expirado. Variantes:
+  - Prazo expirado → tom warning + texto atual ("Cancelada automaticamente — prazo de 30 dias expirado").
+  - Cancelado pelo backoffice → tom destructive + texto "Cancelada pelo backoffice. Motivo: ...".
+  - (Cancelamento iniciado pelo próprio solicitante já é auto-marcado pelo trigger `auto_set_ciencia_self_cancellation` → não cai aqui.)
 
----
+### 2. Backfill de ciência para canceladas legadas
+- Migration: marcar `cancelamento_ciencia_em = updated_at` para todas as canceladas com mais de 30 dias e sem ação `cancelamento_aprovado` ou `prazo_*_expirado` recente — limpa a poluição da aba sem afetar casos novos.
 
-## Roadmap (4 ondas)
+### 3. Backoffice — Pendência de "Cancelado com Fluig em aberto"
+- Adicionar coluna `fluig_cancelamento_tratado_em timestamptz` em `solicitacoes` (e `fluig_cancelamento_tratado_por uuid`).
+- No `Backoffice.tsx`:
+  - Nova sub-aba/badge dentro de **Canceladas**: "**Verificar Fluig** (N)" → lista todas as canceladas (auto ou manual) que tenham `numero_chamado_fluig` preenchido e ainda **não foram marcadas como tratadas**.
+  - Card/linha com botão **"Marcar Fluig cancelado"** que:
+    - Seta `fluig_cancelamento_tratado_em = now()` e `_por = auth.uid()`.
+    - Insere histórico `acao = 'fluig_cancelamento_tratado'` com motivo opcional.
+- Badge no card backoffice: "Fluig pendente de cancelamento" (destaque amber) quando aplicável.
 
-### Onda 1 — Fundação do Design System (esta entrega)
-1. **Auditar e ampliar tokens** em `index.css` e `tailwind.config.ts`: cores semânticas (success/warning/danger/info nas variantes 50/100/500/700), escala de espaçamento (`space-page`, `space-section`, `space-stack`), tipografia (`text-display`, `text-h1..h4`, `text-body`, `text-caption`, `text-label`), raios e sombras.
-2. **Documento vivo `mem://design/system`** com regras de uso (quando usar cada token, densidade, ícones, badges).
-3. **Componentes canônicos novos**:
-   - `PageHeader` (título + descrição + breadcrumb + ações + ícone opcional).
-   - `PageContainer` (padding/maxwidth/spacing padronizado).
-   - `KpiCard` único (substitui variantes espalhadas).
-   - `DataTable` wrapper consistente (zebra, hover, sticky header, empty/loading/error).
-   - `FilterToolbar` (consolida `FilterBar` + chips de filtros ativos).
-   - `StandardModal` (header/body/footer padronizados, baseado em `ActionModal`).
-   - `StatusPill` unificado (consolida `StatusBadge`/`SlaBadge`/`FluxoBadge` por variante).
-4. **Storybook leve em `/admin/design-system`** (admin-only): mostra todos os componentes com variantes para o time validar.
+### 4. Notificação proativa ao backoffice
+- A função `check-correction-deadline` já cria `notifications`. Adicionar:
+  - Quando o **backoffice aprovar um cancelamento** (`handleAprovarCancelamento` em `Backoffice.tsx`) **e** a solicitação tiver `numero_chamado_fluig`, criar `notifications` `action_required` para o próprio backoffice/admin grupo, com mensagem "Verifique se o processo Fluig X precisa ser cancelado".
+- Card de **Insights diários** do backoffice: incluir contador "Canceladas com Fluig pendente de tratamento".
 
-### Onda 2 — Migração das páginas core
-5. [x] Migrar `DashboardSLA`, `DashboardEficiencia` para `PageHeader` + `PageContainer` (Dashboard mantém hero personalizado).
-6. [x] Migrar `Backoffice`, `MonitoramentoOC`, `GarantiasVigentes` para `PageHeader` + `PageContainer`.
-7. [x] Migrar `MinhasSolicitacoes`, `Notificacoes`, `PainelFluig`, `Admin`, `AdminExcelencia` ao mesmo padrão.
-
-> Onda 2 entregue: todas as páginas (exceto Dashboard com hero único e Calendario que apenas reexporta) usam `PageContainer` + `PageHeader`. Próximo passo: substituir tabelas/modais/badges por `DataTable`/`StandardModal`/`StatusPill` página a página.
-
-### Onda 3 — Wizard e fluxos longos
-8. [x] Padronizar `NovaSolicitacao` (header/container canônicos, sidebar mantida, persona + FluxoBadge no slot de ações).
-9. [x] Revisar `WelcomeTour`, `CommandPalette`, `NotificationBell` — já alinhados aos tokens semânticos (sem cores hardcoded, ícones consistentes em `h-4`/`h-5`); nenhum ajuste necessário além de documentação.
-
-> Onda 3 entregue: o wizard `NovaSolicitacao` agora usa `PageContainer` + `PageHeader`, herdando ícone, tipografia e ritmo do design system. Componentes globais auditados.
-
-### Onda 4 — Polimento
-10. [x] Polimento visual `NovaSolicitacao`: Card hover suave, tipografia canônica (`ds-text-h3`/`ds-text-body`), `kbd` com sombra, skeletons com shimmer e `motion-reduce` aplicado.
-11. [x] Acessibilidade: `ds-focus-ring` no `StepIndicator`, `aria-live="polite"` em loaders, `motion-safe`/`motion-reduce` em todas as animações novas.
-12. [x] Micro-interações canônicas: tokens novos em `index.css` (`ds-card-interactive`, `ds-focus-ring`, `ds-sticky-footer`, `ds-icon-bubble`, `ds-skeleton-shimmer`, `ds-row-highlight`); `scale-in` adicionado ao Tailwind; FormNavigation com hover scale + sombra superior; `ContextualEmptyState` redesenhado (border-dashed + icon-bubble); `DataTable` com shimmer e duração de hover ajustada.
-
-> Onda 4 entregue: design system finalizado com micro-interações consistentes e respeitando `prefers-reduced-motion`. Próximas iterações são auditorias pontuais por página conforme demanda.
+### 5. Limpeza/UX
+- Renomear chip "Dar ciência" no header do solicitante para deixar claro que cobre cancelamentos automáticos **e** pelo backoffice (ex.: "Confirmar cancelamento").
+- Tooltip explicando que confirmar a ciência apenas remove a pendência da lista; a solicitação permanece cancelada no histórico.
 
 ---
 
-## Entregável desta primeira fase (após aprovação)
+## Arquivos afetados (estimativa)
 
-Implementar **Onda 1 completa**:
-- Tokens ampliados em `index.css` + `tailwind.config.ts`.
-- Componentes canônicos (`PageHeader`, `PageContainer`, `KpiCard`, `DataTable`, `FilterToolbar`, `StandardModal`, `StatusPill`).
-- Página `/admin/design-system` (admin-only) com showcase.
-- Memória `mem://design/system` documentando regras de uso.
-- Atualização de `.lovable/plan.md` com este roadmap substituindo o anterior.
-
-Migração das páginas (Ondas 2–4) entra em entregas seguintes para evitar PR gigante e facilitar revisão visual.
+- `supabase/migrations/<new>.sql` — nova coluna + índice + backfill de ciência.
+- `src/integrations/supabase/types.ts` — auto-regenera.
+- `src/components/solicitante/SolicitanteSolicitacaoCard.tsx` — generalizar bloco de ciência.
+- `src/components/solicitante/PendingHeaderChips.tsx` — texto do chip.
+- `src/pages/MinhasSolicitacoes.tsx` — selecionar nova coluna se necessário (não crítico).
+- `src/pages/Backoffice.tsx` — sub-aba "Verificar Fluig", contagem, handler "marcar tratado".
+- `src/components/backoffice/BackofficeSolicitacaoCard.tsx` — novo badge + botão "Marcar Fluig cancelado".
+- `src/hooks/useBackofficeSolicitacoes.ts` — incluir flags na query.
+- `supabase/functions/check-correction-deadline/index.ts` — nenhuma mudança obrigatória (já notifica), mas podemos enriquecer mensagem/link.
+- Trigger opcional: ao aprovar cancelamento manual com Fluig, marcar a flag de pendência (alternativa a tratar no front).
 
 ---
 
-## Detalhes técnicos
+## Resultado esperado
 
-- Todos os novos componentes em `src/components/ui/` (canônicos) ou `src/components/layout/` (estruturais).
-- Nenhuma quebra de API: páginas atuais continuam funcionando até serem migradas.
-- Tailwind tokens via CSS variables HSL para suportar tema (já existente).
-- `StatusPill` aceita `intent` (`success|warning|danger|info|neutral`) e `size` (`sm|md`); badges legados ficam como wrappers até remoção.
-- Showcase usa rota guardada por `requireAdmin` igual ao `/admin/excelencia`.
-
-## Fora do escopo
-
-- Reescrever lógica de negócio.
-- Trocar biblioteca de UI (segue shadcn).
-- Mudar paleta da marca (apenas formaliza tokens existentes).
+- Solicitante consegue confirmar ciência de **qualquer** cancelamento (auto ou backoffice) com botão visível no próprio card.
+- Aba "Aguardando Ciência" passa a refletir apenas casos realmente acionáveis (sem o lixo legado).
+- Backoffice tem **uma fila própria** ("Verificar Fluig") com todas as canceladas que ainda exigem cancelamento no Fluig, com botão para resolver — sem depender só da sineta.
