@@ -128,15 +128,22 @@ export function ContextualEmptyState({ tab, variant, action }: ContextualEmptySt
   };
 
   return (
-    <Card>
+    <Card className="border-dashed bg-muted/20 animate-fade-in motion-reduce:animate-none">
       <CardContent className="flex flex-col items-center justify-center py-12 gap-3">
-        <div className={cn('mb-1', config.iconClassName)}>
+        <div
+          className={cn(
+            'inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-background ring-1 ring-border',
+            config.iconClassName,
+          )}
+        >
           {config.icon}
         </div>
-        <p className="font-medium text-foreground">{config.title}</p>
-        <p className="text-sm text-muted-foreground text-center max-w-sm">{config.subtitle}</p>
+        <p className="ds-text-h4 text-foreground">{config.title}</p>
+        <p className="ds-text-body text-muted-foreground text-center max-w-sm">{config.subtitle}</p>
         {action && (
-          <Button className="mt-2" onClick={action.onClick}>{action.label}</Button>
+          <Button className="mt-2 transition-transform duration-200 hover:scale-[1.02]" onClick={action.onClick}>
+            {action.label}
+          </Button>
         )}
       </CardContent>
     </Card>
