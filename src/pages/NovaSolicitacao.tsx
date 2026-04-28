@@ -23,6 +23,8 @@ import { FormSummarySidebar } from '@/components/nova-solicitacao/FormSummarySid
 import { FieldError } from '@/components/nova-solicitacao/FieldError';
 import { FluxoBadge } from '@/components/nova-solicitacao/FluxoBadge';
 import { useStepErrors } from '@/hooks/useNovaSolicitacaoErrors';
+import { PageContainer } from '@/components/layout/PageContainer';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 // Step components
 import { EmpreendimentoStep } from '@/components/nova-solicitacao/steps/EmpreendimentoStep';
@@ -572,25 +574,19 @@ export default function NovaSolicitacao() {
 
   return (
     <>
-      <div className="max-w-7xl mx-auto animate-fade-in">
+      <PageContainer width="default">
       <div className="grid lg:grid-cols-[1fr_280px] gap-6 items-start">
         <div className="space-y-6 min-w-0">
-        {/* Hero compacto */}
-        <header className="rounded-xl border bg-card/60 backdrop-blur-sm ring-1 ring-border/40 p-4 sm:p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold tracking-tight">Nova Solicitação</h1>
-                <span className="inline-flex items-center gap-1 rounded-full border bg-muted/50 px-2 py-0.5 text-[11px] font-medium text-foreground/70">
-                  <personaLabel.icon className="h-3 w-3" />
-                  {personaLabel.label}
-                </span>
-              </div>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                Wizard guiado · validações em tempo real · classificação automática AC/OC
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
+        <PageHeader
+          icon={Send}
+          title="Nova Solicitação"
+          description="Wizard guiado · validações em tempo real · classificação automática AC/OC"
+          actions={
+            <>
+              <span className="inline-flex items-center gap-1 rounded-full border bg-muted/50 px-2 py-0.5 text-[11px] font-medium text-foreground/70">
+                <personaLabel.icon className="h-3 w-3" />
+                {personaLabel.label}
+              </span>
               {derived.valorNumerico > 0 && (
                 <FluxoBadge formState={formState} derived={derived} compact />
               )}
@@ -609,9 +605,9 @@ export default function NovaSolicitacao() {
                   Limpar rascunho
                 </Button>
               )}
-            </div>
-          </div>
-        </header>
+            </>
+          }
+        />
 
         <StepIndicator
           steps={visibleSteps.map(s => ({ id: s.id, label: s.label, icon: stepIcons[s.id] })) as StepIndicatorStep[]}
@@ -850,7 +846,7 @@ export default function NovaSolicitacao() {
           />
         </aside>
       </div>
-      </div>
+      </PageContainer>
     </>
   );
 }
