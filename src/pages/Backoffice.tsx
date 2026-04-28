@@ -1357,6 +1357,20 @@ export default function Backoffice() {
 
   const handleAprovarCancelamento = async (sol: SolicitacaoBackoffice) => {
     if (!user) return;
+    // Guard de idempotência: se já está cancelado, não permitir nova aprovação
+    if (sol.status === 'cancelado') {
+      toast({
+        title: 'Solicitação já cancelada',
+        description: `A solicitação ${sol.protocolo} já foi cancelada anteriormente.`,
+      });
+      // Garantir que sai da fila de pendentes
+      setCancelamentoPendenteIds(prev => {
+        const next = new Set(prev);
+        next.delete(sol.id);
+        return next;
+      });
+      return;
+    }
     setCancelamentoActionLoading(true);
     // Optimistic update — remove from "Cancel. Pendente" tab immediately
     setCancelamentoPendenteIds(prev => {

@@ -1,73 +1,89 @@
-## Diagnóstico do comportamento atual
+## Diagnóstico (auditoria nos 2 casos)
 
-### Solicitante — "Aguardando Ciência"
-- Métrica `pendingCiencia` e a aba **Aguardando Ciência** contam **toda** solicitação `cancelado` sem `cancelamento_ciencia_em`. Inclui:
-  - Auto-cancelamento por 30 dias ✅ (correto)
-  - Cancelamento aprovado pelo backoffice ✅ (correto, conforme regra)
-  - Mas também antigas solicitações canceladas pelo backoffice antes da feature existir (sem `acao = cancelamento_solicitado` do solicitante) → aparecem indevidamente.
-- O **botão "Confirmar ciência" só aparece** quando `isPrazoExpirado` (texto do motivo contém "prazo" + "expirou"). Para cancelamentos manuais do backoffice, a solicitação aparece na aba/contagem mas **não tem botão visível** dentro do card → usuário não consegue dar ciência facilmente.
-- Há um botão em massa `handleDarCiencia` no header (chip "Dar ciência"), mas dentro do card o CTA está condicionado ao prazo expirado.
+### 2026000146 (Amanda → Mega Itajaí)
+- **Solicitante pediu cancelamento** em 2026-04-09 11:45 — gravado em `oc_acompanhamento` ✅
+- **NÃO foi gravado em `historico_solicitacoes`** ❌ → tela do solicitante não mostra "quem pediu / quando"
+- Backoffice **aprovou 5 vezes** (09/04, 09/04, 13/04, 16/04, 17/04) → 5 registros duplicados de `cancelamento_aprovado` (botão sem guard de idempotência / sem disable após sucesso)
+- Como o `cancelamento_solicitado` não foi parar em `historico_solicitacoes`, o trigger `auto_set_ciencia_self_cancellation` **não disparou** → ficou em "Aguardando ciência" indevidamente
 
-### Backoffice — Cancelamento por tempo
-- A função `check-correction-deadline` **já notifica** todos os usuários backoffice/admin com `tipo='action_required'`, marcando `prioridade='high'` quando a solicitação tinha `numero_chamado_fluig` (texto da mensagem inclui "verifique se há processo no Fluig para cancelar"). ✅
-- **Porém** não há nenhuma indicação visual persistente no painel do backoffice de que aquela solicitação cancelada exige ação no Fluig. O badge `Cancelado por falta de resposta` existe no card, mas não há:
-  - Sub-aba/filtro dedicado em **Backoffice → Canceladas** para "Auto-canceladas com Fluig (verificar)".
-  - Mecanismo para o backoffice **marcar como tratado** (cancelado no Fluig), zerando a pendência.
-- Notificações ficam na sineta, podem se perder no volume diário.
+### 2026000272 (Amanda → Mega Itajaí)
+- Solicitante pediu cancelamento em 2026-04-23 13:01 — gravado em `oc_acompanhamento` ✅
+- **NÃO foi gravado em `historico_solicitacoes`** ❌
+- Status mudou para `cancelado` sem **nenhum** registro de aprovação no histórico nem em `oc_acompanhamento` (último evento real é "atualizacao_fluig: Finalizada" em 07/04). Provavelmente um update direto/job. Não há rastro de "quem aprovou / quando".
 
-### Confirmação no banco
-- Há registros como `protocolo 2026000153` (`numero_chamado_fluig: 150705`, status `cancelado`, sem ciência) e `2026000200` que são casos clássicos: cancelados, com Fluig aberto, sem nenhuma marcação de tratamento.
+### Causa raiz comum
+1. **`MonitoramentoOC.handleSolicitarCancelamento`** (linhas 341-369) e **`MinhasSolicitacoes.handleCancelar`** (537-547): o primeiro **não** insere em `historico_solicitacoes`; o segundo insere. Resultado: pedidos vindos de telas diferentes têm rastreabilidade diferente. Trigger de auto-ciência depende do histórico → falha em 50% dos casos.
+2. **`Backoffice.handleAprovarCancelamento`**: não verifica se o status já é `cancelado`; permite múltiplas aprovações duplicadas.
+3. Pedido do usuário (correto): se o **solicitante** pediu e o **backoffice** aprovou, ciência deve ser **automática**. Hoje o trigger só dispara olhando `historico_solicitacoes` — vamos ampliá-lo para considerar também `oc_acompanhamento`.
 
 ---
 
 ## Plano de correção
 
-### 1. UI do solicitante — generalizar "Confirmar ciência"
-- No `SolicitanteSolicitacaoCard.tsx`, **mostrar o bloco de "Confirmar ciência" para todo cancelamento sem `cancelamento_ciencia_em`**, não só para prazo expirado. Variantes:
-  - Prazo expirado → tom warning + texto atual ("Cancelada automaticamente — prazo de 30 dias expirado").
-  - Cancelado pelo backoffice → tom destructive + texto "Cancelada pelo backoffice. Motivo: ...".
-  - (Cancelamento iniciado pelo próprio solicitante já é auto-marcado pelo trigger `auto_set_ciencia_self_cancellation` → não cai aqui.)
+### 1. Padronizar gravação do pedido de cancelamento
+- Em `MonitoramentoOC.tsx → handleSolicitarCancelamento`: inserir também em `historico_solicitacoes` (mesmo padrão de `MinhasSolicitacoes`):
+  ```ts
+  acao: 'cancelamento_solicitado',
+  status_anterior: <status atual>, status_novo: <status atual>,
+  motivo: justificativa
+  ```
 
-### 2. Backfill de ciência para canceladas legadas
-- Migration: marcar `cancelamento_ciencia_em = updated_at` para todas as canceladas com mais de 30 dias e sem ação `cancelamento_aprovado` ou `prazo_*_expirado` recente — limpa a poluição da aba sem afetar casos novos.
+### 2. Trigger inteligente de ciência automática
+- Migration: atualizar `auto_set_ciencia_self_cancellation()` para marcar `cancelamento_ciencia_em = now()` se **qualquer** uma das condições for verdadeira:
+  - existe `historico_solicitacoes.acao = 'cancelamento_solicitado'` com `user_id = solicitacoes.user_id` (atual), **OU**
+  - existe `oc_acompanhamento.tipo_acao = 'cancelamento_solicitado'` com `user_id = solicitacoes.user_id` (novo).
+- Garante que pedidos antigos de qualquer origem fechem o loop sozinhos.
 
-### 3. Backoffice — Pendência de "Cancelado com Fluig em aberto"
-- Adicionar coluna `fluig_cancelamento_tratado_em timestamptz` em `solicitacoes` (e `fluig_cancelamento_tratado_por uuid`).
-- No `Backoffice.tsx`:
-  - Nova sub-aba/badge dentro de **Canceladas**: "**Verificar Fluig** (N)" → lista todas as canceladas (auto ou manual) que tenham `numero_chamado_fluig` preenchido e ainda **não foram marcadas como tratadas**.
-  - Card/linha com botão **"Marcar Fluig cancelado"** que:
-    - Seta `fluig_cancelamento_tratado_em = now()` e `_por = auth.uid()`.
-    - Insere histórico `acao = 'fluig_cancelamento_tratado'` com motivo opcional.
-- Badge no card backoffice: "Fluig pendente de cancelamento" (destaque amber) quando aplicável.
+### 3. Idempotência ao aprovar cancelamento (Backoffice)
+- Em `handleAprovarCancelamento`: adicionar guard inicial — se `sol.status === 'cancelado'`, abortar com toast informativo ("Já cancelado").
+- No componente do card/modal, esconder/desabilitar o botão "Aprovar cancelamento" quando `status === 'cancelado'`.
+- (Opcional) Constraint parcial para impedir histórico duplicado:
+  ```sql
+  CREATE UNIQUE INDEX ... ON historico_solicitacoes (solicitacao_id) WHERE acao = 'cancelamento_aprovado';
+  ```
+  Pode ser arriscado em legado — preferimos guard no app + DELETE manual dos duplicados existentes.
 
-### 4. Notificação proativa ao backoffice
-- A função `check-correction-deadline` já cria `notifications`. Adicionar:
-  - Quando o **backoffice aprovar um cancelamento** (`handleAprovarCancelamento` em `Backoffice.tsx`) **e** a solicitação tiver `numero_chamado_fluig`, criar `notifications` `action_required` para o próprio backoffice/admin grupo, com mensagem "Verifique se o processo Fluig X precisa ser cancelado".
-- Card de **Insights diários** do backoffice: incluir contador "Canceladas com Fluig pendente de tratamento".
+### 4. Backfill / limpeza dos casos investigados
+- **2026000146**: 
+  - Inserir registro retroativo em `historico_solicitacoes` (`acao='cancelamento_solicitado'`, `user_id=solicitante`, `motivo` da `oc_acompanhamento`, `created_at = 2026-04-09 11:45`).
+  - Apagar 4 dos 5 `cancelamento_aprovado` duplicados em `historico_solicitacoes` e `oc_acompanhamento` (manter o primeiro).
+  - Marcar `cancelamento_ciencia_em = updated_at` (a aprovação já aconteceu há tempos).
+- **2026000272**:
+  - Inserir registro retroativo `cancelamento_solicitado` no histórico (a partir do `oc_acompanhamento` de 23/04).
+  - Inserir registro retroativo `cancelamento_aprovado` (`user_id` = system/admin disponível, `motivo='Cancelamento registrado retroativamente — origem não rastreada'`).
+  - Marcar `cancelamento_ciencia_em = now()` (pedido pelo próprio solicitante → ciência automática).
+- Migration única, idempotente.
 
-### 5. Limpeza/UX
-- Renomear chip "Dar ciência" no header do solicitante para deixar claro que cobre cancelamentos automáticos **e** pelo backoffice (ex.: "Confirmar cancelamento").
-- Tooltip explicando que confirmar a ciência apenas remove a pendência da lista; a solicitação permanece cancelada no histórico.
+### 5. Limpeza de duplicatas globais
+- Identificamos **3 solicitações** com `cancelamento_aprovado` duplicado. Migration de limpeza: manter o **primeiro** registro de cada par (solicitacao_id + acao='cancelamento_aprovado'), apagar os demais — tanto em `historico_solicitacoes` quanto em `oc_acompanhamento`.
+
+### 6. UX do card "Aguardando Ciência"
+- No `SolicitanteSolicitacaoCard`: ao montar, **derivar o autor do cancelamento** a partir do histórico:
+  - Se existe `cancelamento_solicitado` do próprio user → exibir "Cancelada por você em DD/MM" (e nem aparece para ciência, pois o trigger marca automaticamente).
+  - Se aprovado pelo backoffice sem pedido → exibir "Cancelada pelo backoffice em DD/MM por <nome>".
+  - Se prazo expirado → mantém texto atual.
 
 ---
 
-## Arquivos afetados (estimativa)
+## Arquivos afetados
 
-- `supabase/migrations/<new>.sql` — nova coluna + índice + backfill de ciência.
-- `src/integrations/supabase/types.ts` — auto-regenera.
-- `src/components/solicitante/SolicitanteSolicitacaoCard.tsx` — generalizar bloco de ciência.
-- `src/components/solicitante/PendingHeaderChips.tsx` — texto do chip.
-- `src/pages/MinhasSolicitacoes.tsx` — selecionar nova coluna se necessário (não crítico).
-- `src/pages/Backoffice.tsx` — sub-aba "Verificar Fluig", contagem, handler "marcar tratado".
-- `src/components/backoffice/BackofficeSolicitacaoCard.tsx` — novo badge + botão "Marcar Fluig cancelado".
-- `src/hooks/useBackofficeSolicitacoes.ts` — incluir flags na query.
-- `supabase/functions/check-correction-deadline/index.ts` — nenhuma mudança obrigatória (já notifica), mas podemos enriquecer mensagem/link.
-- Trigger opcional: ao aprovar cancelamento manual com Fluig, marcar a flag de pendência (alternativa a tratar no front).
+**Frontend**
+- `src/pages/MonitoramentoOC.tsx` — adicionar insert em `historico_solicitacoes` no fluxo de pedido.
+- `src/pages/Backoffice.tsx` — guard de idempotência em `handleAprovarCancelamento`.
+- `src/components/backoffice/BackofficeSolicitacaoCard.tsx` / `BackofficeModals.tsx` — esconder ação se já cancelado.
+- `src/components/solicitante/SolicitanteSolicitacaoCard.tsx` — texto contextual com nome/data do autor do cancelamento.
+
+**Backend (migration única)**
+- Atualizar função `auto_set_ciencia_self_cancellation()` para olhar também `oc_acompanhamento`.
+- Backfill 2026000146 e 2026000272.
+- Limpeza de `cancelamento_aprovado` duplicados (3 solicitações).
+- Backfill de `cancelamento_ciencia_em` para todos onde existir pedido do próprio solicitante (qualquer origem).
 
 ---
 
 ## Resultado esperado
 
-- Solicitante consegue confirmar ciência de **qualquer** cancelamento (auto ou backoffice) com botão visível no próprio card.
-- Aba "Aguardando Ciência" passa a refletir apenas casos realmente acionáveis (sem o lixo legado).
-- Backoffice tem **uma fila própria** ("Verificar Fluig") com todas as canceladas que ainda exigem cancelamento no Fluig, com botão para resolver — sem depender só da sineta.
+- "Aguardando Ciência" passa a refletir apenas cancelamentos sem pedido do solicitante (auto por prazo ou unilateral pelo backoffice).
+- Pedidos feitos pelo solicitante em qualquer tela (Minhas Solicitações ou Monitoramento OC) ficam totalmente rastreáveis e fecham a ciência automaticamente quando aprovados.
+- Backoffice não consegue mais aprovar cancelamento duas vezes; histórico fica limpo.
+- Os dois casos auditados ficam corrigidos imediatamente pela migration de backfill.
