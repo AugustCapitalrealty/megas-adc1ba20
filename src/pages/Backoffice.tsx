@@ -1477,7 +1477,12 @@ export default function Backoffice() {
     concluidas: filteredSolicitacoes.filter(s => s.status === 'concluida' || s.status === 'enviado_pagamento'),
     canceladas: filteredSolicitacoes.filter(s => s.status === 'rejeitado' || s.status === 'cancelado'),
     cancelamento_pendente: filteredSolicitacoes.filter(s => cancelamentoPendenteIds.has(s.id)),
-  }), [filteredSolicitacoes, cancelamentoPendenteIds]);
+    verificar_fluig: filteredSolicitacoes.filter(s =>
+      s.status === 'cancelado' &&
+      !!s.numero_chamado_fluig &&
+      !fluigCancelTratadoIds.has(s.id)
+    ),
+  }), [filteredSolicitacoes, cancelamentoPendenteIds, fluigCancelTratadoIds]);
 
   // SLA calculation (used in details modal)
   const getSLAInfo = (sol: SolicitacaoBackoffice) => {
