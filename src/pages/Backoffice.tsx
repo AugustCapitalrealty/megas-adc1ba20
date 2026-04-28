@@ -59,7 +59,7 @@ interface PdfValidationResult {
   diferenca: number | null;
 }
 
-type BackofficeTab = 'recebidas' | 'pendentes' | 'em_processamento' | 'oc_emitidas' | 'liberadas' | 'enviadas' | 'concluidas' | 'canceladas' | 'cancelamento_pendente';
+type BackofficeTab = 'recebidas' | 'pendentes' | 'em_processamento' | 'oc_emitidas' | 'liberadas' | 'enviadas' | 'concluidas' | 'canceladas' | 'cancelamento_pendente' | 'verificar_fluig';
 
 export default function Backoffice() {
   const { user } = useAuth();
