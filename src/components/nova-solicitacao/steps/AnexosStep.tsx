@@ -95,7 +95,7 @@ export function AnexosStep({ formState, derived, setters, getRequiredAttachments
       )}
 
       <MultiFileUpload requirements={getRequiredAttachments()} files={anexos} onFilesChange={setters.setAnexos} />
-      <OtherFilesUpload files={outrosAnexos} onFilesChange={setters.setOutrosAnexos} maxFiles={5} />
+      <OtherFilesUpload files={outrosAnexos} onFilesChange={setters.setOutrosAnexos} />
     </div>
   );
 }

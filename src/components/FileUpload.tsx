@@ -200,7 +200,7 @@ interface OtherFilesUploadProps {
   maxFiles?: number;
 }
 
-export function OtherFilesUpload({ files, onFilesChange, maxFiles = 5 }: OtherFilesUploadProps) {
+export function OtherFilesUpload({ files, onFilesChange, maxFiles }: OtherFilesUploadProps) {
   const [error, setError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -225,7 +225,7 @@ export function OtherFilesUpload({ files, onFilesChange, maxFiles = 5 }: OtherFi
     let hasError = false;
 
     for (let i = 0; i < fileList.length; i++) {
-      if (files.length + newFiles.length >= maxFiles) {
+      if (maxFiles !== undefined && files.length + newFiles.length >= maxFiles) {
         setError(`Máximo de ${maxFiles} arquivos permitidos`);
         break;
       }
@@ -285,7 +285,9 @@ export function OtherFilesUpload({ files, onFilesChange, maxFiles = 5 }: OtherFi
     <div className="space-y-3 pt-4 border-t">
       <label className="text-sm font-medium flex items-center gap-2">
         Outros Anexos
-        <span className="text-xs text-muted-foreground font-normal">(opcional - máx. {maxFiles} arquivos)</span>
+        <span className="text-xs text-muted-foreground font-normal">
+          {maxFiles !== undefined ? `(opcional - máx. ${maxFiles} arquivos)` : '(opcional)'}
+        </span>
       </label>
 
       {/* List of uploaded files */}
@@ -320,8 +322,8 @@ export function OtherFilesUpload({ files, onFilesChange, maxFiles = 5 }: OtherFi
         </div>
       )}
 
-      {/* Upload area - only show if under max files */}
-      {files.length < maxFiles && (
+      {/* Upload area - only show if under max files (or no limit) */}
+      {(maxFiles === undefined || files.length < maxFiles) && (
         <div
           className={cn(
             'border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors',
