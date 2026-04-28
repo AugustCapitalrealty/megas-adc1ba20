@@ -28,7 +28,7 @@ export function FormNavigation({ currentStep, visibleSteps, currentIndex, submit
       onClick={onSubmit}
       disabled={submitDisabled}
       aria-disabled={submitDisabled}
-      className="shadow-lg sm:shadow-none gap-2"
+      className="shadow-lg sm:shadow-none gap-2 transition-all duration-200 hover:scale-[1.02] active:scale-95 disabled:hover:scale-100"
     >
       {submitting ? (
         <Loader2 className="h-4 w-4 animate-spin" />
@@ -45,14 +45,23 @@ export function FormNavigation({ currentStep, visibleSteps, currentIndex, submit
     ? `Ir para ${nextStep.label}`
     : 'Próximo';
   const nextButton = (
-    <Button onClick={onNext} disabled={hasStepErrors} className="shadow-lg sm:shadow-none gap-2">
+    <Button
+      onClick={onNext}
+      disabled={hasStepErrors}
+      className="shadow-lg sm:shadow-none gap-2 transition-all duration-200 hover:scale-[1.02] active:scale-95 disabled:hover:scale-100"
+    >
       {nextLabel}
       <ArrowRight className="h-4 w-4" />
     </Button>
   );
   return (
-    <div className="flex justify-between sticky bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t sm:border-t-0 p-4 sm:p-0 sm:static sm:bg-transparent sm:backdrop-blur-none -mx-4 sm:mx-0 z-10">
-      <Button variant="ghost" onClick={onBack} disabled={currentIndex === 0} className="gap-2">
+    <div className="flex justify-between sticky bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t shadow-[0_-2px_8px_-4px_hsl(var(--foreground)/0.08)] sm:border-t-0 sm:shadow-none p-4 sm:p-0 sm:static sm:bg-transparent sm:backdrop-blur-none -mx-4 sm:mx-0 z-10 animate-fade-in motion-reduce:animate-none">
+      <Button
+        variant="ghost"
+        onClick={onBack}
+        disabled={currentIndex === 0}
+        className="gap-2 transition-transform duration-200 hover:-translate-x-0.5"
+      >
         <ArrowLeft className="h-4 w-4" /> Voltar
       </Button>
       {currentStep === 'revisao' ? (
