@@ -186,9 +186,19 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
     const rejectionInfo = rejectionReasons[sol.id];
     const infoRequest = infoRequests[sol.id];
 
-    if ((sol.status === 'rejeitado' || sol.status === 'cancelado') && rejectionInfo?.motivo) {
-      const isPrazoExpirado = rejectionInfo.motivo.includes('prazo') && rejectionInfo.motivo.includes('expirou');
+    if ((sol.status === 'rejeitado' || sol.status === 'cancelado') && (rejectionInfo?.motivo || sol.status === 'cancelado')) {
+      const motivoTxt = rejectionInfo?.motivo || '';
+      const isPrazoExpirado = motivoTxt.includes('prazo') && motivoTxt.includes('expirou');
+      const isCancelamento = sol.status === 'cancelado';
       const cienciaEm = (sol as any).cancelamento_ciencia_em;
+      const headerLabel = isPrazoExpirado
+        ? 'Cancelada automaticamente — prazo de 30 dias expirado'
+        : isCancelamento
+          ? 'Solicitação cancelada'
+          : 'Motivo da Reprovação:';
+      const bodyTxt = isPrazoExpirado
+        ? 'Caso ainda precise, duplique esta solicitação para abrir uma nova.'
+        : motivoTxt || 'Esta solicitação foi cancelada. Confirme abaixo que está ciente para remover esta pendência.';
       return (
         <div className={cn("mb-4 p-3 rounded-lg", isPrazoExpirado ? "bg-warning/10 border border-warning/20" : "bg-destructive/10 border border-destructive/20")}>
           <div className="flex items-start gap-2">
@@ -199,14 +209,10 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
             )}
             <div className="flex-1">
               <p className={cn("font-medium", isPrazoExpirado ? "text-warning" : "text-destructive")}>
-                {isPrazoExpirado ? 'Cancelada automaticamente — prazo de 30 dias expirado' : 'Motivo da Reprovação:'}
+                {headerLabel}
               </p>
-              <p className="text-sm text-muted-foreground mt-1">
-                {isPrazoExpirado 
-                  ? 'Caso ainda precise, duplique esta solicitação para abrir uma nova.'
-                  : rejectionInfo.motivo}
-              </p>
-              {isPrazoExpirado && sol.status === 'cancelado' && (
+              <p className="text-sm text-muted-foreground mt-1">{bodyTxt}</p>
+              {isCancelamento && (
                 <div className="mt-3">
                   {cienciaEm ? (
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
@@ -215,11 +221,15 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
                     </p>
                   ) : (
                     <div className="flex flex-col gap-2">
-                      <p className="text-xs font-medium text-warning">
+                      <p className={cn("text-xs font-medium", isPrazoExpirado ? "text-warning" : "text-destructive")}>
                         ⚠ Confirme que está ciente do cancelamento para remover esta pendência.
                       </p>
                       <Button size="sm" onClick={() => onDarCiencia?.(sol.id)}
-                        className="w-fit gap-1.5 bg-warning text-warning-foreground hover:bg-warning/90">
+                        className={cn("w-fit gap-1.5",
+                          isPrazoExpirado
+                            ? "bg-warning text-warning-foreground hover:bg-warning/90"
+                            : "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        )}>
                         <Eye className="h-4 w-4" /> Confirmar ciência
                       </Button>
                     </div>
