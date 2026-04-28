@@ -654,9 +654,15 @@ export default function MinhasSolicitacoes() {
       });
 
       if (editMensagemCorrecao.trim()) {
-        await supabase.from('solicitacao_mensagens').insert({
-          solicitacao_id: editingSolicitacao.id, user_id: user.id, mensagem: editMensagemCorrecao.trim(),
-        });
+        await supabase.from('historico_solicitacoes').insert({
+          solicitacao_id: editingSolicitacao.id,
+          user_id: user.id,
+          acao: 'mensagem_enviada',
+          categoria: 'mensagem',
+          mensagem: editMensagemCorrecao.trim(),
+          interno: false,
+          lida: false,
+        } as any);
       }
 
       // Notify Google Chat spaces (solicitação corrigida)
