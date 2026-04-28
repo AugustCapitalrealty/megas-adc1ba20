@@ -130,8 +130,8 @@ export function StepIndicator({ steps, currentStepIndex, onStepClick, className,
                     onClick={() => isClickable && onStepClick(index)}
                     disabled={!isClickable}
                     className={cn(
-                      'group flex flex-col items-center transition-all duration-200',
-                      isClickable && 'cursor-pointer hover:opacity-80',
+                      'group flex flex-col items-center transition-all duration-200 ds-focus-ring p-1 -m-1',
+                      isClickable && 'cursor-pointer hover:-translate-y-0.5',
                       !isClickable && 'cursor-default'
                     )}
                     aria-current={isCurrent ? 'step' : undefined}
@@ -141,15 +141,15 @@ export function StepIndicator({ steps, currentStepIndex, onStepClick, className,
                       className={cn(
                         'flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-xs font-semibold transition-all duration-300',
                         hasError && !isCurrent && 'border-destructive bg-destructive/10 text-destructive ring-2 ring-destructive/20',
-                        !hasError && isCompleted && 'border-primary bg-primary text-primary-foreground',
-                        isCurrent && 'border-primary bg-primary/10 text-primary ring-2 ring-primary/20',
+                        !hasError && isCompleted && 'border-primary bg-primary text-primary-foreground shadow-sm',
+                        isCurrent && 'border-primary bg-primary/10 text-primary ring-2 ring-primary/20 ring-offset-1 motion-safe:animate-pulse',
                         !hasError && isPending && 'border-muted-foreground/30 bg-background text-muted-foreground'
                       )}
                     >
                       {hasError && !isCurrent ? (
                         <AlertCircle className="h-4 w-4" aria-label="Pendente" />
                       ) : isCompleted ? (
-                        <Check className="h-4 w-4" />
+                        <Check className="h-4 w-4 motion-safe:animate-scale-in" />
                       ) : step.icon ? (
                         <step.icon className="h-4 w-4" />
                       ) : (

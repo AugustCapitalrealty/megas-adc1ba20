@@ -277,6 +277,58 @@
   .ds-page         { @apply container py-6 sm:py-8 space-y-6; }
   .ds-section      { @apply space-y-4; }
   .ds-stack        { @apply space-y-3; }
+
+  /* ============================================================
+     Design System v2 — Micro-interações canônicas
+     Use estas classes para hover, focus, loading e estados vazios.
+     ============================================================ */
+
+  /* Cards interativos: hover sutil + focus visível para acessibilidade. */
+  .ds-card-interactive {
+    @apply transition-all duration-200 hover:shadow-md hover:border-primary/30
+           focus-within:ring-2 focus-within:ring-primary/30 focus-within:ring-offset-1;
+  }
+
+  /* Anel de foco padrão (botões de ícone, chips, links). */
+  .ds-focus-ring {
+    @apply outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1 rounded-md;
+  }
+
+  /* Linha sticky com glassmorphism (footers de wizard, toolbars). */
+  .ds-sticky-footer {
+    @apply sticky bottom-0 z-10 bg-background/95 backdrop-blur-sm border-t shadow-[0_-2px_8px_-4px_hsl(var(--foreground)/0.08)];
+  }
+
+  /* Ícone com fundo arredondado (consistente com PageHeader/EmptyState). */
+  .ds-icon-bubble {
+    @apply inline-flex items-center justify-center rounded-xl bg-primary/10 text-primary;
+  }
+
+  /* Skeleton com shimmer suave. */
+  .ds-skeleton-shimmer {
+    @apply relative overflow-hidden bg-muted/60;
+  }
+  .ds-skeleton-shimmer::after {
+    content: '';
+    @apply absolute inset-0;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      hsl(var(--background) / 0.4),
+      transparent
+    );
+    animation: ds-shimmer 1.6s ease-in-out infinite;
+  }
+
+  @keyframes ds-shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  /* Linha hover destacada em tabelas (acompanha DataTable). */
+  .ds-row-highlight {
+    @apply transition-colors hover:bg-accent/40;
+  }
 }
 
 @layer utilities {

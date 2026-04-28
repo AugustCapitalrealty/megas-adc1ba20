@@ -686,12 +686,14 @@ export default function NovaSolicitacao() {
           </Alert>
         )}
 
-        <Card className="ring-1 ring-border/40 shadow-sm">
+        <Card className="ring-1 ring-border/40 shadow-sm transition-shadow duration-200 hover:shadow-md">
           <CardHeader className="flex flex-row items-start justify-between space-y-0">
             <div className="space-y-1">
-              <CardTitle className="text-xl">{visibleSteps[currentIndex]?.label}</CardTitle>
+              <CardTitle className="ds-text-h3">{visibleSteps[currentIndex]?.label}</CardTitle>
               {visibleSteps[currentIndex]?.description && (
-                <CardDescription>{visibleSteps[currentIndex]?.description}</CardDescription>
+                <CardDescription className="ds-text-body text-muted-foreground">
+                  {visibleSteps[currentIndex]?.description}
+                </CardDescription>
               )}
               {currentStep === 'fornecedor' && derived.requires3CNPJs && (
                 <CardDescription className="text-warning flex items-center gap-2">
@@ -705,14 +707,19 @@ export default function NovaSolicitacao() {
             )}
           </CardHeader>
           <CardContent className="space-y-4" ref={stepContainerRef}>
-            <div key={currentStep} className="animate-fade-in">
+            <div key={currentStep} className="animate-fade-in motion-reduce:animate-none">
             {currentStep === 'empreendimento' && (
               <>
                 {loadingEmpreendimentos ? (
-                  <div className="space-y-2" aria-label="Carregando empreendimentos">
-                    <Skeleton className="h-12 w-full" />
-                    <Skeleton className="h-12 w-full" />
-                    <Skeleton className="h-12 w-full" />
+                  <div
+                    className="space-y-2"
+                    role="status"
+                    aria-live="polite"
+                    aria-label="Carregando empreendimentos"
+                  >
+                    <Skeleton className="h-12 w-full ds-skeleton-shimmer" />
+                    <Skeleton className="h-12 w-full ds-skeleton-shimmer" />
+                    <Skeleton className="h-12 w-full ds-skeleton-shimmer" />
                   </div>
                 ) : (
                   <EmpreendimentoStep {...stepProps} allowedEmpreendimentos={allowedEmpreendimentos} loadingEmpreendimentos={false} />
@@ -805,9 +812,17 @@ export default function NovaSolicitacao() {
         </Card>
 
         {/* Keyboard shortcut hint (desktop only) */}
-        <div className="hidden lg:flex items-center justify-end gap-2 text-xs text-muted-foreground">
+        <div className="hidden lg:flex items-center justify-end gap-2 ds-text-caption">
           <Command className="h-3 w-3" aria-hidden="true" />
-          <span>Use <kbd className="px-1.5 py-0.5 rounded border bg-muted font-mono text-[10px]">Ctrl</kbd> + <kbd className="px-1.5 py-0.5 rounded border bg-muted font-mono text-[10px]">←</kbd>/<kbd className="px-1.5 py-0.5 rounded border bg-muted font-mono text-[10px]">→</kbd> para navegar</span>
+          <span>
+            Use{' '}
+            <kbd className="px-1.5 py-0.5 rounded border bg-muted font-mono text-[10px] shadow-sm">Ctrl</kbd>{' '}
+            +{' '}
+            <kbd className="px-1.5 py-0.5 rounded border bg-muted font-mono text-[10px] shadow-sm">←</kbd>
+            /
+            <kbd className="px-1.5 py-0.5 rounded border bg-muted font-mono text-[10px] shadow-sm">→</kbd>{' '}
+            para navegar
+          </span>
         </div>
 
         <div className="h-20 sm:hidden" />

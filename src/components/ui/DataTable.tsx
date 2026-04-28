@@ -86,14 +86,14 @@ export function DataTable<T>({
                 <TableRow key={`sk-${i}`} className={densityRow[density]}>
                   {columns.map((col) => (
                     <TableCell key={col.key} className={cn(alignClass(col.align), col.className)}>
-                      <Skeleton className="h-4 w-full max-w-[160px]" />
+                      <Skeleton className="h-4 w-full max-w-[160px] ds-skeleton-shimmer" />
                     </TableCell>
                   ))}
                 </TableRow>
               ))}
             {!loading && rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={columns.length} className="text-center py-10 ds-text-body text-muted-foreground">
+                <TableCell colSpan={columns.length} className="text-center py-12 ds-text-body text-muted-foreground animate-fade-in motion-reduce:animate-none">
                   {empty ?? 'Nenhum item encontrado.'}
                 </TableCell>
               </TableRow>
@@ -104,7 +104,7 @@ export function DataTable<T>({
                   key={rowKey(row, i)}
                   className={cn(
                     densityRow[density],
-                    'odd:bg-muted/30 hover:bg-accent/40 transition-colors',
+                    'odd:bg-muted/30 hover:bg-accent/40 transition-colors duration-150',
                     onRowClick && 'cursor-pointer',
                   )}
                   onClick={() => onRowClick?.(row)}
