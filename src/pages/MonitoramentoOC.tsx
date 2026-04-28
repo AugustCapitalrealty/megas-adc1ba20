@@ -356,6 +356,17 @@ export default function MonitoramentoOC() {
         .eq('id', cancelGroup.solicitacao_id);
       if (solError) throw solError;
 
+      // Registrar no histórico para rastreabilidade e disparar trigger de auto-ciência
+      const { error: histError } = await supabase.from('historico_solicitacoes').insert({
+        solicitacao_id: cancelGroup.solicitacao_id,
+        user_id: user.id,
+        acao: 'cancelamento_solicitado',
+        status_anterior: cancelGroup.status as any,
+        status_novo: cancelGroup.status as any,
+        motivo: cancelJustificativa.trim(),
+      });
+      if (histError) throw histError;
+
       toast.success('Solicitação de cancelamento registrada');
       setCancelGroup(null);
       setCancelJustificativa('');
