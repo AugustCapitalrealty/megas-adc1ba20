@@ -233,8 +233,9 @@ export function useMonitoramentoOC(opts: {
           .select('solicitacao_id')
           .in('solicitacao_id', solIds),
         supabase
-          .from('oc_acompanhamento')
-          .select('solicitacao_id, tipo_acao, justificativa, previsao_execucao, previsao_nf, created_at')
+          .from('historico_solicitacoes')
+          .select('solicitacao_id, acao, motivo, mensagem, previsao_execucao, previsao_nf, created_at')
+          .eq('categoria', 'acompanhamento_oc')
           .in('solicitacao_id', solIds)
           .order('created_at', { ascending: false }),
       ]);
