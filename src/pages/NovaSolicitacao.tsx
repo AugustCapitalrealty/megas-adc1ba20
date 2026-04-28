@@ -23,6 +23,8 @@ import { FormSummarySidebar } from '@/components/nova-solicitacao/FormSummarySid
 import { FieldError } from '@/components/nova-solicitacao/FieldError';
 import { FluxoBadge } from '@/components/nova-solicitacao/FluxoBadge';
 import { useStepErrors } from '@/hooks/useNovaSolicitacaoErrors';
+import { PageContainer } from '@/components/layout/PageContainer';
+import { PageHeader } from '@/components/layout/PageHeader';
 
 // Step components
 import { EmpreendimentoStep } from '@/components/nova-solicitacao/steps/EmpreendimentoStep';
