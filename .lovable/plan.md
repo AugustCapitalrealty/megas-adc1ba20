@@ -67,9 +67,11 @@ Após varredura visual das principais páginas (`Dashboard`, `DashboardSLA`, `Da
 > Onda 3 entregue: o wizard `NovaSolicitacao` agora usa `PageContainer` + `PageHeader`, herdando ícone, tipografia e ritmo do design system. Componentes globais auditados.
 
 ### Onda 4 — Polimento
-10. Auditoria visual final: print de cada página antes/depois, ajustes finos.
-11. Acessibilidade: foco visível, ARIA, contraste; checklist por página.
-12. Microinterações consistentes: skeletons, transições, toasts, hover states.
+10. [x] Polimento visual `NovaSolicitacao`: Card hover suave, tipografia canônica (`ds-text-h3`/`ds-text-body`), `kbd` com sombra, skeletons com shimmer e `motion-reduce` aplicado.
+11. [x] Acessibilidade: `ds-focus-ring` no `StepIndicator`, `aria-live="polite"` em loaders, `motion-safe`/`motion-reduce` em todas as animações novas.
+12. [x] Micro-interações canônicas: tokens novos em `index.css` (`ds-card-interactive`, `ds-focus-ring`, `ds-sticky-footer`, `ds-icon-bubble`, `ds-skeleton-shimmer`, `ds-row-highlight`); `scale-in` adicionado ao Tailwind; FormNavigation com hover scale + sombra superior; `ContextualEmptyState` redesenhado (border-dashed + icon-bubble); `DataTable` com shimmer e duração de hover ajustada.
+
+> Onda 4 entregue: design system finalizado com micro-interações consistentes e respeitando `prefers-reduced-motion`. Próximas iterações são auditorias pontuais por página conforme demanda.
 
 ---
 
