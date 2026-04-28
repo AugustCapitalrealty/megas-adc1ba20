@@ -1385,22 +1385,15 @@ export default function Backoffice() {
         .eq('id', sol.id);
       if (updateError) throw updateError;
 
-      const { error: ocError } = await supabase.from('oc_acompanhamento' as any).insert({
-        solicitacao_id: sol.id,
-        tipo_acao: 'cancelamento_aprovado',
-        justificativa: 'Cancelamento aprovado pelo backoffice',
-        user_id: user.id,
-      } as any);
-      if (ocError) throw ocError;
-
       const { error: histError } = await supabase.from('historico_solicitacoes').insert({
         solicitacao_id: sol.id,
         user_id: user.id,
         acao: 'cancelamento_aprovado',
+        categoria: 'acompanhamento_oc',
         status_anterior: sol.status,
         status_novo: 'cancelado',
         motivo: 'Cancelamento aprovado pelo backoffice',
-      });
+      } as any);
       if (histError) throw histError;
 
       // Se a solicitação tinha Fluig, notificar todo o backoffice/admin para verificar
@@ -1460,22 +1453,15 @@ export default function Backoffice() {
         .eq('id', sol.id);
       if (updateError) throw updateError;
 
-      const { error: ocError } = await supabase.from('oc_acompanhamento' as any).insert({
-        solicitacao_id: sol.id,
-        tipo_acao: 'cancelamento_rejeitado',
-        justificativa: 'Cancelamento rejeitado pelo backoffice',
-        user_id: user.id,
-      } as any);
-      if (ocError) throw ocError;
-
       const { error: histError } = await supabase.from('historico_solicitacoes').insert({
         solicitacao_id: sol.id,
         user_id: user.id,
         acao: 'cancelamento_rejeitado',
+        categoria: 'acompanhamento_oc',
         status_anterior: sol.status,
         status_novo: sol.status,
         motivo: 'Cancelamento rejeitado pelo backoffice',
-      });
+      } as any);
       if (histError) throw histError;
 
       toast({ title: 'Cancelamento rejeitado', description: `Solicitação #${sol.protocolo} mantida.` });
