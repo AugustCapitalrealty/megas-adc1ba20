@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Search, Link2, Sparkles, AlertTriangle, Clock, FileText, Briefcase, User, Pencil, Check, X } from 'lucide-react';
+import { Loader2, Search, Link2, Sparkles, AlertTriangle, Clock, FileText, Briefcase, User } from 'lucide-react';
 import { differenceInDays } from 'date-fns';
 import { formatBR } from '@/lib/date-utils';
 import { cn } from '@/lib/utils';
@@ -59,6 +59,14 @@ function fornecedorNome(cf: string | null): string {
   return cf.split(' - ')[0]?.trim() || '—';
 }
 
+const NAME_CONNECTORS = new Set(['da', 'de', 'do', 'das', 'dos', 'e']);
+function shortName(s: string | null): string {
+  if (!s) return '—';
+  const parts = s.trim().split(/\s+/).filter(p => p && !NAME_CONNECTORS.has(p.toLowerCase()));
+  if (parts.length === 0) return s;
+  return parts.slice(0, 2).join(' ');
+}
+
 function isBackofficeResp(resp: string | null): boolean {
   const n = normalize(resp);
   return n.includes('backoffice') || n.includes('juridico') || n.includes('jurídico');
@@ -80,9 +88,6 @@ function agingColor(days: number | null): string {
   return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
 }
 
-const fmtCurrency = (v: number | null) =>
-  v == null ? '—' : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
-
 export function ProjurisGestaoBackoffice() {
   const { user, profile } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -97,8 +102,6 @@ export function ProjurisGestaoBackoffice() {
   const [onlyMine, setOnlyMine] = useState(false);
   const [decisaoRow, setDecisaoRow] = useState<Row | null>(null);
   const [vinculoModal, setVinculoModal] = useState<Vinculo | null>(null);
-  const [editingValor, setEditingValor] = useState<string | null>(null);
-  const [valorDraft, setValorDraft] = useState('');
 
   const myName = useMemo(() => normalize(profile?.full_name), [profile]);
 
@@ -181,25 +184,6 @@ export function ProjurisGestaoBackoffice() {
     aguardInfo: rows.filter(r => r.status === 'AGUARDANDO INFORMAÇÕES').length,
   }), [rows, lastStatusChange]);
 
-  const startEditValor = (r: Row) => {
-    setEditingValor(r.id);
-    setValorDraft(r.valor != null ? String(r.valor) : '');
-  };
-  const saveValor = async (r: Row) => {
-    const parsed = valorDraft.trim() === '' ? null : Number(valorDraft.replace(',', '.'));
-    if (parsed != null && Number.isNaN(parsed)) {
-      toast({ title: 'Valor inválido', variant: 'destructive' });
-      return;
-    }
-    const { error } = await supabase.from('projuris_requisicoes').update({ valor: parsed }).eq('id', r.id);
-    if (error) {
-      toast({ title: 'Erro ao salvar', description: error.message, variant: 'destructive' });
-    } else {
-      setRows(prev => prev.map(x => x.id === r.id ? { ...x, valor: parsed } : x));
-      setEditingValor(null);
-    }
-  };
-
   const kpiCards = [
     { label: 'Em aberto', value: kpis.total, icon: FileText, color: 'text-primary' },
     { label: 'Ação do Backoffice', value: kpis.aguardandoNos, icon: Briefcase, color: 'text-orange-600' },
@@ -269,21 +253,19 @@ export function ProjurisGestaoBackoffice() {
         <Table>
           <TableHeader className="sticky top-0 bg-card z-10">
             <TableRow>
-              <TableHead>Nº Req.</TableHead>
+              <TableHead>Projuris / Vínculo</TableHead>
               <TableHead>Requisitante</TableHead>
               <TableHead>Empreend.</TableHead>
               <TableHead>Fornecedor</TableHead>
-              <TableHead className="text-right">Valor</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead className="text-center">Status</TableHead>
               <TableHead>Responsável</TableHead>
               <TableHead>Data Req.</TableHead>
-              <TableHead>Vínculo</TableHead>
               <TableHead className="text-right">Ação</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground">Nenhuma requisição encontrada</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhuma requisição encontrada</TableCell></TableRow>
             ) : filtered.map(r => {
               const dias = diasNoStatus(r, lastStatusChange);
               const isMine = myName && normalize(r.requisitante) === myName;
@@ -298,44 +280,49 @@ export function ProjurisGestaoBackoffice() {
                     overdue ? 'border-l-destructive' : isOurAction ? 'border-l-primary' : 'border-l-transparent',
                   )}
                 >
-                  <TableCell className="font-mono text-sm font-medium">{r.numero_requisicao}</TableCell>
-                  <TableCell className="text-sm max-w-[160px]">
-                    <div className="flex items-center gap-1.5">
-                      <span className="truncate">{r.requisitante || '—'}</span>
-                      {isMine && (
-                        <Badge variant="outline" className="h-4 px-1 text-[9px] gap-0.5 bg-primary/10 text-primary border-primary/30">
-                          <User className="h-2.5 w-2.5" />Você
-                        </Badge>
+                  <TableCell>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-mono text-sm font-medium">{r.numero_requisicao}</span>
+                      {v ? (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                onClick={() => setVinculoModal(v)}
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-primary/10 text-primary hover:bg-primary/20 text-[10px] font-medium w-fit"
+                              >
+                                <Link2 className="h-2.5 w-2.5" />{v.protocolo}
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent>Ver solicitação interna</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground">—</span>
                       )}
                     </div>
                   </TableCell>
+                  <TableCell className="text-sm">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-1.5">
+                            <span>{shortName(r.requisitante)}</span>
+                            {isMine && (
+                              <Badge variant="outline" className="h-4 px-1 text-[9px] gap-0.5 bg-primary/10 text-primary border-primary/30">
+                                <User className="h-2.5 w-2.5" />Você
+                              </Badge>
+                            )}
+                          </div>
+                        </TooltipTrigger>
+                        {r.requisitante && <TooltipContent>{r.requisitante}</TooltipContent>}
+                      </Tooltip>
+                    </TooltipProvider>
+                  </TableCell>
                   <TableCell className="text-sm max-w-[120px] truncate">{r.empreendimento || '—'}</TableCell>
                   <TableCell className="text-sm max-w-[160px] truncate">{fornecedorNome(r.cliente_fornecedor)}</TableCell>
-                  <TableCell className="text-right tabular-nums text-sm">
-                    {editingValor === r.id ? (
-                      <div className="flex items-center gap-1 justify-end">
-                        <Input
-                          value={valorDraft}
-                          onChange={e => setValorDraft(e.target.value)}
-                          className="h-7 w-24 text-xs text-right"
-                          autoFocus
-                          onKeyDown={e => { if (e.key === 'Enter') saveValor(r); if (e.key === 'Escape') setEditingValor(null); }}
-                        />
-                        <button onClick={() => saveValor(r)} className="text-primary hover:text-primary/80"><Check className="h-3.5 w-3.5" /></button>
-                        <button onClick={() => setEditingValor(null)} className="text-muted-foreground"><X className="h-3.5 w-3.5" /></button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => startEditValor(r)}
-                        className="inline-flex items-center gap-1 hover:text-primary group"
-                      >
-                        {fmtCurrency(r.valor)}
-                        <Pencil className="h-3 w-3 opacity-0 group-hover:opacity-100" />
-                      </button>
-                    )}
-                  </TableCell>
                   <TableCell>
-                    <div className="flex flex-col gap-1">
+                    <div className="flex flex-col gap-1 items-center">
                       <Badge className={cn('text-[10px] w-fit', STATUS_COLORS[r.status || ''] || 'bg-muted text-muted-foreground')}>
                         {r.status || '—'}
                       </Badge>
@@ -346,33 +333,25 @@ export function ProjurisGestaoBackoffice() {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="text-sm max-w-[140px]">
-                    {isOurAction ? (
-                      <Badge className="bg-primary/10 text-primary border-primary/30 text-[10px]" variant="outline">
-                        <Briefcase className="h-2.5 w-2.5 mr-1" />{r.responsavel}
-                      </Badge>
-                    ) : (
-                      <span className="truncate">{r.responsavel || '—'}</span>
-                    )}
+                  <TableCell className="text-sm">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div>
+                            {isOurAction ? (
+                              <Badge className="bg-primary/10 text-primary border-primary/30 text-[10px]" variant="outline">
+                                <Briefcase className="h-2.5 w-2.5 mr-1" />{shortName(r.responsavel)}
+                              </Badge>
+                            ) : (
+                              <span>{shortName(r.responsavel)}</span>
+                            )}
+                          </div>
+                        </TooltipTrigger>
+                        {r.responsavel && <TooltipContent>{r.responsavel}</TooltipContent>}
+                      </Tooltip>
+                    </TooltipProvider>
                   </TableCell>
                   <TableCell className="text-xs">{r.data_requisicao ? formatBR(r.data_requisicao, 'dd/MM/yyyy') : '—'}</TableCell>
-                  <TableCell>
-                    {v ? (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button
-                              onClick={() => setVinculoModal(v)}
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/10 text-primary hover:bg-primary/20 text-xs font-medium"
-                            >
-                              <Link2 className="h-3 w-3" />{v.protocolo}
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent>Ver solicitação interna</TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    ) : <span className="text-xs text-muted-foreground">—</span>}
-                  </TableCell>
                   <TableCell className="text-right">
                     <Button size="sm" variant="default" className="h-7 gap-1" onClick={() => setDecisaoRow(r)}>
                       <Sparkles className="h-3 w-3" />Tomar ação
