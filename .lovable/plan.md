@@ -1,125 +1,37 @@
-## Objetivo
+## Ajustes de UI — Gestão BO (Projuris)
 
-Adicionar uma nova aba no módulo Projuris, **visível apenas para Backoffice/Admin**, com uma tabela operacional inspirada na "Em Aberto", focada em tomada de decisão: ver o que está parado, atualizar o status diretamente e registrar ações como "Minuta enviada ao Fornecedor".
+Arquivo único: `src/components/monitoramento/projuris/ProjurisGestaoBackoffice.tsx`
 
-## Onde aparece
+### 1. Remover coluna "Valor"
+- Remove o `<TableHead>` "Valor" e a célula correspondente (incluindo o modo de edição inline com `editingValor` / `valorDraft` / `startEditValor` / `saveValor`).
+- Remove os states `editingValor`, `valorDraft` e helpers `fmtCurrency`, `startEditValor`, `saveValor` (não usados em outro lugar).
+- Mantém o campo `valor` no SELECT da query e na interface `Row` (a coluna no banco continua existindo, só não é exibida nesta tela). Ajusta `colSpan` do empty state de 10 → 9.
+- Remove o ícone `Pencil`, `Check`, `X` da lista de imports se não restarem outros usos (manter apenas os necessários).
 
-- Arquivo `src/components/monitoramento/TabProjuris.tsx`
-- Nova primeira aba: **"Gestão Backoffice"** (ícone Briefcase), renderizada condicionalmente via `useAuth().isBackofficeOrAdmin`. Para usuários comuns nada muda.
+### 2. Centralizar Status
+- `<TableHead>Status</TableHead>` ganha `className="text-center"`.
+- Célula do status: o wrapper `flex flex-col gap-1` passa a ser `flex flex-col gap-1 items-center` para centralizar o badge de status e o badge de "Xd".
 
-## A tabela
+### 3. Encurtar Requisitante e Responsável (apenas primeiro + segundo nome)
+- Cria helper local `shortName(s: string | null): string` que pega as duas primeiras palavras não vazias do nome (ignora "da", "de", "do", "das", "dos" como conectivos comuns para não devolver "José Da"). Exemplo: "Mauro Sergio Silva..." → "Mauro Sergio"; "José Ernesto da Rosa" → "José Ernesto".
+- Aplica `shortName(r.requisitante)` e `shortName(r.responsavel)` na renderização das células (o filtro/busca continua usando o nome completo original).
+- Reduz `max-w` das células e remove `truncate` quando o nome curto já couber confortavelmente. O badge "Você" e o chip "Backoffice/Jurídico" continuam funcionando.
+- Tooltip opcional com nome completo no hover (usa `TooltipProvider` já importado) para manter informação acessível.
 
-Colunas, na ordem pedida:
+### 4. Unir Vínculo com Nº Projuris numa única coluna
+- Renomear a coluna **"Nº Req."** para **"Projuris / Vínculo"** (header simples, alinhado à esquerda).
+- Remove a coluna "Vínculo" separada (header e célula).
+- Na célula combinada, layout em 2 linhas:
+  - Linha superior: número Projuris (`font-mono text-sm font-medium`), igual hoje.
+  - Linha inferior: se existir `vinculos[r.numero_requisicao]`, mostra o botão `<Link2 /> {protocolo}` (mesmo botão atual com tooltip "Ver solicitação interna" e onClick `setVinculoModal(v)`); senão, mostra `—` em `text-[10px] text-muted-foreground`.
+- Ajusta `colSpan` do empty state para o novo total de colunas (era 10 → fica 8: Projuris/Vínculo, Requisitante, Empreend., Fornecedor, Status, Responsável, Data Req., Ação).
 
-1. **Nº Requisição** (`numero_requisicao`)
-2. **Requisitante** (`requisitante`) — com badge "👤 Você" quando o nome do requisitante Projuris bater (case-insensitive, normalizado) com o `full_name` do usuário logado
-3. **Empreendimento**
-4. **Fornecedor** (parte antes do " - " em `cliente_fornecedor`)
-5. **Valor** — *novo campo* `valor` em `projuris_requisicoes` (ver seção Banco). Quando ausente, mostra "—"
-6. **Status** — Badge colorido + abaixo, em fonte menor, "Xd neste status" (calculado a partir do último evento que mudou o status; se não houver, usa `data_ultimo_envio_aprovacao` para AGUARDANDO APROVAÇÃO ou `updated_at` para os demais)
-7. **Responsável** — destaca quando o responsável Projuris é "Backoffice" / "Jurídico" com chip primário, sinalizando "ação nossa"
-8. **Data Requisição**
-9. **Vínculo** — protocolo da solicitação interna ligada (mesmo botão clicável da Em Aberto, abre `OCDetalhesModal`)
-10. **Ações** — botão "Tomar ação" abre o **Modal de Decisão** (abaixo)
+### 5. Detalhes técnicos
+- Sem mudanças de schema, sem migrações.
+- Sem mudanças em `ProjurisDecisaoModal` nem em `OCDetalhesModal`.
+- KPIs, filtros, busca, switches "Apenas ações nossas" e "Minhas requisições" permanecem inalterados.
+- Faixa lateral colorida das linhas (`border-l-4` overdue / our action) permanece.
 
-Filtros e busca no topo (mesmo padrão da Em Aberto): busca livre, filtro por Status, filtro por Empreendimento, filtro por Responsável e um toggle **"Apenas ações nossas"** (responsavel ILIKE '%backoffice%' OR ILIKE '%jurídico%').
-
-KPIs no topo, focados em decisão:
-- Total em aberto
-- Aguardando ação do Backoffice (responsável é backoffice/jurídico)
-- Aguardando aprovação ≥ 7 dias
-- Aguardando informações (bloqueando o requisitante)
-
-Linhas com aging vermelho (>14d) ganham faixa lateral destacada para chamar atenção.
-
-## Modal de Decisão (tomada de ação)
-
-Abre ao clicar "Tomar ação" em uma linha. Contém:
-
-- Resumo da requisição (Nº, fornecedor, status atual, dias parados, vínculo)
-- **Novo Status** — Select com os valores existentes em `projuris_requisicoes.status` + opção "Manter atual"
-- **Ação rápida** — chips pré-definidos que preenchem o campo de observação:
-  - Minuta enviada ao Fornecedor
-  - Minuta recebida do Fornecedor
-  - Aguardando assinatura do Fornecedor
-  - Enviado para aprovação interna
-  - Solicitado complemento de informações
-  - Documentação OK — pronto para execução
-  - Outro (livre)
-- **Observação** (textarea, obrigatória se ação = "Outro")
-- **Próxima revisão** (date picker, opcional) — registra um lembrete
-
-Ao confirmar:
-1. Atualiza `projuris_requisicoes` (`status` se mudou, `updated_at`)
-2. Insere registro em **nova tabela** `projuris_acoes` (histórico/auditoria) — ver Banco
-3. Toast de sucesso e refresh da linha
-
-Modal exibe também o histórico de ações anteriores daquela requisição (timeline simples).
-
-## Banco
-
-Migração nova, três mudanças:
-
-```sql
--- 1) Valor da requisição (opcional, preenchido manualmente pelo backoffice ou via import futuro)
-alter table public.projuris_requisicoes
-  add column if not exists valor numeric;
-
--- 2) Histórico de ações do backoffice sobre a requisição
-create table public.projuris_acoes (
-  id uuid primary key default gen_random_uuid(),
-  requisicao_id uuid not null references public.projuris_requisicoes(id) on delete cascade,
-  user_id uuid not null,
-  acao text not null,                -- ex: 'minuta_enviada_fornecedor', 'status_atualizado', 'outro'
-  observacao text,
-  status_anterior text,
-  status_novo text,
-  proxima_revisao date,
-  created_at timestamptz not null default now()
-);
-
-create index on public.projuris_acoes (requisicao_id, created_at desc);
-
-alter table public.projuris_acoes enable row level security;
-
-create policy "Backoffice can view all projuris_acoes"
-  on public.projuris_acoes for select to authenticated
-  using (is_backoffice_or_admin(auth.uid()));
-
-create policy "Backoffice can insert projuris_acoes"
-  on public.projuris_acoes for insert to authenticated
-  with check (is_backoffice_or_admin(auth.uid()) and auth.uid() = user_id);
-```
-
-`UPDATE` em `projuris_requisicoes` já é permitido para backoffice (policy existente "Backoffice can update projuris_requisicoes").
-
-## Casamento Requisitante x Solicitante
-
-Comparação **client-side** (sem mudança de schema): normaliza ambos os lados (lowercase + remove acentos + colapsa espaços) e compara `requisitante` Projuris com `profiles.full_name` do usuário logado para destacar "Você" e oferecer filtro "Minhas requisições".
-
-Para o futuro (não nesta entrega): se quiser cravar vínculo persistente, criar tabela `projuris_requisitante_map (nome_projuris text, profile_id uuid)`.
-
-## Arquivos
-
-**Novos**
-- `supabase/migrations/<timestamp>_projuris_gestao_backoffice.sql`
-- `src/components/monitoramento/projuris/ProjurisGestaoBackoffice.tsx` (tabela + KPIs + filtros)
-- `src/components/monitoramento/projuris/ProjurisDecisaoModal.tsx` (modal de tomada de ação + histórico)
-
-**Editados**
-- `src/components/monitoramento/TabProjuris.tsx` — adiciona aba condicional "Gestão Backoffice" como primeira aba quando `isBackofficeOrAdmin`
-- `src/integrations/supabase/types.ts` — auto-gerado após migração
-
-## Detalhes técnicos
-
-- Reaproveita `STATUS_COLORS`, `formatDate`, `getFornecedorNome` de `ProjurisVisaoStatus` extraindo para `src/components/monitoramento/projuris/utils.ts`
-- "Dias neste status" calculado: `differenceInDays(now, ultima_acao_de_mudanca_de_status_ou_data_requisicao)` consultando `projuris_acoes` mais recente com `status_novo not null`; fallback para `updated_at`
-- Realtime opcional na tabela `projuris_acoes` para refletir mudanças entre usuários backoffice
-- Acessibilidade: linhas focáveis por teclado, modal com `aria-describedby`
-- Sem mudança nas demais abas Projuris
-
-## Fora do escopo
-
-- Importação automática do campo `valor` (será preenchimento manual nesta entrega)
-- Notificação por GChat ao mudar status (pode ser próxima iteração)
-- Vínculo persistente requisitante↔profile
+### Fora do escopo
+- Não alterar a coluna `valor` no banco (pode ser reutilizada em outra tela / iteração futura).
+- Não mexer nas outras abas do Projuris (Em Aberto, Parados, Fluxo, Compliance, Finalizadas).
