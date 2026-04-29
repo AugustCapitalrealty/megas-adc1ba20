@@ -17,7 +17,6 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { ProjurisDecisaoModal } from './ProjurisDecisaoModal';
 import { OCDetalhesModal } from '../OCDetalhesModal';
-import { toast } from '@/hooks/use-toast';
 
 interface Row {
   id: string;
