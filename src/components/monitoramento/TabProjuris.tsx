@@ -1,16 +1,19 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Scale, Clock, GitBranch, ShieldAlert, Archive } from 'lucide-react';
+import { Scale, Clock, GitBranch, ShieldAlert, Archive, Briefcase } from 'lucide-react';
 import { ProjurisVisaoStatus } from './projuris/ProjurisVisaoStatus';
 import { ProjurisParadosAssinatura } from './projuris/ProjurisParadosAssinatura';
 import { ProjurisFluxoAprovacoes } from './projuris/ProjurisFluxoAprovacoes';
 import { ProjurisCompliance } from './projuris/ProjurisCompliance';
 import { ProjurisImport } from './projuris/ProjurisImport';
 import { ProjurisFinalizadas } from './projuris/ProjurisFinalizadas';
+import { ProjurisGestaoBackoffice } from './projuris/ProjurisGestaoBackoffice';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
+import { useAuth } from '@/hooks/useAuth';
 
 export function TabProjuris() {
+  const { isBackofficeOrAdmin } = useAuth();
   const [refreshKey, setRefreshKey] = useState(0);
   const [lastUpdate, setLastUpdate] = useState<string | null>(null);
   const handleImported = useCallback(() => setRefreshKey(k => k + 1), []);
@@ -41,8 +44,14 @@ export function TabProjuris() {
         </div>
       </div>
 
-      <Tabs defaultValue="visao_status" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5">
+      <Tabs defaultValue={isBackofficeOrAdmin ? 'gestao_bo' : 'visao_status'} className="space-y-4">
+        <TabsList className={`grid w-full ${isBackofficeOrAdmin ? 'grid-cols-6' : 'grid-cols-5'}`}>
+          {isBackofficeOrAdmin && (
+            <TabsTrigger value="gestao_bo" className="gap-1.5 text-xs sm:text-sm">
+              <Briefcase className="h-4 w-4 hidden sm:block" />
+              Gestão BO
+            </TabsTrigger>
+          )}
           <TabsTrigger value="visao_status" className="gap-1.5 text-xs sm:text-sm">
             <Scale className="h-4 w-4 hidden sm:block" />
             Em Aberto
@@ -65,6 +74,11 @@ export function TabProjuris() {
           </TabsTrigger>
         </TabsList>
 
+        {isBackofficeOrAdmin && (
+          <TabsContent value="gestao_bo">
+            <ProjurisGestaoBackoffice key={`gbo-${refreshKey}`} />
+          </TabsContent>
+        )}
         <TabsContent value="visao_status">
           <ProjurisVisaoStatus key={`vs-${refreshKey}`} />
         </TabsContent>
