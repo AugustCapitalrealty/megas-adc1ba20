@@ -1,15 +1,31 @@
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Upload, Loader2, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Upload, Loader2, CheckCircle, AlertTriangle, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { formatBR } from '@/lib/date-utils';
 
 interface ImportResult {
   inserted: number;
   errors: string[];
 }
+
+interface MissingRow {
+  id: string;
+  numero_requisicao: string;
+  status: string | null;
+  requisitante: string | null;
+  cliente_fornecedor: string | null;
+  data_requisicao: string | null;
+}
+
+const CLOSED_STATUSES = ['FINALIZADA', 'CANCELADA', 'REPROVADA'];
 
 function normalize(s: string): string {
   return s
@@ -111,6 +127,10 @@ export function ProjurisImport({ onImported }: { onImported: () => void }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
+  const [missing, setMissing] = useState<MissingRow[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -118,6 +138,8 @@ export function ProjurisImport({ onImported }: { onImported: () => void }) {
     if (!file || !user) return;
     setLoading(true);
     setResult(null);
+    setMissing([]);
+    setSelected(new Set());
 
     try {
       const buffer = await file.arrayBuffer();
@@ -139,6 +161,7 @@ export function ProjurisImport({ onImported }: { onImported: () => void }) {
 
       const dataRows = rows.slice(1);
       const res: ImportResult = { inserted: 0, errors: [] };
+      const planilhaSet = new Set<string>();
 
       const batchSize = 50;
       for (let i = 0; i < dataRows.length; i += batchSize) {
@@ -168,6 +191,8 @@ export function ProjurisImport({ onImported }: { onImported: () => void }) {
             res.errors.push(`Linha ${i + idx + 2}: numero_requisicao inválido: ${numReq}`);
             return null;
           }
+
+          planilhaSet.add(numReq);
 
           const record: Record<string, any> = {
             numero_requisicao: numReq,
@@ -203,6 +228,20 @@ export function ProjurisImport({ onImported }: { onImported: () => void }) {
         }
       }
 
+      // Detect requisitions that exist in our DB but were removed from the spreadsheet
+      const { data: dbData, error: dbErr } = await supabase
+        .from('projuris_requisicoes')
+        .select('id, numero_requisicao, status, requisitante, cliente_fornecedor, data_requisicao')
+        .not('status', 'in', `(${CLOSED_STATUSES.join(',')})`);
+
+      if (dbErr) {
+        res.errors.push(`Detecção de removidos: ${dbErr.message}`);
+      } else {
+        const missingRows = ((dbData as MissingRow[]) || []).filter(r => !planilhaSet.has(r.numero_requisicao));
+        setMissing(missingRows);
+        setSelected(new Set(missingRows.map(r => r.id)));
+      }
+
       setResult(res);
       if (res.errors.length === 0) {
         toast.success(`Importação concluída: ${res.inserted} registros processados`);
@@ -218,6 +257,37 @@ export function ProjurisImport({ onImported }: { onImported: () => void }) {
     }
   };
 
+  const toggleOne = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    setSelected(prev => prev.size === missing.length ? new Set() : new Set(missing.map(r => r.id)));
+  };
+
+  const handleDelete = async () => {
+    if (selected.size === 0) return;
+    setDeleting(true);
+    try {
+      const ids = Array.from(selected);
+      const { error } = await supabase.from('projuris_requisicoes').delete().in('id', ids);
+      if (error) throw error;
+      toast.success(`${ids.length} requisição(ões) excluída(s) da base`);
+      setMissing(prev => prev.filter(r => !selected.has(r.id)));
+      setSelected(new Set());
+      setConfirmOpen(false);
+      onImported();
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao excluir');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <>
       <Button variant="outline" size="sm" onClick={() => setOpen(true)} className="gap-1.5">
@@ -226,7 +296,7 @@ export function ProjurisImport({ onImported }: { onImported: () => void }) {
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Importar Planilha Projuris</DialogTitle>
           </DialogHeader>
@@ -272,6 +342,63 @@ export function ProjurisImport({ onImported }: { onImported: () => void }) {
                 )}
               </div>
             )}
+
+            {missing.length > 0 && (
+              <div className="space-y-2 border rounded-md p-3 bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/40">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-sm font-medium text-amber-800 dark:text-amber-300">
+                    <AlertTriangle className="h-4 w-4" />
+                    {missing.length} requisição(ões) na base não estão mais na planilha
+                  </div>
+                  <Button size="sm" variant="ghost" onClick={toggleAll} className="h-7 text-xs">
+                    {selected.size === missing.length ? 'Desmarcar todas' : 'Marcar todas'}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Foram removidas do Projuris ou ficaram fora deste filtro. Selecione quais excluir da nossa base.
+                </p>
+                <ScrollArea className="h-[220px] rounded border bg-background">
+                  <div className="divide-y">
+                    {missing.map(r => (
+                      <label key={r.id} className="flex items-start gap-3 p-2 hover:bg-muted/50 cursor-pointer text-xs">
+                        <Checkbox
+                          checked={selected.has(r.id)}
+                          onCheckedChange={() => toggleOne(r.id)}
+                          className="mt-0.5"
+                        />
+                        <div className="flex-1 min-w-0 space-y-0.5">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono font-medium">{r.numero_requisicao}</span>
+                            {r.status && <Badge variant="outline" className="text-[9px] py-0">{r.status}</Badge>}
+                            {r.data_requisicao && (
+                              <span className="text-[10px] text-muted-foreground">{formatBR(r.data_requisicao, 'dd/MM/yyyy')}</span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-muted-foreground truncate">
+                            {r.requisitante || '—'} · {r.cliente_fornecedor?.split(' - ')[0] || '—'}
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </ScrollArea>
+                <div className="flex justify-end gap-2 pt-1">
+                  <Button size="sm" variant="outline" onClick={() => { setMissing([]); setSelected(new Set()); }}>
+                    Manter todas
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => setConfirmOpen(true)}
+                    disabled={selected.size === 0 || deleting}
+                    className="gap-1"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Excluir {selected.size > 0 ? `(${selected.size})` : ''}
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
 
           <DialogFooter>
@@ -279,6 +406,28 @@ export function ProjurisImport({ onImported }: { onImported: () => void }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir {selected.size} requisição(ões)?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Isso vai remover permanentemente os registros selecionados de <strong>projuris_requisicoes</strong>.
+              O histórico de ações (projuris_acoes) também ficará órfão. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleDelete(); }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
