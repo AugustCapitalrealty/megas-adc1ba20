@@ -786,6 +786,50 @@ export type Database = {
         }
         Relationships: []
       }
+      projuris_acoes: {
+        Row: {
+          acao: string
+          created_at: string
+          id: string
+          observacao: string | null
+          proxima_revisao: string | null
+          requisicao_id: string
+          status_anterior: string | null
+          status_novo: string | null
+          user_id: string
+        }
+        Insert: {
+          acao: string
+          created_at?: string
+          id?: string
+          observacao?: string | null
+          proxima_revisao?: string | null
+          requisicao_id: string
+          status_anterior?: string | null
+          status_novo?: string | null
+          user_id: string
+        }
+        Update: {
+          acao?: string
+          created_at?: string
+          id?: string
+          observacao?: string | null
+          proxima_revisao?: string | null
+          requisicao_id?: string
+          status_anterior?: string | null
+          status_novo?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projuris_acoes_requisicao_id_fkey"
+            columns: ["requisicao_id"]
+            isOneToOne: false
+            referencedRelation: "projuris_requisicoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projuris_requisicoes: {
         Row: {
           cliente_fornecedor: string | null
@@ -807,6 +851,7 @@ export type Database = {
           status: string | null
           tipo_requisicao: string | null
           updated_at: string
+          valor: number | null
         }
         Insert: {
           cliente_fornecedor?: string | null
@@ -828,6 +873,7 @@ export type Database = {
           status?: string | null
           tipo_requisicao?: string | null
           updated_at?: string
+          valor?: number | null
         }
         Update: {
           cliente_fornecedor?: string | null
@@ -849,6 +895,7 @@ export type Database = {
           status?: string | null
           tipo_requisicao?: string | null
           updated_at?: string
+          valor?: number | null
         }
         Relationships: []
       }
