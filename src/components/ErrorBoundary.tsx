@@ -21,6 +21,21 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   static getDerivedStateFromError(error: Error): State {
+    // Stale-chunk recovery: app was redeployed and the cached index.html points
+    // to JS chunks that no longer exist. Try a single hard reload before
+    // showing the error UI. Flag in sessionStorage prevents reload loops.
+    const msg = error?.message || '';
+    const isChunkErr = /Failed to fetch dynamically imported module|Importing a module script failed|ChunkLoadError/i.test(msg);
+    if (isChunkErr && typeof window !== 'undefined') {
+      try {
+        const flag = sessionStorage.getItem('lov-chunk-reload');
+        if (!flag) {
+          sessionStorage.setItem('lov-chunk-reload', String(Date.now()));
+          window.location.reload();
+          return { hasError: false, error: null };
+        }
+      } catch { /* ignore storage errors */ }
+    }
     return { hasError: true, error };
   }
 
@@ -34,16 +49,21 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   handleRetry = () => {
+    try { sessionStorage.removeItem('lov-chunk-reload'); } catch { /* noop */ }
     this.setState({ hasError: false, error: null });
   };
 
   handleReload = () => {
+    try { sessionStorage.removeItem('lov-chunk-reload'); } catch { /* noop */ }
     window.location.reload();
   };
 
   render() {
     if (this.state.hasError) {
       if (this.props.fallback) return this.props.fallback;
+
+      const msg = this.state.error?.message || '';
+      const isChunkErr = /Failed to fetch dynamically imported module|Importing a module script failed|ChunkLoadError/i.test(msg);
 
       return (
         <div className="min-h-[60vh] flex items-center justify-center p-6">
@@ -54,11 +74,15 @@ export class ErrorBoundary extends Component<Props, State> {
                   <AlertTriangle className="h-8 w-8 text-destructive" />
                 </div>
               </div>
-              <CardTitle className="text-xl">Algo deu errado</CardTitle>
+              <CardTitle className="text-xl">
+                {isChunkErr ? 'Versão desatualizada' : 'Algo deu errado'}
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 text-center">
               <p className="text-sm text-muted-foreground">
-                Ocorreu um erro inesperado. Tente novamente ou recarregue a página.
+                {isChunkErr
+                  ? 'O app foi atualizado e seu navegador está com a versão antiga em cache. Recarregue a página com Ctrl+Shift+R (ou Cmd+Shift+R no Mac), ou abra em uma janela anônima.'
+                  : 'Ocorreu um erro inesperado. Tente novamente ou recarregue a página.'}
               </p>
               {this.state.error && (
                 <details className="text-left text-xs bg-muted/50 rounded-md p-3">
