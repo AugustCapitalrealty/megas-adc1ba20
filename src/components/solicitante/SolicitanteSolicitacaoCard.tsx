@@ -277,6 +277,27 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
       </Button>
     );
 
+    // Editar / Adicionar Projuris (visível para o dono)
+    if (isOwner && onEditProjuris) {
+      const hasProjuris = !!(sol as any).numero_projuris;
+      const hasInstrumento = !!(sol as any).instrumento_juridico && (sol as any).instrumento_juridico !== 'oc';
+      if (hasProjuris || hasInstrumento) {
+        actions.push(
+          <Button
+            key="projuris-edit"
+            variant="ghost"
+            size="sm"
+            onClick={() => onEditProjuris(sol)}
+            className="text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+            title="Editar número Projuris"
+          >
+            <Edit className="h-4 w-4 mr-1" />
+            {hasProjuris ? `Projuris #${(sol as any).numero_projuris}` : 'Adicionar Projuris'}
+          </Button>
+        );
+      }
+    }
+
     if (sol.status === 'rejeitado' || sol.status === 'cancelado') {
       actions.push(
         <Button key="duplicar" variant="outline" size="sm" onClick={() => handleDuplicate(sol)} className="text-primary">
