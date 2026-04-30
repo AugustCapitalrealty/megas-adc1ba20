@@ -60,6 +60,7 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
   openEditModal, openCancelModal, openAceiteModal, openNfBoletoModal, handleDuplicate,
   downloadDocumentoEmitido, downloadDocumentoFiscal, setAnexosViewSolicitacao,
   setTransferSolicitacao, setTransferOpen,
+  onEditProjuris,
   onDarCiencia,
   isFavorite, onToggleFavorite,
 }: SolicitanteSolicitacaoCardProps) {
