@@ -42,6 +42,7 @@ import {
   Phone,
   MoreVertical,
   Copy,
+  Undo2,
 } from 'lucide-react';
 
 // ── Types ──────────────────────────────────────────────
@@ -57,6 +58,7 @@ export interface CardCallbacks {
   handleSolicitarCadastro: (sol: SolicitacaoBackoffice) => void;
   handleAprovarCancelamento: (sol: SolicitacaoBackoffice) => void;
   handleRejeitarCancelamento: (sol: SolicitacaoBackoffice) => void;
+  handleReverterLiberacao: (sol: SolicitacaoBackoffice) => void;
   onToggleExpand: (id: string) => void;
   onTransfer: (sol: SolicitacaoBackoffice) => void;
   onViewNfBoleto: (sol: SolicitacaoBackoffice) => void;
@@ -333,6 +335,17 @@ export const BackofficeSolicitacaoCard = memo(function BackofficeSolicitacaoCard
       <UserCheck className="h-4 w-4 mr-2" /> Transferir
     </DropdownMenuItem>
   );
+
+  // Reverter Liberação (somente para solicitações já liberadas pelo solicitante,
+  // antes de o backoffice efetivamente enviar ao fornecedor)
+  if (sol.status === 'liberado_fornecedor' || sol.status === 'aguardando_execucao') {
+    secondaryItems.push(<DropdownMenuSeparator key="sep-revert" />);
+    secondaryItems.push(
+      <DropdownMenuItem key="revert" onClick={() => callbacks.handleReverterLiberacao(sol)}>
+        <Undo2 className="h-4 w-4 mr-2" /> Reverter Liberação
+      </DropdownMenuItem>
+    );
+  }
 
   // Rejeitar
   if (['recebido', 'em_analise', 'aprovado', 'em_processamento'].includes(sol.status)) {
