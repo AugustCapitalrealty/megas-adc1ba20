@@ -1292,6 +1292,7 @@ export default function MinhasSolicitacoes() {
                 setTransferSolicitacao={setTransferSolicitacao}
                 setTransferOpen={setTransferOpen}
                 onDarCiencia={handleDarCienciaSingle}
+                onEditProjuris={openEditProjurisModal}
               />
             )}
           />
