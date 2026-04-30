@@ -1379,13 +1379,22 @@ export default function MinhasSolicitacoes() {
               autoFocus
             />
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditProjurisSol(null)} disabled={editProjurisLoading}>
-              Cancelar
+          <DialogFooter className="gap-2 sm:justify-between">
+            <Button
+              variant="destructive"
+              onClick={() => { setEditProjurisValue(''); handleSaveProjurisSolicitante(); }}
+              disabled={editProjurisLoading || !editProjurisSol?.numero_projuris}
+            >
+              Remover número
             </Button>
-            <Button onClick={handleSaveProjurisSolicitante} disabled={editProjurisLoading}>
-              {editProjurisLoading ? 'Salvando...' : 'Salvar'}
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setEditProjurisSol(null)} disabled={editProjurisLoading}>
+                Cancelar
+              </Button>
+              <Button onClick={handleSaveProjurisSolicitante} disabled={editProjurisLoading}>
+                {editProjurisLoading ? 'Salvando...' : 'Salvar'}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
