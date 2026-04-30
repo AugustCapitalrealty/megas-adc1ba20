@@ -1358,6 +1358,37 @@ export default function MinhasSolicitacoes() {
           onTransferred={fetchSolicitacoes}
         />
       )}
+
+      {/* Edit Projuris Modal */}
+      <Dialog open={!!editProjurisSol} onOpenChange={(open) => !open && setEditProjurisSol(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar número Projuris</DialogTitle>
+            <DialogDescription>
+              Atualize o número Projuris da solicitação <strong>#{editProjurisSol?.protocolo}</strong>.
+              A alteração ficará registrada no histórico.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="edit-projuris-solicitante">Número Projuris</Label>
+            <Input
+              id="edit-projuris-solicitante"
+              placeholder="Ex.: 3830"
+              value={editProjurisValue}
+              onChange={(e) => setEditProjurisValue(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditProjurisSol(null)} disabled={editProjurisLoading}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveProjurisSolicitante} disabled={editProjurisLoading}>
+              {editProjurisLoading ? 'Salvando...' : 'Salvar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
