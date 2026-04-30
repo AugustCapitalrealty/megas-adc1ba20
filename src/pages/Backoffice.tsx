@@ -1621,6 +1621,7 @@ export default function Backoffice() {
     handleSolicitarCadastro,
     handleAprovarCancelamento,
     handleRejeitarCancelamento,
+    handleReverterLiberacao,
     onToggleExpand: (id: string) => {
       const newExpanded = expandedId === id ? null : id;
       setExpandedId(newExpanded);
