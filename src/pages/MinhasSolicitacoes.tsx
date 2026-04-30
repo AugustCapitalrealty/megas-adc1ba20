@@ -1383,7 +1383,7 @@ export default function MinhasSolicitacoes() {
             <Button
               variant="destructive"
               onClick={() => { setEditProjurisValue(''); handleSaveProjurisSolicitante(); }}
-              disabled={editProjurisLoading || !editProjurisSol?.numero_projuris}
+              disabled={editProjurisLoading || !(editProjurisSol as any)?.numero_projuris}
             >
               Remover número
             </Button>
