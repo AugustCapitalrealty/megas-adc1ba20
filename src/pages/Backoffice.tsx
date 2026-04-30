@@ -48,6 +48,11 @@ import { BackofficeTable } from '@/components/backoffice/BackofficeTable';
 import { useBackofficeShortcuts } from '@/hooks/useBackofficeShortcuts';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ContextualEmptyState } from '@/components/ui/ContextualEmptyState';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { PageHeader } from '@/components/layout/PageHeader';
 
@@ -684,6 +689,58 @@ export default function Backoffice() {
 
   // Concluir modal state
   const [concluirModal, setConcluirModal] = useState<SolicitacaoBackoffice | null>(null);
+
+  // Reverter Liberação modal state
+  const [reverterModal, setReverterModal] = useState<SolicitacaoBackoffice | null>(null);
+  const [reverterMotivo, setReverterMotivo] = useState('');
+  const [reverterLoading, setReverterLoading] = useState(false);
+
+  const handleReverterLiberacao = (sol: SolicitacaoBackoffice) => {
+    setReverterMotivo('');
+    setReverterModal(sol);
+  };
+
+  const confirmReverterLiberacao = async () => {
+    if (!reverterModal || !user) return;
+    setReverterLoading(true);
+    try {
+      const sol = reverterModal;
+      const { error } = await supabase
+        .from('solicitacoes')
+        .update({
+          status: 'aguardando_aceite' as any,
+          data_liberado_fornecedor: null,
+          liberado_fornecedor_por: null,
+        })
+        .eq('id', sol.id);
+      if (error) throw error;
+
+      await supabase.from('historico_solicitacoes').insert({
+        solicitacao_id: sol.id,
+        user_id: user.id,
+        acao: 'reversao_liberacao',
+        motivo: reverterMotivo.trim() || 'Backoffice reverteu a liberação',
+        status_anterior: sol.status,
+        status_novo: 'aguardando_aceite',
+      });
+
+      toast({
+        title: 'Liberação revertida',
+        description: 'A solicitação voltou para "Aguardando Aceite".',
+      });
+      setReverterModal(null);
+      fetchSolicitacoes();
+    } catch (err) {
+      console.error('Erro ao reverter liberação:', err);
+      toast({
+        title: 'Erro ao reverter',
+        description: (err as Error)?.message || 'Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setReverterLoading(false);
+    }
+  };
 
   const handleConcluirLiberada = (sol: SolicitacaoBackoffice) => {
     setConcluirModal(sol);
