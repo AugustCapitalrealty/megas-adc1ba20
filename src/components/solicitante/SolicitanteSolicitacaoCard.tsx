@@ -332,24 +332,27 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
         )}
 
         {(sol as any).numero_projuris ? (
-          <div className="space-y-1">
-            <ProjurisStatusCard numeroProjuris={(sol as any).numero_projuris} />
+          <ProjurisStatusCard
+            numeroProjuris={(sol as any).numero_projuris}
+            onEdit={isOwner && onEditProjuris ? () => onEditProjuris(sol) : undefined}
+          />
+        ) : (((sol as any).instrumento_juridico && (sol as any).instrumento_juridico !== 'oc') && (
+          <div className="space-y-2">
+            <JuridicoTracker solicitacaoId={sol.id} readOnly />
             {isOwner && onEditProjuris && (
               <div className="flex justify-end">
                 <Button
                   size="sm"
-                  variant="ghost"
-                  className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+                  variant="outline"
+                  className="h-7 text-xs"
                   onClick={() => onEditProjuris(sol)}
                 >
                   <Edit className="h-3 w-3 mr-1" />
-                  Editar nº
+                  Adicionar nº Projuris
                 </Button>
               </div>
             )}
           </div>
-        ) : (((sol as any).instrumento_juridico && (sol as any).instrumento_juridico !== 'oc') && (
-          <JuridicoTracker solicitacaoId={sol.id} readOnly />
         ))}
 
         {((sol as any).ia_cnae_status || (sol as any).ia_descricao_vaga !== null) && (
