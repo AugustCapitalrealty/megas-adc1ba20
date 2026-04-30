@@ -196,6 +196,44 @@ export default function MinhasSolicitacoes() {
   const [transferOpen, setTransferOpen] = useState(false);
   const [transferSolicitacao, setTransferSolicitacao] = useState<SolicitacaoComFornecedor | null>(null);
 
+  // Edit Projuris modal state
+  const [editProjurisSol, setEditProjurisSol] = useState<SolicitacaoComFornecedor | null>(null);
+  const [editProjurisValue, setEditProjurisValue] = useState('');
+  const [editProjurisLoading, setEditProjurisLoading] = useState(false);
+
+  const openEditProjurisModal = useCallback((sol: SolicitacaoComFornecedor) => {
+    setEditProjurisSol(sol);
+    setEditProjurisValue((sol as any).numero_projuris || '');
+  }, []);
+
+  const handleSaveProjurisSolicitante = useCallback(async () => {
+    if (!editProjurisSol) return;
+    setEditProjurisLoading(true);
+    try {
+      const { error } = await supabase.rpc('update_numero_projuris', {
+        p_solicitacao_id: editProjurisSol.id,
+        p_numero_projuris: editProjurisValue.trim() || null,
+      });
+      if (error) throw error;
+      toast({
+        title: 'Número Projuris atualizado',
+        description: 'A alteração foi registrada no histórico.',
+      });
+      setEditProjurisSol(null);
+      // refresh list
+      fetchSolicitacoes();
+    } catch (err) {
+      console.error('Erro ao atualizar Projuris:', err);
+      toast({
+        title: 'Erro ao atualizar',
+        description: (err as Error)?.message || 'Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setEditProjurisLoading(false);
+    }
+  }, [editProjurisSol, editProjurisValue, toast]);
+
   // ==================== Data Fetching ====================
 
   useEffect(() => {
