@@ -45,6 +45,8 @@ interface SolicitanteSolicitacaoCardProps {
   setAnexosViewSolicitacao: (sol: SolicitacaoComFornecedor) => void;
   setTransferSolicitacao: (sol: SolicitacaoComFornecedor) => void;
   setTransferOpen: (open: boolean) => void;
+  // Editar nº Projuris
+  onEditProjuris?: (sol: SolicitacaoComFornecedor) => void;
   // Ciência
   onDarCiencia?: (solId: string) => void;
   // Favorites
@@ -58,6 +60,7 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
   openEditModal, openCancelModal, openAceiteModal, openNfBoletoModal, handleDuplicate,
   downloadDocumentoEmitido, downloadDocumentoFiscal, setAnexosViewSolicitacao,
   setTransferSolicitacao, setTransferOpen,
+  onEditProjuris,
   onDarCiencia,
   isFavorite, onToggleFavorite,
 }: SolicitanteSolicitacaoCardProps) {
@@ -329,7 +332,22 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
         )}
 
         {(sol as any).numero_projuris ? (
-          <ProjurisStatusCard numeroProjuris={(sol as any).numero_projuris} />
+          <div className="space-y-1">
+            <ProjurisStatusCard numeroProjuris={(sol as any).numero_projuris} />
+            {isOwner && onEditProjuris && (
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => onEditProjuris(sol)}
+                >
+                  <Edit className="h-3 w-3 mr-1" />
+                  Editar nº
+                </Button>
+              </div>
+            )}
+          </div>
         ) : (((sol as any).instrumento_juridico && (sol as any).instrumento_juridico !== 'oc') && (
           <JuridicoTracker solicitacaoId={sol.id} readOnly />
         ))}

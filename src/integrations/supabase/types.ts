@@ -1541,6 +1541,10 @@ export type Database = {
         Returns: undefined
       }
       is_backoffice_or_admin: { Args: { _user_id: string }; Returns: boolean }
+      update_numero_projuris: {
+        Args: { p_numero_projuris: string; p_solicitacao_id: string }
+        Returns: undefined
+      }
       user_can_access_solicitacao: {
         Args: { _solicitacao_id: string }
         Returns: boolean

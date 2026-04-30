@@ -31,6 +31,11 @@ import { TransferOwnershipModal } from '@/components/TransferOwnershipModal';
 import { exportToExcel } from '@/lib/export-utils';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useUnreadMessages } from '@/hooks/useUnreadMessages';
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 // Design System Components
 import { FilterBar, type TabGroup } from '@/components/ui/FilterBar';
@@ -190,6 +195,44 @@ export default function MinhasSolicitacoes() {
   // Transfer modal state
   const [transferOpen, setTransferOpen] = useState(false);
   const [transferSolicitacao, setTransferSolicitacao] = useState<SolicitacaoComFornecedor | null>(null);
+
+  // Edit Projuris modal state
+  const [editProjurisSol, setEditProjurisSol] = useState<SolicitacaoComFornecedor | null>(null);
+  const [editProjurisValue, setEditProjurisValue] = useState('');
+  const [editProjurisLoading, setEditProjurisLoading] = useState(false);
+
+  const openEditProjurisModal = useCallback((sol: SolicitacaoComFornecedor) => {
+    setEditProjurisSol(sol);
+    setEditProjurisValue((sol as any).numero_projuris || '');
+  }, []);
+
+  const handleSaveProjurisSolicitante = useCallback(async () => {
+    if (!editProjurisSol) return;
+    setEditProjurisLoading(true);
+    try {
+      const { error } = await supabase.rpc('update_numero_projuris', {
+        p_solicitacao_id: editProjurisSol.id,
+        p_numero_projuris: editProjurisValue.trim() || null,
+      });
+      if (error) throw error;
+      toast({
+        title: 'Número Projuris atualizado',
+        description: 'A alteração foi registrada no histórico.',
+      });
+      setEditProjurisSol(null);
+      // refresh list
+      fetchSolicitacoes();
+    } catch (err) {
+      console.error('Erro ao atualizar Projuris:', err);
+      toast({
+        title: 'Erro ao atualizar',
+        description: (err as Error)?.message || 'Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setEditProjurisLoading(false);
+    }
+  }, [editProjurisSol, editProjurisValue, toast]);
 
   // ==================== Data Fetching ====================
 
@@ -1249,6 +1292,7 @@ export default function MinhasSolicitacoes() {
                 setTransferSolicitacao={setTransferSolicitacao}
                 setTransferOpen={setTransferOpen}
                 onDarCiencia={handleDarCienciaSingle}
+                onEditProjuris={openEditProjurisModal}
               />
             )}
           />
@@ -1314,6 +1358,37 @@ export default function MinhasSolicitacoes() {
           onTransferred={fetchSolicitacoes}
         />
       )}
+
+      {/* Edit Projuris Modal */}
+      <Dialog open={!!editProjurisSol} onOpenChange={(open) => !open && setEditProjurisSol(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar número Projuris</DialogTitle>
+            <DialogDescription>
+              Atualize o número Projuris da solicitação <strong>#{editProjurisSol?.protocolo}</strong>.
+              A alteração ficará registrada no histórico.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="edit-projuris-solicitante">Número Projuris</Label>
+            <Input
+              id="edit-projuris-solicitante"
+              placeholder="Ex.: 3830"
+              value={editProjurisValue}
+              onChange={(e) => setEditProjurisValue(e.target.value)}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditProjurisSol(null)} disabled={editProjurisLoading}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveProjurisSolicitante} disabled={editProjurisLoading}>
+              {editProjurisLoading ? 'Salvando...' : 'Salvar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

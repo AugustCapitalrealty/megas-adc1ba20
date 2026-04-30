@@ -48,6 +48,11 @@ import { BackofficeTable } from '@/components/backoffice/BackofficeTable';
 import { useBackofficeShortcuts } from '@/hooks/useBackofficeShortcuts';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ContextualEmptyState } from '@/components/ui/ContextualEmptyState';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { PageHeader } from '@/components/layout/PageHeader';
 
@@ -685,6 +690,58 @@ export default function Backoffice() {
   // Concluir modal state
   const [concluirModal, setConcluirModal] = useState<SolicitacaoBackoffice | null>(null);
 
+  // Reverter Liberação modal state
+  const [reverterModal, setReverterModal] = useState<SolicitacaoBackoffice | null>(null);
+  const [reverterMotivo, setReverterMotivo] = useState('');
+  const [reverterLoading, setReverterLoading] = useState(false);
+
+  const handleReverterLiberacao = (sol: SolicitacaoBackoffice) => {
+    setReverterMotivo('');
+    setReverterModal(sol);
+  };
+
+  const confirmReverterLiberacao = async () => {
+    if (!reverterModal || !user) return;
+    setReverterLoading(true);
+    try {
+      const sol = reverterModal;
+      const { error } = await supabase
+        .from('solicitacoes')
+        .update({
+          status: 'aguardando_aceite' as any,
+          data_liberado_fornecedor: null,
+          liberado_fornecedor_por: null,
+        })
+        .eq('id', sol.id);
+      if (error) throw error;
+
+      await supabase.from('historico_solicitacoes').insert({
+        solicitacao_id: sol.id,
+        user_id: user.id,
+        acao: 'reversao_liberacao',
+        motivo: reverterMotivo.trim() || 'Backoffice reverteu a liberação',
+        status_anterior: sol.status,
+        status_novo: 'aguardando_aceite',
+      });
+
+      toast({
+        title: 'Liberação revertida',
+        description: 'A solicitação voltou para "Aguardando Aceite".',
+      });
+      setReverterModal(null);
+      fetchSolicitacoes();
+    } catch (err) {
+      console.error('Erro ao reverter liberação:', err);
+      toast({
+        title: 'Erro ao reverter',
+        description: (err as Error)?.message || 'Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setReverterLoading(false);
+    }
+  };
+
   const handleConcluirLiberada = (sol: SolicitacaoBackoffice) => {
     setConcluirModal(sol);
   };
@@ -809,41 +866,11 @@ export default function Backoffice() {
     
     setEditProjurisLoading(true);
     try {
-      const previousValue = selectedSolicitacao.numero_projuris;
-      const newValue = editProjurisValue || null;
-      
-      const { error } = await supabase
-        .from('solicitacoes')
-        .update({ numero_projuris: newValue })
-        .eq('id', selectedSolicitacao.id);
-
+      const { error } = await supabase.rpc('update_numero_projuris', {
+        p_solicitacao_id: selectedSolicitacao.id,
+        p_numero_projuris: editProjurisValue || null,
+      });
       if (error) throw error;
-
-      // Register in history when Projuris number is added or changed
-      if (newValue !== previousValue) {
-        let acao = '';
-        let motivo = '';
-        
-        if (!previousValue && newValue) {
-          acao = 'numero_projuris_adicionado';
-          motivo = `Número Projuris #${newValue} adicionado`;
-        } else if (previousValue && newValue) {
-          acao = 'numero_projuris_alterado';
-          motivo = `Número Projuris alterado de ${previousValue} para ${newValue}`;
-        } else if (previousValue && !newValue) {
-          acao = 'numero_projuris_removido';
-          motivo = `Número Projuris ${previousValue} removido`;
-        }
-        
-        await supabase.from('historico_solicitacoes').insert({
-          solicitacao_id: selectedSolicitacao.id,
-          user_id: user.id,
-          acao,
-          motivo,
-          status_anterior: selectedSolicitacao.status,
-          status_novo: selectedSolicitacao.status,
-        });
-      }
 
       toast({
         title: 'Projuris atualizado',
@@ -1594,6 +1621,7 @@ export default function Backoffice() {
     handleSolicitarCadastro,
     handleAprovarCancelamento,
     handleRejeitarCancelamento,
+    handleReverterLiberacao,
     onToggleExpand: (id: string) => {
       const newExpanded = expandedId === id ? null : id;
       setExpandedId(newExpanded);
@@ -2148,6 +2176,35 @@ export default function Backoffice() {
           onTransferred={fetchSolicitacoes}
         />
       )}
+
+      {/* Reverter Liberação */}
+      <AlertDialog open={!!reverterModal} onOpenChange={(open) => !open && setReverterModal(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reverter liberação ao fornecedor?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A solicitação <strong>#{reverterModal?.protocolo}</strong> voltará para o status
+              <strong> "Aguardando Aceite"</strong>. O solicitante precisará liberar novamente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="motivo-reverter">Motivo (opcional)</Label>
+            <Textarea
+              id="motivo-reverter"
+              placeholder="Ex.: OC precisa ser corrigida antes do envio."
+              value={reverterMotivo}
+              onChange={(e) => setReverterMotivo(e.target.value)}
+              rows={3}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={reverterLoading}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmReverterLiberacao} disabled={reverterLoading}>
+              {reverterLoading ? 'Revertendo...' : 'Reverter'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Batch Action Bar */}
       <BatchActionBar
