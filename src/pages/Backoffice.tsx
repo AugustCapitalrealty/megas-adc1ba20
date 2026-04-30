@@ -868,7 +868,7 @@ export default function Backoffice() {
     try {
       const { error } = await supabase.rpc('update_numero_projuris', {
         p_solicitacao_id: selectedSolicitacao.id,
-        p_numero_projuris: editProjurisValue || null,
+        p_numero_projuris: editProjurisValue.trim() || null,
       });
       if (error) throw error;
 

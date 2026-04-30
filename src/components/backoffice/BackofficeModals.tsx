@@ -1194,7 +1194,9 @@ export function BackofficeModals(props: BackofficeModalsProps) {
         <DialogContent className="max-w-lg w-[80vw]">
           <DialogHeader>
             <DialogTitle>Editar Número Projuris</DialogTitle>
-            <DialogDescription>Informe o número do processo no Projuris</DialogDescription>
+            <DialogDescription>
+              Informe o número do processo no Projuris. Para remover, use o botão "Remover número".
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -1202,11 +1204,20 @@ export function BackofficeModals(props: BackofficeModalsProps) {
               <Input id="edit-projuris" placeholder="Ex: PROJ-2024-001234" value={editProjurisValue} onChange={(e) => setEditProjurisValue(e.target.value)} />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditProjurisOpen(false)} disabled={editProjurisLoading}>Cancelar</Button>
-            <Button onClick={handleSaveProjuris} disabled={editProjurisLoading}>
-              {editProjurisLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />} Salvar
+          <DialogFooter className="gap-2 sm:justify-between">
+            <Button
+              variant="destructive"
+              onClick={() => { setEditProjurisValue(''); handleSaveProjuris(); }}
+              disabled={editProjurisLoading}
+            >
+              Remover número
             </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setEditProjurisOpen(false)} disabled={editProjurisLoading}>Cancelar</Button>
+              <Button onClick={handleSaveProjuris} disabled={editProjurisLoading}>
+                {editProjurisLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />} Salvar
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
