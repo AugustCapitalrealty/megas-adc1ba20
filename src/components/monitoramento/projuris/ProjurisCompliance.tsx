@@ -127,20 +127,11 @@ export function ProjurisCompliance() {
     if (!addProjurisId || !projurisNumber.trim()) return;
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from('solicitacoes')
-        .update({ numero_projuris: projurisNumber.trim() })
-        .eq('id', addProjurisId);
-
-      if (error) throw error;
-
-      // Log in historico
-      await supabase.from('historico_solicitacoes').insert({
-        solicitacao_id: addProjurisId,
-        user_id: user!.id,
-        acao: 'numero_projuris_adicionado',
-        motivo: `Número Projuris ${projurisNumber.trim()} adicionado via painel de compliance`,
+      const { error } = await supabase.rpc('update_numero_projuris', {
+        p_solicitacao_id: addProjurisId,
+        p_numero_projuris: projurisNumber.trim(),
       });
+      if (error) throw error;
 
       toast.success('Número Projuris adicionado com sucesso');
       setRows(prev => prev.filter(r => r.id !== addProjurisId));
