@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Scale, Calendar, User, Building2, FileText, Clock, ExternalLink } from 'lucide-react';
+import { Loader2, Scale, Calendar, User, Building2, FileText, Clock, ExternalLink, Pencil } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { format, differenceInDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
@@ -11,6 +12,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 interface ProjurisStatusCardProps {
   numeroProjuris: string;
   className?: string;
+  onEdit?: () => void;
 }
 
 interface ProjurisData {
@@ -62,7 +64,7 @@ function getTempoParado(data: ProjurisData): { days: number; color: string } | n
   } catch { return null; }
 }
 
-export function ProjurisStatusCard({ numeroProjuris, className }: ProjurisStatusCardProps) {
+export function ProjurisStatusCard({ numeroProjuris, className, onEdit }: ProjurisStatusCardProps) {
   const [data, setData] = useState<ProjurisData | null>(null);
   const [loading, setLoading] = useState(true);
   const [detalhesOpen, setDetalhesOpen] = useState(false);
@@ -92,11 +94,17 @@ export function ProjurisStatusCard({ numeroProjuris, className }: ProjurisStatus
 
   if (!data) {
     return (
-      <div className="p-3 bg-muted/30 rounded-lg">
+      <div className="p-3 bg-muted/30 rounded-lg flex items-center justify-between gap-2 flex-wrap">
         <p className="text-sm text-muted-foreground flex items-center gap-2">
           <Scale className="h-4 w-4" />
-          Requisição Projuris #{numeroProjuris} não encontrada no painel.
+          Requisição Projuris <span className="font-semibold text-foreground">#{numeroProjuris}</span> não encontrada no painel.
         </p>
+        {onEdit && (
+          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={onEdit}>
+            <Pencil className="h-3 w-3 mr-1" />
+            Corrigir nº
+          </Button>
+        )}
       </div>
     );
   }
@@ -112,6 +120,17 @@ export function ProjurisStatusCard({ numeroProjuris, className }: ProjurisStatus
           <div className="flex items-center gap-2">
             <Scale className="h-4 w-4 text-primary" />
             <span className="font-semibold text-sm">Projuris #{data.numero_requisicao}</span>
+            {onEdit && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                onClick={onEdit}
+                title="Editar número Projuris"
+              >
+                <Pencil className="h-3 w-3" />
+              </Button>
+            )}
           </div>
           <div className="flex items-center gap-2">
             {data.status && (
