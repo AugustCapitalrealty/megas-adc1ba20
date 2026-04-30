@@ -31,6 +31,11 @@ import { TransferOwnershipModal } from '@/components/TransferOwnershipModal';
 import { exportToExcel } from '@/lib/export-utils';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useUnreadMessages } from '@/hooks/useUnreadMessages';
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 // Design System Components
 import { FilterBar, type TabGroup } from '@/components/ui/FilterBar';
