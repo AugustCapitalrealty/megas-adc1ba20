@@ -459,9 +459,30 @@ export function BackofficeModals(props: BackofficeModalsProps) {
 
                 {/* Status Projuris */}
                 {(detalhes.solicitacao as any).numero_projuris ? (
-                  <ProjurisStatusCard numeroProjuris={(detalhes.solicitacao as any).numero_projuris} />
+                  <ProjurisStatusCard
+                    numeroProjuris={(detalhes.solicitacao as any).numero_projuris}
+                    onEdit={() => {
+                      setEditProjurisValue((detalhes.solicitacao as any).numero_projuris || '');
+                      setEditProjurisOpen(true);
+                    }}
+                  />
                 ) : (((detalhes.solicitacao as any).instrumento_juridico && (detalhes.solicitacao as any).instrumento_juridico !== 'oc') && (
-                  <JuridicoTracker solicitacaoId={detalhes.solicitacao.id} />
+                  <div className="space-y-2">
+                    <JuridicoTracker solicitacaoId={detalhes.solicitacao.id} />
+                    <div className="flex justify-end">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={() => {
+                          setEditProjurisValue('');
+                          setEditProjurisOpen(true);
+                        }}
+                      >
+                        Adicionar nº Projuris
+                      </Button>
+                    </div>
+                  </div>
                 ))}
 
                 {/* Escopo Detalhado para Minuta */}
