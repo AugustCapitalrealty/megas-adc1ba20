@@ -809,41 +809,11 @@ export default function Backoffice() {
     
     setEditProjurisLoading(true);
     try {
-      const previousValue = selectedSolicitacao.numero_projuris;
-      const newValue = editProjurisValue || null;
-      
-      const { error } = await supabase
-        .from('solicitacoes')
-        .update({ numero_projuris: newValue })
-        .eq('id', selectedSolicitacao.id);
-
+      const { error } = await supabase.rpc('update_numero_projuris', {
+        p_solicitacao_id: selectedSolicitacao.id,
+        p_numero_projuris: editProjurisValue || null,
+      });
       if (error) throw error;
-
-      // Register in history when Projuris number is added or changed
-      if (newValue !== previousValue) {
-        let acao = '';
-        let motivo = '';
-        
-        if (!previousValue && newValue) {
-          acao = 'numero_projuris_adicionado';
-          motivo = `Número Projuris #${newValue} adicionado`;
-        } else if (previousValue && newValue) {
-          acao = 'numero_projuris_alterado';
-          motivo = `Número Projuris alterado de ${previousValue} para ${newValue}`;
-        } else if (previousValue && !newValue) {
-          acao = 'numero_projuris_removido';
-          motivo = `Número Projuris ${previousValue} removido`;
-        }
-        
-        await supabase.from('historico_solicitacoes').insert({
-          solicitacao_id: selectedSolicitacao.id,
-          user_id: user.id,
-          acao,
-          motivo,
-          status_anterior: selectedSolicitacao.status,
-          status_novo: selectedSolicitacao.status,
-        });
-      }
 
       toast({
         title: 'Projuris atualizado',
