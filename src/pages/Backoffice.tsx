@@ -2177,6 +2177,35 @@ export default function Backoffice() {
         />
       )}
 
+      {/* Reverter Liberação */}
+      <AlertDialog open={!!reverterModal} onOpenChange={(open) => !open && setReverterModal(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reverter liberação ao fornecedor?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A solicitação <strong>#{reverterModal?.protocolo}</strong> voltará para o status
+              <strong> "Aguardando Aceite"</strong>. O solicitante precisará liberar novamente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="motivo-reverter">Motivo (opcional)</Label>
+            <Textarea
+              id="motivo-reverter"
+              placeholder="Ex.: OC precisa ser corrigida antes do envio."
+              value={reverterMotivo}
+              onChange={(e) => setReverterMotivo(e.target.value)}
+              rows={3}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={reverterLoading}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmReverterLiberacao} disabled={reverterLoading}>
+              {reverterLoading ? 'Revertendo...' : 'Reverter'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Batch Action Bar */}
       <BatchActionBar
         selectedCount={selectedIds.size}
