@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/select';
 import {
   ChevronLeft, ChevronRight, Calendar as CalendarIcon, AlertTriangle,
-  CalendarDays, Clock, Receipt, Loader2, X, Layers,
+  CalendarDays, Clock, Receipt, Loader2, X, Layers, FileWarning,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserEmpreendimentos } from '@/hooks/useUserEmpreendimentos';
@@ -26,7 +26,7 @@ import { OCDetalhesModal } from '@/components/monitoramento/OCDetalhesModal';
 import { VISUAL_DOT, VISUAL_LABEL } from './ServicoChip';
 import { cn } from '@/lib/utils';
 
-type KpiFilter = 'todos' | 'hoje' | 'proximos7' | 'atrasados' | 'aguardando_nf';
+type KpiFilter = 'todos' | 'hoje' | 'proximos7' | 'atrasados' | 'aguardando_nf' | 'sem_oc_risco';
 
 const KPI_TO_VISUAL: Record<KpiFilter, CalendarioStatusVisual[] | null> = {
   todos: null,
@@ -42,6 +42,8 @@ const LEGEND_ITEMS: CalendarioStatusVisual[] = [
   'oc_nao_liberada',
   'aguardando_nf',
   'atrasado',
+  'previsao_sem_oc',
+  'previsao_sem_oc_risco',
   'concluido',
   'cancel_solicitado',
 ];
@@ -76,41 +78,61 @@ export function CalendarioServicos() {
     return servicos.filter(s => {
       if (filterEmpreendimento !== 'todos' && s.empreendimento !== filterEmpreendimento) return false;
       if (statusFilter !== 'todos' && s.visual !== statusFilter) return false;
-      if (kpiFilter === 'hoje' && s.data_execucao_servico !== today) return false;
+      // Data de referência: execucao || data_fim || data_inicio
+      const refDate = s.data_execucao_servico || s.data_fim || s.data_inicio || '';
+      const refStart = s.data_execucao_servico || s.data_inicio || s.data_fim || '';
+      if (kpiFilter === 'hoje') {
+        // serviço cobre hoje (intervalo) ou data exata == hoje
+        const covers = s.data_inicio && s.data_fim
+          ? s.data_inicio <= today && s.data_fim >= today
+          : refDate === today;
+        if (!covers) return false;
+      }
       if (kpiFilter === 'proximos7') {
-        if (s.data_execucao_servico < today || s.data_execucao_servico > in7) return false;
+        const covers = s.data_inicio && s.data_fim
+          ? s.data_inicio <= in7 && s.data_fim >= today
+          : refStart >= today && refStart <= in7;
+        if (!covers) return false;
       }
       if (kpiFilter === 'atrasados' && s.visual !== 'atrasado') return false;
       if (kpiFilter === 'aguardando_nf' && s.visual !== 'aguardando_nf') return false;
+      if (kpiFilter === 'sem_oc_risco' && s.visual !== 'previsao_sem_oc_risco') return false;
       return true;
     });
   }, [servicos, filterEmpreendimento, statusFilter, kpiFilter]);
 
   const filteredByDay = useMemo(() => {
-    const map = new Map<string, ServicoCalendario[]>();
-    filteredServicos.forEach(s => {
-      const arr = map.get(s.data_execucao_servico) || [];
-      arr.push(s);
-      map.set(s.data_execucao_servico, arr);
+    const ids = new Set(filteredServicos.map(s => s.id));
+    const map = new Map<string, any[]>();
+    byDay.forEach((items, key) => {
+      const kept = items.filter(it => ids.has(it.id));
+      if (kept.length) map.set(key, kept);
     });
     return map;
-  }, [filteredServicos]);
+  }, [filteredServicos, byDay]);
 
   // KPIs (sempre sobre o conjunto base, ignorando KPI ativo, igual aos cards do OC×NF)
   const kpis = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
     const in7 = addDays(new Date(), 7).toISOString().slice(0, 10);
-    let hoje = 0, prox7 = 0, atrasados = 0, agNf = 0;
+    let hoje = 0, prox7 = 0, atrasados = 0, agNf = 0, semOcRisco = 0;
     const base = servicos.filter(s =>
       filterEmpreendimento === 'todos' ? true : s.empreendimento === filterEmpreendimento
     );
     base.forEach(s => {
-      if (s.data_execucao_servico === today) hoje++;
-      if (s.data_execucao_servico >= today && s.data_execucao_servico <= in7) prox7++;
+      const coversToday = s.data_inicio && s.data_fim
+        ? s.data_inicio <= today && s.data_fim >= today
+        : s.data_execucao_servico === today;
+      const coversNext7 = s.data_inicio && s.data_fim
+        ? s.data_inicio <= in7 && s.data_fim >= today
+        : !!s.data_execucao_servico && s.data_execucao_servico >= today && s.data_execucao_servico <= in7;
+      if (coversToday) hoje++;
+      if (coversNext7) prox7++;
       if (s.visual === 'atrasado') atrasados++;
       if (s.visual === 'aguardando_nf') agNf++;
+      if (s.visual === 'previsao_sem_oc_risco') semOcRisco++;
     });
-    return { hoje, prox7, atrasados, agNf };
+    return { hoje, prox7, atrasados, agNf, semOcRisco };
   }, [servicos, filterEmpreendimento]);
 
   const availableEmpreendimentos = useMemo(() => {
@@ -151,7 +173,7 @@ export function CalendarioServicos() {
   return (
     <div className="space-y-6">
       {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <SlaKpiCard
           label="Hoje"
           value={kpis.hoje}
@@ -187,6 +209,15 @@ export function CalendarioServicos() {
           active={kpiFilter === 'aguardando_nf'}
           onClick={() => toggleKpi('aguardando_nf')}
           hint="Serviços executados aguardando emissão da nota fiscal."
+        />
+        <SlaKpiCard
+          label="Sem OC (em risco)"
+          value={kpis.semOcRisco}
+          icon={<FileWarning className="h-4 w-4" />}
+          tone="destructive"
+          active={kpiFilter === 'sem_oc_risco'}
+          onClick={() => toggleKpi('sem_oc_risco')}
+          hint="Solicitações com previsão até 3 dias (ou já vencida) e ainda sem OC emitida."
         />
       </div>
 
