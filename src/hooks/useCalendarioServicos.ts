@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { startOfMonth, endOfMonth, subDays, addDays, eachDayOfInterval, parseISO } from 'date-fns';
+import { startOfMonth, endOfMonth, subDays, addDays, parseISO } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import type { Empreendimento } from '@/types';
 
@@ -42,6 +42,7 @@ export interface ServicoCalendario {
   data_inicio: string | null;
   data_fim: string | null;
   tipo_contratacao: string | null;
+  contrato_mensal: boolean;
   tem_oc: boolean;
   user_id: string;
   solicitante_nome: string | null;
@@ -126,7 +127,7 @@ export function useCalendarioServicos(opts: {
     setLoading(true);
     try {
       const SELECT =
-        'id, protocolo, status, cancelamento_pendente, empreendimento, valor, descricao, data_execucao_servico, data_inicio, data_fim, tipo_contratacao, user_id, fornecedor_id, tipo_entrega';
+        'id, protocolo, status, cancelamento_pendente, empreendimento, valor, descricao, data_execucao_servico, data_inicio, data_fim, tipo_contratacao, contrato_mensal, user_id, fornecedor_id, tipo_entrega';
 
       const buildBase = () => {
         let q = supabase.from('solicitacoes').select(SELECT);
@@ -198,6 +199,7 @@ export function useCalendarioServicos(opts: {
         data_inicio: r.data_inicio || null,
         data_fim: r.data_fim || null,
         tipo_contratacao: r.tipo_contratacao || null,
+        contrato_mensal: !!r.contrato_mensal,
         tem_oc: STATUS_COM_OC.has(r.status),
         user_id: r.user_id,
         solicitante_nome: profileMap[r.user_id] || null,
@@ -234,20 +236,23 @@ export function useCalendarioServicos(opts: {
     };
     servicos.forEach(s => {
       const hasRange = !!(s.data_inicio && s.data_fim && s.data_inicio <= s.data_fim);
-      if (hasRange) {
-        const di = s.data_inicio!;
-        const df = s.data_fim!;
-        const days = eachDayOfInterval({ start: parseISO(di), end: parseISO(df) });
-        if (days.length === 1) {
-          push(di, { ...s, posicao: 'unico' });
-        } else {
-          days.forEach((d, idx) => {
-            const key = d.toISOString().slice(0, 10);
-            const posicao: ServicoPosicao =
-              idx === 0 ? 'inicio' : idx === days.length - 1 ? 'fim' : 'meio';
-            push(key, { ...s, posicao });
-          });
+      if (s.contrato_mensal && hasRange) {
+        // Contrato mensal: 1 chip por mês entre data_inicio e data_fim,
+        // ancorado no dia 1 (ou na data_inicio dentro do primeiro mês).
+        const di = parseISO(s.data_inicio!);
+        const df = parseISO(s.data_fim!);
+        let cursor = startOfMonth(di);
+        const lastMonth = startOfMonth(df);
+        while (cursor <= lastMonth) {
+          const anchor = cursor > di ? cursor : di;
+          if (anchor > df) break;
+          const key = anchor.toISOString().slice(0, 10);
+          push(key, { ...s, posicao: 'unico' });
+          cursor = addDays(endOfMonth(cursor), 1); // próximo mês
         }
+      } else if (hasRange) {
+        // Demais ACs com período: chip pontual apenas no início (evita poluição).
+        push(s.data_inicio!, { ...s, posicao: 'unico' });
       } else if (s.data_execucao_servico) {
         push(s.data_execucao_servico, { ...s, posicao: 'unico' });
       }
