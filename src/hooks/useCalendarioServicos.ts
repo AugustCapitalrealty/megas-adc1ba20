@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { startOfMonth, endOfMonth, subDays, addDays } from 'date-fns';
+import { startOfMonth, endOfMonth, subDays, addDays, eachDayOfInterval, parseISO } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import type { Empreendimento } from '@/types';
 
@@ -12,7 +12,23 @@ export type CalendarioStatusVisual =
   | 'concluido'
   | 'cancel_solicitado'
   | 'cancelado'
-  | 'em_processamento';
+  | 'em_processamento'
+  | 'previsao_sem_oc'
+  | 'previsao_sem_oc_risco';
+
+export type ServicoPosicao = 'inicio' | 'meio' | 'fim' | 'unico';
+
+const STATUS_COM_OC = new Set([
+  'oc_ac_emitida',
+  'aguardando_aceite',
+  'liberado_fornecedor',
+  'enviado_fornecedor',
+  'aguardando_execucao',
+  'aguardando_nf_boleto',
+  'nf_boleto_enviados',
+  'enviado_pagamento',
+  'concluida',
+]);
 
 export interface ServicoCalendario {
   id: string;
@@ -22,7 +38,11 @@ export interface ServicoCalendario {
   empreendimento: Empreendimento;
   valor: number;
   descricao: string;
-  data_execucao_servico: string; // YYYY-MM-DD
+  data_execucao_servico: string | null; // YYYY-MM-DD
+  data_inicio: string | null;
+  data_fim: string | null;
+  tipo_contratacao: string | null;
+  tem_oc: boolean;
   user_id: string;
   solicitante_nome: string | null;
   fornecedor_id: string | null;
@@ -30,13 +50,23 @@ export interface ServicoCalendario {
   visual: CalendarioStatusVisual;
 }
 
+export interface ServicoCalendarioDia extends ServicoCalendario {
+  posicao: ServicoPosicao;
+}
+
 const todayISO = () => new Date().toISOString().slice(0, 10);
+
+/** Adiciona N dias corridos a uma data ISO (YYYY-MM-DD), retornando ISO. */
+function addDaysISO(iso: string, days: number): string {
+  return addDays(parseISO(iso), days).toISOString().slice(0, 10);
+}
 
 /** Mapeia o status real da solicitação para o status visual usado no calendário. */
 export function computeCalendarioVisual(sol: {
   status: string;
   cancelamento_pendente: boolean;
-  data_execucao_servico: string;
+  data_execucao_servico: string | null;
+  data_fim?: string | null;
 }): CalendarioStatusVisual {
   if (sol.status === 'cancelado' || sol.status === 'rejeitado') return 'cancelado';
   if (sol.cancelamento_pendente) return 'cancel_solicitado';
@@ -51,13 +81,26 @@ export function computeCalendarioVisual(sol: {
   if (sol.status === 'aguardando_nf_boleto') return 'aguardando_nf';
 
   if (sol.status === 'aguardando_execucao') {
-    return sol.data_execucao_servico > todayISO() ? 'agendado' : 'atrasado';
+    const ref = sol.data_execucao_servico ?? sol.data_fim ?? null;
+    if (!ref) return 'agendado';
+    return ref > todayISO() ? 'agendado' : 'atrasado';
   }
   if (sol.status === 'enviado_fornecedor' || sol.status === 'liberado_fornecedor') {
     return 'oc_enviada';
   }
   if (sol.status === 'aguardando_aceite' || sol.status === 'oc_ac_emitida') {
     return 'oc_nao_liberada';
+  }
+
+  // Status pré-OC com previsão informada: avaliar risco.
+  if (!STATUS_COM_OC.has(sol.status)) {
+    const ref = sol.data_execucao_servico ?? sol.data_fim ?? null;
+    if (ref) {
+      const today = todayISO();
+      const limite = addDaysISO(today, 3);
+      if (ref <= limite) return 'previsao_sem_oc_risco';
+      return 'previsao_sem_oc';
+    }
   }
   return 'em_processamento';
 }
@@ -82,23 +125,41 @@ export function useCalendarioServicos(opts: {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      let query = supabase
-        .from('solicitacoes')
-        .select(
-          'id, protocolo, status, cancelamento_pendente, empreendimento, valor, descricao, data_execucao_servico, user_id, fornecedor_id, tipo_entrega'
-        )
+      const SELECT =
+        'id, protocolo, status, cancelamento_pendente, empreendimento, valor, descricao, data_execucao_servico, data_inicio, data_fim, tipo_contratacao, user_id, fornecedor_id, tipo_entrega';
+
+      const buildBase = () => {
+        let q = supabase.from('solicitacoes').select(SELECT);
+        if (!hasAllAccess && userEmpreendimentos.length > 0) {
+          q = q.in('empreendimento', userEmpreendimentos as Empreendimento[]);
+        }
+        return q;
+      };
+
+      // A) tem data_execucao_servico no range (qualquer tipo_entrega = serviço; mantém compat)
+      const queryA = buildBase()
         .eq('tipo_entrega', 'servico')
         .not('data_execucao_servico', 'is', null)
         .gte('data_execucao_servico', range.from)
         .lte('data_execucao_servico', range.to);
 
-      if (!hasAllAccess && userEmpreendimentos.length > 0) {
-        query = query.in('empreendimento', userEmpreendimentos as Empreendimento[]);
-      }
+      // B) AC de serviço com janela [data_inicio, data_fim] que intersecta o range
+      const queryB = buildBase()
+        .eq('tipo_contratacao', 'servicos')
+        .not('data_inicio', 'is', null)
+        .not('data_fim', 'is', null)
+        .lte('data_inicio', range.to)
+        .gte('data_fim', range.from);
 
-      const { data, error } = await query;
-      if (error) throw error;
-      const rows = data || [];
+      const [resA, resB] = await Promise.all([queryA, queryB]);
+      if (resA.error) throw resA.error;
+      if (resB.error) throw resB.error;
+
+      const map = new Map<string, any>();
+      [...(resA.data || []), ...(resB.data || [])].forEach((r: any) => {
+        if (!map.has(r.id)) map.set(r.id, r);
+      });
+      const rows = Array.from(map.values());
 
       const fornecedorIds = [...new Set(rows.map(r => r.fornecedor_id).filter(Boolean))] as string[];
       const userIds = [...new Set(rows.map(r => r.user_id).filter(Boolean))] as string[];
@@ -133,7 +194,11 @@ export function useCalendarioServicos(opts: {
         empreendimento: r.empreendimento,
         valor: Number(r.valor) || 0,
         descricao: r.descricao || '',
-        data_execucao_servico: r.data_execucao_servico,
+        data_execucao_servico: r.data_execucao_servico || null,
+        data_inicio: r.data_inicio || null,
+        data_fim: r.data_fim || null,
+        tipo_contratacao: r.tipo_contratacao || null,
+        tem_oc: STATUS_COM_OC.has(r.status),
         user_id: r.user_id,
         solicitante_nome: profileMap[r.user_id] || null,
         fornecedor_id: r.fornecedor_id,
@@ -141,7 +206,8 @@ export function useCalendarioServicos(opts: {
         visual: computeCalendarioVisual({
           status: r.status,
           cancelamento_pendente: r.cancelamento_pendente || false,
-          data_execucao_servico: r.data_execucao_servico,
+          data_execucao_servico: r.data_execucao_servico || null,
+          data_fim: r.data_fim || null,
         }),
       }));
 
@@ -158,13 +224,33 @@ export function useCalendarioServicos(opts: {
     if (enabled) fetchData();
   }, [enabled, fetchData]);
 
-  // Agrupamento por dia (chave YYYY-MM-DD)
+  // Agrupamento por dia (chave YYYY-MM-DD), expandindo serviços com período em vários dias.
   const byDay = useMemo(() => {
-    const map = new Map<string, ServicoCalendario[]>();
+    const map = new Map<string, ServicoCalendarioDia[]>();
+    const push = (key: string, item: ServicoCalendarioDia) => {
+      const arr = map.get(key) || [];
+      arr.push(item);
+      map.set(key, arr);
+    };
     servicos.forEach(s => {
-      const arr = map.get(s.data_execucao_servico) || [];
-      arr.push(s);
-      map.set(s.data_execucao_servico, arr);
+      const hasRange = !!(s.data_inicio && s.data_fim && s.data_inicio <= s.data_fim);
+      if (hasRange) {
+        const di = s.data_inicio!;
+        const df = s.data_fim!;
+        const days = eachDayOfInterval({ start: parseISO(di), end: parseISO(df) });
+        if (days.length === 1) {
+          push(di, { ...s, posicao: 'unico' });
+        } else {
+          days.forEach((d, idx) => {
+            const key = d.toISOString().slice(0, 10);
+            const posicao: ServicoPosicao =
+              idx === 0 ? 'inicio' : idx === days.length - 1 ? 'fim' : 'meio';
+            push(key, { ...s, posicao });
+          });
+        }
+      } else if (s.data_execucao_servico) {
+        push(s.data_execucao_servico, { ...s, posicao: 'unico' });
+      }
     });
     return map;
   }, [servicos]);
