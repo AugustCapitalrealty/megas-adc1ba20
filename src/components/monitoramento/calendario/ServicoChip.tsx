@@ -103,7 +103,9 @@ export function ServicoChip({ servico, onClick }: ServicoChipProps) {
             <span>{VISUAL_LABEL[servico.visual]}</span>
           </div>
           {periodo && (
-            <div className="text-muted-foreground">Período: {periodo}</div>
+            <div className="text-muted-foreground">
+              {servico.contrato_mensal ? 'Contrato mensal: ' : 'Período: '}{periodo}
+            </div>
           )}
           <div className="text-muted-foreground">Valor: {formatCurrency(servico.valor)}</div>
         </TooltipContent>

@@ -83,7 +83,7 @@ export function DiaServicosSheet({
                     {s.data_inicio && s.data_fim && (
                       <div className="flex items-center gap-1 truncate col-span-2">
                         <CalendarRange className="h-3 w-3 shrink-0" />
-                        Período: {formatBR(s.data_inicio + 'T12:00:00', 'dd/MM/yyyy')} – {formatBR(s.data_fim + 'T12:00:00', 'dd/MM/yyyy')}
+                        {s.contrato_mensal ? 'Contrato mensal' : 'Período'}: {formatBR(s.data_inicio + 'T12:00:00', 'dd/MM/yyyy')} – {formatBR(s.data_fim + 'T12:00:00', 'dd/MM/yyyy')}
                       </div>
                     )}
                   </div>
