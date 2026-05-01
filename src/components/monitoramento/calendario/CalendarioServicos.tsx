@@ -7,9 +7,13 @@ import { Badge } from '@/components/ui/badge';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import {
   ChevronLeft, ChevronRight, Calendar as CalendarIcon, AlertTriangle,
   CalendarDays, Clock, Receipt, Loader2, X, Layers, FileWarning,
+  Filter, Repeat, CalendarRange, MapPin,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserEmpreendimentos } from '@/hooks/useUserEmpreendimentos';
@@ -37,6 +41,18 @@ const KPI_TO_VISUAL: Record<KpiFilter, CalendarioStatusVisual[] | null> = {
   sem_oc_risco: ['previsao_sem_oc_risco'],
 };
 
+type CategoriaServico = 'mensal' | 'periodo' | 'pontual';
+const CATEGORIA_LABEL: Record<CategoriaServico, string> = {
+  mensal: 'Contrato mensal',
+  periodo: 'Pontual com período',
+  pontual: 'Pontual (data única)',
+};
+function getCategoria(s: { contrato_mensal: boolean; data_inicio: string | null; data_fim: string | null }): CategoriaServico {
+  if (s.contrato_mensal && s.data_inicio && s.data_fim) return 'mensal';
+  if (s.data_inicio && s.data_fim) return 'periodo';
+  return 'pontual';
+}
+
 const LEGEND_ITEMS: CalendarioStatusVisual[] = [
   'agendado',
   'oc_enviada',
@@ -56,9 +72,18 @@ export function CalendarioServicos() {
     useUserEmpreendimentos(effectiveUserId);
 
   const [refMonth, setRefMonth] = useState<Date>(() => startOfDay(new Date()));
-  const [filterEmpreendimento, setFilterEmpreendimento] = useState<string>('todos');
+  const [filterEmpreendimentos, setFilterEmpreendimentos] = useState<Set<string>>(new Set());
   const [kpiFilter, setKpiFilter] = useState<KpiFilter>('todos');
-  const [statusFilter, setStatusFilter] = useState<CalendarioStatusVisual | 'todos'>('todos');
+  const [statusFilters, setStatusFilters] = useState<Set<CalendarioStatusVisual>>(new Set());
+  const [categoriaFilters, setCategoriaFilters] = useState<Set<CategoriaServico>>(new Set());
+
+  const toggleSet = <T,>(setter: React.Dispatch<React.SetStateAction<Set<T>>>, value: T) => {
+    setter(prev => {
+      const next = new Set(prev);
+      if (next.has(value)) next.delete(value); else next.add(value);
+      return next;
+    });
+  };
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetDate, setSheetDate] = useState<Date | null>(null);
   const [sheetServicos, setSheetServicos] = useState<ServicoCalendario[]>([]);
@@ -77,8 +102,9 @@ export function CalendarioServicos() {
     const today = new Date().toISOString().slice(0, 10);
     const in7 = addDays(new Date(), 7).toISOString().slice(0, 10);
     return servicos.filter(s => {
-      if (filterEmpreendimento !== 'todos' && s.empreendimento !== filterEmpreendimento) return false;
-      if (statusFilter !== 'todos' && s.visual !== statusFilter) return false;
+      if (filterEmpreendimentos.size > 0 && !filterEmpreendimentos.has(s.empreendimento)) return false;
+      if (statusFilters.size > 0 && !statusFilters.has(s.visual)) return false;
+      if (categoriaFilters.size > 0 && !categoriaFilters.has(getCategoria(s))) return false;
       // Data de referência: execucao || data_fim || data_inicio
       const refDate = s.data_execucao_servico || s.data_fim || s.data_inicio || '';
       const refStart = s.data_execucao_servico || s.data_inicio || s.data_fim || '';
@@ -100,7 +126,7 @@ export function CalendarioServicos() {
       if (kpiFilter === 'sem_oc_risco' && s.visual !== 'previsao_sem_oc_risco') return false;
       return true;
     });
-  }, [servicos, filterEmpreendimento, statusFilter, kpiFilter]);
+  }, [servicos, filterEmpreendimentos, statusFilters, categoriaFilters, kpiFilter]);
 
   const filteredByDay = useMemo(() => {
     const ids = new Set(filteredServicos.map(s => s.id));
@@ -118,7 +144,7 @@ export function CalendarioServicos() {
     const in7 = addDays(new Date(), 7).toISOString().slice(0, 10);
     let hoje = 0, prox7 = 0, atrasados = 0, agNf = 0, semOcRisco = 0;
     const base = servicos.filter(s =>
-      filterEmpreendimento === 'todos' ? true : s.empreendimento === filterEmpreendimento
+      filterEmpreendimentos.size === 0 ? true : filterEmpreendimentos.has(s.empreendimento)
     );
     base.forEach(s => {
       const coversToday = s.data_inicio && s.data_fim
@@ -134,7 +160,7 @@ export function CalendarioServicos() {
       if (s.visual === 'previsao_sem_oc_risco') semOcRisco++;
     });
     return { hoje, prox7, atrasados, agNf, semOcRisco };
-  }, [servicos, filterEmpreendimento]);
+  }, [servicos, filterEmpreendimentos]);
 
   const availableEmpreendimentos = useMemo(() => {
     if (hasAllAccess) {
@@ -169,7 +195,7 @@ export function CalendarioServicos() {
   }
 
   const hasActiveFilters =
-    filterEmpreendimento !== 'todos' || kpiFilter !== 'todos' || statusFilter !== 'todos';
+    filterEmpreendimentos.size > 0 || kpiFilter !== 'todos' || statusFilters.size > 0 || categoriaFilters.size > 0;
 
   return (
     <div className="space-y-6">
@@ -256,36 +282,48 @@ export function CalendarioServicos() {
           </Button>
         </div>
 
-        <Select value={filterEmpreendimento} onValueChange={setFilterEmpreendimento}>
-          <SelectTrigger className="w-48"><SelectValue placeholder="Empreendimento" /></SelectTrigger>
-          <SelectContent>
-            {availableEmpreendimentos.length > 1 && (
-              <SelectItem value="todos">Todos empreendimentos</SelectItem>
-            )}
-            {availableEmpreendimentos.map(([key, label]) => (
-              <SelectItem key={key} value={key}>{label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <MultiFilter
+          icon={<MapPin className="h-3.5 w-3.5" />}
+          label="Empreendimento"
+          allLabel="Todos empreendimentos"
+          selected={filterEmpreendimentos}
+          options={availableEmpreendimentos.map(([k, l]) => ({ value: k, label: l as string }))}
+          onToggle={(v) => toggleSet(setFilterEmpreendimentos, v)}
+          onClear={() => setFilterEmpreendimentos(new Set())}
+        />
 
-        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
-          <SelectTrigger className="w-44"><SelectValue placeholder="Status" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos os status</SelectItem>
-            {LEGEND_ITEMS.map(v => (
-              <SelectItem key={v} value={v}>{VISUAL_LABEL[v]}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <MultiFilter
+          icon={<Filter className="h-3.5 w-3.5" />}
+          label="Status"
+          allLabel="Todos os status"
+          selected={statusFilters as Set<string>}
+          options={LEGEND_ITEMS.map(v => ({ value: v, label: VISUAL_LABEL[v], dot: VISUAL_DOT[v] }))}
+          onToggle={(v) => toggleSet(setStatusFilters, v as CalendarioStatusVisual)}
+          onClear={() => setStatusFilters(new Set())}
+        />
+
+        <MultiFilter
+          icon={<Repeat className="h-3.5 w-3.5" />}
+          label="Tipo"
+          allLabel="Todos os tipos"
+          selected={categoriaFilters as Set<string>}
+          options={(Object.keys(CATEGORIA_LABEL) as CategoriaServico[]).map(k => ({
+            value: k,
+            label: CATEGORIA_LABEL[k],
+          }))}
+          onToggle={(v) => toggleSet(setCategoriaFilters, v as CategoriaServico)}
+          onClear={() => setCategoriaFilters(new Set())}
+        />
 
         {hasActiveFilters && (
           <Button
             variant="ghost"
             size="sm"
             onClick={() => {
-              setFilterEmpreendimento('todos');
+              setFilterEmpreendimentos(new Set());
               setKpiFilter('todos');
-              setStatusFilter('todos');
+              setStatusFilters(new Set());
+              setCategoriaFilters(new Set());
             }}
             className="gap-1 text-muted-foreground hover:text-foreground"
           >
@@ -350,5 +388,67 @@ export function CalendarioServicos() {
         protocolo={detalhesProtocolo}
       />
     </div>
+  );
+}
+
+interface MultiFilterOption { value: string; label: string; dot?: string }
+interface MultiFilterProps {
+  icon: React.ReactNode;
+  label: string;
+  allLabel: string;
+  selected: Set<string>;
+  options: MultiFilterOption[];
+  onToggle: (value: string) => void;
+  onClear: () => void;
+}
+
+function MultiFilter({ icon, label, allLabel, selected, options, onToggle, onClear }: MultiFilterProps) {
+  const count = selected.size;
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className="h-9 gap-1.5">
+          {icon}
+          <span className="text-xs">{label}</span>
+          {count > 0 ? (
+            <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{count}</Badge>
+          ) : (
+            <span className="ml-1 text-[10px] text-muted-foreground">Todos</span>
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-60 p-0">
+        <div className="flex items-center justify-between border-b px-3 py-2">
+          <span className="text-xs font-semibold">{label}</span>
+          {count > 0 && (
+            <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px]" onClick={onClear}>
+              Limpar
+            </Button>
+          )}
+        </div>
+        <div className="max-h-64 overflow-auto p-2">
+          {count === 0 && (
+            <p className="px-1 pb-1 text-[10px] text-muted-foreground">{allLabel}</p>
+          )}
+          <div className="space-y-1">
+            {options.map(opt => {
+              const id = `mf-${label}-${opt.value}`;
+              const checked = selected.has(opt.value);
+              return (
+                <Label
+                  key={opt.value}
+                  htmlFor={id}
+                  className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs font-normal hover:bg-muted"
+                >
+                  <Checkbox id={id} checked={checked} onCheckedChange={() => onToggle(opt.value)} />
+                  {opt.dot && <span className={cn('h-2 w-2 rounded-full', opt.dot)} />}
+                  <span className="flex-1 truncate">{opt.label}</span>
+                </Label>
+              );
+            })}
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
