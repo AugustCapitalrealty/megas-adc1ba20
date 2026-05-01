@@ -1,7 +1,12 @@
 import { cn } from '@/lib/utils';
-import type { CalendarioStatusVisual, ServicoCalendario } from '@/hooks/useCalendarioServicos';
+import type {
+  CalendarioStatusVisual,
+  ServicoCalendario,
+  ServicoCalendarioDia,
+} from '@/hooks/useCalendarioServicos';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { EMPREENDIMENTO_LABELS } from '@/types';
+import { formatBR } from '@/lib/date-utils';
 
 export const VISUAL_LABEL: Record<CalendarioStatusVisual, string> = {
   agendado: 'Agendado',
@@ -13,6 +18,8 @@ export const VISUAL_LABEL: Record<CalendarioStatusVisual, string> = {
   cancel_solicitado: 'Cancelamento solicitado',
   cancelado: 'Cancelado',
   em_processamento: 'Em processamento',
+  previsao_sem_oc: 'Previsão sem OC',
+  previsao_sem_oc_risco: 'Previsão em risco (sem OC)',
 };
 
 export const VISUAL_BG: Record<CalendarioStatusVisual, string> = {
@@ -25,6 +32,8 @@ export const VISUAL_BG: Record<CalendarioStatusVisual, string> = {
   cancel_solicitado: 'bg-destructive/80 text-destructive-foreground',
   cancelado: 'bg-destructive text-destructive-foreground',
   em_processamento: 'bg-secondary text-secondary-foreground',
+  previsao_sem_oc: 'bg-amber-200 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200',
+  previsao_sem_oc_risco: 'bg-destructive text-destructive-foreground',
 };
 
 export const VISUAL_DOT: Record<CalendarioStatusVisual, string> = {
@@ -37,17 +46,31 @@ export const VISUAL_DOT: Record<CalendarioStatusVisual, string> = {
   cancel_solicitado: 'bg-destructive/80',
   cancelado: 'bg-destructive',
   em_processamento: 'bg-secondary-foreground/40',
+  previsao_sem_oc: 'bg-amber-400',
+  previsao_sem_oc_risco: 'bg-destructive',
 };
 
 const formatCurrency = (v: number) =>
   v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
 
 interface ServicoChipProps {
-  servico: ServicoCalendario;
+  servico: ServicoCalendarioDia | ServicoCalendario;
   onClick?: (s: ServicoCalendario) => void;
 }
 
 export function ServicoChip({ servico, onClick }: ServicoChipProps) {
+  const posicao = (servico as ServicoCalendarioDia).posicao ?? 'unico';
+  const isMeio = posicao === 'meio';
+  const periodo =
+    servico.data_inicio && servico.data_fim
+      ? `${formatBR(servico.data_inicio + 'T12:00:00', 'dd/MM')} – ${formatBR(servico.data_fim + 'T12:00:00', 'dd/MM')}`
+      : null;
+
+  const prefix =
+    posicao === 'inicio' ? '▶ '
+    : posicao === 'fim' ? '■ '
+    : '';
+
   return (
     <TooltipProvider delayDuration={150}>
       <Tooltip>
@@ -59,11 +82,16 @@ export function ServicoChip({ servico, onClick }: ServicoChipProps) {
               onClick?.(servico);
             }}
             className={cn(
-              'w-full truncate rounded px-1.5 py-0.5 text-[10px] font-medium text-left transition hover:opacity-90',
-              VISUAL_BG[servico.visual]
+              'w-full truncate rounded text-left transition hover:opacity-90',
+              isMeio
+                ? 'h-1.5 px-0 py-0 rounded-none'
+                : 'px-1.5 py-0.5 text-[10px] font-medium',
+              VISUAL_BG[servico.visual],
+              posicao === 'inicio' && 'rounded-r-none',
+              posicao === 'fim' && 'rounded-l-none',
             )}
           >
-            {servico.fornecedor_razao || servico.protocolo}
+            {!isMeio && (prefix + (servico.fornecedor_razao || servico.protocolo))}
           </button>
         </TooltipTrigger>
         <TooltipContent side="top" className="max-w-[260px] text-xs space-y-1">
@@ -74,6 +102,9 @@ export function ServicoChip({ servico, onClick }: ServicoChipProps) {
             <span className={cn('h-2 w-2 rounded-full', VISUAL_DOT[servico.visual])} />
             <span>{VISUAL_LABEL[servico.visual]}</span>
           </div>
+          {periodo && (
+            <div className="text-muted-foreground">Período: {periodo}</div>
+          )}
           <div className="text-muted-foreground">Valor: {formatCurrency(servico.valor)}</div>
         </TooltipContent>
       </Tooltip>
