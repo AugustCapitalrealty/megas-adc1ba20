@@ -4,11 +4,12 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Eye, Building2, Wallet, User, Inbox } from 'lucide-react';
+import { Eye, Building2, Wallet, User, Inbox, CalendarRange } from 'lucide-react';
 import { EMPREENDIMENTO_LABELS } from '@/types';
 import type { ServicoCalendario } from '@/hooks/useCalendarioServicos';
 import { VISUAL_BG, VISUAL_LABEL } from './ServicoChip';
 import { cn } from '@/lib/utils';
+import { formatBR } from '@/lib/date-utils';
 
 interface DiaServicosSheetProps {
   open: boolean;
@@ -33,6 +34,7 @@ export function DiaServicosSheet({
   servicos,
   onOpenDetalhes,
 }: DiaServicosSheetProps) {
+  const unique = Array.from(new Map(servicos.map(s => [s.id, s])).values());
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col">
@@ -41,18 +43,18 @@ export function DiaServicosSheet({
             {date ? format(date, "EEEE, dd 'de' MMMM", { locale: ptBR }) : 'Dia'}
           </SheetTitle>
           <p className="text-xs text-muted-foreground">
-            {servicos.length} {servicos.length === 1 ? 'serviço' : 'serviços'} previstos / executados
+            {unique.length} {unique.length === 1 ? 'serviço' : 'serviços'} previstos / executados
           </p>
         </SheetHeader>
         <ScrollArea className="flex-1">
           <div className="p-4 space-y-3">
-            {servicos.length === 0 ? (
+            {unique.length === 0 ? (
               <div className="flex flex-col items-center gap-2 py-12 text-muted-foreground">
                 <Inbox className="h-10 w-10 opacity-40" />
                 <p className="text-sm">Sem serviços neste dia</p>
               </div>
             ) : (
-              servicos.map(s => (
+              unique.map(s => (
                 <div key={s.id} className="rounded-lg border bg-card p-3 space-y-2">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
@@ -78,6 +80,12 @@ export function DiaServicosSheet({
                       <User className="h-3 w-3 shrink-0" />
                       {getShortName(s.solicitante_nome)}
                     </div>
+                    {s.data_inicio && s.data_fim && (
+                      <div className="flex items-center gap-1 truncate col-span-2">
+                        <CalendarRange className="h-3 w-3 shrink-0" />
+                        Período: {formatBR(s.data_inicio + 'T12:00:00', 'dd/MM/yyyy')} – {formatBR(s.data_fim + 'T12:00:00', 'dd/MM/yyyy')}
+                      </div>
+                    )}
                   </div>
                   <div className="flex justify-end pt-1">
                     <Button
