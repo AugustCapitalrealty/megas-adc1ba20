@@ -50,6 +50,30 @@ export const VISUAL_DOT: Record<CalendarioStatusVisual, string> = {
   previsao_sem_oc_risco: 'bg-destructive',
 };
 
+/** Prioridade de exibição: menor = mais urgente, vem antes na lista do dia. */
+export const VISUAL_PRIORIDADE: Record<CalendarioStatusVisual, number> = {
+  previsao_sem_oc_risco: 0,
+  atrasado: 1,
+  aguardando_nf: 2,
+  previsao_sem_oc: 3,
+  oc_nao_liberada: 4,
+  oc_enviada: 5,
+  agendado: 6,
+  em_processamento: 7,
+  cancel_solicitado: 8,
+  concluido: 9,
+  cancelado: 10,
+};
+
+export function ordenarServicos<T extends { visual: CalendarioStatusVisual; valor?: number }>(arr: T[]): T[] {
+  return [...arr].sort((a, b) => {
+    const pa = VISUAL_PRIORIDADE[a.visual] ?? 99;
+    const pb = VISUAL_PRIORIDADE[b.visual] ?? 99;
+    if (pa !== pb) return pa - pb;
+    return (b.valor ?? 0) - (a.valor ?? 0);
+  });
+}
+
 const formatCurrency = (v: number) =>
   v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
 
@@ -69,6 +93,7 @@ export function ServicoChip({ servico, onClick }: ServicoChipProps) {
   const prefix =
     posicao === 'inicio' ? '▶ '
     : posicao === 'fim' ? '■ '
+    : servico.contrato_mensal ? '↻ '
     : '';
 
   return (
