@@ -390,3 +390,65 @@ export function CalendarioServicos() {
     </div>
   );
 }
+
+interface MultiFilterOption { value: string; label: string; dot?: string }
+interface MultiFilterProps {
+  icon: React.ReactNode;
+  label: string;
+  allLabel: string;
+  selected: Set<string>;
+  options: MultiFilterOption[];
+  onToggle: (value: string) => void;
+  onClear: () => void;
+}
+
+function MultiFilter({ icon, label, allLabel, selected, options, onToggle, onClear }: MultiFilterProps) {
+  const count = selected.size;
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className="h-9 gap-1.5">
+          {icon}
+          <span className="text-xs">{label}</span>
+          {count > 0 ? (
+            <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">{count}</Badge>
+          ) : (
+            <span className="ml-1 text-[10px] text-muted-foreground">Todos</span>
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-60 p-0">
+        <div className="flex items-center justify-between border-b px-3 py-2">
+          <span className="text-xs font-semibold">{label}</span>
+          {count > 0 && (
+            <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px]" onClick={onClear}>
+              Limpar
+            </Button>
+          )}
+        </div>
+        <div className="max-h-64 overflow-auto p-2">
+          {count === 0 && (
+            <p className="px-1 pb-1 text-[10px] text-muted-foreground">{allLabel}</p>
+          )}
+          <div className="space-y-1">
+            {options.map(opt => {
+              const id = `mf-${label}-${opt.value}`;
+              const checked = selected.has(opt.value);
+              return (
+                <Label
+                  key={opt.value}
+                  htmlFor={id}
+                  className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs font-normal hover:bg-muted"
+                >
+                  <Checkbox id={id} checked={checked} onCheckedChange={() => onToggle(opt.value)} />
+                  {opt.dot && <span className={cn('h-2 w-2 rounded-full', opt.dot)} />}
+                  <span className="flex-1 truncate">{opt.label}</span>
+                </Label>
+              );
+            })}
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
