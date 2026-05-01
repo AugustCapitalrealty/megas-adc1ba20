@@ -34,6 +34,7 @@ const KPI_TO_VISUAL: Record<KpiFilter, CalendarioStatusVisual[] | null> = {
   proximos7: [],     // tratado pela data abaixo
   atrasados: ['atrasado'],
   aguardando_nf: ['aguardando_nf'],
+  sem_oc_risco: ['previsao_sem_oc_risco'],
 };
 
 const LEGEND_ITEMS: CalendarioStatusVisual[] = [
