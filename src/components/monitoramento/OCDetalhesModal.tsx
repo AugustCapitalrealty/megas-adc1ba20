@@ -105,7 +105,7 @@ function ContextualActions({ status, userId, currentUserId, cancelamentoPendente
 
 export function OCDetalhesModal({ open, onOpenChange, solicitacaoId, protocolo, onAction }: OCDetalhesModalProps) {
   const { detalhes, loading, fetchDetalhes, clearDetalhes } = useSolicitacaoDetalhes();
-  const { user } = useAuth();
+  const { user, isBackofficeOrAdmin } = useAuth();
   const [projurisData, setProjurisData] = useState<any>(null);
   const [projurisLoading, setProjurisLoading] = useState(false);
 
