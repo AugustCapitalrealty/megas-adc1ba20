@@ -1,48 +1,59 @@
 ## Objetivo
 
-Permitir que ao clicar em um chip/serviço no calendário, o usuário abra uma **tela completa de detalhes do protocolo** com status, valores, **anexos**, e histórico de mudanças.
+Quando o usuário marcar **"Contrato Mensal"** na nova solicitação (AC), exibir um auxiliar de **valor mensal**:
 
-## Estado atual
+- Sugestão padrão = `valor total ÷ nº de meses` (calculado do período Início→Fim, ou 12 como fallback).
+- Campo editável: usuário pode digitar o valor mensal desejado.
+- Quando o usuário edita o mensal, o sistema indica **quantos meses** isso corresponderia em relação ao valor total (`valor total ÷ valor mensal`, arredondado).
+- Tudo é **assistente visual**: o `valor` salvo no banco continua sendo o total. Nenhuma alteração de schema.
 
-- O clique no chip já chama `handleChipClick(s)` em `CalendarioServicos.tsx`, que abre `OCDetalhesModal` via `detalhesId`.
-- O `OCDetalhesModal` hoje mostra: cabeçalho com status/valores, abas Timeline, Documentos (emitidos + fiscais), Mensagens, Projuris e Info.
-- `useSolicitacaoDetalhes` (RPC `get_solicitacao_detalhes`) **já retorna** `anexos: Anexo[]` — porém o modal **não exibe anexos** (apenas documentos emitidos/fiscais).
-- Componente `AnexoCard` já existe e é o padrão visual para listar anexos.
+## Comportamento detalhado
 
-## O que falta entregar
+Mostrar o bloco **somente quando**:
+- Tipo = AC (já é o contexto do checkbox)
+- `contratoMensal === true`
+- `valorNumerico > 0`
 
-1. **Adicionar aba "Anexos" no `OCDetalhesModal`** logo após a aba Documentos.
-   - Usa `detalhes.anexos` (já disponível na resposta da RPC).
-   - Renderiza usando `<AnexoCard>` (padrão do projeto).
-   - Agrupa por `tipo` (Orçamento escolhido, Mapa de cotação, Concorrentes, Escopo, Rateio, Outros) usando `ANEXO_LABELS`.
-   - Empty state "Nenhum anexo" quando vazio.
-   - Contador no rótulo da aba: `Anexos (N)`.
+Cálculo de meses do período:
+- Se `dataInicio` e `dataFim` estão preenchidas: `meses = max(1, differenceInCalendarMonths(fim, inicio) + 1)`.
+- Caso contrário: assume 12 meses (texto: "estimativa de 12 meses — defina datas para refinar").
 
-2. **Garantir histórico de mudanças visível e claro.**
-   - A aba Timeline já existe (`SolicitacaoTimeline showHistorico`), apenas confirmar que aparece como primeira aba (já é).
-   - Adicionar mini-resumo "última atividade" no header já vem de `RecentActivitySummary` — manter.
+Sugestão de mensal:
+- `mensalSugerido = valor / meses` (arredondado para 2 casas).
+- Quando usuário ainda não tocou no campo, `valorMensalEditado = mensalSugerido` (auto-sincronizado se valor/datas mudarem).
 
-3. **Melhorias no fluxo a partir do calendário**:
-   - No `DiaServicosSheet`, o botão "Ver detalhes" e o chip já levam ao modal — manter.
-   - No header do `OCDetalhesModal`, adicionar botão **"Copiar protocolo"** (ícone) ao lado do `#protocolo` para consistência com o sheet do dia.
-   - Adicionar atalho `Esc` (já nativo do Dialog) e foco automático na aba Timeline ao abrir.
+Indicador inverso:
+- `mesesInferidos = valor / valorMensalEditado` (com 1 casa decimal).
+- Aviso amarelo se `mesesInferidos` diverge de `meses` em ≥ 0,5: "Esse valor mensal corresponde a ≈ X,X meses, mas o período definido tem N meses."
+
+UI (dentro do card do contrato mensal):
+
+```text
+┌───────────────────────────────────────────────────┐
+│ Valor mensal do contrato                          │
+│ ┌─────────────────┐                               │
+│ │ R$ 1.250,00     │  Sugerido: R$ 1.250,00 [aplicar]
+│ └─────────────────┘                               │
+│ Equivale a ≈ 12 meses · Total R$ 15.000,00        │
+│ [⚠ se divergir do período]                        │
+└───────────────────────────────────────────────────┘
+```
 
 ## Detalhes técnicos
 
-**Arquivo principal:** `src/components/monitoramento/OCDetalhesModal.tsx`
+**Arquivo único alterado:** `src/components/nova-solicitacao/steps/DetalhesStep.tsx`
 
-- Importar `AnexoCard` de `@/components/AnexoCard` e `ANEXO_LABELS` de `@/types`.
-- Adicionar `<TabsTrigger value="anexos">Anexos ({detalhes.anexos?.length || 0})</TabsTrigger>` entre Documentos e Mensagens.
-- Adicionar `<TabsContent value="anexos">` que:
-  - Agrupa `detalhes.anexos` por `tipo` em um `Map<string, Anexo[]>`.
-  - Para cada grupo, renderiza um título pequeno e a lista de `<AnexoCard anexo={a} showTipo={false} />`.
-  - Se vazio: mensagem com ícone (padrão `Inbox` ou `Paperclip`).
-- Atualizar `grid-cols` da `TabsList` para acomodar a aba extra (hoje 5 colunas → 6).
-
-**Sem alterações de schema/RLS necessárias** — o RPC `get_solicitacao_detalhes` já entrega `anexos` respeitando as policies da tabela `anexos`.
+1. Importar `useState`, `useEffect`, `useMemo` e `differenceInCalendarMonths` de `date-fns`.
+2. Criar componente local `ValorMensalHelper({ valorTotal, dataInicio, dataFim })`:
+   - Estado `valorMensalStr` (string formatada igual aos outros inputs de moeda).
+   - Estado `tocado: boolean` — se falso, sincroniza com sugerido sempre que `valorTotal`/`meses` mudarem.
+   - Usa o mesmo padrão de máscara dos outros campos: `formatCurrency` injetado por prop.
+   - Botão "Aplicar sugestão" reseta `tocado=false` e re-sincroniza.
+3. Renderizar o helper logo abaixo do checkbox "Contrato Mensal", apenas quando `contratoMensal && valorNumerico > 0`.
+4. Passar `formatCurrency` que já está disponível na assinatura do `DetalhesStep`.
 
 ## Fora de escopo
 
-- Reescrever o modal como uma página dedicada (mantemos o `Dialog` atual, que já é grande e funcional).
-- Editar/excluir anexos a partir desta tela (somente leitura/download).
-- Mudanças no calendário em si — o clique já está corretamente cabeado.
+- Persistir `valor_mensal` no banco — não há coluna e o usuário não pediu.
+- Mudar lógica de `parcelas` (continua existindo separadamente para parcelamento financeiro).
+- Alterar exibição em telas de detalhes/calendário.
