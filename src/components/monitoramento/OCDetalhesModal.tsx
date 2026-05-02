@@ -194,7 +194,9 @@ export function OCDetalhesModal({ open, onOpenChange, solicitacaoId, protocolo, 
                   <div className="flex items-center gap-2 min-w-0">
                     <DollarSign className="h-4 w-4 shrink-0 text-muted-foreground" />
                     <div className="min-w-0">
-                      <p className="text-xs text-muted-foreground">Valor</p>
+                      <p className="text-xs text-muted-foreground">
+                        {(detalhes.solicitacao as any).contrato_mensal ? 'Valor total contrato' : 'Valor'}
+                      </p>
                       <p className="text-sm font-semibold truncate">{formatCurrency(detalhes.solicitacao.valor)}</p>
                     </div>
                   </div>
@@ -232,6 +234,19 @@ export function OCDetalhesModal({ open, onOpenChange, solicitacaoId, protocolo, 
                 </CardContent>
               </Card>
             </div>
+
+            {/* Valor mensal — apenas para contratos mensais */}
+            {(detalhes.solicitacao as any).contrato_mensal && (
+              <ValorMensalCard
+                solicitacaoId={solicitacaoId!}
+                valorTotal={Number(detalhes.solicitacao.valor) || 0}
+                valorMensal={(detalhes.solicitacao as any).valor_mensal != null ? Number((detalhes.solicitacao as any).valor_mensal) : null}
+                dataInicio={(detalhes.solicitacao as any).data_inicio}
+                dataFim={(detalhes.solicitacao as any).data_fim}
+                canEdit={isBackofficeOrAdmin}
+                onSaved={() => fetchDetalhes(solicitacaoId!)}
+              />
+            )}
 
             <Tabs defaultValue="timeline" className="w-full">
               <TabsList className="w-full grid grid-cols-6">
