@@ -266,3 +266,100 @@ export function DetalhesStep({ formState, derived, setters, formatCurrency, hand
     </div>
   );
 }
+
+interface ValorMensalHelperProps {
+  valorTotal: number;
+  dataInicio: string;
+  dataFim: string;
+  formatCurrency: (v: string) => string;
+}
+
+function ValorMensalHelper({ valorTotal, dataInicio, dataFim, formatCurrency }: ValorMensalHelperProps) {
+  const periodoMeses = useMemo(() => {
+    if (!dataInicio || !dataFim) return null;
+    try {
+      const di = parseISO(dataInicio);
+      const df = parseISO(dataFim);
+      return Math.max(1, differenceInCalendarMonths(df, di) + 1);
+    } catch {
+      return null;
+    }
+  }, [dataInicio, dataFim]);
+
+  const mesesBase = periodoMeses ?? 12;
+  const sugeridoCentavos = Math.round((valorTotal * 100) / mesesBase);
+
+  // valor mensal em string de centavos (igual ao padrão de moeda do form)
+  const [valorMensalStr, setValorMensalStr] = useState<string>(String(sugeridoCentavos));
+  const [tocado, setTocado] = useState(false);
+
+  // Re-sincroniza com sugerido enquanto o usuário não tocar
+  useEffect(() => {
+    if (!tocado) setValorMensalStr(String(sugeridoCentavos));
+  }, [sugeridoCentavos, tocado]);
+
+  const valorMensalNumerico = (parseInt(valorMensalStr || '0', 10) || 0) / 100;
+  const mesesInferidos = valorMensalNumerico > 0 ? valorTotal / valorMensalNumerico : 0;
+  const mesesInferidosFmt = mesesInferidos.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+
+  const divergente = periodoMeses !== null && Math.abs(mesesInferidos - periodoMeses) >= 0.5;
+
+  const aplicarSugestao = () => {
+    setTocado(false);
+    setValorMensalStr(String(sugeridoCentavos));
+  };
+
+  return (
+    <div className="p-4 rounded-lg border bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <Label className="text-blue-900 dark:text-blue-200">Valor mensal do contrato</Label>
+        <span className="text-[11px] text-muted-foreground">
+          Sugerido: <strong>{(sugeridoCentavos / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
+        </span>
+      </div>
+      <div className="flex items-center gap-2">
+        <Input
+          className="bg-background"
+          placeholder="R$ 0,00"
+          value={valorMensalStr ? formatCurrency(valorMensalStr) : ''}
+          onChange={(e) => {
+            setTocado(true);
+            setValorMensalStr(e.target.value.replace(/\D/g, ''));
+          }}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={aplicarSugestao}
+          className="shrink-0 gap-1"
+          title="Aplicar valor sugerido"
+        >
+          <Wand2 className="h-3.5 w-3.5" /> Sugerido
+        </Button>
+      </div>
+      <p className="text-xs text-blue-900/80 dark:text-blue-200/80">
+        Equivale a ≈ <strong>{mesesInferidosFmt}</strong> {mesesInferidos === 1 ? 'mês' : 'meses'} ·
+        Total <strong>{valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong>
+        {periodoMeses === null && (
+          <span className="block text-muted-foreground mt-0.5">
+            Sem datas definidas — usando estimativa de 12 meses. Defina Início e Fim para refinar.
+          </span>
+        )}
+      </p>
+      {divergente && periodoMeses !== null && (
+        <Alert className="bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
+          <AlertTriangle className="h-4 w-4 text-amber-700 dark:text-amber-300" />
+          <AlertDescription className="text-amber-900 dark:text-amber-200 text-xs">
+            Esse valor mensal corresponde a ≈ {mesesInferidosFmt} {mesesInferidos === 1 ? 'mês' : 'meses'},
+            mas o período definido tem {periodoMeses} {periodoMeses === 1 ? 'mês' : 'meses'}.
+            Ajuste as datas, o valor total ou o valor mensal.
+          </AlertDescription>
+        </Alert>
+      )}
+      <p className="text-[10px] text-muted-foreground italic">
+        Auxiliar — o valor salvo na solicitação continua sendo o total ({valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}).
+      </p>
+    </div>
+  );
+}
