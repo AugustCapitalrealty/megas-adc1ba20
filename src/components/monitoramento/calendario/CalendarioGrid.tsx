@@ -92,14 +92,20 @@ export function CalendarioGrid({
             : `${format(d, "d 'de' MMMM", { locale: ptBR })}, sem serviços`;
 
           return (
-            <button
+            <div
               key={key}
-              type="button"
               role="gridcell"
+              tabIndex={0}
               aria-label={aria}
               onClick={() => onDayClick(d, items)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onDayClick(d, items);
+                }
+              }}
               className={cn(
-                'group relative border-b border-r p-1.5 text-left transition-colors hover:bg-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:z-10',
+                'group relative cursor-pointer border-b border-r p-1.5 text-left transition-colors hover:bg-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:z-10',
                 minH,
                 !inMonth && 'bg-muted/10 text-muted-foreground/50',
                 isWeekend(d) && inMonth && 'bg-muted/10',
@@ -166,7 +172,7 @@ export function CalendarioGrid({
                   ))}
                 </div>
               )}
-            </button>
+            </div>
           );
         })}
       </div>

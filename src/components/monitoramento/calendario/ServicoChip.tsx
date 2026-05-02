@@ -103,18 +103,21 @@ export function ServicoChip({ servico, onClick }: ServicoChipProps) {
           <button
             type="button"
             onClick={(e) => {
+              e.preventDefault();
               e.stopPropagation();
               onClick?.(servico);
             }}
+            onMouseDown={(e) => e.stopPropagation()}
             className={cn(
               'w-full truncate rounded text-left transition hover:opacity-90',
               isMeio
-                ? 'h-1.5 px-0 py-0 rounded-none'
+                ? 'h-3 px-0 py-0 rounded-none cursor-pointer'
                 : 'px-1.5 py-0.5 text-[10px] font-medium',
               VISUAL_BG[servico.visual],
               posicao === 'inicio' && 'rounded-r-none',
               posicao === 'fim' && 'rounded-l-none',
             )}
+            aria-label={`Abrir detalhes de #${servico.protocolo}`}
           >
             {!isMeio && (prefix + (servico.fornecedor_razao || servico.protocolo))}
           </button>

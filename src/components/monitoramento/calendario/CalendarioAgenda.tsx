@@ -54,7 +54,19 @@ export function CalendarioAgenda({ byDay, onChipClick }: CalendarioAgendaProps) 
           </div>
           <ul className="divide-y">
             {items.map(s => (
-              <li key={s.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30">
+              <li
+                key={s.id}
+                className="flex cursor-pointer items-center gap-3 px-4 py-2.5 hover:bg-muted/30"
+                role="button"
+                tabIndex={0}
+                onClick={() => onChipClick(s)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onChipClick(s);
+                  }
+                }}
+              >
                 <Badge
                   variant="outline"
                   className={cn('shrink-0 text-[10px] border-transparent', VISUAL_BG[s.visual])}
@@ -74,7 +86,10 @@ export function CalendarioAgenda({ byDay, onChipClick }: CalendarioAgendaProps) 
                   size="sm"
                   variant="ghost"
                   className="h-7 gap-1 text-xs"
-                  onClick={() => onChipClick(s)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onChipClick(s);
+                  }}
                 >
                   <Eye className="h-3.5 w-3.5" /> Ver
                 </Button>
