@@ -1,59 +1,50 @@
 ## Objetivo
 
-Quando o usuário marcar **"Contrato Mensal"** na nova solicitação (AC), exibir um auxiliar de **valor mensal**:
+Permitir que **admin e backoffice** definam um **valor mensal** para solicitações com `contrato_mensal = true`. No calendário, contratos mensais passam a mostrar o **valor da parcela mensal** (não o valor total do contrato repetido em cada mês). Preparar o terreno para um futuro módulo "Contratos".
 
-- Sugestão padrão = `valor total ÷ nº de meses` (calculado do período Início→Fim, ou 12 como fallback).
-- Campo editável: usuário pode digitar o valor mensal desejado.
-- Quando o usuário edita o mensal, o sistema indica **quantos meses** isso corresponderia em relação ao valor total (`valor total ÷ valor mensal`, arredondado).
-- Tudo é **assistente visual**: o `valor` salvo no banco continua sendo o total. Nenhuma alteração de schema.
+## Mudanças
 
-## Comportamento detalhado
+### 1. Banco — nova coluna `valor_mensal`
 
-Mostrar o bloco **somente quando**:
-- Tipo = AC (já é o contexto do checkbox)
-- `contratoMensal === true`
-- `valorNumerico > 0`
+Migração em `solicitacoes`:
+- Adicionar `valor_mensal numeric NULL` (nullable; quando nulo, calendário cai no comportamento atual).
+- Sem alteração de RLS — o policy "Backoffice can update all solicitacoes" já cobre updates por admin/backoffice.
+- Sem default; sem trigger. É campo manual e opcional.
 
-Cálculo de meses do período:
-- Se `dataInicio` e `dataFim` estão preenchidas: `meses = max(1, differenceInCalendarMonths(fim, inicio) + 1)`.
-- Caso contrário: assume 12 meses (texto: "estimativa de 12 meses — defina datas para refinar").
+### 2. Calendário — usar `valor_mensal` quando contrato mensal
 
-Sugestão de mensal:
-- `mensalSugerido = valor / meses` (arredondado para 2 casas).
-- Quando usuário ainda não tocou no campo, `valorMensalEditado = mensalSugerido` (auto-sincronizado se valor/datas mudarem).
+`src/hooks/useCalendarioServicos.ts`:
+- Adicionar `valor_mensal: number | null` ao tipo `ServicoCalendario` e selecionar no `SELECT`.
+- Na expansão de contratos mensais (linha 239+), atribuir ao chip `valor = valor_mensal ?? (valor / nMeses)` como fallback inteligente, em vez do `valor` total cru.
+- Demais casos: mantém `valor` total atual.
 
-Indicador inverso:
-- `mesesInferidos = valor / valorMensalEditado` (com 1 casa decimal).
-- Aviso amarelo se `mesesInferidos` diverge de `meses` em ≥ 0,5: "Esse valor mensal corresponde a ≈ X,X meses, mas o período definido tem N meses."
+### 3. Edição inline para admin/backoffice
 
-UI (dentro do card do contrato mensal):
+Adicionar um pequeno editor de "Valor mensal" acessível a partir do **modal de detalhes** (`OCDetalhesModal`):
+- Visível apenas se `isBackofficeOrAdmin && contrato_mensal === true`.
+- No card de cabeçalho (já tem valor total), exibir uma linha extra "Valor mensal: R$ X,XX [✏️ editar]".
+- Clicar abre um pequeno input + botão Salvar; faz `update` direto na coluna `valor_mensal`.
+- Após salvar: toast de sucesso e refetch dos detalhes; o calendário recarrega ao reabrir/refresh (já tem botão refresh — ok por agora).
+- Mostrar também a sugestão automática "(sugerido: R$ Y baseado em N meses)" igual ao helper do form.
 
-```text
-┌───────────────────────────────────────────────────┐
-│ Valor mensal do contrato                          │
-│ ┌─────────────────┐                               │
-│ │ R$ 1.250,00     │  Sugerido: R$ 1.250,00 [aplicar]
-│ └─────────────────┘                               │
-│ Equivale a ≈ 12 meses · Total R$ 15.000,00        │
-│ [⚠ se divergir do período]                        │
-└───────────────────────────────────────────────────┘
-```
+### 4. Exibição no Sheet do Dia
+
+`DiaServicosSheet`: quando `s.contrato_mensal`, mostrar o `valor` (que já será o mensal vindo do hook) e abaixo, em texto pequeno, "Total contrato: R$ X" usando uma propriedade extra. Para isso, vou propagar `valor_total` no tipo (= valor original do banco), e o `valor` do chip vira o efetivo (mensal ou total).
 
 ## Detalhes técnicos
 
-**Arquivo único alterado:** `src/components/nova-solicitacao/steps/DetalhesStep.tsx`
+- Migração via tool `supabase` (schema change).
+- Campo nullable, sem CHECK constraint de tempo.
+- Frontend: tipo `ServicoCalendario` ganha `valor_mensal: number | null` e `valor_total: number`. `valor` continua sendo o "valor a exibir no chip/dia".
+- `OCDetalhesModal`: novo bloco de edição (componente local pequeno). Update simples: `supabase.from('solicitacoes').update({ valor_mensal: x }).eq('id', id)`.
+- Sem mudança no fluxo de criação (form continua salvando só o total). Edição é apenas para backoffice/admin no modal.
 
-1. Importar `useState`, `useEffect`, `useMemo` e `differenceInCalendarMonths` de `date-fns`.
-2. Criar componente local `ValorMensalHelper({ valorTotal, dataInicio, dataFim })`:
-   - Estado `valorMensalStr` (string formatada igual aos outros inputs de moeda).
-   - Estado `tocado: boolean` — se falso, sincroniza com sugerido sempre que `valorTotal`/`meses` mudarem.
-   - Usa o mesmo padrão de máscara dos outros campos: `formatCurrency` injetado por prop.
-   - Botão "Aplicar sugestão" reseta `tocado=false` e re-sincroniza.
-3. Renderizar o helper logo abaixo do checkbox "Contrato Mensal", apenas quando `contratoMensal && valorNumerico > 0`.
-4. Passar `formatCurrency` que já está disponível na assinatura do `DetalhesStep`.
+## Preparação para módulo "Contratos"
+
+A coluna `valor_mensal` já fica reusável no futuro módulo. Não criamos tabela nova agora — quando o módulo for desenvolvido, podemos extrair `solicitacoes` com `contrato_mensal = true` para uma view/tabela `contratos`.
 
 ## Fora de escopo
 
-- Persistir `valor_mensal` no banco — não há coluna e o usuário não pediu.
-- Mudar lógica de `parcelas` (continua existindo separadamente para parcelamento financeiro).
-- Alterar exibição em telas de detalhes/calendário.
+- Criar tabela `contratos` agora.
+- Histórico de alterações do `valor_mensal` (pode entrar em `historico_solicitacoes` no futuro se necessário).
+- Edição em massa.

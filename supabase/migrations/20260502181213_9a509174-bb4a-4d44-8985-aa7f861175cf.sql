@@ -1,0 +1,2 @@
+ALTER TABLE public.solicitacoes ADD COLUMN IF NOT EXISTS valor_mensal numeric NULL;
+COMMENT ON COLUMN public.solicitacoes.valor_mensal IS 'Valor da parcela mensal quando contrato_mensal=true. Editável por admin/backoffice. Quando NULL, usa valor/N meses como fallback no calendário.';
