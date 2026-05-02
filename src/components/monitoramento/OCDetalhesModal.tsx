@@ -11,11 +11,14 @@ import { SolicitacaoTimeline } from '@/components/SolicitacaoTimeline';
 import { EMPREENDIMENTO_LABELS, type Empreendimento } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, FileText, DollarSign, Building2, User, FileCheck, Receipt, MessageSquare, AlertTriangle, Scale, Clock } from 'lucide-react';
+import { Loader2, FileText, DollarSign, Building2, User, FileCheck, Receipt, MessageSquare, AlertTriangle, Scale, Clock, Paperclip, Copy } from 'lucide-react';
 import { StageDurationTimeline } from './StageDurationTimeline';
 import { RecentActivitySummary } from '@/components/RecentActivitySummary';
 import { formatBR } from '@/lib/date-utils';
 import { differenceInDays } from 'date-fns';
+import { AnexoCard } from '@/components/AnexoCard';
+import { ANEXO_LABELS } from '@/types';
+import { toast } from '@/hooks/use-toast';
 
 interface OCDetalhesModalProps {
   open: boolean;
@@ -144,6 +147,21 @@ export function OCDetalhesModal({ open, onOpenChange, solicitacaoId, protocolo, 
             <DialogTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
               Detalhes da Solicitação #{protocolo}
+              {protocolo && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={() => {
+                    navigator.clipboard.writeText(protocolo);
+                    toast({ title: 'Copiado', description: protocolo });
+                  }}
+                  title="Copiar protocolo"
+                  aria-label="Copiar protocolo"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+              )}
             </DialogTitle>
             {detalhes && solicitacaoId && (
               <ContextualActions
@@ -215,10 +233,14 @@ export function OCDetalhesModal({ open, onOpenChange, solicitacaoId, protocolo, 
             </div>
 
             <Tabs defaultValue="timeline" className="w-full">
-              <TabsList className="w-full grid grid-cols-5">
+              <TabsList className="w-full grid grid-cols-6">
                 <TabsTrigger value="timeline">Timeline</TabsTrigger>
                 <TabsTrigger value="documentos">
                   Docs ({(detalhes.documentos_emitidos?.length || 0) + (detalhes.documentos_fiscais?.length || 0)})
+                </TabsTrigger>
+                <TabsTrigger value="anexos" className="flex items-center gap-1">
+                  <Paperclip className="h-3.5 w-3.5" />
+                  Anexos ({detalhes.anexos?.length || 0})
                 </TabsTrigger>
                 <TabsTrigger value="mensagens" className="flex items-center gap-1">
                   <MessageSquare className="h-3.5 w-3.5" />
@@ -292,6 +314,39 @@ export function OCDetalhesModal({ open, onOpenChange, solicitacaoId, protocolo, 
 
                 {(!detalhes.documentos_emitidos?.length && !detalhes.documentos_fiscais?.length) && (
                   <p className="text-sm text-muted-foreground text-center py-8">Nenhum documento registrado.</p>
+                )}
+              </TabsContent>
+
+              <TabsContent value="anexos" className="mt-4 space-y-4">
+                {detalhes.anexos && detalhes.anexos.length > 0 ? (
+                  Array.from(
+                    detalhes.anexos.reduce((map, a) => {
+                      const arr = map.get(a.tipo) || [];
+                      arr.push(a);
+                      map.set(a.tipo, arr);
+                      return map;
+                    }, new Map<string, typeof detalhes.anexos>()).entries()
+                  ).map(([tipo, items]) => (
+                    <Card key={tipo}>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm flex items-center gap-2">
+                          <Paperclip className="h-4 w-4" />
+                          {ANEXO_LABELS[tipo] || tipo}
+                          <span className="text-xs text-muted-foreground font-normal">({items.length})</span>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        {items.map((a) => (
+                          <AnexoCard key={a.id} anexo={a} showTipo={false} />
+                        ))}
+                      </CardContent>
+                    </Card>
+                  ))
+                ) : (
+                  <div className="flex flex-col items-center gap-2 py-12 text-muted-foreground">
+                    <Paperclip className="h-10 w-10 opacity-40" />
+                    <p className="text-sm">Nenhum anexo nesta solicitação.</p>
+                  </div>
                 )}
               </TabsContent>
 
