@@ -501,3 +501,191 @@ export function OCDetalhesModal({ open, onOpenChange, solicitacaoId, protocolo, 
     </Dialog>
   );
 }
+
+interface ValorMensalCardProps {
+  solicitacaoId: string;
+  valorTotal: number;
+  valorMensal: number | null;
+  dataInicio: string | null;
+  dataFim: string | null;
+  canEdit: boolean;
+  onSaved: () => void;
+}
+
+function ValorMensalCard({
+  solicitacaoId,
+  valorTotal,
+  valorMensal,
+  dataInicio,
+  dataFim,
+  canEdit,
+  onSaved,
+}: ValorMensalCardProps) {
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [valueStr, setValueStr] = useState<string>(''); // centavos
+
+  // Calcula meses do período
+  const periodoMeses = (() => {
+    if (!dataInicio || !dataFim) return null;
+    try {
+      return Math.max(1, differenceInCalendarMonths(parseISO(dataFim), parseISO(dataInicio)) + 1);
+    } catch {
+      return null;
+    }
+  })();
+  const mesesBase = periodoMeses ?? 12;
+  const sugerido = valorTotal / mesesBase;
+  const efetivo = valorMensal ?? sugerido;
+  const isEstimado = valorMensal == null;
+
+  const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+  const beginEdit = () => {
+    const startVal = valorMensal != null ? Math.round(valorMensal * 100) : Math.round(sugerido * 100);
+    setValueStr(String(startVal));
+    setEditing(true);
+  };
+
+  const formatBRL = (cents: string) => {
+    const n = (parseInt(cents || '0', 10) || 0) / 100;
+    return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  };
+
+  const numericValue = (parseInt(valueStr || '0', 10) || 0) / 100;
+
+  const save = async () => {
+    if (numericValue <= 0) {
+      toast({ title: 'Valor inválido', description: 'Informe um valor mensal maior que zero.', variant: 'destructive' });
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase
+      .from('solicitacoes')
+      .update({ valor_mensal: numericValue })
+      .eq('id', solicitacaoId);
+    setSaving(false);
+    if (error) {
+      toast({ title: 'Erro ao salvar', description: error.message, variant: 'destructive' });
+      return;
+    }
+    toast({ title: 'Valor mensal atualizado', description: fmt(numericValue) });
+    setEditing(false);
+    onSaved();
+  };
+
+  const clear = async () => {
+    setSaving(true);
+    const { error } = await supabase
+      .from('solicitacoes')
+      .update({ valor_mensal: null })
+      .eq('id', solicitacaoId);
+    setSaving(false);
+    if (error) {
+      toast({ title: 'Erro ao limpar', description: error.message, variant: 'destructive' });
+      return;
+    }
+    toast({ title: 'Valor mensal removido', description: 'O calendário voltará a estimar a partir do total.' });
+    setEditing(false);
+    onSaved();
+  };
+
+  const mesesInferidos = numericValue > 0 ? valorTotal / numericValue : 0;
+
+  return (
+    <Card className="mb-4 border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20">
+      <CardContent className="p-3 space-y-2">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2 min-w-0">
+            <CalendarRange className="h-4 w-4 shrink-0 text-blue-700 dark:text-blue-300" />
+            <div className="min-w-0">
+              <p className="text-xs text-blue-900/80 dark:text-blue-200/80">
+                Valor mensal {isEstimado && <span className="italic">(estimado)</span>}
+              </p>
+              {!editing && (
+                <p className="text-base font-bold text-blue-900 dark:text-blue-100 tabular-nums">
+                  {fmt(efetivo)}
+                  <span className="text-xs font-normal text-muted-foreground"> /mês</span>
+                </p>
+              )}
+            </div>
+          </div>
+          {!editing && canEdit && (
+            <Button size="sm" variant="outline" className="h-7 gap-1" onClick={beginEdit}>
+              <Pencil className="h-3.5 w-3.5" />
+              {valorMensal == null ? 'Definir' : 'Editar'}
+            </Button>
+          )}
+        </div>
+
+        {editing && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Input
+                className="bg-background h-8"
+                placeholder="R$ 0,00"
+                value={valueStr ? formatBRL(valueStr) : ''}
+                onChange={(e) => setValueStr(e.target.value.replace(/\D/g, ''))}
+                disabled={saving}
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1 shrink-0"
+                onClick={() => setValueStr(String(Math.round(sugerido * 100)))}
+                disabled={saving}
+                title="Aplicar valor sugerido"
+              >
+                <Wand2 className="h-3.5 w-3.5" />
+                Sugerido
+              </Button>
+              <Button size="sm" className="h-8 gap-1 shrink-0" onClick={save} disabled={saving}>
+                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                Salvar
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-8 w-8 p-0 shrink-0"
+                onClick={() => setEditing(false)}
+                disabled={saving}
+                aria-label="Cancelar"
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Sugerido: <strong>{fmt(sugerido)}</strong>
+              {periodoMeses === null
+                ? ' (estimativa de 12 meses — defina datas)'
+                : ` (total ÷ ${periodoMeses} ${periodoMeses === 1 ? 'mês' : 'meses'} do período)`}
+              {numericValue > 0 && (
+                <> · Equivale a ≈ <strong>{mesesInferidos.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}</strong> meses</>
+              )}
+            </p>
+            {valorMensal != null && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+                onClick={clear}
+                disabled={saving}
+              >
+                Limpar valor manual
+              </Button>
+            )}
+          </div>
+        )}
+
+        {!editing && (
+          <p className="text-[11px] text-muted-foreground">
+            Total: {fmt(valorTotal)} · {periodoMeses ?? '?'} {periodoMeses === 1 ? 'mês' : 'meses'}
+            {isEstimado && (
+              <> · <span className="italic">aparece no calendário como estimativa enquanto não for definido</span></>
+            )}
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
