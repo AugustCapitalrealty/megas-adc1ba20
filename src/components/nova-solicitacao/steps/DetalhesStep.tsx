@@ -1,6 +1,7 @@
-import { format, parseISO } from 'date-fns';
+import { useEffect, useMemo, useState } from 'react';
+import { format, parseISO, differenceInCalendarMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale/pt-BR';
-import { AlertTriangle, Calendar as CalendarIcon } from 'lucide-react';
+import { AlertTriangle, Calendar as CalendarIcon, Wand2 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -157,6 +158,15 @@ export function DetalhesStep({ formState, derived, setters, formatCurrency, hand
             <Checkbox id="contratoMensal" checked={contratoMensal} onCheckedChange={(checked) => handleContratoMensalChange(!!checked)} />
             <Label htmlFor="contratoMensal" className="cursor-pointer">Contrato Mensal</Label>
           </div>
+
+          {contratoMensal && valorNumerico > 0 && (
+            <ValorMensalHelper
+              valorTotal={valorNumerico}
+              dataInicio={dataInicio}
+              dataFim={dataFim}
+              formatCurrency={formatCurrency}
+            />
+          )}
 
           <div>
             <Label>Parcelas (máx. 12)</Label>
