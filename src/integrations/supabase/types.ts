@@ -1097,6 +1097,7 @@ export type Database = {
           user_id: string
           valor: number
           valor_material: number | null
+          valor_mensal: number | null
           valor_servico: number | null
         }
         Insert: {
@@ -1178,6 +1179,7 @@ export type Database = {
           user_id: string
           valor: number
           valor_material?: number | null
+          valor_mensal?: number | null
           valor_servico?: number | null
         }
         Update: {
@@ -1259,6 +1261,7 @@ export type Database = {
           user_id?: string
           valor?: number
           valor_material?: number | null
+          valor_mensal?: number | null
           valor_servico?: number | null
         }
         Relationships: [

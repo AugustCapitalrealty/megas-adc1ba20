@@ -37,6 +37,10 @@ export interface ServicoCalendario {
   cancelamento_pendente: boolean;
   empreendimento: Empreendimento;
   valor: number;
+  /** Valor total do contrato (igual a `valor` quando não é contrato mensal). */
+  valor_total: number;
+  /** Valor mensal definido manualmente (admin/backoffice). null = ainda não informado. */
+  valor_mensal: number | null;
   descricao: string;
   data_execucao_servico: string | null; // YYYY-MM-DD
   data_inicio: string | null;
@@ -127,7 +131,7 @@ export function useCalendarioServicos(opts: {
     setLoading(true);
     try {
       const SELECT =
-        'id, protocolo, status, cancelamento_pendente, empreendimento, valor, descricao, data_execucao_servico, data_inicio, data_fim, tipo_contratacao, contrato_mensal, user_id, fornecedor_id, tipo_entrega';
+        'id, protocolo, status, cancelamento_pendente, empreendimento, valor, valor_mensal, descricao, data_execucao_servico, data_inicio, data_fim, tipo_contratacao, contrato_mensal, user_id, fornecedor_id, tipo_entrega';
 
       const buildBase = () => {
         let q = supabase.from('solicitacoes').select(SELECT);
@@ -194,6 +198,8 @@ export function useCalendarioServicos(opts: {
         cancelamento_pendente: r.cancelamento_pendente || false,
         empreendimento: r.empreendimento,
         valor: Number(r.valor) || 0,
+        valor_total: Number(r.valor) || 0,
+        valor_mensal: r.valor_mensal != null ? Number(r.valor_mensal) : null,
         descricao: r.descricao || '',
         data_execucao_servico: r.data_execucao_servico || null,
         data_inicio: r.data_inicio || null,
@@ -243,11 +249,26 @@ export function useCalendarioServicos(opts: {
         const df = parseISO(s.data_fim!);
         let cursor = startOfMonth(di);
         const lastMonth = startOfMonth(df);
+        // Conta quantos meses o contrato cobre para fallback do valor mensal
+        let nMeses = 0;
+        {
+          let c = startOfMonth(di);
+          while (c <= lastMonth) {
+            nMeses += 1;
+            c = addDays(endOfMonth(c), 1);
+          }
+        }
+        const valorMensalEfetivo =
+          s.valor_mensal != null
+            ? s.valor_mensal
+            : nMeses > 0
+              ? s.valor_total / nMeses
+              : s.valor_total;
         while (cursor <= lastMonth) {
           const anchor = cursor > di ? cursor : di;
           if (anchor > df) break;
           const key = anchor.toISOString().slice(0, 10);
-          push(key, { ...s, posicao: 'unico' });
+          push(key, { ...s, valor: valorMensalEfetivo, posicao: 'unico' });
           cursor = addDays(endOfMonth(cursor), 1); // próximo mês
         }
       } else if (hasRange) {
