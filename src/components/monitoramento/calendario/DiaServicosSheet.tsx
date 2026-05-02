@@ -188,7 +188,19 @@ export function DiaServicosSheet({
                         <div className="flex items-center gap-1 truncate">
                           <Wallet className="h-3 w-3 shrink-0" />
                           {formatCurrency(s.valor)}
+                          {s.contrato_mensal && (
+                            <span className="text-[10px] text-muted-foreground/80">/mês</span>
+                          )}
                         </div>
+                        {s.contrato_mensal && s.valor_total !== s.valor && (
+                          <div className="flex items-center gap-1 truncate col-span-2 text-muted-foreground/80">
+                            <Wallet className="h-3 w-3 shrink-0 opacity-60" />
+                            Total contrato: {formatCurrency(s.valor_total)}
+                            {s.valor_mensal == null && (
+                              <span className="ml-1 text-[10px] italic">(mensal estimado)</span>
+                            )}
+                          </div>
+                        )}
                         <div className="flex items-center gap-1 truncate col-span-2">
                           <User className="h-3 w-3 shrink-0" />
                           {getShortName(s.solicitante_nome)}
