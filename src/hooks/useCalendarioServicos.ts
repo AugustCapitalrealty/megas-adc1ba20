@@ -249,11 +249,26 @@ export function useCalendarioServicos(opts: {
         const df = parseISO(s.data_fim!);
         let cursor = startOfMonth(di);
         const lastMonth = startOfMonth(df);
+        // Conta quantos meses o contrato cobre para fallback do valor mensal
+        let nMeses = 0;
+        {
+          let c = startOfMonth(di);
+          while (c <= lastMonth) {
+            nMeses += 1;
+            c = addDays(endOfMonth(c), 1);
+          }
+        }
+        const valorMensalEfetivo =
+          s.valor_mensal != null
+            ? s.valor_mensal
+            : nMeses > 0
+              ? s.valor_total / nMeses
+              : s.valor_total;
         while (cursor <= lastMonth) {
           const anchor = cursor > di ? cursor : di;
           if (anchor > df) break;
           const key = anchor.toISOString().slice(0, 10);
-          push(key, { ...s, posicao: 'unico' });
+          push(key, { ...s, valor: valorMensalEfetivo, posicao: 'unico' });
           cursor = addDays(endOfMonth(cursor), 1); // próximo mês
         }
       } else if (hasRange) {
