@@ -11,14 +11,15 @@ import { SolicitacaoTimeline } from '@/components/SolicitacaoTimeline';
 import { EMPREENDIMENTO_LABELS, type Empreendimento } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, FileText, DollarSign, Building2, User, FileCheck, Receipt, MessageSquare, AlertTriangle, Scale, Clock, Paperclip, Copy } from 'lucide-react';
+import { Loader2, FileText, DollarSign, Building2, User, FileCheck, Receipt, MessageSquare, AlertTriangle, Scale, Clock, Paperclip, Copy, CalendarRange, Pencil, Check, X, Wand2 } from 'lucide-react';
 import { StageDurationTimeline } from './StageDurationTimeline';
 import { RecentActivitySummary } from '@/components/RecentActivitySummary';
 import { formatBR } from '@/lib/date-utils';
-import { differenceInDays } from 'date-fns';
+import { differenceInCalendarMonths, differenceInDays, parseISO } from 'date-fns';
 import { AnexoCard } from '@/components/AnexoCard';
 import { ANEXO_LABELS } from '@/types';
 import { toast } from '@/hooks/use-toast';
+import { Input } from '@/components/ui/input';
 
 interface OCDetalhesModalProps {
   open: boolean;
