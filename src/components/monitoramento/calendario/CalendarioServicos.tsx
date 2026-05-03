@@ -14,7 +14,7 @@ import {
   ChevronLeft, ChevronRight, Calendar as CalendarIcon, AlertTriangle,
   CalendarDays, Receipt, X, Layers, FileWarning,
   Filter, Repeat, MapPin, Search, LayoutGrid, Rows3, CalendarRange,
-  Maximize2, Minimize2, Inbox,
+  Maximize2, Minimize2, Inbox, Flame,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserEmpreendimentos } from '@/hooks/useUserEmpreendimentos';
@@ -490,6 +490,7 @@ export function CalendarioServicos() {
           onDayClick={handleDayClick}
           onChipClick={handleChipClick}
           densidade={prefs.densidade}
+          heatmap={prefs.heatmap}
         />
       ) : prefs.modo === 'semana' ? (
         <CalendarioSemana
