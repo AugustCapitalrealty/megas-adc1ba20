@@ -66,8 +66,7 @@ const LEGEND_ITEMS: CalendarioStatusVisual[] = [
 const RISCO_VISUAL = new Set<CalendarioStatusVisual>(['previsao_sem_oc_risco', 'atrasado']);
 
 export function CalendarioServicos() {
-  const { user, effectiveProfile, isImpersonating } = useAuth();
-  const { isBackofficeOrAdmin } = useAuth();
+  const { user, effectiveProfile, isImpersonating, isBackofficeOrAdmin } = useAuth();
   const effectiveUserId = isImpersonating ? effectiveProfile?.id : user?.id;
   const { empreendimentos: userEmpreendimentos, loading: loadingEmpreendimentos, hasAllAccess } =
     useUserEmpreendimentos(effectiveUserId);
