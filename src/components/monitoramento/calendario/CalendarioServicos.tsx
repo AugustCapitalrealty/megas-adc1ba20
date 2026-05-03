@@ -224,8 +224,9 @@ export function CalendarioServicos() {
     if (!s.data_execucao_servico || s.data_execucao_servico === newDateISO) return;
     if (!canDragServico(s)) return;
     const oldDate = s.data_execucao_servico;
+    const fmt = (iso: string) => format(new Date(iso + 'T12:00:00'), 'dd/MM/yyyy');
     const ok = window.confirm(
-      `Reagendar #${s.protocolo}\nDe: ${formatDateBR(oldDate)}\nPara: ${formatDateBR(newDateISO)}?`,
+      `Reagendar #${s.protocolo}\nDe: ${fmt(oldDate)}\nPara: ${fmt(newDateISO)}?`,
     );
     if (!ok) return;
     const { error } = await supabase
@@ -242,7 +243,7 @@ export function CalendarioServicos() {
     }
     toast({
       title: 'Reagendado',
-      description: `#${s.protocolo} movido para ${formatDateBR(newDateISO)}.`,
+      description: `#${s.protocolo} movido para ${fmt(newDateISO)}.`,
     });
     refetch();
   };
@@ -260,7 +261,7 @@ export function CalendarioServicos() {
     const rows = items.map(i => [
       i.protocolo,
       i.empreendimento,
-      (i.fornecedor_razao || '').replaceAll('"', '""'),
+      (i.fornecedor_razao || '').split('"').join('""'),
       i.visual,
       String(i.valor ?? 0).replace('.', ','),
     ]);
