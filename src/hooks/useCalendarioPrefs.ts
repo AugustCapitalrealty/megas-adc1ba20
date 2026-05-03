@@ -7,6 +7,7 @@ export interface CalendarioPrefs {
   modo: CalendarioModo;
   densidade: CalendarioDensidade;
   apenasRisco: boolean;
+  heatmap: boolean;
 }
 
 const KEY = 'calendario:prefs:v1';
@@ -15,6 +16,7 @@ const DEFAULTS: CalendarioPrefs = {
   modo: 'mes',
   densidade: 'confortavel',
   apenasRisco: false,
+  heatmap: false,
 };
 
 function read(): CalendarioPrefs {
