@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   startOfMonth,
   endOfMonth,
@@ -25,6 +25,12 @@ interface CalendarioGridProps {
   densidade?: CalendarioDensidade;
   /** Quando true, pinta o fundo de cada dia proporcional ao Σ R$ daquele dia. */
   heatmap?: boolean;
+  /** Habilita drag & drop de chips. */
+  dragEnabled?: boolean;
+  /** Decide, por serviço, se ele pode ser arrastado pelo usuário atual. */
+  canDrag?: (s: ServicoCalendario) => boolean;
+  /** Reagenda um serviço para a data alvo (YYYY-MM-DD). */
+  onReschedule?: (s: ServicoCalendario, newDateISO: string) => void;
 }
 
 const WEEK_LABELS = ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'];
@@ -42,6 +48,9 @@ export function CalendarioGrid({
   onChipClick,
   densidade = 'confortavel',
   heatmap = false,
+  dragEnabled = false,
+  canDrag,
+  onReschedule,
 }: CalendarioGridProps) {
   const days = useMemo(() => {
     const start = startOfWeek(startOfMonth(refMonth), { weekStartsOn: 1 });
@@ -84,6 +93,9 @@ export function CalendarioGrid({
     if (v <= 0) return 0;
     return Math.min(1, Math.sqrt(v / maxTotal));
   };
+
+  const [dragging, setDragging] = useState<ServicoCalendario | null>(null);
+  const [hoverKey, setHoverKey] = useState<string | null>(null);
 
   return (
     <div className="rounded-lg border bg-card" role="grid" aria-label="Calendário de serviços">
@@ -138,6 +150,23 @@ export function CalendarioGrid({
                   onDayClick(d, items);
                 }
               }}
+              onDragOver={(e) => {
+                if (!dragging) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                if (hoverKey !== key) setHoverKey(key);
+              }}
+              onDragLeave={() => {
+                if (hoverKey === key) setHoverKey(null);
+              }}
+              onDrop={(e) => {
+                if (!dragging) return;
+                e.preventDefault();
+                const target = dragging;
+                setHoverKey(null);
+                setDragging(null);
+                onReschedule?.(target, key);
+              }}
               style={heatStyle}
               className={cn(
                 'group relative cursor-pointer border-b border-r p-1.5 text-left transition-colors hover:bg-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:z-10',
@@ -145,6 +174,7 @@ export function CalendarioGrid({
                 !inMonth && 'bg-muted/10 text-muted-foreground/50',
                 isWeekend(d) && inMonth && 'bg-muted/10',
                 today && 'ring-1 ring-inset ring-primary/40',
+                hoverKey === key && 'bg-primary/15 ring-2 ring-inset ring-primary/60',
               )}
             >
               <div className="mb-1 flex items-center justify-between">
@@ -164,7 +194,14 @@ export function CalendarioGrid({
               </div>
               <div className="space-y-0.5">
                 {visible.map(s => (
-                  <ServicoChip key={s.id} servico={s} onClick={onChipClick} />
+                  <ServicoChip
+                    key={s.id}
+                    servico={s}
+                    onClick={onChipClick}
+                    draggable={dragEnabled && (canDrag ? canDrag(s) : true)}
+                    onDragStart={(svc) => setDragging(svc)}
+                    onDragEnd={() => { setDragging(null); setHoverKey(null); }}
+                  />
                 ))}
                 {extra > 0 && (
                   <span

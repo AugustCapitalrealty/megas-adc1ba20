@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Eye, Building2, Wallet, User, Inbox, CalendarRange,
-  ChevronLeft, ChevronRight, Copy, AlertTriangle,
+  ChevronLeft, ChevronRight, Copy, AlertTriangle, ClipboardList, Download,
 } from 'lucide-react';
 import { EMPREENDIMENTO_LABELS } from '@/types';
 import type { ServicoCalendario } from '@/hooks/useCalendarioServicos';
@@ -23,6 +23,8 @@ interface DiaServicosSheetProps {
   servicos: ServicoCalendario[];
   onOpenDetalhes: (s: ServicoCalendario) => void;
   onNavigate?: (newDate: Date) => void;
+  onBulkCopy?: (items: ServicoCalendario[]) => void;
+  onBulkExport?: (date: Date, items: ServicoCalendario[]) => void;
 }
 
 const formatCurrency = (v: number) =>
@@ -60,6 +62,8 @@ export function DiaServicosSheet({
   servicos,
   onOpenDetalhes,
   onNavigate,
+  onBulkCopy,
+  onBulkExport,
 }: DiaServicosSheetProps) {
   const unique = useMemo(
     () => ordenarServicos(Array.from(new Map(servicos.map(s => [s.id, s])).values())),
@@ -143,6 +147,31 @@ export function DiaServicosSheet({
                   {emRisco}
                 </p>
               </div>
+            </div>
+          )}
+
+          {unique.length > 0 && (onBulkCopy || onBulkExport) && (
+            <div className="flex items-center gap-2">
+              {onBulkCopy && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 gap-1 text-xs"
+                  onClick={() => onBulkCopy(unique)}
+                >
+                  <ClipboardList className="h-3.5 w-3.5" /> Copiar protocolos
+                </Button>
+              )}
+              {onBulkExport && date && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 gap-1 text-xs"
+                  onClick={() => onBulkExport(date, unique)}
+                >
+                  <Download className="h-3.5 w-3.5" /> Exportar CSV
+                </Button>
+              )}
             </div>
           )}
         </SheetHeader>

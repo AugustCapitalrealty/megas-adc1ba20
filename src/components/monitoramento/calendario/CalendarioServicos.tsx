@@ -18,6 +18,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserEmpreendimentos } from '@/hooks/useUserEmpreendimentos';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 import { EMPREENDIMENTO_LABELS, type Empreendimento } from '@/types';
 import { SlaKpiCard } from '@/components/sla/SlaKpiCard';
 import {
@@ -64,7 +66,7 @@ const LEGEND_ITEMS: CalendarioStatusVisual[] = [
 const RISCO_VISUAL = new Set<CalendarioStatusVisual>(['previsao_sem_oc_risco', 'atrasado']);
 
 export function CalendarioServicos() {
-  const { user, effectiveProfile, isImpersonating } = useAuth();
+  const { user, effectiveProfile, isImpersonating, isBackofficeOrAdmin } = useAuth();
   const effectiveUserId = isImpersonating ? effectiveProfile?.id : user?.id;
   const { empreendimentos: userEmpreendimentos, loading: loadingEmpreendimentos, hasAllAccess } =
     useUserEmpreendimentos(effectiveUserId);
@@ -97,7 +99,7 @@ export function CalendarioServicos() {
   const [detalhesId, setDetalhesId] = useState<string | null>(null);
   const [detalhesProtocolo, setDetalhesProtocolo] = useState<string | null>(null);
 
-  const { loading, servicos, byDay } = useCalendarioServicos({
+  const { loading, servicos, byDay, refetch } = useCalendarioServicos({
     refMonth,
     userEmpreendimentos,
     hasAllAccess,
@@ -199,6 +201,80 @@ export function CalendarioServicos() {
     const key = format(sheetDate, 'yyyy-MM-dd');
     return filteredByDay.get(key) || [];
   }, [sheetDate, filteredByDay]);
+
+  // ----- Drag & drop: reagendamento -----
+  const STATUS_REAGENDAVEIS = useMemo(
+    () => new Set(['rascunho', 'recebido', 'em_analise', 'aprovado', 'em_processamento']),
+    [],
+  );
+
+  const canDragServico = (s: ServicoCalendario) => {
+    // Sem data única: não dá para reagendar simplesmente movendo (envolve período).
+    if (!s.data_execucao_servico) return false;
+    if (s.contrato_mensal) return false;
+    if (!STATUS_REAGENDAVEIS.has(s.status)) return false;
+    if (s.cancelamento_pendente) return false;
+    if (isBackofficeOrAdmin) return true;
+    // Solicitante: só as próprias.
+    return !!effectiveUserId && s.user_id === effectiveUserId;
+  };
+
+  const handleReschedule = async (s: ServicoCalendario, newDateISO: string) => {
+    if (!s.data_execucao_servico || s.data_execucao_servico === newDateISO) return;
+    if (!canDragServico(s)) return;
+    const oldDate = s.data_execucao_servico;
+    const fmt = (iso: string) => format(new Date(iso + 'T12:00:00'), 'dd/MM/yyyy');
+    const ok = window.confirm(
+      `Reagendar #${s.protocolo}\nDe: ${fmt(oldDate)}\nPara: ${fmt(newDateISO)}?`,
+    );
+    if (!ok) return;
+    const { error } = await supabase
+      .from('solicitacoes')
+      .update({ data_execucao_servico: newDateISO })
+      .eq('id', s.id);
+    if (error) {
+      toast({
+        title: 'Não foi possível reagendar',
+        description: error.message,
+        variant: 'destructive',
+      });
+      return;
+    }
+    toast({
+      title: 'Reagendado',
+      description: `#${s.protocolo} movido para ${fmt(newDateISO)}.`,
+    });
+    refetch();
+  };
+
+  // ----- Ações em lote no sheet do dia -----
+  const handleDayBulkCopy = (items: ServicoCalendario[]) => {
+    const txt = items.map(i => `#${i.protocolo}`).join('\n');
+    navigator.clipboard.writeText(txt).then(() => {
+      toast({ title: 'Protocolos copiados', description: `${items.length} protocolo(s).` });
+    });
+  };
+
+  const handleDayBulkExport = (date: Date, items: ServicoCalendario[]) => {
+    const header = ['Protocolo', 'Empreendimento', 'Fornecedor', 'Status', 'Valor'];
+    const rows = items.map(i => [
+      i.protocolo,
+      i.empreendimento,
+      (i.fornecedor_razao || '').split('"').join('""'),
+      i.visual,
+      String(i.valor ?? 0).replace('.', ','),
+    ]);
+    const csv = [header, ...rows]
+      .map(r => r.map(c => `"${c}"`).join(';'))
+      .join('\n');
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `calendario-${format(date, 'yyyy-MM-dd')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const clearAllFilters = () => {
     setFilterEmpreendimentos(new Set());
@@ -506,6 +582,9 @@ export function CalendarioServicos() {
           onChipClick={handleChipClick}
           densidade={prefs.densidade}
           heatmap={prefs.heatmap}
+          dragEnabled
+          canDrag={canDragServico}
+          onReschedule={handleReschedule}
         />
       ) : prefs.modo === 'semana' ? (
         <CalendarioSemana
@@ -529,6 +608,8 @@ export function CalendarioServicos() {
           handleChipClick(s);
         }}
         onNavigate={(newDate) => setSheetDate(newDate)}
+        onBulkCopy={handleDayBulkCopy}
+        onBulkExport={handleDayBulkExport}
       />
 
       {/* Detalhes */}

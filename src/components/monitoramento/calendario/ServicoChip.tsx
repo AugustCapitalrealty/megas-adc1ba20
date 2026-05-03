@@ -5,8 +5,17 @@ import type {
   ServicoCalendarioDia,
 } from '@/hooks/useCalendarioServicos';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
 import { EMPREENDIMENTO_LABELS } from '@/types';
 import { formatBR } from '@/lib/date-utils';
+import { toast } from '@/hooks/use-toast';
+import { Eye, Copy, GripVertical } from 'lucide-react';
 
 export const VISUAL_LABEL: Record<CalendarioStatusVisual, string> = {
   agendado: 'Agendado',
@@ -80,9 +89,13 @@ const formatCurrency = (v: number) =>
 interface ServicoChipProps {
   servico: ServicoCalendarioDia | ServicoCalendario;
   onClick?: (s: ServicoCalendario) => void;
+  /** Habilita arrastar este chip para outro dia. */
+  draggable?: boolean;
+  onDragStart?: (s: ServicoCalendario, e: React.DragEvent) => void;
+  onDragEnd?: (e: React.DragEvent) => void;
 }
 
-export function ServicoChip({ servico, onClick }: ServicoChipProps) {
+export function ServicoChip({ servico, onClick, draggable, onDragStart, onDragEnd }: ServicoChipProps) {
   const posicao = (servico as ServicoCalendarioDia).posicao ?? 'unico';
   const isMeio = posicao === 'meio';
   const periodo =
@@ -96,48 +109,97 @@ export function ServicoChip({ servico, onClick }: ServicoChipProps) {
     : servico.contrato_mensal ? '↻ '
     : '';
 
+  const copy = (txt: string, label: string) => {
+    navigator.clipboard.writeText(txt).then(() => {
+      toast({ title: 'Copiado', description: `${label}: ${txt}` });
+    });
+  };
+
   return (
-    <TooltipProvider delayDuration={150}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onClick?.(servico);
-            }}
-            onMouseDown={(e) => e.stopPropagation()}
-            className={cn(
-              'w-full truncate rounded text-left transition hover:opacity-90',
-              isMeio
-                ? 'h-3 px-0 py-0 rounded-none cursor-pointer'
-                : 'px-1.5 py-0.5 text-[10px] font-medium',
-              VISUAL_BG[servico.visual],
-              posicao === 'inicio' && 'rounded-r-none',
-              posicao === 'fim' && 'rounded-l-none',
-            )}
-            aria-label={`Abrir detalhes de #${servico.protocolo}`}
-          >
-            {!isMeio && (prefix + (servico.fornecedor_razao || servico.protocolo))}
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="top" className="max-w-[260px] text-xs space-y-1">
-          <div className="font-semibold">#{servico.protocolo}</div>
-          <div className="text-muted-foreground">{EMPREENDIMENTO_LABELS[servico.empreendimento]}</div>
-          <div>{servico.fornecedor_razao || '—'}</div>
-          <div className="flex items-center gap-2">
-            <span className={cn('h-2 w-2 rounded-full', VISUAL_DOT[servico.visual])} />
-            <span>{VISUAL_LABEL[servico.visual]}</span>
-          </div>
-          {periodo && (
-            <div className="text-muted-foreground">
-              {servico.contrato_mensal ? 'Contrato mensal: ' : 'Período: '}{periodo}
-            </div>
-          )}
-          <div className="text-muted-foreground">Valor: {formatCurrency(servico.valor)}</div>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <TooltipProvider delayDuration={150}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                draggable={!!draggable}
+                onDragStart={(e) => {
+                  if (!draggable) return;
+                  e.stopPropagation();
+                  e.dataTransfer.effectAllowed = 'move';
+                  onDragStart?.(servico, e);
+                }}
+                onDragEnd={(e) => {
+                  if (!draggable) return;
+                  onDragEnd?.(e);
+                }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onClick?.(servico);
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
+                className={cn(
+                  'w-full truncate rounded text-left transition hover:opacity-90',
+                  isMeio
+                    ? 'h-3 px-0 py-0 rounded-none cursor-pointer'
+                    : 'px-1.5 py-0.5 text-[10px] font-medium',
+                  draggable && !isMeio && 'cursor-grab active:cursor-grabbing',
+                  VISUAL_BG[servico.visual],
+                  posicao === 'inicio' && 'rounded-r-none',
+                  posicao === 'fim' && 'rounded-l-none',
+                )}
+                aria-label={`Abrir detalhes de #${servico.protocolo}`}
+                title={draggable && !isMeio ? 'Arraste para outro dia para reagendar' : undefined}
+              >
+                {!isMeio && (
+                  <span className="inline-flex w-full items-center gap-1">
+                    {draggable && (
+                      <GripVertical className="h-2.5 w-2.5 shrink-0 opacity-60" />
+                    )}
+                    <span className="truncate">{prefix + (servico.fornecedor_razao || servico.protocolo)}</span>
+                  </span>
+                )}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-[260px] text-xs space-y-1">
+              <div className="font-semibold">#{servico.protocolo}</div>
+              <div className="text-muted-foreground">{EMPREENDIMENTO_LABELS[servico.empreendimento]}</div>
+              <div>{servico.fornecedor_razao || '—'}</div>
+              <div className="flex items-center gap-2">
+                <span className={cn('h-2 w-2 rounded-full', VISUAL_DOT[servico.visual])} />
+                <span>{VISUAL_LABEL[servico.visual]}</span>
+              </div>
+              {periodo && (
+                <div className="text-muted-foreground">
+                  {servico.contrato_mensal ? 'Contrato mensal: ' : 'Período: '}{periodo}
+                </div>
+              )}
+              <div className="text-muted-foreground">Valor: {formatCurrency(servico.valor)}</div>
+              {draggable && (
+                <div className="text-[10px] text-muted-foreground/80 italic pt-0.5">
+                  Dica: arraste para outro dia para reagendar.
+                </div>
+              )}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </ContextMenuTrigger>
+      <ContextMenuContent className="w-52">
+        <ContextMenuItem onSelect={() => onClick?.(servico)} className="gap-2 text-xs">
+          <Eye className="h-3.5 w-3.5" /> Ver detalhes
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem onSelect={() => copy(servico.protocolo, 'Protocolo')} className="gap-2 text-xs">
+          <Copy className="h-3.5 w-3.5" /> Copiar protocolo
+        </ContextMenuItem>
+        {servico.fornecedor_razao && (
+          <ContextMenuItem onSelect={() => copy(servico.fornecedor_razao!, 'Fornecedor')} className="gap-2 text-xs">
+            <Copy className="h-3.5 w-3.5" /> Copiar fornecedor
+          </ContextMenuItem>
+        )}
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }
