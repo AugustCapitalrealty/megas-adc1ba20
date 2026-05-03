@@ -14,7 +14,7 @@ import {
   ChevronLeft, ChevronRight, Calendar as CalendarIcon, AlertTriangle,
   CalendarDays, Receipt, X, Layers, FileWarning,
   Filter, Repeat, MapPin, Search, LayoutGrid, Rows3, CalendarRange,
-  Maximize2, Minimize2, Inbox,
+  Maximize2, Minimize2, Inbox, Flame,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserEmpreendimentos } from '@/hooks/useUserEmpreendimentos';
@@ -334,6 +334,21 @@ export function CalendarioServicos() {
           </Button>
         )}
 
+        {/* Heatmap financeiro — só no modo Mês */}
+        {prefs.modo === 'mes' && (
+          <Button
+            variant={prefs.heatmap ? 'default' : 'outline'}
+            size="sm"
+            className="h-9 gap-1.5"
+            onClick={() => update('heatmap', !prefs.heatmap)}
+            title="Ativa/desativa o mapa de calor financeiro (Σ R$ por dia)"
+            aria-pressed={prefs.heatmap}
+          >
+            <Flame className="h-3.5 w-3.5" />
+            <span className="text-xs">Heatmap R$</span>
+          </Button>
+        )}
+
         {/* Busca */}
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -490,6 +505,7 @@ export function CalendarioServicos() {
           onDayClick={handleDayClick}
           onChipClick={handleChipClick}
           densidade={prefs.densidade}
+          heatmap={prefs.heatmap}
         />
       ) : prefs.modo === 'semana' ? (
         <CalendarioSemana

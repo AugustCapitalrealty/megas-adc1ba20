@@ -23,6 +23,8 @@ interface CalendarioGridProps {
   onDayClick: (date: Date, servicos: ServicoCalendario[]) => void;
   onChipClick: (s: ServicoCalendario) => void;
   densidade?: CalendarioDensidade;
+  /** Quando true, pinta o fundo de cada dia proporcional ao Σ R$ daquele dia. */
+  heatmap?: boolean;
 }
 
 const WEEK_LABELS = ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'];
@@ -39,6 +41,7 @@ export function CalendarioGrid({
   onDayClick,
   onChipClick,
   densidade = 'confortavel',
+  heatmap = false,
 }: CalendarioGridProps) {
   const days = useMemo(() => {
     const start = startOfWeek(startOfMonth(refMonth), { weekStartsOn: 1 });
@@ -55,6 +58,32 @@ export function CalendarioGrid({
   const isCompact = densidade === 'compacto';
   const maxChips = isCompact ? 2 : 4;
   const minH = isCompact ? 'min-h-[80px]' : 'min-h-[120px]';
+
+  // Pré-calcula totais por dia visível e o teto, para escalar o heatmap.
+  const totalsByKey = useMemo(() => {
+    const m = new Map<string, number>();
+    days.forEach(d => {
+      const key = format(d, 'yyyy-MM-dd');
+      const items = byDay.get(key) || [];
+      const total = items.reduce((acc, it) => acc + (it.valor || 0), 0);
+      if (total > 0) m.set(key, total);
+    });
+    return m;
+  }, [days, byDay]);
+
+  const maxTotal = useMemo(() => {
+    let max = 0;
+    totalsByKey.forEach(v => { if (v > max) max = v; });
+    return max;
+  }, [totalsByKey]);
+
+  /** Intensidade 0..1 com escala raiz quadrada para suavizar dias dominantes. */
+  const intensityFor = (key: string) => {
+    if (!heatmap || maxTotal <= 0) return 0;
+    const v = totalsByKey.get(key) || 0;
+    if (v <= 0) return 0;
+    return Math.min(1, Math.sqrt(v / maxTotal));
+  };
 
   return (
     <div className="rounded-lg border bg-card" role="grid" aria-label="Calendário de serviços">
@@ -78,6 +107,11 @@ export function CalendarioGrid({
           const visible = items.slice(0, maxChips);
           const extra = items.length - visible.length;
           const total = items.reduce((acc, it) => acc + (it.valor || 0), 0);
+          const heat = intensityFor(key);
+          // alpha máx 0.32 para não competir com chips; usa primary do tema.
+          const heatStyle = heat > 0
+            ? { backgroundColor: `hsl(var(--primary) / ${(heat * 0.32).toFixed(3)})` }
+            : undefined;
 
           // Segmentos da mini-barra agrupados por status.
           const counts = new Map<string, number>();
@@ -104,6 +138,7 @@ export function CalendarioGrid({
                   onDayClick(d, items);
                 }
               }}
+              style={heatStyle}
               className={cn(
                 'group relative cursor-pointer border-b border-r p-1.5 text-left transition-colors hover:bg-muted/40 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:z-10',
                 minH,
