@@ -583,6 +583,9 @@ export function CalendarioServicos() {
           onChipClick={handleChipClick}
           densidade={prefs.densidade}
           heatmap={prefs.heatmap}
+          dragEnabled
+          canDrag={canDragServico}
+          onReschedule={handleReschedule}
         />
       ) : prefs.modo === 'semana' ? (
         <CalendarioSemana
@@ -606,6 +609,8 @@ export function CalendarioServicos() {
           handleChipClick(s);
         }}
         onNavigate={(newDate) => setSheetDate(newDate)}
+        onBulkCopy={handleDayBulkCopy}
+        onBulkExport={handleDayBulkExport}
       />
 
       {/* Detalhes */}
