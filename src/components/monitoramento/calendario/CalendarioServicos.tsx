@@ -14,7 +14,7 @@ import {
   ChevronLeft, ChevronRight, Calendar as CalendarIcon, AlertTriangle,
   CalendarDays, Receipt, X, Layers, FileWarning,
   Filter, Repeat, MapPin, Search, LayoutGrid, Rows3, CalendarRange,
-  Maximize2, Minimize2, Inbox, Flame,
+  Maximize2, Minimize2, Inbox, Flame, GanttChart, Copy, Download, ExternalLink,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserEmpreendimentos } from '@/hooks/useUserEmpreendimentos';
@@ -31,6 +31,7 @@ import { useCalendarioPrefs } from '@/hooks/useCalendarioPrefs';
 import { CalendarioGrid } from './CalendarioGrid';
 import { CalendarioSemana } from './CalendarioSemana';
 import { CalendarioAgenda } from './CalendarioAgenda';
+import { CalendarioTimeline } from './CalendarioTimeline';
 import { DiaServicosSheet } from './DiaServicosSheet';
 import { OCDetalhesModal } from '@/components/monitoramento/OCDetalhesModal';
 import { VISUAL_DOT, VISUAL_LABEL } from './ServicoChip';
