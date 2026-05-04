@@ -468,6 +468,7 @@ export function CalendarioServicos() {
           <ModoButton active={prefs.modo === 'mes'} onClick={() => update('modo', 'mes')} icon={<LayoutGrid className="h-3.5 w-3.5" />} label="Mês" />
           <ModoButton active={prefs.modo === 'semana'} onClick={() => update('modo', 'semana')} icon={<CalendarRange className="h-3.5 w-3.5" />} label="Semana" />
           <ModoButton active={prefs.modo === 'agenda'} onClick={() => update('modo', 'agenda')} icon={<Rows3 className="h-3.5 w-3.5" />} label="Agenda" />
+          <ModoButton active={prefs.modo === 'timeline'} onClick={() => update('modo', 'timeline')} icon={<GanttChart className="h-3.5 w-3.5" />} label="Timeline" />
         </div>
 
         {/* Densidade — só no modo Mês */}
