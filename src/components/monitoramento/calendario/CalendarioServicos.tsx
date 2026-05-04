@@ -831,7 +831,7 @@ function FilterChip({ label, onClear }: { label: string; onClear: () => void }) 
   );
 }
 
-function CalendarioSkeleton({ modo }: { modo: 'mes' | 'semana' | 'agenda' }) {
+function CalendarioSkeleton({ modo }: { modo: 'mes' | 'semana' | 'agenda' | 'timeline' }) {
   if (modo === 'agenda') {
     return (
       <div className="space-y-3">
@@ -846,6 +846,15 @@ function CalendarioSkeleton({ modo }: { modo: 'mes' | 'semana' | 'agenda' }) {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-7">
         {Array.from({ length: 7 }).map((_, i) => (
           <Skeleton key={i} className="h-44 w-full" />
+        ))}
+      </div>
+    );
+  }
+  if (modo === 'timeline') {
+    return (
+      <div className="space-y-2 rounded-lg border bg-card p-3">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <Skeleton key={i} className="h-7 w-full" />
         ))}
       </div>
     );
