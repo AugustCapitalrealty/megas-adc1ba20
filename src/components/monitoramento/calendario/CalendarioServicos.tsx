@@ -14,7 +14,7 @@ import {
   ChevronLeft, ChevronRight, Calendar as CalendarIcon, AlertTriangle,
   CalendarDays, Receipt, X, Layers, FileWarning,
   Filter, Repeat, MapPin, Search, LayoutGrid, Rows3, CalendarRange,
-  Maximize2, Minimize2, Inbox, Flame,
+  Maximize2, Minimize2, Inbox, Flame, GanttChart, Copy, Download, ExternalLink,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserEmpreendimentos } from '@/hooks/useUserEmpreendimentos';
@@ -31,6 +31,7 @@ import { useCalendarioPrefs } from '@/hooks/useCalendarioPrefs';
 import { CalendarioGrid } from './CalendarioGrid';
 import { CalendarioSemana } from './CalendarioSemana';
 import { CalendarioAgenda } from './CalendarioAgenda';
+import { CalendarioTimeline } from './CalendarioTimeline';
 import { DiaServicosSheet } from './DiaServicosSheet';
 import { OCDetalhesModal } from '@/components/monitoramento/OCDetalhesModal';
 import { VISUAL_DOT, VISUAL_LABEL } from './ServicoChip';
@@ -98,6 +99,17 @@ export function CalendarioServicos() {
   const [sheetDate, setSheetDate] = useState<Date | null>(null);
   const [detalhesId, setDetalhesId] = useState<string | null>(null);
   const [detalhesProtocolo, setDetalhesProtocolo] = useState<string | null>(null);
+
+  // Seleção persistente entre dias (Onda 3): IDs de serviços marcados.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const toggleSelect = (s: ServicoCalendario, _additive: boolean) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(s.id)) next.delete(s.id); else next.add(s.id);
+      return next;
+    });
+  };
+  const clearSelection = () => setSelectedIds(new Set());
 
   const { loading, servicos, byDay, refetch } = useCalendarioServicos({
     refMonth,
@@ -304,6 +316,68 @@ export function CalendarioServicos() {
     else setRefMonth(d => addMonths(d, 1));
   };
 
+  // ----- Ações em lote da seleção persistente -----
+  const selectedServicos = useMemo(
+    () => filteredServicos.filter(s => selectedIds.has(s.id)),
+    [filteredServicos, selectedIds],
+  );
+  const selectedTotal = useMemo(
+    () => selectedServicos.reduce((acc, s) => acc + (s.valor || 0), 0),
+    [selectedServicos],
+  );
+
+  const handleSelectionCopy = () => {
+    if (selectedServicos.length === 0) return;
+    const txt = selectedServicos.map(i => `#${i.protocolo}`).join('\n');
+    navigator.clipboard.writeText(txt).then(() => {
+      toast({
+        title: 'Protocolos copiados',
+        description: `${selectedServicos.length} protocolo(s).`,
+      });
+    });
+  };
+
+  const handleSelectionExport = () => {
+    if (selectedServicos.length === 0) return;
+    const header = ['Protocolo', 'Empreendimento', 'Fornecedor', 'Status', 'Início', 'Fim', 'Execução', 'Valor'];
+    const rows = selectedServicos.map(i => [
+      i.protocolo,
+      i.empreendimento,
+      (i.fornecedor_razao || '').split('"').join('""'),
+      i.visual,
+      i.data_inicio || '',
+      i.data_fim || '',
+      i.data_execucao_servico || '',
+      String(i.valor ?? 0).replace('.', ','),
+    ]);
+    const csv = [header, ...rows]
+      .map(r => r.map(c => `"${c}"`).join(';'))
+      .join('\n');
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `calendario-selecao-${format(new Date(), 'yyyy-MM-dd-HHmm')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleSelectionOpenAll = () => {
+    if (selectedServicos.length === 0) return;
+    const max = 5;
+    if (selectedServicos.length > max) {
+      toast({
+        title: 'Muitos itens',
+        description: `Abrir até ${max} por vez. Você selecionou ${selectedServicos.length}.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+    selectedServicos.forEach(s => {
+      window.open(`/monitoramento?protocolo=${encodeURIComponent(s.protocolo)}`, '_blank');
+    });
+  };
+
   return (
     <div className="space-y-6">
       {/* KPIs */}
@@ -394,6 +468,7 @@ export function CalendarioServicos() {
           <ModoButton active={prefs.modo === 'mes'} onClick={() => update('modo', 'mes')} icon={<LayoutGrid className="h-3.5 w-3.5" />} label="Mês" />
           <ModoButton active={prefs.modo === 'semana'} onClick={() => update('modo', 'semana')} icon={<CalendarRange className="h-3.5 w-3.5" />} label="Semana" />
           <ModoButton active={prefs.modo === 'agenda'} onClick={() => update('modo', 'agenda')} icon={<Rows3 className="h-3.5 w-3.5" />} label="Agenda" />
+          <ModoButton active={prefs.modo === 'timeline'} onClick={() => update('modo', 'timeline')} icon={<GanttChart className="h-3.5 w-3.5" />} label="Timeline" />
         </div>
 
         {/* Densidade — só no modo Mês */}
@@ -593,8 +668,16 @@ export function CalendarioServicos() {
           onDayClick={handleDayClick}
           onChipClick={handleChipClick}
         />
-      ) : (
+      ) : prefs.modo === 'agenda' ? (
         <CalendarioAgenda byDay={filteredByDay} onChipClick={handleChipClick} />
+      ) : (
+        <CalendarioTimeline
+          refMonth={refMonth}
+          servicos={filteredServicos}
+          onChipClick={handleChipClick}
+          selectedIds={selectedIds}
+          onToggleSelect={toggleSelect}
+        />
       )}
 
       {/* Sheet do dia */}
@@ -624,6 +707,33 @@ export function CalendarioServicos() {
         solicitacaoId={detalhesId}
         protocolo={detalhesProtocolo}
       />
+
+      {/* Barra flutuante de seleção persistente */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2">
+          <div className="flex items-center gap-2 rounded-full border bg-popover px-3 py-2 shadow-lg">
+            <Badge variant="secondary" className="h-6 px-2 text-xs">
+              {selectedIds.size} selecionado{selectedIds.size === 1 ? '' : 's'}
+            </Badge>
+            <span className="text-xs text-muted-foreground tabular-nums">
+              Σ {selectedTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}
+            </span>
+            <div className="mx-1 h-5 w-px bg-border" />
+            <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs" onClick={handleSelectionCopy}>
+              <Copy className="h-3.5 w-3.5" /> Copiar
+            </Button>
+            <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs" onClick={handleSelectionExport}>
+              <Download className="h-3.5 w-3.5" /> Exportar CSV
+            </Button>
+            <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs" onClick={handleSelectionOpenAll}>
+              <ExternalLink className="h-3.5 w-3.5" /> Abrir
+            </Button>
+            <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs" onClick={clearSelection}>
+              <X className="h-3.5 w-3.5" /> Limpar
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -721,7 +831,7 @@ function FilterChip({ label, onClear }: { label: string; onClear: () => void }) 
   );
 }
 
-function CalendarioSkeleton({ modo }: { modo: 'mes' | 'semana' | 'agenda' }) {
+function CalendarioSkeleton({ modo }: { modo: 'mes' | 'semana' | 'agenda' | 'timeline' }) {
   if (modo === 'agenda') {
     return (
       <div className="space-y-3">
@@ -736,6 +846,15 @@ function CalendarioSkeleton({ modo }: { modo: 'mes' | 'semana' | 'agenda' }) {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-7">
         {Array.from({ length: 7 }).map((_, i) => (
           <Skeleton key={i} className="h-44 w-full" />
+        ))}
+      </div>
+    );
+  }
+  if (modo === 'timeline') {
+    return (
+      <div className="space-y-2 rounded-lg border bg-card p-3">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <Skeleton key={i} className="h-7 w-full" />
         ))}
       </div>
     );

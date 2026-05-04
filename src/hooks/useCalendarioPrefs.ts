@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-export type CalendarioModo = 'mes' | 'semana' | 'agenda';
+export type CalendarioModo = 'mes' | 'semana' | 'agenda' | 'timeline';
 export type CalendarioDensidade = 'compacto' | 'confortavel';
 
 export interface CalendarioPrefs {
