@@ -316,6 +316,68 @@ export function CalendarioServicos() {
     else setRefMonth(d => addMonths(d, 1));
   };
 
+  // ----- Ações em lote da seleção persistente -----
+  const selectedServicos = useMemo(
+    () => filteredServicos.filter(s => selectedIds.has(s.id)),
+    [filteredServicos, selectedIds],
+  );
+  const selectedTotal = useMemo(
+    () => selectedServicos.reduce((acc, s) => acc + (s.valor || 0), 0),
+    [selectedServicos],
+  );
+
+  const handleSelectionCopy = () => {
+    if (selectedServicos.length === 0) return;
+    const txt = selectedServicos.map(i => `#${i.protocolo}`).join('\n');
+    navigator.clipboard.writeText(txt).then(() => {
+      toast({
+        title: 'Protocolos copiados',
+        description: `${selectedServicos.length} protocolo(s).`,
+      });
+    });
+  };
+
+  const handleSelectionExport = () => {
+    if (selectedServicos.length === 0) return;
+    const header = ['Protocolo', 'Empreendimento', 'Fornecedor', 'Status', 'Início', 'Fim', 'Execução', 'Valor'];
+    const rows = selectedServicos.map(i => [
+      i.protocolo,
+      i.empreendimento,
+      (i.fornecedor_razao || '').split('"').join('""'),
+      i.visual,
+      i.data_inicio || '',
+      i.data_fim || '',
+      i.data_execucao_servico || '',
+      String(i.valor ?? 0).replace('.', ','),
+    ]);
+    const csv = [header, ...rows]
+      .map(r => r.map(c => `"${c}"`).join(';'))
+      .join('\n');
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `calendario-selecao-${format(new Date(), 'yyyy-MM-dd-HHmm')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleSelectionOpenAll = () => {
+    if (selectedServicos.length === 0) return;
+    const max = 5;
+    if (selectedServicos.length > max) {
+      toast({
+        title: 'Muitos itens',
+        description: `Abrir até ${max} por vez. Você selecionou ${selectedServicos.length}.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+    selectedServicos.forEach(s => {
+      window.open(`/monitoramento?protocolo=${encodeURIComponent(s.protocolo)}`, '_blank');
+    });
+  };
+
   return (
     <div className="space-y-6">
       {/* KPIs */}
