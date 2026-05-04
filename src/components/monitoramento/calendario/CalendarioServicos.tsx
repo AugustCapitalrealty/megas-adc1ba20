@@ -100,6 +100,17 @@ export function CalendarioServicos() {
   const [detalhesId, setDetalhesId] = useState<string | null>(null);
   const [detalhesProtocolo, setDetalhesProtocolo] = useState<string | null>(null);
 
+  // Seleção persistente entre dias (Onda 3): IDs de serviços marcados.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const toggleSelect = (s: ServicoCalendario, _additive: boolean) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(s.id)) next.delete(s.id); else next.add(s.id);
+      return next;
+    });
+  };
+  const clearSelection = () => setSelectedIds(new Set());
+
   const { loading, servicos, byDay, refetch } = useCalendarioServicos({
     refMonth,
     userEmpreendimentos,
