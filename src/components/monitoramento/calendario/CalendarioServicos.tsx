@@ -668,8 +668,16 @@ export function CalendarioServicos() {
           onDayClick={handleDayClick}
           onChipClick={handleChipClick}
         />
-      ) : (
+      ) : prefs.modo === 'agenda' ? (
         <CalendarioAgenda byDay={filteredByDay} onChipClick={handleChipClick} />
+      ) : (
+        <CalendarioTimeline
+          refMonth={refMonth}
+          servicos={filteredServicos}
+          onChipClick={handleChipClick}
+          selectedIds={selectedIds}
+          onToggleSelect={toggleSelect}
+        />
       )}
 
       {/* Sheet do dia */}
@@ -699,6 +707,33 @@ export function CalendarioServicos() {
         solicitacaoId={detalhesId}
         protocolo={detalhesProtocolo}
       />
+
+      {/* Barra flutuante de seleção persistente */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2">
+          <div className="flex items-center gap-2 rounded-full border bg-popover px-3 py-2 shadow-lg">
+            <Badge variant="secondary" className="h-6 px-2 text-xs">
+              {selectedIds.size} selecionado{selectedIds.size === 1 ? '' : 's'}
+            </Badge>
+            <span className="text-xs text-muted-foreground tabular-nums">
+              Σ {selectedTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}
+            </span>
+            <div className="mx-1 h-5 w-px bg-border" />
+            <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs" onClick={handleSelectionCopy}>
+              <Copy className="h-3.5 w-3.5" /> Copiar
+            </Button>
+            <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs" onClick={handleSelectionExport}>
+              <Download className="h-3.5 w-3.5" /> Exportar CSV
+            </Button>
+            <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs" onClick={handleSelectionOpenAll}>
+              <ExternalLink className="h-3.5 w-3.5" /> Abrir
+            </Button>
+            <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs" onClick={clearSelection}>
+              <X className="h-3.5 w-3.5" /> Limpar
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
