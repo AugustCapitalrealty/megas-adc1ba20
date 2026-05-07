@@ -345,6 +345,42 @@ export default function Backoffice() {
     setRegistroLoading(true);
     try {
       const numeros: string[] = [];
+
+      // Pré-validar duplicidade de número de OC nesta solicitação
+      const numerosNovos = validDocs.map(d => d.numero.trim());
+      const dupSet = new Set<string>();
+      numerosNovos.forEach((n, i) => {
+        if (numerosNovos.indexOf(n) !== i) dupSet.add(n);
+      });
+      if (dupSet.size > 0) {
+        toast({
+          variant: 'destructive',
+          title: 'Números de OC duplicados',
+          description: `Há números repetidos no formulário: ${[...dupSet].join(', ')}`,
+        });
+        setRegistroLoading(false);
+        return;
+      }
+
+      const { data: existentes, error: existentesError } = await supabase
+        .from('documentos_emitidos')
+        .select('numero_documento')
+        .eq('solicitacao_id', selectedSolicitacao.id)
+        .eq('tipo_documento', 'OC')
+        .in('numero_documento', numerosNovos);
+
+      if (existentesError) throw existentesError;
+
+      if (existentes && existentes.length > 0) {
+        const jaExistem = existentes.map(e => e.numero_documento).join(', ');
+        toast({
+          variant: 'destructive',
+          title: 'OC já registrada',
+          description: `Nº ${jaExistem} já existe(m) nesta solicitação. Use outro número ou remova-a antes de continuar.`,
+        });
+        setRegistroLoading(false);
+        return;
+      }
       
       for (const doc of validDocs) {
         // Upload document
@@ -370,7 +406,11 @@ export default function Backoffice() {
             emitido_por: user.id,
           });
 
-        if (insertError) throw insertError;
+        if (insertError) {
+          // Cleanup do arquivo órfão no storage
+          await supabase.storage.from('documentos-emitidos').remove([filePath]).catch(() => {});
+          throw insertError;
+        }
         numeros.push(doc.numero);
       }
 
@@ -437,12 +477,16 @@ export default function Backoffice() {
       setDetailsOpen(false);
       resetRegistroState();
       fetchSolicitacoes();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error registering OC:', error);
+      let description = error?.message || 'Não foi possível registrar o(s) documento(s)';
+      if (error?.code === '23505') {
+        description = 'Número de OC já cadastrado nesta solicitação. Verifique e tente novamente.';
+      }
       toast({
         variant: 'destructive',
         title: 'Erro ao registrar',
-        description: 'Não foi possível registrar o(s) documento(s)',
+        description,
       });
     } finally {
       setRegistroLoading(false);

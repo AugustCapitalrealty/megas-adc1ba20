@@ -1,78 +1,32 @@
-## Diagnóstico
+## Problema
 
-O usuário **Dionatan Rek** (`megaitajai@capitalrealty.com.br`) consegue **visualizar** a solicitação `#2026000407` (dona: Amanda Alexandre, empreendimento: Mega Itajaí) porque tem acesso ao empreendimento via `user_empreendimentos`. A policy de SELECT em `solicitacoes` libera o acesso por empreendimento, mas as **policies de Storage não acompanharam essa regra** — exigem que `s.user_id = auth.uid()` (dono direto) ou que o usuário seja backoffice/admin.
+Ao tentar registrar a OC **#063787** na solicitação `#2026000274`, o backoffice recebe o erro genérico **"Erro ao registrar — Não foi possível registrar o(s) documento(s)"**.
 
-Resultado: Dionatan vê a OC, vê os anexos, mas o `supabase.storage.from('...').download(...)` falha silenciosamente (RLS bloqueia) e dispara o toast vermelho "Erro ao baixar documento". O mesmo problema afeta:
+A causa raiz está no banco: já existe uma OC `063787` registrada nessa solicitação desde **06/04/2026**. A tabela `documentos_emitidos` tem o constraint:
 
-| Bucket | Policy atual | Problema |
-|---|---|---|
-| `documentos-emitidos` (OC/AC) | `s.user_id = auth.uid()` | Não cobre acesso por empreendimento |
-| `documentos-fiscais` (NF/Boleto) | `(storage.foldername(name))[1] = auth.uid()` | Só o uploader baixa; não cobre dono nem empreendimento |
-| `anexos` (anexos da solicitação) | `user_owns_solicitacao(...)` (só checa dono) | Não cobre acesso por empreendimento |
-
-A função `public.user_can_access_solicitacao(uuid)` já existe e retorna true para: dono, backoffice/admin, ou usuário com vínculo ao empreendimento (incluindo `'todos'`). Vamos reaproveitá-la.
-
-## Plano
-
-### 1. Migração de banco — alinhar Storage RLS com `user_can_access_solicitacao`
-
-Criar migração que:
-
-**Bucket `anexos`** — substituir a policy SELECT existente para usar `user_can_access_solicitacao` em vez de `user_owns_solicitacao`:
-```sql
-DROP POLICY "Users can view anexos files" ON storage.objects;
-CREATE POLICY "Users can view anexos files" ON storage.objects
-FOR SELECT USING (
-  bucket_id = 'anexos'
-  AND user_can_access_solicitacao(((storage.foldername(name))[1])::uuid)
-);
 ```
-(UPDATE/DELETE permanecem restritos ao dono + backoffice — sem mudança.)
-
-**Bucket `documentos-emitidos`** — remover as duas policies redundantes (`Users can download own documentos` e `Users can download their own documents`) e criar uma única que use `user_can_access_solicitacao` via JOIN com `documentos_emitidos`:
-```sql
-DROP POLICY "Users can download own documentos" ON storage.objects;
-DROP POLICY "Users can download their own documents" ON storage.objects;
-CREATE POLICY "Users can download accessible documentos" ON storage.objects
-FOR SELECT USING (
-  bucket_id = 'documentos-emitidos'
-  AND EXISTS (
-    SELECT 1 FROM documentos_emitidos d
-    WHERE d.storage_path = storage.objects.name
-      AND user_can_access_solicitacao(d.solicitacao_id)
-  )
-);
+UNIQUE (solicitacao_id, numero_documento, tipo_documento)
 ```
 
-**Bucket `documentos-fiscais`** — substituir a policy de uploader-only por uma baseada em `documentos_fiscais`:
-```sql
-DROP POLICY "Users can view own fiscal documents" ON storage.objects;
-CREATE POLICY "Users can view accessible fiscal documents" ON storage.objects
-FOR SELECT USING (
-  bucket_id = 'documentos-fiscais'
-  AND EXISTS (
-    SELECT 1 FROM documentos_fiscais df
-    WHERE df.storage_path = storage.objects.name
-      AND user_can_access_solicitacao(df.solicitacao_id)
-  )
-);
-```
+Resultado: o upload do PDF vai para o Storage, mas o `INSERT` falha com violação de unique key (código `23505`). O `try/catch` engole o erro e mostra apenas a mensagem genérica — o usuário não entende o que aconteceu, e fica um arquivo órfão no bucket `documentos-emitidos`.
 
-### 2. Validação
+> Validei pelos dados: a solicitação `e6109425-…-330a39117bc1` (protocolo 2026000274) já possui `OC 063787` em `documentos_emitidos`.
 
-Após a migração, testar manualmente como Dionatan:
-- baixar OC `#064025` da solicitação `2026000407` (deve funcionar)
-- baixar anexos da mesma solicitação (deve funcionar)
-- continuar **sem conseguir** baixar arquivos de empreendimentos aos quais ele não tem vínculo (regressão)
+## Correção (frontend, em `src/pages/Backoffice.tsx`)
 
-Conferir também que o solicitante dono e o backoffice continuam baixando normalmente.
+1. **Pré-validação antes do upload**: antes do loop de upload em `handleRegistrarOCAC`, consultar `documentos_emitidos` por `(solicitacao_id, tipo_documento='OC', numero_documento IN [...])`. Se houver duplicidade, abortar com toast claro:
+   - "OC nº 063787 já registrada nesta solicitação. Use outro número ou remova-a antes de continuar."
+2. **Mensagens de erro detalhadas**: capturar `error.code === '23505'` no catch e exibir mensagem amigável citando o(s) número(s) conflitantes. Para outros erros, exibir `error.message` em vez do texto genérico.
+3. **Cleanup de arquivo órfão**: se o `INSERT` falhar após o upload bem-sucedido, remover o arquivo recém-enviado do bucket `documentos-emitidos` (`supabase.storage.from('documentos-emitidos').remove([filePath])`) para não deixar lixo.
+4. **Logging**: manter `console.error` com o objeto de erro completo para diagnóstico futuro.
 
-### 3. Sem alterações de frontend
+## Fora de escopo
 
-O código de download (`AnexoCard`, `downloadDocumentoEmitido`, `downloadDocumentoFiscal`) já está correto — o problema é exclusivamente de RLS no Storage.
+- Não alterar políticas RLS (verificadas, estão corretas para `is_backoffice_or_admin`).
+- Não alterar o constraint único — ele é desejado.
+- Não mexer no fluxo de NF/AC, apenas no caminho de OC do backoffice.
 
-## Considerações
+## Detalhes técnicos
 
-- **Segurança**: a função `user_can_access_solicitacao` é `SECURITY DEFINER` com `search_path` fixo e já é a fonte da verdade usada na policy SELECT de `solicitacoes`. Aplicá-la ao Storage deixa as duas camadas consistentes — quem vê a linha passa a poder baixar o arquivo, o que é o comportamento esperado.
-- **Escopo de upload/delete**: Não vamos relaxar INSERT/UPDATE/DELETE; apenas SELECT (download). Edição/remoção de anexos continua restrita ao dono e ao backoffice.
-- **Performance**: Os JOINs nas policies usam `storage_path = objects.name` (campo indexado nas tabelas `documentos_emitidos` e `documentos_fiscais`). Sem impacto perceptível.
+- Arquivo único alterado: `src/pages/Backoffice.tsx`, função `handleRegistrarOCAC` (linhas ~338–450).
+- Sem migrations, sem mudanças em edge functions.
