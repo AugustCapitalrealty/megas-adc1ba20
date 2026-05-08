@@ -1,32 +1,20 @@
-## Problema
+## Objetivo
 
-O input "Dias de Garantia" perde o foco a cada tecla digitada — você precisa clicar de novo no campo a cada número.
+No calendário de serviços, ocultar serviços com status visual `cancelado` por padrão (a cor vermelha confunde com "Previsão em risco"). Manter um toggle para reativar a exibição quando o usuário quiser.
 
-## Causa
+## Mudanças
 
-No arquivo `src/components/nova-solicitacao/steps/DetalhesStep.tsx`, o componente `GarantiaBlock` está **declarado dentro** do componente `DetalhesStep`:
+### 1. `src/hooks/useCalendarioPrefs.ts`
+- Adicionar nova preferência persistida `mostrarCancelados: boolean` (default `false`).
 
-```tsx
-export function DetalhesStep(...) {
-  ...
-  const GarantiaBlock = () => ( ... );  // ← recriado a cada render
-  ...
-  return (... <GarantiaBlock /> ...);
-}
-```
+### 2. `src/components/monitoramento/calendario/CalendarioServicos.tsx`
+- No `filteredServicos`, filtrar `s.visual === 'cancelado'` quando `prefs.mostrarCancelados` for `false`.
+- Adicionar um `Switch` "Mostrar cancelados" no painel de filtros/preferências (próximo ao toggle "Apenas em risco" / heatmap), com tooltip explicando que estão ocultos por padrão para evitar confusão visual com "Previsão em risco".
+- Incluir `cancelado` na `LEGEND_ITEMS` apenas quando `mostrarCancelados` estiver ativo (para não poluir a legenda quando ocultos).
+- `clearAllFilters` mantém `mostrarCancelados = false` (estado padrão).
 
-Como `GarantiaBlock` é uma nova referência de função a cada render, o React desmonta e remonta o subárvore inteira sempre que o estado muda (ou seja, a cada tecla). O `<Input>` perde o foco porque é um nó DOM novo.
+## Comportamento esperado
 
-## Correção
-
-Mover `GarantiaBlock` para **fora** de `DetalhesStep`, transformando-o em um componente próprio que recebe via props apenas o que precisa:
-
-- `tipoGarantia`, `diasGarantia`, `diasGarantiaServico`, `diasGarantiaProduto`
-- setters: `setTipoGarantia`, `setDiasGarantia`, `setDiasGarantiaServico`, `setDiasGarantiaProduto`
-
-Assim o componente mantém identidade estável entre renders e o input preserva o foco.
-
-## Escopo
-
-- Arquivo único: `src/components/nova-solicitacao/steps/DetalhesStep.tsx`
-- Apenas refator de estrutura (extrair `GarantiaBlock` para fora do componente pai). Nenhuma mudança visual, de validação ou de lógica de negócio.
+- Ao abrir o calendário, serviços cancelados não aparecem nos chips, agenda, semana, timeline ou sheet do dia.
+- Ativando o switch "Mostrar cancelados", os chips cinza-vermelhos voltam a aparecer e a legenda inclui o item `Cancelado`.
+- A preferência é persistida em `localStorage` (mesmo mecanismo dos outros prefs).

@@ -8,6 +8,7 @@ export interface CalendarioPrefs {
   densidade: CalendarioDensidade;
   apenasRisco: boolean;
   heatmap: boolean;
+  mostrarCancelados: boolean;
 }
 
 const KEY = 'calendario:prefs:v1';
@@ -17,6 +18,7 @@ const DEFAULTS: CalendarioPrefs = {
   densidade: 'confortavel',
   apenasRisco: false,
   heatmap: false,
+  mostrarCancelados: false,
 };
 
 function read(): CalendarioPrefs {

@@ -52,7 +52,7 @@ function getCategoria(s: { contrato_mensal: boolean; data_inicio: string | null;
   return 'pontual';
 }
 
-const LEGEND_ITEMS: CalendarioStatusVisual[] = [
+const LEGEND_ITEMS_BASE: CalendarioStatusVisual[] = [
   'agendado',
   'oc_enviada',
   'oc_nao_liberada',
@@ -126,6 +126,7 @@ export function CalendarioServicos() {
       if (statusFilters.size > 0 && !statusFilters.has(s.visual)) return false;
       if (categoriaFilters.size > 0 && !categoriaFilters.has(getCategoria(s))) return false;
       if (prefs.apenasRisco && !RISCO_VISUAL.has(s.visual)) return false;
+      if (!prefs.mostrarCancelados && s.visual === 'cancelado') return false;
       if (searchDebounced) {
         const hay = `${s.protocolo} ${s.fornecedor_razao || ''} ${s.solicitante_nome || ''}`.toLowerCase();
         if (!hay.includes(searchDebounced)) return false;
@@ -149,7 +150,7 @@ export function CalendarioServicos() {
       if (kpiFilter === 'sem_oc_risco' && s.visual !== 'previsao_sem_oc_risco') return false;
       return true;
     });
-  }, [servicos, filterEmpreendimentos, statusFilters, categoriaFilters, kpiFilter, prefs.apenasRisco, searchDebounced]);
+  }, [servicos, filterEmpreendimentos, statusFilters, categoriaFilters, kpiFilter, prefs.apenasRisco, prefs.mostrarCancelados, searchDebounced]);
 
   const filteredByDay = useMemo(() => {
     const ids = new Set(filteredServicos.map(s => s.id));
@@ -294,13 +295,19 @@ export function CalendarioServicos() {
     setStatusFilters(new Set());
     setCategoriaFilters(new Set());
     update('apenasRisco', false);
+    update('mostrarCancelados', false);
     setSearch('');
   };
 
   const hasActiveFilters =
     filterEmpreendimentos.size > 0 || kpiFilter !== 'todos' ||
     statusFilters.size > 0 || categoriaFilters.size > 0 ||
-    prefs.apenasRisco || !!searchDebounced;
+    prefs.apenasRisco || prefs.mostrarCancelados || !!searchDebounced;
+
+  const legendItems = useMemo<CalendarioStatusVisual[]>(
+    () => prefs.mostrarCancelados ? [...LEGEND_ITEMS_BASE, 'cancelado'] : LEGEND_ITEMS_BASE,
+    [prefs.mostrarCancelados],
+  );
 
   // Header de navegação dependente do modo
   const headerLabel = prefs.modo === 'semana'
@@ -536,7 +543,7 @@ export function CalendarioServicos() {
           label="Status"
           allLabel="Todos os status"
           selected={statusFilters as Set<string>}
-          options={LEGEND_ITEMS.map(v => ({ value: v, label: VISUAL_LABEL[v], dot: VISUAL_DOT[v] }))}
+          options={legendItems.map(v => ({ value: v, label: VISUAL_LABEL[v], dot: VISUAL_DOT[v] }))}
           onToggle={(v) => toggleSet(setStatusFilters, v as CalendarioStatusVisual)}
           onClear={() => setStatusFilters(new Set())}
         />
@@ -567,6 +574,22 @@ export function CalendarioServicos() {
           </Label>
         </div>
 
+        {/* Mostrar cancelados (oculto por padrão para evitar confusão visual com 'em risco') */}
+        <div
+          className="flex items-center gap-2 rounded-md border px-3 h-9"
+          title="Cancelados ficam ocultos por padrão para não se confundir visualmente com 'Previsão em risco'."
+        >
+          <Switch
+            id="mostrar-cancelados"
+            checked={prefs.mostrarCancelados}
+            onCheckedChange={(v) => update('mostrarCancelados', v)}
+          />
+          <Label htmlFor="mostrar-cancelados" className="text-xs cursor-pointer flex items-center gap-1">
+            <X className="h-3.5 w-3.5 text-muted-foreground" />
+            Mostrar cancelados
+          </Label>
+        </div>
+
         {hasActiveFilters && (
           <Button
             variant="ghost"
@@ -591,6 +614,9 @@ export function CalendarioServicos() {
           )}
           {prefs.apenasRisco && (
             <FilterChip label="Apenas em risco" onClear={() => update('apenasRisco', false)} />
+          )}
+          {prefs.mostrarCancelados && (
+            <FilterChip label="Mostrando cancelados" onClear={() => update('mostrarCancelados', false)} />
           )}
           {kpiFilter !== 'todos' && (
             <FilterChip label={`KPI: ${kpiFilter}`} onClear={() => setKpiFilter('todos')} />
@@ -628,7 +654,7 @@ export function CalendarioServicos() {
         </CardHeader>
         <CardContent className="pt-0">
           <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs">
-            {LEGEND_ITEMS.map(v => (
+            {legendItems.map(v => (
               <span key={v} className="flex items-center gap-1.5">
                 <span className={cn('h-2 w-2 rounded-full', VISUAL_DOT[v])} />
                 <span className="text-muted-foreground">{VISUAL_LABEL[v]}</span>
