@@ -41,39 +41,6 @@ export function DetalhesStep({ formState, derived, setters, formatCurrency, hand
   } = formState;
   const { isAC, isOC, isOCAbove1000, valorNumerico, valorServicoNumerico, valorMaterialNumerico, instrumentoJuridico } = derived;
 
-  // Garantia block (shared between AC and OC)
-  const GarantiaBlock = () => (
-    <div className="p-3 rounded-lg border bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 space-y-3">
-      <Label className="text-amber-800 dark:text-amber-200">Tipo de Garantia</Label>
-      <Select value={tipoGarantia} onValueChange={(v) => setters.setTipoGarantia(v as TipoGarantia)}>
-        <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
-        <SelectContent>
-          {Object.entries(TIPO_GARANTIA_LABELS).map(([value, label]) => (
-            <SelectItem key={value} value={value}>{label}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      {tipoGarantia !== 'nenhuma' && tipoGarantia !== 'ambos' && (
-        <div>
-          <Label className="text-amber-800 dark:text-amber-200">Dias de Garantia</Label>
-          <Input type="number" value={diasGarantia} onChange={(e) => setters.setDiasGarantia(e.target.value)} placeholder="Ex: 90" className="bg-background" />
-        </div>
-      )}
-      {tipoGarantia === 'ambos' && (
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label className="text-amber-800 dark:text-amber-200">Dias de Garantia (Serviço)</Label>
-            <Input type="number" value={diasGarantiaServico} onChange={(e) => setters.setDiasGarantiaServico(e.target.value)} placeholder="Ex: 90" className="bg-background" />
-          </div>
-          <div>
-            <Label className="text-amber-800 dark:text-amber-200">Dias de Garantia (Produto)</Label>
-            <Input type="number" value={diasGarantiaProduto} onChange={(e) => setters.setDiasGarantiaProduto(e.target.value)} placeholder="Ex: 365" className="bg-background" />
-          </div>
-        </div>
-      )}
-    </div>
-  );
-
   return (
     <div className="space-y-4">
       {/* Natureza Orçamentária */}
@@ -235,12 +202,32 @@ export function DetalhesStep({ formState, derived, setters, formatCurrency, hand
             </Label>
           </div>
 
-          <GarantiaBlock />
+          <GarantiaBlock
+            tipoGarantia={tipoGarantia}
+            diasGarantia={diasGarantia}
+            diasGarantiaServico={diasGarantiaServico}
+            diasGarantiaProduto={diasGarantiaProduto}
+            setTipoGarantia={setters.setTipoGarantia}
+            setDiasGarantia={setters.setDiasGarantia}
+            setDiasGarantiaServico={setters.setDiasGarantiaServico}
+            setDiasGarantiaProduto={setters.setDiasGarantiaProduto}
+          />
         </>
       )}
 
       {/* OC Garantia */}
-      {isOC && <GarantiaBlock />}
+      {isOC && (
+        <GarantiaBlock
+          tipoGarantia={tipoGarantia}
+          diasGarantia={diasGarantia}
+          diasGarantiaServico={diasGarantiaServico}
+          diasGarantiaProduto={diasGarantiaProduto}
+          setTipoGarantia={setters.setTipoGarantia}
+          setDiasGarantia={setters.setDiasGarantia}
+          setDiasGarantiaServico={setters.setDiasGarantiaServico}
+          setDiasGarantiaProduto={setters.setDiasGarantiaProduto}
+        />
+      )}
 
       {/* Escopo Detalhado */}
       <EscopoDetalhadoField instrumentoJuridico={instrumentoJuridico} escopo={escopoDetalhadoMinuta} onEscopoChange={setters.setEscopoDetalhadoMinuta} />
@@ -258,6 +245,54 @@ export function DetalhesStep({ formState, derived, setters, formatCurrency, hand
 
       {/* Retenção Técnica */}
       <RetencaoTecnicaAlert instrumentoJuridico={instrumentoJuridico} valorNumerico={valorNumerico} dataInicio={dataInicio} dataFim={dataFim} />
+    </div>
+  );
+}
+
+interface GarantiaBlockProps {
+  tipoGarantia: TipoGarantia;
+  diasGarantia: string;
+  diasGarantiaServico: string;
+  diasGarantiaProduto: string;
+  setTipoGarantia: (v: TipoGarantia) => void;
+  setDiasGarantia: (v: string) => void;
+  setDiasGarantiaServico: (v: string) => void;
+  setDiasGarantiaProduto: (v: string) => void;
+}
+
+function GarantiaBlock({
+  tipoGarantia, diasGarantia, diasGarantiaServico, diasGarantiaProduto,
+  setTipoGarantia, setDiasGarantia, setDiasGarantiaServico, setDiasGarantiaProduto,
+}: GarantiaBlockProps) {
+  return (
+    <div className="p-3 rounded-lg border bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 space-y-3">
+      <Label className="text-amber-800 dark:text-amber-200">Tipo de Garantia</Label>
+      <Select value={tipoGarantia} onValueChange={(v) => setTipoGarantia(v as TipoGarantia)}>
+        <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          {Object.entries(TIPO_GARANTIA_LABELS).map(([value, label]) => (
+            <SelectItem key={value} value={value}>{label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {tipoGarantia !== 'nenhuma' && tipoGarantia !== 'ambos' && (
+        <div>
+          <Label className="text-amber-800 dark:text-amber-200">Dias de Garantia</Label>
+          <Input type="number" value={diasGarantia} onChange={(e) => setDiasGarantia(e.target.value)} placeholder="Ex: 90" className="bg-background" />
+        </div>
+      )}
+      {tipoGarantia === 'ambos' && (
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label className="text-amber-800 dark:text-amber-200">Dias de Garantia (Serviço)</Label>
+            <Input type="number" value={diasGarantiaServico} onChange={(e) => setDiasGarantiaServico(e.target.value)} placeholder="Ex: 90" className="bg-background" />
+          </div>
+          <div>
+            <Label className="text-amber-800 dark:text-amber-200">Dias de Garantia (Produto)</Label>
+            <Input type="number" value={diasGarantiaProduto} onChange={(e) => setDiasGarantiaProduto(e.target.value)} placeholder="Ex: 365" className="bg-background" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
