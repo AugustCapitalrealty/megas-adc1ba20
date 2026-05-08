@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Minus, Plus } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -168,17 +169,11 @@ export function DetalhesStep({ formState, derived, setters, formatCurrency, hand
             />
           )}
 
-          <div>
-            <Label>Parcelas (máx. 12)</Label>
-            <Select value={parcelas} onValueChange={setters.setParcelas}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {[...Array(12)].map((_, i) => (
-                  <SelectItem key={i + 1} value={String(i + 1)}>{i + 1}x</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <ParcelasField
+            parcelas={parcelas}
+            setParcelas={setters.setParcelas}
+            valorTotal={valorNumerico}
+          />
 
           <div className="space-y-2">
             <div className="flex items-center space-x-2">
