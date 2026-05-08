@@ -302,7 +302,12 @@ export function CalendarioServicos() {
   const hasActiveFilters =
     filterEmpreendimentos.size > 0 || kpiFilter !== 'todos' ||
     statusFilters.size > 0 || categoriaFilters.size > 0 ||
-    prefs.apenasRisco || !!searchDebounced;
+    prefs.apenasRisco || prefs.mostrarCancelados || !!searchDebounced;
+
+  const legendItems = useMemo<CalendarioStatusVisual[]>(
+    () => prefs.mostrarCancelados ? [...LEGEND_ITEMS_BASE, 'cancelado'] : LEGEND_ITEMS_BASE,
+    [prefs.mostrarCancelados],
+  );
 
   // Header de navegação dependente do modo
   const headerLabel = prefs.modo === 'semana'
