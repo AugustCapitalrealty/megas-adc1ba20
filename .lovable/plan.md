@@ -1,32 +1,44 @@
-## Problema
+## Objetivo
 
-Ao tentar registrar a OC **#063787** na solicitação `#2026000274`, o backoffice recebe o erro genérico **"Erro ao registrar — Não foi possível registrar o(s) documento(s)"**.
+Remover o limite de 12 parcelas no wizard de Nova Solicitação (AC) e melhorar a UI/UX do campo, trocando o `Select` por um `Input` numérico com controles e feedback visual.
 
-A causa raiz está no banco: já existe uma OC `063787` registrada nessa solicitação desde **06/04/2026**. A tabela `documentos_emitidos` tem o constraint:
+## Mudanças
 
+### 1. `src/components/nova-solicitacao/steps/DetalhesStep.tsx`
+
+Substituir o bloco atual:
+
+```tsx
+<Label>Parcelas (máx. 12)</Label>
+<Select value={parcelas} onValueChange={setters.setParcelas}>
+  <SelectTrigger>...</SelectTrigger>
+  <SelectContent>
+    {[...Array(12)].map(...)}
+  </SelectContent>
+</Select>
 ```
-UNIQUE (solicitacao_id, numero_documento, tipo_documento)
-```
 
-Resultado: o upload do PDF vai para o Storage, mas o `INSERT` falha com violação de unique key (código `23505`). O `try/catch` engole o erro e mostra apenas a mensagem genérica — o usuário não entende o que aconteceu, e fica um arquivo órfão no bucket `documentos-emitidos`.
+Por um novo componente `<ParcelasField>` com:
 
-> Validei pelos dados: a solicitação `e6109425-…-330a39117bc1` (protocolo 2026000274) já possui `OC 063787` em `documentos_emitidos`.
+- **Input numérico** (`type="number"`, `min=1`, sem `max`) — aceita qualquer quantidade de parcelas.
+- **Botões `-` / `+`** ao lado do input para incrementar/decrementar (UX de stepper).
+- **Atalhos rápidos** (chips): `1x`, `3x`, `6x`, `12x`, `24x`, `36x` para os casos mais comuns.
+- **Helper dinâmico** abaixo do input: mostra o valor de cada parcela calculado a partir do `valorNumerico` (ex.: "12x de R$ 1.250,00") ou "À vista" quando 1x.
+- **Validação suave**: se o usuário digitar `0` ou vazio, normaliza para `1`. Sem teto rígido, mas exibe um aviso discreto (texto âmbar) quando passar de 60 parcelas: "Confirme se realmente são X parcelas".
+- Mantém o estado como string (compatível com `setters.setParcelas` atual) para não tocar no hook `useNovaSolicitacaoForm`.
 
-## Correção (frontend, em `src/pages/Backoffice.tsx`)
+### 2. Layout / estilo
 
-1. **Pré-validação antes do upload**: antes do loop de upload em `handleRegistrarOCAC`, consultar `documentos_emitidos` por `(solicitacao_id, tipo_documento='OC', numero_documento IN [...])`. Se houver duplicidade, abortar com toast claro:
-   - "OC nº 063787 já registrada nesta solicitação. Use outro número ou remova-a antes de continuar."
-2. **Mensagens de erro detalhadas**: capturar `error.code === '23505'` no catch e exibir mensagem amigável citando o(s) número(s) conflitantes. Para outros erros, exibir `error.message` em vez do texto genérico.
-3. **Cleanup de arquivo órfão**: se o `INSERT` falhar após o upload bem-sucedido, remover o arquivo recém-enviado do bucket `documentos-emitidos` (`supabase.storage.from('documentos-emitidos').remove([filePath])`) para não deixar lixo.
-4. **Logging**: manter `console.error` com o objeto de erro completo para diagnóstico futuro.
+- Usar tokens do design system (sem cores hardcoded): `bg-muted/30`, `border-input`, chips como `Button variant="outline" size="sm"`.
+- Container com `rounded-lg border p-3 space-y-2`, alinhado aos demais blocos do step (Garantia, Faturamento Direto).
+- Acessibilidade: `aria-label` nos botões `+`/`-`, `htmlFor` no label.
 
 ## Fora de escopo
 
-- Não alterar políticas RLS (verificadas, estão corretas para `is_backoffice_or_admin`).
-- Não alterar o constraint único — ele é desejado.
-- Não mexer no fluxo de NF/AC, apenas no caminho de OC do backoffice.
+- Não alterar o schema do banco (coluna `parcelas integer` já aceita qualquer valor).
+- Não mexer em validações de submit nem no hook `useNovaSolicitacaoForm`.
+- Não tocar em outros formulários.
 
-## Detalhes técnicos
+## Arquivos alterados
 
-- Arquivo único alterado: `src/pages/Backoffice.tsx`, função `handleRegistrarOCAC` (linhas ~338–450).
-- Sem migrations, sem mudanças em edge functions.
+- `src/components/nova-solicitacao/steps/DetalhesStep.tsx` (único)

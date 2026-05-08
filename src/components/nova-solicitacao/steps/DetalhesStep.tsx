@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Minus, Plus } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -168,17 +169,11 @@ export function DetalhesStep({ formState, derived, setters, formatCurrency, hand
             />
           )}
 
-          <div>
-            <Label>Parcelas (máx. 12)</Label>
-            <Select value={parcelas} onValueChange={setters.setParcelas}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {[...Array(12)].map((_, i) => (
-                  <SelectItem key={i + 1} value={String(i + 1)}>{i + 1}x</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <ParcelasField
+            parcelas={parcelas}
+            setParcelas={setters.setParcelas}
+            valorTotal={valorNumerico}
+          />
 
           <div className="space-y-2">
             <div className="flex items-center space-x-2">
@@ -360,6 +355,102 @@ function ValorMensalHelper({ valorTotal, dataInicio, dataFim, formatCurrency }: 
       <p className="text-[10px] text-muted-foreground italic">
         Auxiliar — o valor salvo na solicitação continua sendo o total ({valorTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}).
       </p>
+    </div>
+  );
+}
+
+interface ParcelasFieldProps {
+  parcelas: string;
+  setParcelas: (v: string) => void;
+  valorTotal: number;
+}
+
+const PARCELAS_PRESETS = [1, 3, 6, 12, 24, 36];
+
+function ParcelasField({ parcelas, setParcelas, valorTotal }: ParcelasFieldProps) {
+  const n = Math.max(1, parseInt(parcelas || '1', 10) || 1);
+  const valorParcela = valorTotal > 0 ? valorTotal / n : 0;
+  const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+  const set = (v: number) => setParcelas(String(Math.max(1, Math.floor(v))));
+
+  return (
+    <div className="rounded-lg border bg-muted/30 p-3 space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <Label htmlFor="parcelas-input">Parcelas</Label>
+        <span className="text-[11px] text-muted-foreground">Sem limite</span>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          aria-label="Diminuir parcelas"
+          onClick={() => set(n - 1)}
+          disabled={n <= 1}
+          className="shrink-0"
+        >
+          <Minus className="h-4 w-4" />
+        </Button>
+        <div className="relative flex-1">
+          <Input
+            id="parcelas-input"
+            type="number"
+            min={1}
+            inputMode="numeric"
+            value={parcelas}
+            onChange={(e) => setParcelas(e.target.value.replace(/\D/g, ''))}
+            onBlur={() => { if (!parcelas || parseInt(parcelas, 10) < 1) setParcelas('1'); }}
+            className="bg-background text-center pr-8 font-medium"
+          />
+          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">x</span>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          aria-label="Aumentar parcelas"
+          onClick={() => set(n + 1)}
+          className="shrink-0"
+        >
+          <Plus className="h-4 w-4" />
+        </Button>
+      </div>
+
+      <div className="flex flex-wrap gap-1.5">
+        {PARCELAS_PRESETS.map((p) => (
+          <Button
+            key={p}
+            type="button"
+            variant={n === p ? 'default' : 'outline'}
+            size="sm"
+            className="h-7 px-2.5 text-xs"
+            onClick={() => set(p)}
+          >
+            {p}x
+          </Button>
+        ))}
+      </div>
+
+      <p className="text-xs text-muted-foreground">
+        {n === 1 ? (
+          <>À vista{valorTotal > 0 && <> · <strong className="text-foreground">{fmt(valorTotal)}</strong></>}</>
+        ) : valorTotal > 0 ? (
+          <><strong className="text-foreground">{n}x</strong> de <strong className="text-foreground">{fmt(valorParcela)}</strong> · Total {fmt(valorTotal)}</>
+        ) : (
+          <>Informe o valor total para ver o valor de cada parcela.</>
+        )}
+      </p>
+
+      {n > 60 && (
+        <Alert className="bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 py-2">
+          <AlertTriangle className="h-4 w-4 text-amber-700 dark:text-amber-300" />
+          <AlertDescription className="text-amber-900 dark:text-amber-200 text-xs">
+            Confirme se realmente são {n} parcelas — valor acima do usual.
+          </AlertDescription>
+        </Alert>
+      )}
     </div>
   );
 }
