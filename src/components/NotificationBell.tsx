@@ -95,7 +95,7 @@ export function NotificationBell() {
     if (!user) return;
 
     const channel = supabase
-      .channel('notifications')
+      .channel(`notifications:${user.id}`)
       .on(
         'postgres_changes',
         {
@@ -113,7 +113,7 @@ export function NotificationBell() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, queryClient]);
+  }, [user?.id, queryClient]);
 
   const markAsRead = useCallback(async (notificationId: string) => {
     await supabase
