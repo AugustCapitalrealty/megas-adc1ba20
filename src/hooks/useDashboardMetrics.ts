@@ -80,14 +80,22 @@ export function useDashboardMetrics(viewMode: ViewMode = 'minhas', effectiveUser
         query = query.eq('user_id', targetUserId!);
       }
 
-      query = query.limit(1000);
-
-      const { data, error } = await query;
-      if (error) {
-        console.error('[DashboardMetrics] Query error:', error);
-        throw error;
+      // Paginação em lote para evitar truncamento silencioso no limite default do PostgREST.
+      // Hard-cap de segurança em 20.000 linhas para não travar o dashboard em volumes anômalos.
+      const PAGE = 1000;
+      const HARD_CAP = 20000;
+      const all: any[] = [];
+      for (let from = 0; from < HARD_CAP; from += PAGE) {
+        const { data, error } = await query.range(from, from + PAGE - 1);
+        if (error) {
+          console.error('[DashboardMetrics] Query error:', error);
+          throw error;
+        }
+        if (!data || data.length === 0) break;
+        all.push(...data);
+        if (data.length < PAGE) break;
       }
-      return data;
+      return all;
     },
     enabled: !!targetUserId && !loadingEmp,
     staleTime: 120_000,
@@ -97,22 +105,43 @@ export function useDashboardMetrics(viewMode: ViewMode = 'minhas', effectiveUser
   const { data: justificativasData, isLoading: loadingJust } = useQuery({
     queryKey: ['dashboard-justificativas-pendentes', targetUserId, empreendimentos],
     queryFn: async () => {
-      // Fetch OCs with their solicitacoes
-      const { data: ocs, error } = await supabase
+      // Janela: a regra só pendencia OCs de meses anteriores (sempre) ou do mês atual a partir do dia 23.
+      // Limitamos a 12 meses para evitar baixar histórico irrelevante.
+      const today = new Date();
+      const dayOfMonth = today.getDate();
+      const cutoffStart = new Date(today.getFullYear(), today.getMonth() - 12, 1).toISOString();
+      const cutoffEnd = dayOfMonth >= 23
+        ? today.toISOString()
+        : new Date(today.getFullYear(), today.getMonth(), 1).toISOString();
+
+      // Filtra por empreendimento server-side via join !inner quando o usuário não tem acesso global.
+      const useInnerFilter = !hasAllAccess && empreendimentos.length > 0;
+      const joinSelect = useInnerFilter
+        ? 'solicitacoes!documentos_emitidos_solicitacao_id_fkey!inner(user_id, status, natureza_orcamentaria, empreendimento)'
+        : 'solicitacoes!documentos_emitidos_solicitacao_id_fkey(user_id, status, natureza_orcamentaria, empreendimento)';
+
+      let ocsQuery = supabase
         .from('documentos_emitidos')
-        .select('id, solicitacao_id, created_at, solicitacoes!documentos_emitidos_solicitacao_id_fkey(user_id, status, natureza_orcamentaria, empreendimento)')
-        .eq('tipo_documento', 'OC');
+        .select(`id, solicitacao_id, created_at, ${joinSelect}`)
+        .eq('tipo_documento', 'OC')
+        .gte('created_at', cutoffStart)
+        .lt('created_at', cutoffEnd);
+
+      if (useInnerFilter) {
+        ocsQuery = ocsQuery.in('solicitacoes.empreendimento', empreendimentos);
+      }
+
+      const { data: ocs, error } = await ocsQuery;
 
       if (error) throw error;
       if (!ocs) return { total: 0, own: 0 };
 
-      // Filter valid OCs
+      // Refinamento client-side para regras compostas (status/natureza).
       const validOcs = ocs.filter(oc => {
         const sol = oc.solicitacoes as any;
         if (!sol) return false;
         if (sol.status === 'concluida' || sol.status === 'cancelado') return false;
         if (sol.natureza_orcamentaria === 'agua' || sol.natureza_orcamentaria === 'energia_eletrica') return false;
-        if (!hasAllAccess && empreendimentos.length > 0 && !empreendimentos.includes(sol.empreendimento)) return false;
         return true;
       });
 
@@ -131,9 +160,7 @@ export function useDashboardMetrics(viewMode: ViewMode = 'minhas', effectiveUser
       ]);
 
       const solsWithNf = new Set((nfResult.data || []).map(d => d.solicitacao_id));
-      const today = new Date();
       const todayStr = today.toISOString().slice(0, 10);
-      const dayOfMonth = today.getDate();
       const solsWithForecast = new Set(
         (acompResult.data || []).filter(a => a.previsao_nf && a.previsao_nf >= todayStr).map(a => a.solicitacao_id)
       );

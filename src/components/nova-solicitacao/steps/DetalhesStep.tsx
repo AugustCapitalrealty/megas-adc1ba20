@@ -435,7 +435,10 @@ function ParcelasField({ parcelas, setParcelas, valorTotal }: ParcelasFieldProps
             min={1}
             inputMode="numeric"
             value={parcelas}
-            onChange={(e) => setParcelas(e.target.value.replace(/\D/g, ''))}
+            onChange={(e) => {
+              const cleaned = e.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '');
+              setParcelas(cleaned);
+            }}
             onBlur={() => { if (!parcelas || parseInt(parcelas, 10) < 1) setParcelas('1'); }}
             className="bg-background text-center pr-8 font-medium"
           />
