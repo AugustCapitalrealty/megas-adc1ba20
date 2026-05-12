@@ -80,14 +80,22 @@ export function useDashboardMetrics(viewMode: ViewMode = 'minhas', effectiveUser
         query = query.eq('user_id', targetUserId!);
       }
 
-      query = query.limit(1000);
-
-      const { data, error } = await query;
-      if (error) {
-        console.error('[DashboardMetrics] Query error:', error);
-        throw error;
+      // Paginação em lote para evitar truncamento silencioso no limite default do PostgREST.
+      // Hard-cap de segurança em 20.000 linhas para não travar o dashboard em volumes anômalos.
+      const PAGE = 1000;
+      const HARD_CAP = 20000;
+      const all: NonNullable<Awaited<ReturnType<typeof query>>['data']> = [] as any;
+      for (let from = 0; from < HARD_CAP; from += PAGE) {
+        const { data, error } = await query.range(from, from + PAGE - 1);
+        if (error) {
+          console.error('[DashboardMetrics] Query error:', error);
+          throw error;
+        }
+        if (!data || data.length === 0) break;
+        all.push(...data);
+        if (data.length < PAGE) break;
       }
-      return data;
+      return all;
     },
     enabled: !!targetUserId && !loadingEmp,
     staleTime: 120_000,
