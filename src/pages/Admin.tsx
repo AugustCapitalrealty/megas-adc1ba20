@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
@@ -525,7 +526,7 @@ export default function Admin() {
         .insert(transferRecords);
 
       if (transferError) {
-        console.warn('Erro ao registrar transfers (não-bloqueante):', transferError);
+        logger.warn('Erro ao registrar transfers (não-bloqueante):', transferError);
       }
 
       // 3. Optionally remove backoffice role

@@ -1,3 +1,4 @@
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
@@ -67,6 +68,7 @@ type ViewMode = 'minhas' | 'empreendimento';
 
 export default function MinhasSolicitacoes() {
   const { user, effectiveProfile, isImpersonating } = useAuth();
+  useDocumentTitle('Minhas Solicitações');
   const { toast } = useToast();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();

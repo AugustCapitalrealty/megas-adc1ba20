@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { useRef, useEffect, useState } from 'react';
 import { useTrackEvent } from '@/hooks/useTrackEvent';
 import { useNavigate } from 'react-router-dom';
@@ -447,7 +448,7 @@ export default function NovaSolicitacao() {
         if (!error) { data = insertResult; break; }
 
         if (error.code === '23505' && error.message?.includes('protocolo')) {
-          console.warn(`[SUBMIT][RETRY] Conflito de protocolo na tentativa ${attempt}/${maxRetries}:`, error.message);
+          logger.warn(`[SUBMIT][RETRY] Conflito de protocolo na tentativa ${attempt}/${maxRetries}:`, error.message);
           lastError = error;
           if (attempt < maxRetries) await new Promise(r => setTimeout(r, 300 + Math.random() * 500));
           continue;

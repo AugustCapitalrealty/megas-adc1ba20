@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { createContext, useContext, useEffect, useRef, useState, ReactNode, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -87,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const nextSessionKey = getSessionKey(nextSession);
       if (lastAppliedSessionRef.current === nextSessionKey) {
         if (import.meta.env.DEV) {
-          console.debug('[auth] sessão duplicada ignorada', nextSessionKey);
+          logger.debug('[auth] sessão duplicada ignorada', nextSessionKey);
         }
         return;
       }
@@ -100,13 +101,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (nextUser) {
         if (import.meta.env.DEV) {
-          console.debug('[auth] aplicando sessão para usuário', nextUser.id);
+          logger.debug('[auth] aplicando sessão para usuário', nextUser.id);
         }
         setLoading(true);
         void fetchUserData(nextUser.id);
       } else {
         if (import.meta.env.DEV) {
-          console.debug('[auth] sessão ausente, limpando estado');
+          logger.debug('[auth] sessão ausente, limpando estado');
         }
         requestRef.current += 1;
         clearUserState();

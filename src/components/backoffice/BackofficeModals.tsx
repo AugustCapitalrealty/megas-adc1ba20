@@ -58,6 +58,7 @@ interface PdfValidationResult {
 }
 
 interface DocumentoOCRow {
+  _uid: string;
   numero: string;
   file: File | null;
   pdfValidation: PdfValidationResult | null;
@@ -978,7 +979,7 @@ export function BackofficeModals(props: BackofficeModalsProps) {
 
           <div className="space-y-4">
             {documentosOC.map((doc, index) => (
-              <Card key={index} className="p-4 space-y-3">
+              <Card key={doc._uid} className="p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <Label className="font-semibold text-sm">OC #{index + 1}</Label>
                   {documentosOC.length > 1 && (

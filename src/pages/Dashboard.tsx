@@ -1,3 +1,4 @@
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -32,6 +33,7 @@ type ViewMode = 'minhas' | 'geral';
 
 export default function Dashboard() {
   const { user, effectiveProfile, isBackofficeOrAdmin, isAdmin, isImpersonating } = useAuth();
+  useDocumentTitle('Dashboard');
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const track = useTrackEvent();

@@ -1,3 +1,4 @@
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { useState, useMemo, Fragment } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -169,6 +170,7 @@ function AgingBadge({ dias, hasJustificativa, dataOc }: { dias: number; hasJusti
 
 export default function MonitoramentoOC() {
   const { user, effectiveProfile, isImpersonating } = useAuth();
+  useDocumentTitle('Monitoramento de OC');
   const effectiveUserId = isImpersonating ? effectiveProfile?.id : user?.id;
   const { empreendimentos: userEmpreendimentos, loading: loadingEmpreendimentos, hasAllAccess } = useUserEmpreendimentos(effectiveUserId);
 

@@ -1,3 +1,5 @@
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
+import { logger } from '@/lib/logger';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
@@ -68,6 +70,7 @@ type BackofficeTab = 'recebidas' | 'pendentes' | 'em_processamento' | 'oc_emitid
 
 export default function Backoffice() {
   const { user } = useAuth();
+  useDocumentTitle('Backoffice');
   const { toast } = useToast();
   const track = useTrackEvent();
   const [searchParams] = useSearchParams();
@@ -108,12 +111,13 @@ export default function Backoffice() {
   const [registroOpen, setRegistroOpen] = useState(false);
   const [registroMode, setRegistroMode] = useState<'new' | 'add'>('new'); // 'add' = adding to existing OCs without status change
   const [documentosOC, setDocumentosOC] = useState<Array<{
+    _uid: string;
     numero: string;
     file: File | null;
     pdfValidation: PdfValidationResult | null;
     validating: boolean;
     confirmarDivergencia: boolean;
-  }>>([{ numero: '', file: null, pdfValidation: null, validating: false, confirmarDivergencia: false }]);
+  }>>([{ _uid: crypto.randomUUID(), numero: '', file: null, pdfValidation: null, validating: false, confirmarDivergencia: false }]);
   const [observacao, setObservacao] = useState('');
   const [registroLoading, setRegistroLoading] = useState(false);
 
@@ -307,7 +311,7 @@ export default function Backoffice() {
             },
           });
         } catch (e) {
-          console.warn('GChat correction notification failed:', e);
+          logger.warn('GChat correction notification failed:', e);
         }
       }
 
@@ -464,7 +468,7 @@ export default function Backoffice() {
         }
 
         if (data?.success && !data?.pdfIncluded) {
-          console.warn('GChat OC sent without PDF:', data);
+          logger.warn('GChat OC sent without PDF:', data);
         }
       }).catch(err => console.error('GChat OC notify error:', err));
 
@@ -494,7 +498,7 @@ export default function Backoffice() {
   };
 
   const resetRegistroState = () => {
-    setDocumentosOC([{ numero: '', file: null, pdfValidation: null, validating: false, confirmarDivergencia: false }]);
+    setDocumentosOC([{ _uid: crypto.randomUUID(), numero: '', file: null, pdfValidation: null, validating: false, confirmarDivergencia: false }]);
     setObservacao('');
     setRegistroMode('new');
   };
@@ -566,7 +570,7 @@ export default function Backoffice() {
   };
 
   const addOCRow = () => {
-    setDocumentosOC(prev => [...prev, { numero: '', file: null, pdfValidation: null, validating: false, confirmarDivergencia: false }]);
+    setDocumentosOC(prev => [...prev, { _uid: crypto.randomUUID(), numero: '', file: null, pdfValidation: null, validating: false, confirmarDivergencia: false }]);
   };
 
   const removeOCRow = (index: number) => {
