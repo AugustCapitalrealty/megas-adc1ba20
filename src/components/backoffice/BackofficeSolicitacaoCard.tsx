@@ -160,6 +160,10 @@ export const BackofficeSolicitacaoCard = memo(function BackofficeSolicitacaoCard
         <Edit className="h-2.5 w-2.5" />
       </Badge>
     );
+  }
+  const postOCStatuses = ['aprovado','em_processamento','aguardando_aceite','oc_ac_emitida','liberado_fornecedor','enviado_fornecedor','aguardando_execucao','aguardando_nf_boleto','nf_boleto_enviados','enviado_pagamento','concluida'];
+  const showProjurisChip = awaitingOC || postOCStatuses.includes(sol.status);
+  if (showProjurisChip) {
     if (sol.numero_projuris) {
       chips.push(
         <Badge key="proj" variant="outline" className="text-[10px] gap-1 bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-700 cursor-pointer" onClick={() => callbacks.openEditProjuris(sol)}>
@@ -552,24 +556,6 @@ export const BackofficeSolicitacaoCard = memo(function BackofficeSolicitacaoCard
             Histórico
             {isExpanded ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />}
           </Button>
-
-          {/* Edit Projuris — always available for backoffice when applicable */}
-          {(() => {
-            const postOC = ['aprovado','em_processamento','aguardando_aceite','oc_ac_emitida','liberado_fornecedor','enviado_fornecedor','aguardando_execucao','aguardando_nf_boleto','nf_boleto_enviados','enviado_pagamento','concluida'].includes(sol.status);
-            if (!postOC && !sol.numero_projuris) return null;
-            return (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20"
-                onClick={() => callbacks.openEditProjuris(sol)}
-                title="Editar número Projuris"
-              >
-                <Edit className="h-4 w-4 mr-1" />
-                {sol.numero_projuris ? `Projuris #${sol.numero_projuris}` : 'Adicionar Projuris'}
-              </Button>
-            );
-          })()}
 
           {/* Secondary actions dropdown */}
           {secondaryItems.length > 0 && (
