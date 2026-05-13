@@ -216,11 +216,21 @@ async function getSpaceMemberInfo(token: string, spaceName: string): Promise<{ e
   })
 
   if (!res.ok) {
-    await res.text()
+    const errText = await res.text()
+    // Após 29/mai/2026, espaços podem restringir visibilidade de participantes,
+    // retornando 403 PERMISSION_DENIED em ListMemberships. Tratar como "sem info".
+    if (res.status === 403 && errText.includes('PERMISSION_DENIED')) {
+      console.log(`[gchat] membership hidden by space settings for ${spaceName}`)
+    }
     return { email: null, userId: null, displayName: null }
   }
 
   const data = await res.json()
+  // Após 29/mai/2026, ListMemberships pode retornar 200 OK com lista vazia
+  // quando a visibilidade de participantes está restrita pelo admin do espaço.
+  if (!data.memberships || data.memberships.length === 0) {
+    return { email: null, userId: null, displayName: null }
+  }
   for (const membership of (data.memberships || [])) {
     const member = membership.member
     if (member?.type === 'HUMAN') {
@@ -298,8 +308,22 @@ export async function sendGChatDM(
     } else {
       const errText = await setupRes.text()
       console.log(`spaces:setup failed [${setupRes.status}]: ${errText}`)
+      // 404 NOT_FOUND = usuário não tem o app instalado / e-mail não resolvido.
+      // O fallback de listagem (ListMemberships) também não vai conseguir resolver,
+      // e a partir de 29/mai/2026 fica ainda menos confiável (visibilidade restrita).
+      // Falhar rápido com mensagem clara.
+      if (setupRes.status === 404) {
+        throw new Error(
+          `DM não pôde ser criada para ${email}: usuário não encontrado ou Megas Bot não instalado. ` +
+          `Peça para o usuário adicionar o Megas Bot no Google Chat.`
+        )
+      }
     }
   } catch (e) {
+    // Re-lançar erros explícitos que já levantamos acima.
+    if (e instanceof Error && e.message.startsWith('DM não pôde ser criada')) {
+      throw e
+    }
     console.log(`spaces:setup error: ${e}`)
   }
 
@@ -330,7 +354,12 @@ export async function sendGChatDM(
   }
 
   if (!targetSpace) {
-    throw new Error(`DM space not found for ${email}. The user needs to add Megas Bot first in Google Chat.`)
+    throw new Error(
+      `DM space não encontrada para ${email}. ` +
+      `Possíveis causas: (1) Megas Bot não instalado pelo usuário; ` +
+      `(2) visibilidade de participantes restrita no espaço (mudança Google Chat 29/mai/2026). ` +
+      `Peça ao usuário para adicionar o Megas Bot no Google Chat.`
+    )
   }
 
   // Step 3: Send the message
