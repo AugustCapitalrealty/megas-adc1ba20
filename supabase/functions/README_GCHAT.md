@@ -1,3 +1,15 @@
+## ⚠️ Mudança Google Chat — 29/mai/2026
+
+A partir de 29/mai/2026, admins de espaços podem restringir a visibilidade de participantes:
+
+- `GetMembership` pode retornar `403 PERMISSION_DENIED`.
+- `ListMemberships` pode retornar `200 OK` com lista vazia (`memberships: []`).
+- Eventos de membership da Events API serão suprimidos.
+
+**Impacto neste projeto:** baixo. Usamos `spaces:setup` (não afetado) como caminho principal em `sendGChatDM`. O fallback baseado em `ListMemberships` foi endurecido em `gchat-auth.ts` para tratar respostas vazias/permission-denied silenciosamente e diferenciar 404 (usuário não instalou o bot) de erros transitórios.
+
+**Não usamos** `accessSettings.accessPermissionSettings` nem Events API de membership — não há ação adicional necessária.
+
 # Google Chat Integration
 
 Este diretório contém as funções e helpers para integração com Google Chat.
