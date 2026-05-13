@@ -69,6 +69,7 @@ type BackofficeTab = 'recebidas' | 'pendentes' | 'em_processamento' | 'oc_emitid
 
 export default function Backoffice() {
   const { user } = useAuth();
+  useDocumentTitle('Backoffice');
   const { toast } = useToast();
   const track = useTrackEvent();
   const [searchParams] = useSearchParams();

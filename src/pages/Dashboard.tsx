@@ -32,6 +32,7 @@ type ViewMode = 'minhas' | 'geral';
 
 export default function Dashboard() {
   const { user, effectiveProfile, isBackofficeOrAdmin, isAdmin, isImpersonating } = useAuth();
+  useDocumentTitle('Dashboard');
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const track = useTrackEvent();

@@ -169,6 +169,7 @@ function AgingBadge({ dias, hasJustificativa, dataOc }: { dias: number; hasJusti
 
 export default function MonitoramentoOC() {
   const { user, effectiveProfile, isImpersonating } = useAuth();
+  useDocumentTitle('Monitoramento de OC');
   const effectiveUserId = isImpersonating ? effectiveProfile?.id : user?.id;
   const { empreendimentos: userEmpreendimentos, loading: loadingEmpreendimentos, hasAllAccess } = useUserEmpreendimentos(effectiveUserId);
 
