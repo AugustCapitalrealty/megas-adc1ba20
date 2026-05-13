@@ -312,9 +312,9 @@ export function FornecedorCard({
                   </Button>
                 </CollapsibleTrigger>
                 <CollapsibleContent className="space-y-1 mt-2">
-                  {fornecedor.cnaes_secundarios.map((cnae, index) => (
+                  {fornecedor.cnaes_secundarios.map((cnae) => (
                     <div 
-                      key={index} 
+                      key={cnae.codigo} 
                       className="text-xs text-muted-foreground bg-accent/30 rounded px-2 py-1.5"
                     >
                       <span className="font-mono">{cnae.codigo}</span> - {cnae.descricao}
