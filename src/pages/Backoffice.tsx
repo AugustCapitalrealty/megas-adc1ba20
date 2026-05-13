@@ -495,7 +495,7 @@ export default function Backoffice() {
   };
 
   const resetRegistroState = () => {
-    setDocumentosOC([{ numero: '', file: null, pdfValidation: null, validating: false, confirmarDivergencia: false }]);
+    setDocumentosOC([{ _uid: crypto.randomUUID(), numero: '', file: null, pdfValidation: null, validating: false, confirmarDivergencia: false }]);
     setObservacao('');
     setRegistroMode('new');
   };
@@ -567,7 +567,7 @@ export default function Backoffice() {
   };
 
   const addOCRow = () => {
-    setDocumentosOC(prev => [...prev, { numero: '', file: null, pdfValidation: null, validating: false, confirmarDivergencia: false }]);
+    setDocumentosOC(prev => [...prev, { _uid: crypto.randomUUID(), numero: '', file: null, pdfValidation: null, validating: false, confirmarDivergencia: false }]);
   };
 
   const removeOCRow = (index: number) => {
