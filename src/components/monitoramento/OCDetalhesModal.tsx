@@ -120,7 +120,7 @@ export function OCDetalhesModal({ open, onOpenChange, solicitacaoId, protocolo, 
 
   // Fetch Projuris data when detalhes loads and has numero_projuris
   useEffect(() => {
-    const numProjuris = (detalhes?.solicitacao as any)?.numero_projuris;
+    const numProjuris = detalhes?.solicitacao?.numero_projuris;
     if (!numProjuris) {
       setProjurisData(null);
       return;
@@ -135,7 +135,7 @@ export function OCDetalhesModal({ open, onOpenChange, solicitacaoId, protocolo, 
         setProjurisData(data);
         setProjurisLoading(false);
       });
-  }, [(detalhes?.solicitacao as any)?.numero_projuris]);
+  }, [detalhes?.solicitacao?.numero_projuris]);
 
   const formatCurrency = (value: number) =>
     value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -169,7 +169,7 @@ export function OCDetalhesModal({ open, onOpenChange, solicitacaoId, protocolo, 
                 status={detalhes.solicitacao.status}
                 userId={detalhes.solicitacao.user_id}
                 currentUserId={user?.id}
-                cancelamentoPendente={(detalhes.solicitacao as any).cancelamento_pendente}
+                cancelamentoPendente={detalhes.solicitacao.cancelamento_pendente}
                 onAction={onAction}
                 solicitacaoId={solicitacaoId}
               />
@@ -195,7 +195,7 @@ export function OCDetalhesModal({ open, onOpenChange, solicitacaoId, protocolo, 
                     <DollarSign className="h-4 w-4 shrink-0 text-muted-foreground" />
                     <div className="min-w-0">
                       <p className="text-xs text-muted-foreground">
-                        {(detalhes.solicitacao as any).contrato_mensal ? 'Valor total contrato' : 'Valor'}
+                        {detalhes.solicitacao.contrato_mensal ? 'Valor total contrato' : 'Valor'}
                       </p>
                       <p className="text-sm font-semibold truncate">{formatCurrency(detalhes.solicitacao.valor)}</p>
                     </div>
@@ -236,13 +236,13 @@ export function OCDetalhesModal({ open, onOpenChange, solicitacaoId, protocolo, 
             </div>
 
             {/* Valor mensal — apenas para contratos mensais */}
-            {(detalhes.solicitacao as any).contrato_mensal && (
+            {detalhes.solicitacao.contrato_mensal && (
               <ValorMensalCard
                 solicitacaoId={solicitacaoId!}
                 valorTotal={Number(detalhes.solicitacao.valor) || 0}
-                valorMensal={(detalhes.solicitacao as any).valor_mensal != null ? Number((detalhes.solicitacao as any).valor_mensal) : null}
-                dataInicio={(detalhes.solicitacao as any).data_inicio}
-                dataFim={(detalhes.solicitacao as any).data_fim}
+                valorMensal={detalhes.solicitacao.valor_mensal != null ? Number(detalhes.solicitacao.valor_mensal) : null}
+                dataInicio={detalhes.solicitacao.data_inicio}
+                dataFim={detalhes.solicitacao.data_fim}
                 canEdit={isBackofficeOrAdmin}
                 onSaved={() => fetchDetalhes(solicitacaoId!)}
               />
@@ -262,7 +262,7 @@ export function OCDetalhesModal({ open, onOpenChange, solicitacaoId, protocolo, 
                   <MessageSquare className="h-3.5 w-3.5" />
                   Msgs
                 </TabsTrigger>
-                <TabsTrigger value="projuris" className="flex items-center gap-1" disabled={!projurisData && !projurisLoading && !(detalhes.solicitacao as any)?.numero_projuris}>
+                <TabsTrigger value="projuris" className="flex items-center gap-1" disabled={!projurisData && !projurisLoading && !detalhes.solicitacao?.numero_projuris}>
                   <Scale className="h-3.5 w-3.5" />
                   Projuris
                 </TabsTrigger>
@@ -450,9 +450,9 @@ export function OCDetalhesModal({ open, onOpenChange, solicitacaoId, protocolo, 
                       </CardContent>
                     </Card>
                   </>
-                ) : (detalhes.solicitacao as any)?.numero_projuris ? (
+                ) : detalhes.solicitacao?.numero_projuris ? (
                   <p className="text-sm text-muted-foreground text-center py-8">
-                    Nº Projuris {(detalhes.solicitacao as any).numero_projuris} não encontrado na base importada.
+                    Nº Projuris {detalhes.solicitacao.numero_projuris} não encontrado na base importada.
                   </p>
                 ) : (
                   <p className="text-sm text-muted-foreground text-center py-8">

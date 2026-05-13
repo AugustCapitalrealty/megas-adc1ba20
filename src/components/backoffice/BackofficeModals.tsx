@@ -392,7 +392,7 @@ export function BackofficeModals(props: BackofficeModalsProps) {
 
                 {/* Contato do Fornecedor */}
                 {(['liberado_fornecedor', 'enviado_fornecedor'].includes(detalhes.solicitacao.status)) &&
-                 ((detalhes.solicitacao as any).fornecedor_email_contato || (detalhes.solicitacao as any).fornecedor_telefone_contato) && (
+                 (detalhes.solicitacao.fornecedor_email_contato || detalhes.solicitacao.fornecedor_telefone_contato) && (
                   <>
                     <Card className="border-2 border-green-300 dark:border-green-700 bg-green-50/50 dark:bg-green-950/20">
                       <CardHeader className="pb-2 pt-3">
@@ -401,16 +401,16 @@ export function BackofficeModals(props: BackofficeModalsProps) {
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-2 pb-3">
-                        {(detalhes.solicitacao as any).fornecedor_email_contato && (
+                        {detalhes.solicitacao.fornecedor_email_contato && (
                           <div className="flex items-center gap-2 text-sm">
                             <Mail className="h-4 w-4 text-muted-foreground" />
-                            <span className="font-medium">{(detalhes.solicitacao as any).fornecedor_email_contato}</span>
+                            <span className="font-medium">{detalhes.solicitacao.fornecedor_email_contato}</span>
                           </div>
                         )}
-                        {(detalhes.solicitacao as any).fornecedor_telefone_contato && (
+                        {detalhes.solicitacao.fornecedor_telefone_contato && (
                           <div className="flex items-center gap-2 text-sm">
                             <Phone className="h-4 w-4 text-muted-foreground" />
-                            <span className="font-medium">{(detalhes.solicitacao as any).fornecedor_telefone_contato}</span>
+                            <span className="font-medium">{detalhes.solicitacao.fornecedor_telefone_contato}</span>
                           </div>
                         )}
                       </CardContent>
@@ -451,23 +451,23 @@ export function BackofficeModals(props: BackofficeModalsProps) {
                 </Card>
 
                 {/* Instrumento Jurídico */}
-                {(detalhes.solicitacao as any).instrumento_juridico && (
+                {detalhes.solicitacao.instrumento_juridico && (
                   <div className="p-3 bg-muted/30 rounded-lg">
                     <Label className="text-xs uppercase tracking-wide text-muted-foreground mb-2 block">Instrumento Jurídico</Label>
-                    <InstrumentoJuridicoBadge instrumento={(detalhes.solicitacao as any).instrumento_juridico} />
+                    <InstrumentoJuridicoBadge instrumento={detalhes.solicitacao.instrumento_juridico} />
                   </div>
                 )}
 
                 {/* Status Projuris */}
-                {(detalhes.solicitacao as any).numero_projuris ? (
+                {detalhes.solicitacao.numero_projuris ? (
                   <ProjurisStatusCard
-                    numeroProjuris={(detalhes.solicitacao as any).numero_projuris}
+                    numeroProjuris={detalhes.solicitacao.numero_projuris}
                     onEdit={() => {
-                      setEditProjurisValue((detalhes.solicitacao as any).numero_projuris || '');
+                      setEditProjurisValue(detalhes.solicitacao.numero_projuris || '');
                       setEditProjurisOpen(true);
                     }}
                   />
-                ) : (((detalhes.solicitacao as any).instrumento_juridico && (detalhes.solicitacao as any).instrumento_juridico !== 'oc') && (
+                ) : ((detalhes.solicitacao.instrumento_juridico && detalhes.solicitacao.instrumento_juridico !== 'oc') && (
                   <div className="space-y-2">
                     <JuridicoTracker solicitacaoId={detalhes.solicitacao.id} />
                     <div className="flex justify-end">
@@ -487,9 +487,9 @@ export function BackofficeModals(props: BackofficeModalsProps) {
                 ))}
 
                 {/* Escopo Detalhado para Minuta */}
-                {(detalhes.solicitacao as any).escopo_detalhado_minuta && (
+                {detalhes.solicitacao.escopo_detalhado_minuta && (
                   <EscopoMinutaCard
-                    escopo={(detalhes.solicitacao as any).escopo_detalhado_minuta}
+                    escopo={detalhes.solicitacao.escopo_detalhado_minuta}
                     protocolo={detalhes.solicitacao.protocolo}
                     onSolicitarAjuste={() => openAction(selectedSolicitacao!, 'solicitar_ajuste')}
                   />
@@ -508,16 +508,16 @@ export function BackofficeModals(props: BackofficeModalsProps) {
                         <div>
                           <Label className="text-xs text-muted-foreground">Ciência do Solicitante</Label>
                           <p className="font-medium">
-                            {(detalhes.solicitacao as any).due_diligence_confirmada 
+                            {detalhes.solicitacao.due_diligence_confirmada 
                               ? <span className="text-success flex items-center gap-1"><CheckCircle className="h-4 w-4" /> Confirmada</span>
                               : <span className="text-warning flex items-center gap-1"><AlertTriangle className="h-4 w-4" /> Pendente</span>}
                           </p>
                         </div>
-                        {(detalhes.solicitacao as any).due_diligence_numero_projuris && (
+                        {detalhes.solicitacao.due_diligence_numero_projuris && (
                           <div>
                             <Label className="text-xs text-muted-foreground">Número Projuris Informado</Label>
                             <p className="font-medium font-mono bg-background px-2 py-1 rounded inline-block">
-                              {(detalhes.solicitacao as any).due_diligence_numero_projuris}
+                              {detalhes.solicitacao.due_diligence_numero_projuris}
                             </p>
                           </div>
                         )}
@@ -543,11 +543,11 @@ export function BackofficeModals(props: BackofficeModalsProps) {
                     <p className="font-medium mt-1">{EMPREENDIMENTO_LABELS[detalhes.solicitacao.empreendimento]}</p>
                   </div>
 
-                  {detalhes.solicitacao.empreendimento === 'todos' && (detalhes.solicitacao as any).rateio_valores && (
+                  {detalhes.solicitacao.empreendimento === 'todos' && detalhes.solicitacao.rateio_valores && (
                     <div className="col-span-2">
                       <RateioCard
-                        tipoRateio={(detalhes.solicitacao as any).tipo_rateio || 'por_area'}
-                        rateioValores={(detalhes.solicitacao as any).rateio_valores}
+                        tipoRateio={detalhes.solicitacao.tipo_rateio || 'por_area'}
+                        rateioValores={detalhes.solicitacao.rateio_valores}
                         protocolo={detalhes.solicitacao.protocolo || undefined}
                         valorTotal={detalhes.solicitacao.valor}
                       />
@@ -632,31 +632,31 @@ export function BackofficeModals(props: BackofficeModalsProps) {
                     </div>
                   )}
 
-                  {(detalhes.solicitacao as any).fornecimento_exclusivo && (
+                  {detalhes.solicitacao.fornecimento_exclusivo && (
                     <div className="col-span-2 p-3 bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-lg">
                       <Label className="text-muted-foreground font-medium flex items-center gap-2">
                         <ShieldAlert className="h-4 w-4 text-purple-600" /> Fornecimento Exclusivo
                       </Label>
-                      <p className="mt-2 text-sm">{(detalhes.solicitacao as any).justificativa_exclusividade || 'Sem justificativa informada'}</p>
+                      <p className="mt-2 text-sm">{detalhes.solicitacao.justificativa_exclusividade || 'Sem justificativa informada'}</p>
                     </div>
                   )}
                 </div>
 
                 {/* Justificativas */}
-                {(detalhes.solicitacao as any).justificativa_sem_chamado && (
+                {detalhes.solicitacao.justificativa_sem_chamado && (
                   <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
                     <Label className="text-muted-foreground font-medium flex items-center gap-2">
                       <AlertTriangle className="h-4 w-4 text-amber-600" /> Justificativa - Sem Chamado Infraspeak
                     </Label>
-                    <p className="mt-2 text-sm">{(detalhes.solicitacao as any).justificativa_sem_chamado}</p>
+                    <p className="mt-2 text-sm">{detalhes.solicitacao.justificativa_sem_chamado}</p>
                   </div>
                 )}
-                {(detalhes.solicitacao as any).justificativa_sem_memorial && (
+                {detalhes.solicitacao.justificativa_sem_memorial && (
                   <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
                     <Label className="text-muted-foreground font-medium flex items-center gap-2">
                       <AlertTriangle className="h-4 w-4 text-amber-600" /> Justificativa - Sem Memorial/Escopo
                     </Label>
-                    <p className="mt-2 text-sm">{(detalhes.solicitacao as any).justificativa_sem_memorial}</p>
+                    <p className="mt-2 text-sm">{detalhes.solicitacao.justificativa_sem_memorial}</p>
                   </div>
                 )}
 

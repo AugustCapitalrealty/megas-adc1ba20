@@ -134,6 +134,30 @@ export interface Solicitacao {
   data_conclusao: string | null;
   created_at: string;
   updated_at: string;
+  // Optional / extended fields (presentes no banco; nem todas as queries trazem)
+  fornecedor_email_contato?: string | null;
+  fornecedor_telefone_contato?: string | null;
+  instrumento_juridico?: string | null;
+  numero_projuris?: string | null;
+  escopo_detalhado_minuta?: string | null;
+  due_diligence_confirmada?: boolean | null;
+  due_diligence_numero_projuris?: string | null;
+  rateio_valores?: Record<string, number> | null;
+  tipo_rateio?: 'por_unidade' | 'por_area' | string | null;
+  justificativa_sem_chamado?: string | null;
+  justificativa_sem_memorial?: string | null;
+  cancelamento_pendente?: boolean | null;
+  cancelamento_ciencia_em?: string | null;
+  valor_mensal?: number | null;
+  data_execucao_servico?: string | null;
+  numero_fluig_cadastro?: string | null;
+  numero_fluig_pagamento?: string | null;
+  ia_cnae_status?: string | null;
+  ia_cnae_justificativa?: string | null;
+  ia_cnae_avaliado_em?: string | null;
+  ia_descricao_vaga?: boolean | null;
+  ia_descricao_sugestao?: string | null;
+  ia_descricao_avaliado_em?: string | null;
   // Joined data
   fornecedor?: Fornecedor;
   fornecedor_concorrente_1?: Fornecedor;
