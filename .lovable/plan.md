@@ -1,88 +1,69 @@
-## Continuidade das melhorias técnicas
+## Contexto
 
-Após concluir P0 (dashboard pagination, NotificationBell realtime, server-side filters) e P1.4/P1.5 (keys + parcelas), seguem os blocos restantes do plano original.
+O e-mail do Google avisa sobre mudanças na API do Google Chat a partir de **29/mai/2026** que afetam:
 
----
+1. `GetMembership` / `ListMemberships` podem retornar **"Permission Denied"** ou **lista vazia** quando o admin do espaço restringe a visibilidade de participantes.
+2. Eventos de membership da Events API serão suprimidos.
+3. Novo campo `accessSettings.accessPermissionSettings` (descobrir / participar / ver participantes separados).
+4. Apps instalados com escopo `chat.app` (admin-approved) **não são afetados**.
 
-### Bloco A — P1.6: Auditoria de `as any` (top 5 hotspots)
+## Como o app usa o Chat hoje
 
-Objetivo: reduzir drift de tipos. 222 ocorrências hoje.
+Mapeei toda a integração GChat no projeto. Resumindo:
 
-Passos:
-1. Rodar `rg -c "as any" src --sort path` e listar os 5 arquivos com maior contagem.
-2. Para cada arquivo, substituir por tipos derivados:
-   - `Database['public']['Tables']['<tabela>']['Row']` para linhas
-   - `Database['public']['Enums']['<enum>']` para enums
-   - Tipos locais de `src/types/index.ts` quando aplicável
-3. 1 commit por arquivo para facilitar revisão e rollback.
-4. Validar build limpo após cada arquivo.
+- **`spaces:setup`** (criar/achar DM) → **continua funcionando** sem mudança. É o caminho principal de `sendGChatDM`.
+- **`spaces.list` + `{space}/members` (ListMemberships)** → usado **apenas como fallback** em `gchat-auth.ts` quando `spaces:setup` falha, para casar e-mail do destinatário. **Este é o único ponto sensível.**
+- **Webhook inbound, envio de cards, daily digest, notificações de OC** → não dependem de listar membros.
+- **Não usamos** `GetMembership` direto, nem Events API de membership, nem `accessSettings`.
 
-Critério de saída: redução ≥ 40% no total de `as any`.
+## Risco real
 
----
+**Baixo.** O fluxo principal (`spaces:setup` para DM com e-mail corporativo) não é afetado. O fallback de listagem pode passar a devolver lista vazia para alguns espaços — hoje ele já trata `!res.ok` retornando `null`, mas **não trata explicitamente o caso "200 OK com `memberships: []`"** que vai se tornar comum.
 
-### Bloco B — P1.4 restante (keys em listas)
+## Plano de ajuste (mínimo e defensivo)
 
-Aplicar a mesma correção do `FileUpload` em:
-- `src/components/FornecedorCard.tsx:317` (CNAEs secundários) → key por código CNAE
-- `src/components/backoffice/BackofficeModals.tsx:981` (cards de itens) → key por id do item
-- `src/components/SlaTimelineModal.tsx:197` → key por timestamp + tipo do evento
+### 1. `supabase/functions/_shared/gchat-auth.ts` — endurecer fallback
 
----
+- Em `getSpaceMemberInfo`: tratar resposta vazia (`memberships: []` ou `permission denied`) como **"sem informação"** sem logar erro ruidoso, retornando o objeto `{ email: null, ... }` atual. Adicionar log `info` claro do tipo `"membership hidden by space settings"` para diferenciar de erro real (HTTP 403 com corpo `PERMISSION_DENIED`).
+- Em `sendGChatDM`: quando o fallback `spaces.list` não conseguir casar nenhum membro **e** `spaces:setup` tiver falhado, lançar erro mais explicativo orientando a tentar reinstalar o app no DM ou conferir as novas permissões do espaço.
 
-### Bloco C — P2.8: Logger condicional
+### 2. `supabase/functions/_shared/gchat-auth.ts` — preferir SEMPRE `spaces:setup`
 
-Objetivo: 95 ocorrências de `console.*` em `src/`.
+Hoje o fallback `listBotDMSpaces + getSpaceMemberInfo` roda quando `spaces:setup` retorna não-OK. A partir da mudança, esse fallback fica menos confiável. Vamos:
 
-Passos:
-1. Criar `src/lib/logger.ts`:
-   ```ts
-   const isDev = import.meta.env.DEV;
-   export const logger = {
-     log: (...a: unknown[]) => { if (isDev) console.log(...a); },
-     warn: (...a: unknown[]) => { if (isDev) console.warn(...a); },
-     debug: (...a: unknown[]) => { if (isDev) console.debug(...a); },
-     error: (...a: unknown[]) => console.error(...a), // mantém em prod
-   };
-   ```
-2. Substituir `console.log/warn/debug` por `logger.*` (manter `console.error` puro ou via logger).
-3. Não tocar em edge functions (Deno) — escopo apenas `src/`.
+- Diferenciar falhas de `spaces:setup`: se for `404 NOT_FOUND` (usuário não tem o app instalado), pular o fallback de listagem (não vai resolver mesmo) e retornar erro claro.
+- Manter o fallback apenas para erros transitórios (5xx, rate limit).
 
----
+### 3. Documentação interna
 
-### Bloco D — P2.9: SEO e headings
+- Atualizar `supabase/functions/README_GCHAT.md` com um aviso sobre a mudança de 29/mai/2026 e a recomendação de manter o app instalado com escopo `chat.bot` (não precisa migrar para `chat.app`, mas ficar atento se algum domínio restringir).
+- Atualizar memória `mem://integrations/gchat-dm` registrando que `ListMemberships` agora pode vir vazio por configuração de visibilidade do espaço.
 
-Varredura por página de rota top-level:
-- `Calendario.tsx`, `Backoffice.tsx`, `MonitoramentoOC.tsx`, `Dashboard.tsx`, `MinhasSolicitacoes.tsx`, `GarantiasVigentes.tsx`, `Notificacoes.tsx`, `PainelFluig.tsx`, `AdminExcelencia.tsx`.
+### 4. O que NÃO precisa mudar
 
-Para cada uma:
-- Garantir único `<h1>` (usar `PageHeader` consistentemente)
-- Title + meta description via `document.title` no mount (já há padrão? checar)
-- Verificar duplicação semântica de headings dentro de cards
+- Envio de cards / mensagens em espaços: inalterado.
+- Webhook inbound: inalterado.
+- `accessSettings.accessPermissionSettings`: **não usamos** — só seria necessário se o app criasse espaços públicos com permissões granulares, que não é nosso caso.
+- Events API: **não usamos** eventos de membership.
 
----
-
-### Bloco E — P2.10: Lint hardening
-
-1. Em `eslint.config.js`, elevar `react-hooks/exhaustive-deps` de `warn` → `error`.
-2. Rodar lint e corrigir violações novas (provavelmente algumas em hooks de dashboard/backoffice).
-3. Adicionar regra `no-restricted-syntax` opcional para alertar sobre novos `as any` (avisar, não bloquear).
-
----
-
-### Detalhes técnicos
+## Detalhes técnicos
 
 ```text
-Ordem de execução sugerida:
-  Bloco B (keys restantes)   — 15min, baixo risco
-  Bloco C (logger)           — 30min, refactor amplo mas mecânico
-  Bloco D (SEO)              — 20min, frontend puro
-  Bloco A (as any top 5)     — 60min, exige cuidado por arquivo
-  Bloco E (lint hardening)   — 20min, corrige cascata final
+sendGChatDM(email)
+├─ spaces:setup (DIRECT_MESSAGE)        ← caminho principal, sem impacto
+│  └─ ok? → envia mensagem
+├─ se 404/403 → erro explícito "app não instalado p/ usuário"
+└─ se 5xx → fallback listBotDMSpaces
+   └─ getSpaceMemberInfo (ListMemberships)  ← pode vir vazio após 29/mai
+      └─ tratar vazio como "não encontrado" sem erro ruidoso
 ```
 
-Total estimado: ~2h30. Cada bloco entrega valor isolado e build verificada.
+Esforço estimado: **~20 minutos**, 1 arquivo de código + 1 doc + 1 memória.
 
----
+## Estimativa de impacto se não fizermos nada
 
-Quer que eu comece pelo Bloco B (mais rápido) ou prefere atacar primeiro o Bloco A (maior impacto na qualidade do código)?
+- DMs novas via `spaces:setup`: continuam funcionando.
+- DMs via fallback (raro): podem falhar silenciosamente em alguns espaços com visibilidade restrita.
+- Logs podem encher de "permission denied" sem contexto.
+
+**Recomendação: aplicar os ajustes defensivos antes de 29/mai/2026.** Sem urgência imediata.
