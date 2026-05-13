@@ -177,7 +177,7 @@ function EditModal(props: EditModalProps) {
             )}
 
             {/* Supplier swap */}
-            {(fornecedoresInfo.concorrente1 || fornecedoresInfo.concorrente2) && fornecedoresInfo.principal && (
+            {fornecedoresInfo.principal && (
               <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
                 <div className="flex items-center justify-between">
                   <Label className="text-sm font-medium flex items-center gap-2">
@@ -247,7 +247,11 @@ function EditModal(props: EditModalProps) {
                       <p className="text-xs text-muted-foreground mt-2">ℹ️ O fornecedor atual será movido para a posição de concorrente</p>
                     )}
                     {novoFornecedorEscolhido === 'novo' && novoFornecedorBuscado && (
-                      <p className="text-xs text-muted-foreground mt-2">ℹ️ O fornecedor atual será movido para a posição de concorrente (se houver vaga)</p>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        {(!fornecedoresInfo.concorrente1 || !fornecedoresInfo.concorrente2)
+                          ? 'ℹ️ O fornecedor atual será movido para a posição de concorrente.'
+                          : 'ℹ️ O fornecedor atual será substituído pelo novo (não há vaga de concorrente disponível).'}
+                      </p>
                     )}
                   </div>
                 )}
