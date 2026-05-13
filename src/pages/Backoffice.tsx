@@ -108,12 +108,13 @@ export default function Backoffice() {
   const [registroOpen, setRegistroOpen] = useState(false);
   const [registroMode, setRegistroMode] = useState<'new' | 'add'>('new'); // 'add' = adding to existing OCs without status change
   const [documentosOC, setDocumentosOC] = useState<Array<{
+    _uid: string;
     numero: string;
     file: File | null;
     pdfValidation: PdfValidationResult | null;
     validating: boolean;
     confirmarDivergencia: boolean;
-  }>>([{ numero: '', file: null, pdfValidation: null, validating: false, confirmarDivergencia: false }]);
+  }>>([{ _uid: crypto.randomUUID(), numero: '', file: null, pdfValidation: null, validating: false, confirmarDivergencia: false }]);
   const [observacao, setObservacao] = useState('');
   const [registroLoading, setRegistroLoading] = useState(false);
 
