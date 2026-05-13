@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
@@ -308,7 +309,7 @@ export default function Backoffice() {
             },
           });
         } catch (e) {
-          console.warn('GChat correction notification failed:', e);
+          logger.warn('GChat correction notification failed:', e);
         }
       }
 
@@ -465,7 +466,7 @@ export default function Backoffice() {
         }
 
         if (data?.success && !data?.pdfIncluded) {
-          console.warn('GChat OC sent without PDF:', data);
+          logger.warn('GChat OC sent without PDF:', data);
         }
       }).catch(err => console.error('GChat OC notify error:', err));
 

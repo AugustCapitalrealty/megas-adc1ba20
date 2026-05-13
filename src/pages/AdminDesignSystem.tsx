@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { useState } from 'react';
 import { Sparkles, FileText, AlertTriangle, CheckCircle, Clock, Users, BarChart3 } from 'lucide-react';
 import { PageContainer } from '@/components/layout/PageContainer';
@@ -140,7 +141,7 @@ export default function AdminDesignSystem() {
             rows={demoRows.filter(r => !search || r.pedido.toLowerCase().includes(search.toLowerCase()))}
             rowKey={(r) => r.id}
             density="normal"
-            onRowClick={(r) => console.log('row', r)}
+            onRowClick={(r) => logger.log('row', r)}
           />
           <Separator />
           <h3 className="ds-text-h3">Estado de loading</h3>

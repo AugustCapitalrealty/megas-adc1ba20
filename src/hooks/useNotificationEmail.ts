@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { supabase } from '@/integrations/supabase/client';
 
 // Flag temporária - alterar para true quando o DNS estiver configurado no Resend
@@ -29,7 +30,7 @@ export async function sendNotificationEmail(
 ): Promise<{ success: boolean; error?: string }> {
   // Verificar se notificações por email estão ativas
   if (!EMAIL_NOTIFICATIONS_ENABLED) {
-    console.log('[EMAIL] Notificações por email desativadas temporariamente');
+    logger.log('[EMAIL] Notificações por email desativadas temporariamente');
     return { success: true };
   }
 
@@ -37,7 +38,7 @@ export async function sendNotificationEmail(
     const recipients = Array.isArray(to) ? to : [to];
     
     if (recipients.length === 0) {
-      console.log('No recipients for email notification');
+      logger.log('No recipients for email notification');
       return { success: true };
     }
 
@@ -59,7 +60,7 @@ export async function sendNotificationEmail(
 
 // Get all users who should receive email notifications
 export async function getEmailRecipients(): Promise<string[]> {
-  console.log('[EMAIL] Buscando destinatários com notificações ativadas...');
+  logger.log('[EMAIL] Buscando destinatários com notificações ativadas...');
   
   const { data, error } = await supabase
     .from('profiles')
@@ -72,12 +73,12 @@ export async function getEmailRecipients(): Promise<string[]> {
   }
   
   if (!data || data.length === 0) {
-    console.warn('[EMAIL] Nenhum destinatário encontrado com notificações ativadas');
+    logger.warn('[EMAIL] Nenhum destinatário encontrado com notificações ativadas');
     return [];
   }
   
   const emails = data.map(p => p.email);
-  console.log('[EMAIL] Destinatários encontrados:', emails);
+  logger.log('[EMAIL] Destinatários encontrados:', emails);
   return emails;
 }
 
@@ -100,7 +101,7 @@ export async function notifyBackofficeNewSolicitacao(
   const recipients = await getEmailRecipients();
   
   if (recipients.length === 0) {
-    console.log('No backoffice recipients configured for email notifications');
+    logger.log('No backoffice recipients configured for email notifications');
     return { success: true };
   }
 

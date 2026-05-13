@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -81,7 +82,7 @@ export function CNAECompatibilityBadge({
   
   // Erro - não mostra badge, apenas log
   if (error) {
-    console.warn('CNAE validation error:', error);
+    logger.warn('CNAE validation error:', error);
     return null;
   }
   

@@ -1,3 +1,4 @@
+import { logger } from '@/lib/logger';
 import { useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -41,7 +42,7 @@ export function useTrackEvent() {
           page: page ?? window.location.pathname,
         }])
         .then(({ error }) => {
-          if (error) console.debug('[Analytics] Insert failed:', error.message);
+          if (error) logger.debug('[Analytics] Insert failed:', error.message);
         });
     },
     [user?.id]
