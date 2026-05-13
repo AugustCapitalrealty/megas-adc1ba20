@@ -21,6 +21,18 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "@typescript-eslint/no-unused-vars": "off",
+      // Bloco E — Lint hardening
+      // Promove exhaustive-deps de warn → error para evitar bugs de stale closure.
+      "react-hooks/exhaustive-deps": "error",
+      // Força o uso do logger condicional (src/lib/logger.ts) em vez de console.log/warn,
+      // que aparece em produção. console.error continua permitido (sempre passa).
+      "no-restricted-syntax": [
+        "warn",
+        {
+          selector: "CallExpression[callee.object.name='console'][callee.property.name=/^(log|warn|debug|info)$/]",
+          message: "Use logger.* de '@/lib/logger' em vez de console.* (são silenciados em produção).",
+        },
+      ],
     },
   },
 );
