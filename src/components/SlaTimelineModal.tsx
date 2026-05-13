@@ -194,7 +194,7 @@ export function SlaTimelineModal({
                 const { Icon } = config;
                 
                 return (
-                  <div key={index} className="flex gap-4">
+                  <div key={`${event.created_at}-${event.tipo_evento}-${event.acao}`} className="flex gap-4">
                     {/* Timeline line */}
                     <div className="flex flex-col items-center">
                       <div className={cn(
