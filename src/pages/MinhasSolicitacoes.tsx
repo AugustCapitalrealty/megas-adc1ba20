@@ -205,7 +205,7 @@ export default function MinhasSolicitacoes() {
 
   const openEditProjurisModal = useCallback((sol: SolicitacaoComFornecedor) => {
     setEditProjurisSol(sol);
-    setEditProjurisValue((sol as any).numero_projuris || '');
+    setEditProjurisValue(sol.numero_projuris || '');
   }, []);
 
   const handleSaveProjurisSolicitante = useCallback(async () => {
@@ -421,7 +421,7 @@ export default function MinhasSolicitacoes() {
       case 'ciencia':
         // Apenas cancelamentos não-iniciados pelo solicitante (auto-cancel ou cancelado pelo backoffice).
         // O trigger no banco já marca cancelamento_ciencia_em quando o solicitante pediu o cancelamento.
-        filtered = filtered.filter(s => s.status === 'cancelado' && !(s as any).cancelamento_ciencia_em);
+        filtered = filtered.filter(s => s.status === 'cancelado' && !s.cancelamento_ciencia_em);
         break;
       case 'concluidas':
         filtered = filtered.filter(s => s.status === 'concluida' || s.status === 'enviado_pagamento');
@@ -476,7 +476,7 @@ export default function MinhasSolicitacoes() {
     liberadas: solicitacoesFiltradasBase.filter(s => s.status === 'liberado_fornecedor' || s.status === 'aguardando_execucao').length,
     enviadas: solicitacoesFiltradasBase.filter(s => ['enviado_fornecedor', 'aguardando_nf_boleto', 'nf_boleto_enviados'].includes(s.status)).length,
     canceladas: solicitacoesFiltradasBase.filter(s => s.status === 'rejeitado' || s.status === 'cancelado').length,
-    ciencia: solicitacoesFiltradasBase.filter(s => s.status === 'cancelado' && !(s as any).cancelamento_ciencia_em).length,
+    ciencia: solicitacoesFiltradasBase.filter(s => s.status === 'cancelado' && !s.cancelamento_ciencia_em).length,
     concluidas: solicitacoesFiltradasBase.filter(s => s.status === 'concluida' || s.status === 'enviado_pagamento').length,
   }), [solicitacoesFiltradasBase]);
 
@@ -539,7 +539,7 @@ export default function MinhasSolicitacoes() {
     setEditDescricao(sol.descricao);
     setEditValor(String(Math.round(sol.valor * 100)));
     setEditNaturezaOrcamentaria(sol.natureza_orcamentaria);
-    setEditEscopoDetalhado((sol as any).escopo_detalhado_minuta || '');
+    setEditEscopoDetalhado(sol.escopo_detalhado_minuta || '');
     setEditAnexos({});
     setEditOutrosAnexos([]);
     setExistingAnexos([]);
@@ -987,7 +987,7 @@ export default function MinhasSolicitacoes() {
   const pendingCiencia = useMemo(() => {
     return solicitacoes.filter(s => {
       if (s.status !== 'cancelado') return false;
-      if ((s as any).cancelamento_ciencia_em) return false;
+      if (s.cancelamento_ciencia_em) return false;
       return true;
     });
   }, [solicitacoes]);
@@ -1385,7 +1385,7 @@ export default function MinhasSolicitacoes() {
             <Button
               variant="destructive"
               onClick={() => { setEditProjurisValue(''); handleSaveProjurisSolicitante(); }}
-              disabled={editProjurisLoading || !(editProjurisSol as any)?.numero_projuris}
+              disabled={editProjurisLoading || !editProjurisSol?.numero_projuris}
             >
               Remover número
             </Button>
