@@ -132,7 +132,7 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
 
     if (sol.status === 'aguardando_execucao') {
       const isUtility = ['agua', 'energia_eletrica', 'telefone', 'taxa_impostos'].includes(sol.natureza_orcamentaria);
-      const dataExec = (sol as any).data_execucao_servico;
+      const dataExec = sol.data_execucao_servico;
       const hoje = new Date().toISOString().split('T')[0];
       const servicoExecutado = isUtility || (dataExec && dataExec < hoje);
 
@@ -193,7 +193,7 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
       const motivoTxt = rejectionInfo?.motivo || '';
       const isPrazoExpirado = motivoTxt.includes('prazo') && motivoTxt.includes('expirou');
       const isCancelamento = sol.status === 'cancelado';
-      const cienciaEm = (sol as any).cancelamento_ciencia_em;
+      const cienciaEm = sol.cancelamento_ciencia_em;
       const headerLabel = isPrazoExpirado
         ? 'Cancelada automaticamente — prazo de 30 dias expirado'
         : isCancelamento
@@ -279,8 +279,8 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
 
     // Editar / Adicionar Projuris (visível para o dono)
     if (isOwner && onEditProjuris) {
-      const hasProjuris = !!(sol as any).numero_projuris;
-      const hasInstrumento = !!(sol as any).instrumento_juridico && (sol as any).instrumento_juridico !== 'oc';
+      const hasProjuris = !!sol.numero_projuris;
+      const hasInstrumento = !!sol.instrumento_juridico && sol.instrumento_juridico !== 'oc';
       if (hasProjuris || hasInstrumento) {
         actions.push(
           <Button
@@ -292,7 +292,7 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
             title="Editar número Projuris"
           >
             <Edit className="h-4 w-4 mr-1" />
-            {hasProjuris ? `Projuris #${(sol as any).numero_projuris}` : 'Adicionar Projuris'}
+            {hasProjuris ? `Projuris #${sol.numero_projuris}` : 'Adicionar Projuris'}
           </Button>
         );
       }
@@ -352,12 +352,12 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
           </div>
         )}
 
-        {(sol as any).numero_projuris ? (
+        {sol.numero_projuris ? (
           <ProjurisStatusCard
-            numeroProjuris={(sol as any).numero_projuris}
+            numeroProjuris={sol.numero_projuris}
             onEdit={isOwner && onEditProjuris ? () => onEditProjuris(sol) : undefined}
           />
-        ) : (((sol as any).instrumento_juridico && (sol as any).instrumento_juridico !== 'oc') && (
+        ) : ((sol.instrumento_juridico && sol.instrumento_juridico !== 'oc') && (
           <div className="space-y-2">
             <JuridicoTracker solicitacaoId={sol.id} readOnly />
             {isOwner && onEditProjuris && (
@@ -376,26 +376,26 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
           </div>
         ))}
 
-        {((sol as any).ia_cnae_status || (sol as any).ia_descricao_vaga !== null) && (
+        {(sol.ia_cnae_status || sol.ia_descricao_vaga !== null) && (
           <div className="space-y-2">
             <p className="font-medium text-sm text-muted-foreground">Validações IA</p>
-            {(sol as any).ia_cnae_status && (sol as any).fornecedor_id && (
+            {sol.ia_cnae_status && sol.fornecedor_id && (
               <CNAECompatibilityBadge
                 descricao={sol.descricao}
                 fornecedor={sol.fornecedor ? {
-                  cnae_principal_codigo: (sol.fornecedor as any).cnae_principal_codigo,
-                  cnae_principal_descricao: (sol.fornecedor as any).cnae_principal_descricao,
+                  cnae_principal_codigo: sol.fornecedor.cnae_principal_codigo,
+                  cnae_principal_descricao: sol.fornecedor.cnae_principal_descricao,
                 } as any : null}
                 enabled={false}
                 cachedResult={{
-                  status: (sol as any).ia_cnae_status,
-                  justificativa: (sol as any).ia_cnae_justificativa || ''
+                  status: sol.ia_cnae_status,
+                  justificativa: sol.ia_cnae_justificativa || ''
                 }}
               />
             )}
             <DescriptionQualityBadge
-              isVague={(sol as any).ia_descricao_vaga}
-              suggestion={(sol as any).ia_descricao_sugestao}
+              isVague={sol.ia_descricao_vaga}
+              suggestion={sol.ia_descricao_sugestao}
             />
           </div>
         )}
