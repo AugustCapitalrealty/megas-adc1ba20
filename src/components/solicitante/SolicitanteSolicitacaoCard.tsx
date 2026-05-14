@@ -65,7 +65,10 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
   isFavorite, onToggleFavorite,
 }: SolicitanteSolicitacaoCardProps) {
 
-  const canTakeAction = isOwner;
+  // Colegas do mesmo empreendimento também podem agir (aceitar OC, enviar NF, corrigir, responder…).
+  // O RLS valida no backend; no UI mostramos o badge de dono e mantemos cancelamento restrito.
+  const canTakeAction = isOwner || viewMode === 'empreendimento';
+  const canCancel = isOwner;
   const showOwnerBadge = viewMode === 'empreendimento' && !isOwner;
 
   // ---- Action Banner ----
@@ -101,10 +104,12 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
             <CorrectionDeadlineBadge dataPendenteCorrecao={sol.data_pendente_correcao} status={sol.status} />
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto">
-            <Button size="sm" variant="secondary" onClick={() => openCancelModal(sol)}
-              className="bg-white/80 text-destructive hover:bg-white/90 border border-destructive/30 shadow-sm flex-1 sm:flex-initial">
-              <XCircle className="h-4 w-4 mr-1" /> Cancelar
-            </Button>
+            {canCancel && (
+              <Button size="sm" variant="secondary" onClick={() => openCancelModal(sol)}
+                className="bg-white/80 text-destructive hover:bg-white/90 border border-destructive/30 shadow-sm flex-1 sm:flex-initial">
+                <XCircle className="h-4 w-4 mr-1" /> Cancelar
+              </Button>
+            )}
             <Button size="sm" variant="secondary" onClick={() => openEditModal(sol)}
               className="bg-white text-orange-700 hover:bg-white/90 border border-orange-300 shadow-sm flex-1 sm:flex-initial">
               <Edit className="h-4 w-4 mr-1" /> Corrigir Agora
@@ -168,10 +173,12 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
             <CorrectionDeadlineBadge dataPendenteCorrecao={sol.data_pendente_correcao} status={sol.status} />
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto">
-            <Button size="sm" variant="secondary" onClick={() => openCancelModal(sol)}
-              className="bg-white/80 text-destructive hover:bg-white/90 border border-destructive/30 shadow-sm flex-1 sm:flex-initial">
-              <XCircle className="h-4 w-4 mr-1" /> Cancelar
-            </Button>
+            {canCancel && (
+              <Button size="sm" variant="secondary" onClick={() => openCancelModal(sol)}
+                className="bg-white/80 text-destructive hover:bg-white/90 border border-destructive/30 shadow-sm flex-1 sm:flex-initial">
+                <XCircle className="h-4 w-4 mr-1" /> Cancelar
+              </Button>
+            )}
             <Button size="sm" variant="secondary" onClick={() => openEditModal(sol)}
               className="bg-white text-blue-700 hover:bg-white/90 border border-blue-300 shadow-sm flex-1 sm:flex-initial">
               <Edit className="h-4 w-4 mr-1" /> Corrigir e Reenviar
@@ -277,8 +284,8 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
       </Button>
     );
 
-    // Editar / Adicionar Projuris (visível para o dono)
-    if (isOwner && onEditProjuris) {
+    // Editar / Adicionar Projuris (dono ou colega do empreendimento)
+    if (canTakeAction && onEditProjuris) {
       const hasProjuris = !!sol.numero_projuris;
       const hasInstrumento = !!sol.instrumento_juridico && sol.instrumento_juridico !== 'oc';
       if (hasProjuris || hasInstrumento) {
@@ -355,12 +362,12 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
         {sol.numero_projuris ? (
           <ProjurisStatusCard
             numeroProjuris={sol.numero_projuris}
-            onEdit={isOwner && onEditProjuris ? () => onEditProjuris(sol) : undefined}
+            onEdit={canTakeAction && onEditProjuris ? () => onEditProjuris(sol) : undefined}
           />
         ) : ((sol.instrumento_juridico && sol.instrumento_juridico !== 'oc') && (
           <div className="space-y-2">
             <JuridicoTracker solicitacaoId={sol.id} readOnly />
-            {isOwner && onEditProjuris && (
+            {canTakeAction && onEditProjuris && (
               <div className="flex justify-end">
                 <Button
                   size="sm"
@@ -439,7 +446,7 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
           <FluigStatusCard numeroChamadoFluig={sol.numero_chamado_fluig} />
         )}
 
-        {sol.user_id === effectiveUserId && !['concluida', 'rejeitado', 'cancelado'].includes(sol.status) && (
+        {isOwner && !['concluida', 'rejeitado', 'cancelado'].includes(sol.status) && (
           <div className="pt-2 border-t">
             <Button variant="ghost" size="sm"
               className="text-destructive hover:text-destructive hover:bg-destructive/10"
