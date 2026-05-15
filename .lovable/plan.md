@@ -1,96 +1,101 @@
 ## Objetivo
 
-Hoje, mesmo no modo "Por Empreendimento", apenas o dono da solicitação consegue executar ações (aceitar OC, enviar NF/boleto, corrigir, responder informações, dar ciência). Quando essa pessoa entra de férias, a solicitação trava.
+Permitir que o solicitante crie uma solicitação **incompleta** (rascunho) e a salve sem enviar para o backoffice. Mais tarde ele retoma, completa as informações faltantes e envia. Anexos podem ser carregados desde o rascunho.
 
-A nova feature libera **qualquer usuário com acesso ao empreendimento da solicitação** para executar essas ações em nome do solicitante original — sem alterar o `user_id` (autoria) e registrando quem agiu no histórico/timeline.
-
-## Escopo
-
-**Ações liberadas para colegas do mesmo empreendimento:**
-- Aceitar/recusar OC ou AC (`aguardando_aceite` → `liberado_fornecedor` / `recebido`)
-- Enviar NF/Boleto (`aguardando_nf_boleto` → `aguardando_execucao` / próximo passo)
-- Corrigir solicitação devolvida (`pendente_correcao`)
-- Responder pedido de informações (`aguardando_informacoes`)
-- Dar ciência em finalizadas / canceladas
-- Editar Projuris (campo livre)
-
-**Fora de escopo nesta feature:**
-- Cancelar solicitação alheia (continua restrito ao dono)
-- Excluir/transferir titularidade (continua admin/backoffice)
-- Criar nova solicitação em nome de terceiros
-
-## Como funciona
+## Como o usuário vai usar
 
 ```text
-┌─ Solicitação criada por: Amanda (Mega Itajaí) ───────┐
-│  Status: Aguardando Aceite OC                         │
-│  → Amanda de férias                                   │
-│  → Daniel (também Mega Itajaí) abre "Por Empreend."   │
-│  → Vê botão "Aceitar OC" habilitado                   │
-│  → Clica, aceita; histórico registra:                 │
-│    "OC aceita por Daniel em nome de Amanda"           │
-└───────────────────────────────────────────────────────┘
+Nova Solicitação
+ ├─ preenche o que tem
+ ├─ adiciona anexos parciais
+ ├─ [Salvar Rascunho]  ← novo botão (sempre visível)
+ └─ [Enviar Solicitação] (continua existindo, exige tudo válido)
+
+Minhas Solicitações
+ └─ aba "Rascunhos" (nova) → lista somente os rascunhos do usuário
+      ├─ Continuar  → reabre o wizard pré-preenchido
+      └─ Excluir    → apaga rascunho + anexos
 ```
 
-O card mostrará um aviso discreto quando o usuário estiver agindo em nome de outro: "Você está agindo em nome de Amanda Alexandre".
+Backoffice **nunca vê** rascunhos. Colegas do mesmo empreendimento **também não** — rascunho é privado do autor até ser enviado.
+
+## Comportamento
+
+**Salvar Rascunho:**
+- Disponível em qualquer etapa do wizard.
+- Exige apenas `empreendimento` + `descrição` (mínimo para identificar). Demais campos podem ficar vazios/null.
+- Cria a `solicitacao` com `status = 'rascunho'`, **sem** gerar protocolo (ou com protocolo prefixado `RAS-...` para não consumir contador). Decisão: **não gerar protocolo** enquanto for rascunho — protocolo definitivo é atribuído no envio.
+- Não dispara notificações (e-mail, GChat, histórico de "criacao").
+- Anexos podem ser enviados normalmente vinculados ao id do rascunho.
+
+**Continuar Rascunho:**
+- Rota `/nova-solicitacao?rascunho={id}` carrega os campos da `solicitacoes` + anexos existentes.
+- Salvar de novo: `UPDATE` no mesmo registro.
+- Botão Enviar: valida tudo, faz `UPDATE` mudando `status` para `recebido`, gera **protocolo agora**, insere histórico de criação e dispara as notificações que hoje rodam no submit.
+
+**Excluir Rascunho:**
+- Delete em `solicitacoes` + cascata manual em `anexos` + arquivos do storage.
+- Disponível apenas para o dono.
 
 ## Mudanças técnicas
 
-### 1. RLS no Postgres (migration)
+### 1. Banco (migration)
 
-Estender as policies de UPDATE em `public.solicitacoes` para aceitar a regra "mesmo empreendimento" nos status acionáveis. Hoje só existe para `pendente_correcao` e `aguardando_informacoes` (`Users can update solicitacoes from their empreendimento`). Adicionar policies análogas usando `user_can_access_solicitacao(id)` para:
-- `aguardando_aceite` (aceitar/recusar OC)
-- `aguardando_nf_boleto` (enviar NF)
-- `aguardando_execucao` (confirmar execução, se aplicável)
-- finalização/ciência
-
-Manter as policies existentes de "own" intactas (não quebra nada).
-
-Verificar/ajustar policies análogas em tabelas dependentes para que o colega consiga gravar:
-- `solicitacao_anexos` (INSERT) — permitir quando `user_can_access_solicitacao(solicitacao_id)`
-- `solicitacao_mensagens` / respostas de informações — mesma regra
-- `solicitacao_historico` — INSERT já é feito por trigger/edge, validar
+- Adicionar valor `'rascunho'` ao enum `request_status`.
+- Tornar `protocolo` aceitar `NULL` ou string vazia (já é `''` default). Verificar a unique constraint de protocolo — ignorar `''`/`NULL` (`CREATE UNIQUE INDEX ... WHERE protocolo <> ''`). Se já existir constraint simples, recriar como índice parcial.
+- Tornar `fornecedor_id` e demais campos hoje obrigatórios para insert continuarem opcionais (a maioria já é nullable; confirmar `descricao`, `valor`, `tipo`, `natureza_orcamentaria`).
+  - Estratégia: manter colunas `NOT NULL` para registros enviados, mas o rascunho exige relaxar. Alternativa segura: adicionar `valor` default 0, `tipo` default `'OC'`, `natureza_orcamentaria` default `'servicos_diversos'` — para rascunho preencher placeholders. **Preferida**: relaxar `NOT NULL` desses campos e validar via trigger só quando `status <> 'rascunho'`.
+- Policies RLS:
+  - **Esconder rascunho do backoffice**: alterar `Backoffice can view all solicitacoes` para `... AND status <> 'rascunho'`. (Ou criar policy nova e ajustar a antiga.)
+  - **Esconder rascunho do empreendimento**: alterar `Users can view solicitacoes from their empreendimento` para excluir rascunhos (`status <> 'rascunho'`). Dono continua vendo via `Users can view own solicitacoes`.
+  - **UPDATE do dono em rascunho**: adicionar policy `Users can update own rascunho` (`auth.uid() = user_id AND status = 'rascunho'`).
+  - **DELETE do dono em rascunho**: adicionar policy `Users can delete own rascunho`.
+  - **anexos / documentos_fiscais**: as policies atuais usam `user_can_access_solicitacao`. Como rascunho fica invisível para empreendimento, garantir que a policy "own" cubra inserts em anexos quando status = rascunho. Já cobre.
+- Trigger/edge: `protocol` generation hoje provavelmente roda em insert. Verificar e mover geração para quando status muda de `rascunho` → `recebido` (ou rodar no insert apenas se status != rascunho).
 
 ### 2. Frontend
 
-**`SolicitanteSolicitacaoCard.tsx`**
-- Remover gating `canTakeAction = isOwner`. Substituir por `canTakeAction = isOwner || (viewMode === 'empreendimento' && userHasEmpreendimento)`.
-- Quando `!isOwner` e ação disponível: exibir banner discreto "Agindo em nome de {nome do solicitante}".
-- Manter `Cancelar` restrito ao dono.
+**`src/pages/NovaSolicitacao.tsx`**
+- Adicionar botão `Salvar Rascunho` no header e/ou no `FormNavigation` (sempre habilitado se `empreendimento` + `descricao` preenchidos).
+- Novo handler `handleSaveDraft`: monta payload parcial, faz insert com `status: 'rascunho'`, OU update se já existir `draftId` no estado.
+- Detectar `?rascunho={id}` na URL → buscar `solicitacao` + `anexos`, popular `formState` via setters, guardar `draftId` em estado.
+- No `handleSubmit` existente: se `draftId`, faz `UPDATE` em vez de `INSERT`, definindo `status: 'recebido'` e disparando geração de protocolo (RPC ou deixar trigger gerar quando status != rascunho).
 
-**`SolicitanteTable.tsx`**
-- Habilitar botões de pendência (Aceitar OC, Enviar NF, Corrigir, Responder) também quando a linha pertencer a outro usuário do mesmo empreendimento. Hoje os botões já aparecem; garantir que os handlers funcionem nesse caso.
+**`src/components/nova-solicitacao/FormNavigation.tsx`**
+- Aceitar prop `onSaveDraft` e renderizar botão secundário ao lado de Voltar.
 
-**`MinhasSolicitacoes.tsx`**
-- Passar a flag de "pode agir em nome de" para os modais (`AceiteOC`, `NfBoleto`, `Edit`, `Responder`).
-- Nas chamadas de update, **não** sobrescrever `user_id`. Adicionar campo `acted_by = auth.uid()` no payload do histórico.
+**`src/pages/MinhasSolicitacoes.tsx`**
+- Nova aba/filtro "Rascunhos" mostrando `status = 'rascunho'` do próprio usuário.
+- Card simplificado com: empreendimento, descrição (se houver), valor (se houver), data atualização, botões "Continuar" (navega para `/nova-solicitacao?rascunho=<id>`) e "Excluir".
 
-**Modais (`SolicitanteModals.tsx`)**
-- Mostrar título contextual: "Aceitar OC — em nome de Amanda" quando aplicável.
-- Em uploads (NF/boleto), o storage path continua usando `sol.user_id` (dono); apenas o `uploaded_by` no metadata vira `auth.uid()`.
+**`src/types/index.ts`**
+- Adicionar `'rascunho'` em `RequestStatus`, `STATUS_LABELS` ("Rascunho"), `STATUS_ACTION_LABELS` ("Complete e envie quando estiver pronto").
 
-### 3. Auditoria
+**`src/components/ui/status-badge.tsx`**
+- Novo `statusConfig.rascunho` com ícone `FileEdit` e classe neutra (cinza).
 
-Em cada ação, gravar entrada em `solicitacao_historico` com:
-- `acted_by_user_id = auth.uid()`
-- `on_behalf_of_user_id = sol.user_id` quando diferente
-- texto: "Aceitou OC em nome de {nome}" / "Enviou NF em nome de {nome}" etc.
+**Hooks de dashboard / KPIs / backoffice**
+- Filtrar `status <> 'rascunho'` em queries de contagem (dashboard, SLA, backoffice list, monitoramento). Usar busca global por `status` para ajustar.
 
-Se a tabela ainda não tiver `acted_by_user_id`, adicionar coluna nullable na mesma migration.
+### 3. Anexos
+
+- Upload de anexos para rascunho usa o mesmo bucket. Storage path continua `{user_id}/{solicitacao_id}/...`. Nada muda na policy.
+- Ao excluir rascunho, remover arquivos do storage (loop sobre `anexos.storage_path`).
 
 ### 4. Notificações
 
-- Notificar **o dono** quando alguém agir em nome dele ("Daniel aceitou a OC #2026000446 em seu nome").
-- Continuar notificando backoffice como hoje.
+- Não enviar nada em `salvar rascunho`.
+- Manter notificações atuais no envio (rascunho → recebido).
 
 ## Pontos de atenção
 
-- A regra usa `user_can_access_solicitacao(id)`, que já considera `user_empreendimentos` e o flag `todos`. Usuários "todos" continuarão podendo agir em qualquer solicitação — comportamento desejado.
-- `canViewEmpreendimentoLivre` (registros com empreendimento como string livre) não é afetado; ações são apenas em `solicitacoes` da app.
-- Testes E2E novos: colega do mesmo empreendimento aceita OC; colega de outro empreendimento recebe 403/RLS deny.
+- **Protocolo**: precisa garantir que rascunho não consuma `protocolo_counters`. Se a geração for por trigger BEFORE INSERT, condicionar a `status <> 'rascunho'`. Se for via RPC chamada do frontend, simplesmente não chamar.
+- **Limite de rascunhos por usuário**: opcional — sugestão de 10 para evitar acúmulo. Decidir com base em feedback futuro; nesta entrega: sem limite.
+- **localStorage `nova_solicitacao_draft`**: continua existindo para resgatar trabalho não salvo no servidor. Quando o usuário abre um rascunho do servidor, o autosave local fica desabilitado (ou é limpo) para não conflitar.
+- **Edição em rascunho não passa por validações de envio**, mas o `handleSubmit` já roda todas as validações antes de mudar status para `recebido`.
 
-## Perguntas para confirmar antes de implementar
+## Perguntas para confirmar
 
-1. Cancelar solicitação alheia — manter restrito ao dono, certo? (recomendação: sim)
-2. Para Editar campos da solicitação durante `pendente_correcao`/`aguardando_informacoes`, o colega já pode (RLS existe). Confirma que mantém?
-3. Quer banner visível no card "Agindo em nome de X" ou prefere apenas registrar no histórico, sem sinalização visual?
+1. O botão "Salvar Rascunho" deve aparecer **em todas as etapas** do wizard ou só a partir de uma etapa mínima?
+2. Confirmar que **rascunho é privado do autor** (colegas do empreendimento não enxergam até ser enviado)?
+3. Quando o usuário "Continuar" um rascunho e clicar em Enviar, o registro mantém o **mesmo id** e ganha **protocolo novo no envio** — ok?
