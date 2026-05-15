@@ -1,6 +1,6 @@
 export type AppRole = 'solicitante' | 'backoffice' | 'admin' | 'super_admin';
 export type RequestType = 'AC' | 'OC';
-export type RequestStatus = 'recebido' | 'em_analise' | 'pendente_correcao' | 'aprovado' | 'rejeitado' | 'em_processamento' | 'oc_ac_emitida' | 'aguardando_aceite' | 'aguardando_informacoes' | 'concluida' | 'aguardando_nf_boleto' | 'nf_boleto_enviados' | 'enviado_pagamento' | 'liberado_fornecedor' | 'enviado_fornecedor' | 'cancelado' | 'aguardando_execucao';
+export type RequestStatus = 'rascunho' | 'recebido' | 'em_analise' | 'pendente_correcao' | 'aprovado' | 'rejeitado' | 'em_processamento' | 'oc_ac_emitida' | 'aguardando_aceite' | 'aguardando_informacoes' | 'concluida' | 'aguardando_nf_boleto' | 'nf_boleto_enviados' | 'enviado_pagamento' | 'liberado_fornecedor' | 'enviado_fornecedor' | 'cancelado' | 'aguardando_execucao';
 export type Empreendimento = 'mega_curitiba' | 'mega_itajai' | 'mega_esteio' | 'mega_canoas' | 'todos';
 export type NaturezaOrcamentaria = 
   | 'materiais_informatica'
@@ -228,6 +228,7 @@ export const TIPO_CONTRATACAO_LABELS: Record<TipoContratacao, string> = {
 };
 
 export const STATUS_LABELS: Record<RequestStatus, string> = {
+  rascunho: 'Rascunho',
   recebido: 'Em Fila',
   em_analise: 'Em Análise pelo Backoffice',
   pendente_correcao: 'Correção Necessária',
@@ -281,6 +282,7 @@ export const ROLE_LABELS: Record<AppRole, string> = {
 // Labels padronizados para anexos
 // Action hints — what the user should do/expect for each status
 export const STATUS_ACTION_LABELS: Record<RequestStatus, string> = {
+  rascunho: 'Complete as informações e envie quando estiver pronto',
   recebido: 'Sua solicitação está na fila de análise',
   em_analise: 'O backoffice está analisando sua solicitação',
   pendente_correcao: 'Você precisa corrigir e reenviar',
