@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, Check, Loader2, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Loader2, ShieldCheck, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { Step, StepDefinition, FormState, DerivedValues } from './types';
@@ -16,9 +16,13 @@ interface FormNavigationProps {
   onNext: () => void;
   onBack: () => void;
   onSubmit: () => void;
+  onSaveDraft?: () => void;
+  canSaveDraft?: boolean;
+  savingDraft?: boolean;
+  draftButtonLabel?: string;
 }
 
-export function FormNavigation({ currentStep, visibleSteps, currentIndex, submitting, canProceed, canSubmit = true, firstInvalidStepLabel = null, firstErrorMessage = null, hasStepErrors = false, onNext, onBack, onSubmit }: FormNavigationProps) {
+export function FormNavigation({ currentStep, visibleSteps, currentIndex, submitting, canProceed, canSubmit = true, firstInvalidStepLabel = null, firstErrorMessage = null, hasStepErrors = false, onNext, onBack, onSubmit, onSaveDraft, canSaveDraft = false, savingDraft = false, draftButtonLabel = 'Salvar Rascunho' }: FormNavigationProps) {
   const submitDisabled = submitting || !canSubmit;
   const tooltipMessage = firstInvalidStepLabel
     ? `Falta completar a etapa "${firstInvalidStepLabel}" para enviar.`
@@ -64,6 +68,19 @@ export function FormNavigation({ currentStep, visibleSteps, currentIndex, submit
       >
         <ArrowLeft className="h-4 w-4" /> Voltar
       </Button>
+      <div className="flex items-center gap-2">
+      {onSaveDraft && (
+        <Button
+          variant="outline"
+          onClick={onSaveDraft}
+          disabled={savingDraft || submitting || !canSaveDraft}
+          className="gap-2"
+          title={!canSaveDraft ? 'Preencha empreendimento e descrição para salvar rascunho' : undefined}
+        >
+          {savingDraft ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          {savingDraft ? 'Salvando…' : draftButtonLabel}
+        </Button>
+      )}
       {currentStep === 'revisao' ? (
         !canSubmit && !submitting ? (
           <TooltipProvider>
@@ -87,6 +104,7 @@ export function FormNavigation({ currentStep, visibleSteps, currentIndex, submit
       ) : (
         nextButton
       )}
+      </div>
     </div>
   );
 }
