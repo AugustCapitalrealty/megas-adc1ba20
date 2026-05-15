@@ -1,7 +1,7 @@
 import { logger } from '@/lib/logger';
 import { useRef, useEffect, useState } from 'react';
 import { useTrackEvent } from '@/hooks/useTrackEvent';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -42,6 +42,8 @@ export default function NovaSolicitacao() {
   const track = useTrackEvent();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const rascunhoId = searchParams.get('rascunho');
   const effectiveUserId = effectiveProfile?.id ?? user?.id;
 
   const form = useNovaSolicitacaoForm(effectiveUserId);
@@ -254,6 +256,178 @@ export default function NovaSolicitacao() {
   // and offer a manual retry button instead of leaving the user without remediation.
   const [pendingAnexosFor, setPendingAnexosFor] = useState<{ id: string; protocolo: string } | null>(null);
 
+  // Server-side draft (status = 'rascunho')
+  const [draftId, setDraftId] = useState<string | null>(rascunhoId);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [loadingDraft, setLoadingDraft] = useState(!!rascunhoId);
+
+  // Load existing rascunho when ?rascunho=id is present
+  useEffect(() => {
+    if (!rascunhoId || !effectiveUserId) return;
+    let cancelled = false;
+    (async () => {
+      setLoadingDraft(true);
+      try {
+        const { data, error } = await supabase
+          .from('solicitacoes')
+          .select('*, fornecedor:fornecedores!solicitacoes_fornecedor_id_fkey(*), conc1:fornecedores!solicitacoes_fornecedor_concorrente_1_id_fkey(*), conc2:fornecedores!solicitacoes_fornecedor_concorrente_2_id_fkey(*)')
+          .eq('id', rascunhoId)
+          .maybeSingle();
+        if (cancelled) return;
+        if (error || !data) {
+          toast({ title: 'Rascunho não encontrado', variant: 'destructive' });
+          navigate('/nova-solicitacao', { replace: true });
+          return;
+        }
+        if (data.status !== 'rascunho') {
+          toast({ title: 'Esta solicitação já foi enviada', description: 'Não é mais um rascunho.', variant: 'destructive' });
+          navigate('/minhas-solicitacoes', { replace: true });
+          return;
+        }
+        // Populate form via setters
+        const s = data as any;
+        if (s.empreendimento) setters.setEmpreendimento(s.empreendimento);
+        if (s.descricao) setters.setDescricao(s.descricao);
+        if (s.valor != null) setters.setValor(String(s.valor));
+        if (s.tipo_contratacao) setters.setTipoContratacao(s.tipo_contratacao);
+        if (s.natureza_orcamentaria) setters.setNaturezaOrcamentaria(s.natureza_orcamentaria);
+        if (s.origem_custo) setters.setOrigemCusto(s.origem_custo);
+        if (s.data_inicio) setters.setDataInicio(s.data_inicio);
+        if (s.data_fim) setters.setDataFim(s.data_fim);
+        if (s.parcelas) setters.setParcelas(String(s.parcelas));
+        setters.setContratoMensal(!!s.contrato_mensal);
+        setters.setFaturamentoDireto(!!s.faturamento_direto);
+        if (s.valor_servico != null) setters.setValorServico(String(s.valor_servico));
+        if (s.valor_material != null) setters.setValorMaterial(String(s.valor_material));
+        setters.setRetencao6(!!s.retencao_6_porcento);
+        if (s.tipo_garantia) setters.setTipoGarantia(s.tipo_garantia);
+        if (s.dias_garantia != null) setters.setDiasGarantia(String(s.dias_garantia));
+        if (s.dias_garantia_servico != null) setters.setDiasGarantiaServico(String(s.dias_garantia_servico));
+        if (s.dias_garantia_produto != null) setters.setDiasGarantiaProduto(String(s.dias_garantia_produto));
+        setters.setCustoCliente(!!s.custo_cliente);
+        setters.setEmergencial(!!s.emergencial);
+        if (s.cliente_id) setters.setClienteId(s.cliente_id);
+        setters.setExcecaoFornecedores(!!s.excecao_fornecedores);
+        if (s.justificativa_fornecedores) setters.setJustificativaFornecedores(s.justificativa_fornecedores);
+        setters.setFornecimentoExclusivo(!!s.fornecimento_exclusivo);
+        if (s.justificativa_exclusividade) setters.setJustificativaExclusividade(s.justificativa_exclusividade);
+        if (s.justificativa_sem_memorial) {
+          setters.setSemMemorial(true);
+          setters.setJustificativaSemMemorial(s.justificativa_sem_memorial);
+        }
+        setters.setNaturezaObraCivil(!!s.natureza_servico_obra_civil);
+        setters.setNaturezaAlturaRisco(!!s.natureza_servico_altura_risco);
+        setters.setNaturezaFossaFiltro(!!s.natureza_servico_fossa_filtro);
+        setters.setNaturezaPrecoVariavel(!!s.natureza_servico_preco_variavel);
+        if (s.escopo_detalhado_minuta) setters.setEscopoDetalhadoMinuta(s.escopo_detalhado_minuta);
+        setters.setDueDiligenceConfirmada(!!s.due_diligence_confirmada);
+        if (s.due_diligence_numero_projuris) {
+          setters.setTemProcessoProjuris(true);
+          setters.setDueDiligenceNumeroProjuris(s.due_diligence_numero_projuris);
+        }
+        if (s.tipo_rateio) setters.setTipoRateio(s.tipo_rateio);
+        if (Array.isArray(s.rateio_valores)) setters.setRateioValores(s.rateio_valores);
+        if (s.fornecedor) setters.setFornecedor(s.fornecedor);
+        if (s.conc1) setters.setFornecedorConcorrente1(s.conc1);
+        if (s.conc2) setters.setFornecedorConcorrente2(s.conc2);
+        setDraftId(s.id);
+        // Disable localStorage draft so it doesn't conflict
+        clearDraft();
+        toast({ title: 'Rascunho carregado', description: 'Continue de onde parou.' });
+      } finally {
+        if (!cancelled) setLoadingDraft(false);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rascunhoId, effectiveUserId]);
+
+  // Build a partial payload for rascunho (skips invalid casts)
+  const buildDraftPayload = () => {
+    const valorNum = derived.valorNumerico || null;
+    return {
+      user_id: effectiveUserId ?? user?.id,
+      empreendimento: formState.empreendimento || null,
+      descricao: formState.descricao || null,
+      valor: valorNum,
+      tipo: derived.valorNumerico > 0 ? (derived.isAC ? 'AC' : 'OC') : null,
+      natureza_orcamentaria: formState.naturezaOrcamentaria || null,
+      origem_custo: formState.origemCusto,
+      cliente_id: formState.origemCusto === 'cliente' ? formState.clienteId : null,
+      fornecedor_id: formState.fornecedor?.id || null,
+      fornecedor_concorrente_1_id: formState.fornecedorConcorrente1?.id || null,
+      fornecedor_concorrente_2_id: formState.fornecedorConcorrente2?.id || null,
+      tipo_contratacao: formState.tipoContratacao || null,
+      data_inicio: formState.dataInicio || null,
+      data_fim: formState.dataFim || null,
+      parcelas: parseInt(formState.parcelas) || 1,
+      contrato_mensal: formState.contratoMensal,
+      faturamento_direto: formState.faturamentoDireto,
+      valor_servico: derived.valorServicoNumerico || null,
+      valor_material: derived.valorMaterialNumerico || null,
+      retencao_6_porcento: formState.retencao6,
+      tipo_garantia: formState.tipoGarantia,
+      dias_garantia: parseInt(formState.diasGarantia) || null,
+      dias_garantia_servico: parseInt(formState.diasGarantiaServico) || null,
+      dias_garantia_produto: parseInt(formState.diasGarantiaProduto) || null,
+      custo_cliente: formState.custoCliente,
+      emergencial: formState.emergencial,
+      excecao_fornecedores: formState.excecaoFornecedores,
+      justificativa_fornecedores: formState.justificativaFornecedores || null,
+      fornecimento_exclusivo: formState.fornecimentoExclusivo,
+      justificativa_exclusividade: formState.justificativaExclusividade || null,
+      justificativa_sem_memorial: formState.semMemorial && formState.justificativaSemMemorial.trim() ? formState.justificativaSemMemorial.trim() : null,
+      natureza_servico_obra_civil: formState.naturezaObraCivil,
+      natureza_servico_altura_risco: formState.naturezaAlturaRisco,
+      natureza_servico_fossa_filtro: formState.naturezaFossaFiltro,
+      natureza_servico_preco_variavel: formState.naturezaPrecoVariavel,
+      escopo_detalhado_minuta: formState.escopoDetalhadoMinuta || null,
+      due_diligence_confirmada: formState.dueDiligenceConfirmada,
+      due_diligence_numero_projuris: formState.dueDiligenceNumeroProjuris || null,
+      tipo_rateio: formState.empreendimento === 'todos' ? formState.tipoRateio : null,
+      rateio_valores: formState.empreendimento === 'todos' && formState.rateioValores.length > 0 ? formState.rateioValores : null,
+      status: 'rascunho' as any,
+    } as any;
+  };
+
+  const canSaveDraft = !!formState.empreendimento && !!formState.descricao.trim();
+
+  const handleSaveDraft = async () => {
+    if (!user || !canSaveDraft || savingDraft) return;
+    setSavingDraft(true);
+    try {
+      const payload = buildDraftPayload();
+      let id = draftId;
+      if (id) {
+        const { error } = await supabase.from('solicitacoes').update(payload).eq('id', id);
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase.from('solicitacoes').insert(payload).select('id').single();
+        if (error) throw error;
+        id = data.id;
+        setDraftId(id);
+      }
+      // Upload any new attachments to this rascunho
+      try {
+        await uploadAnexos(id!);
+        // Clear in-memory file refs since they are now persisted
+        setters.setAnexos({});
+        setters.setOutrosAnexos([]);
+      } catch (anexoErr) {
+        console.error('[DRAFT] Falha ao subir anexos:', anexoErr);
+        toast({ title: 'Rascunho salvo, anexos pendentes', description: 'Tente reenviar os anexos.', variant: 'destructive' });
+      }
+      clearDraft();
+      toast({ title: 'Rascunho salvo', description: 'Você pode retomar mais tarde em Minhas Solicitações.' });
+      track('draft_saved', { id }, '/nova-solicitacao');
+    } catch (err: any) {
+      console.error('[DRAFT] Erro ao salvar rascunho:', err);
+      toast({ title: 'Erro ao salvar rascunho', description: err?.message || 'Tente novamente.', variant: 'destructive' });
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
   const retryPendingAnexos = async () => {
     if (!pendingAnexosFor) return;
     setSubmitting(true);
@@ -439,6 +613,23 @@ export default function NovaSolicitacao() {
       const maxRetries = 2;
 
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        if (draftId) {
+          // Promote rascunho → recebido (trigger gera o protocolo)
+          const { data: updateResult, error } = await supabase
+            .from('solicitacoes')
+            .update({ ...insertData, status: 'recebido' as any })
+            .eq('id', draftId)
+            .select('id, protocolo')
+            .single();
+          if (!error) { data = updateResult; break; }
+          if (error.code === '23505' && error.message?.includes('protocolo')) {
+            logger.warn(`[SUBMIT][RETRY] Conflito de protocolo (rascunho) ${attempt}/${maxRetries}`);
+            lastError = error;
+            if (attempt < maxRetries) await new Promise(r => setTimeout(r, 300 + Math.random() * 500));
+            continue;
+          }
+          throw error;
+        }
         const { data: insertResult, error } = await supabase
           .from('solicitacoes')
           .insert(insertData as any)
@@ -841,6 +1032,10 @@ export default function NovaSolicitacao() {
           onNext={goNext}
           onBack={goBack}
           onSubmit={handleSubmit}
+          onSaveDraft={handleSaveDraft}
+          canSaveDraft={canSaveDraft}
+          savingDraft={savingDraft}
+          draftButtonLabel={draftId ? 'Atualizar Rascunho' : 'Salvar Rascunho'}
         />
         </div>
 

@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils';
 import type { RequestStatus } from '@/types';
 import { STATUS_LABELS, STATUS_ACTION_LABELS } from '@/types';
-import { Clock, Eye, AlertCircle, CheckCircle, XCircle, Cog, FileCheck, CheckCheck, Send, HelpCircle, FileText, Receipt, CreditCard, Truck, PackageCheck, Ban, Wrench } from 'lucide-react';
+import { Clock, Eye, AlertCircle, CheckCircle, XCircle, Cog, FileCheck, CheckCheck, Send, HelpCircle, FileText, Receipt, CreditCard, Truck, PackageCheck, Ban, Wrench, FileEdit } from 'lucide-react';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 interface StatusBadgeProps {
@@ -14,6 +14,7 @@ const statusConfig: Record<RequestStatus, {
   className: string;
   Icon: typeof Clock;
 }> = {
+  rascunho: { className: 'status-cancelado', Icon: FileEdit },
   recebido: { className: 'status-recebido', Icon: Clock },
   em_analise: { className: 'status-em-analise', Icon: Eye },
   pendente_correcao: { className: 'status-pendente', Icon: AlertCircle },
