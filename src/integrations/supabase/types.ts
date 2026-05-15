@@ -1032,7 +1032,7 @@ export type Database = {
           data_inicio: string | null
           data_liberado_fornecedor: string | null
           data_pendente_correcao: string | null
-          descricao: string
+          descricao: string | null
           dias_garantia: number | null
           dias_garantia_produto: number | null
           dias_garantia_servico: number | null
@@ -1068,7 +1068,9 @@ export type Database = {
           justificativa_sem_chamado: string | null
           justificativa_sem_memorial: string | null
           liberado_fornecedor_por: string | null
-          natureza_orcamentaria: Database["public"]["Enums"]["natureza_orcamentaria"]
+          natureza_orcamentaria:
+            | Database["public"]["Enums"]["natureza_orcamentaria"]
+            | null
           natureza_servico_altura_risco: boolean | null
           natureza_servico_fossa_filtro: boolean | null
           natureza_servico_obra_civil: boolean | null
@@ -1086,7 +1088,7 @@ export type Database = {
           resposta_informacoes: string | null
           retencao_6_porcento: boolean | null
           status: Database["public"]["Enums"]["request_status"]
-          tipo: Database["public"]["Enums"]["request_type"]
+          tipo: Database["public"]["Enums"]["request_type"] | null
           tipo_contratacao:
             | Database["public"]["Enums"]["tipo_contratacao"]
             | null
@@ -1095,7 +1097,7 @@ export type Database = {
           tipo_rateio: string | null
           updated_at: string
           user_id: string
-          valor: number
+          valor: number | null
           valor_material: number | null
           valor_mensal: number | null
           valor_servico: number | null
@@ -1114,7 +1116,7 @@ export type Database = {
           data_inicio?: string | null
           data_liberado_fornecedor?: string | null
           data_pendente_correcao?: string | null
-          descricao: string
+          descricao?: string | null
           dias_garantia?: number | null
           dias_garantia_produto?: number | null
           dias_garantia_servico?: number | null
@@ -1150,7 +1152,9 @@ export type Database = {
           justificativa_sem_chamado?: string | null
           justificativa_sem_memorial?: string | null
           liberado_fornecedor_por?: string | null
-          natureza_orcamentaria: Database["public"]["Enums"]["natureza_orcamentaria"]
+          natureza_orcamentaria?:
+            | Database["public"]["Enums"]["natureza_orcamentaria"]
+            | null
           natureza_servico_altura_risco?: boolean | null
           natureza_servico_fossa_filtro?: boolean | null
           natureza_servico_obra_civil?: boolean | null
@@ -1168,7 +1172,7 @@ export type Database = {
           resposta_informacoes?: string | null
           retencao_6_porcento?: boolean | null
           status?: Database["public"]["Enums"]["request_status"]
-          tipo: Database["public"]["Enums"]["request_type"]
+          tipo?: Database["public"]["Enums"]["request_type"] | null
           tipo_contratacao?:
             | Database["public"]["Enums"]["tipo_contratacao"]
             | null
@@ -1177,7 +1181,7 @@ export type Database = {
           tipo_rateio?: string | null
           updated_at?: string
           user_id: string
-          valor: number
+          valor?: number | null
           valor_material?: number | null
           valor_mensal?: number | null
           valor_servico?: number | null
@@ -1196,7 +1200,7 @@ export type Database = {
           data_inicio?: string | null
           data_liberado_fornecedor?: string | null
           data_pendente_correcao?: string | null
-          descricao?: string
+          descricao?: string | null
           dias_garantia?: number | null
           dias_garantia_produto?: number | null
           dias_garantia_servico?: number | null
@@ -1232,7 +1236,9 @@ export type Database = {
           justificativa_sem_chamado?: string | null
           justificativa_sem_memorial?: string | null
           liberado_fornecedor_por?: string | null
-          natureza_orcamentaria?: Database["public"]["Enums"]["natureza_orcamentaria"]
+          natureza_orcamentaria?:
+            | Database["public"]["Enums"]["natureza_orcamentaria"]
+            | null
           natureza_servico_altura_risco?: boolean | null
           natureza_servico_fossa_filtro?: boolean | null
           natureza_servico_obra_civil?: boolean | null
@@ -1250,7 +1256,7 @@ export type Database = {
           resposta_informacoes?: string | null
           retencao_6_porcento?: boolean | null
           status?: Database["public"]["Enums"]["request_status"]
-          tipo?: Database["public"]["Enums"]["request_type"]
+          tipo?: Database["public"]["Enums"]["request_type"] | null
           tipo_contratacao?:
             | Database["public"]["Enums"]["tipo_contratacao"]
             | null
@@ -1259,7 +1265,7 @@ export type Database = {
           tipo_rateio?: string | null
           updated_at?: string
           user_id?: string
-          valor?: number
+          valor?: number | null
           valor_material?: number | null
           valor_mensal?: number | null
           valor_servico?: number | null
@@ -1474,6 +1480,7 @@ export type Database = {
         Returns: {
           cliente_nome: string
           created_at: string
+          data_execucao_servico: string
           data_pendente_correcao: string
           descricao: string
           emergencial: boolean
