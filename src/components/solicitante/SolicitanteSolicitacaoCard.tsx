@@ -78,6 +78,21 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
     }
     if (!canTakeAction) return null;
 
+    if (sol.status === 'rascunho' && isOwner) {
+      return (
+        <div className="bg-muted text-foreground px-4 py-2 flex flex-col sm:flex-row sm:items-center justify-between rounded-t-lg gap-2 border-b">
+          <div className="flex items-center gap-2">
+            <Edit className="h-5 w-5 shrink-0" />
+            <span className="font-semibold">RASCUNHO</span>
+            <span className="text-sm opacity-80 hidden sm:inline">- Complete e envie quando estiver pronto</span>
+          </div>
+          <Button size="sm" variant="default" asChild className="w-full sm:w-auto">
+            <a href={`/nova-solicitacao?rascunho=${sol.id}`}>Continuar editando</a>
+          </Button>
+        </div>
+      );
+    }
+
     if (sol.status === 'aguardando_nf_boleto') {
       return (
         <div className="bg-[hsl(260,70%,50%)] text-white px-4 py-2 flex flex-col sm:flex-row sm:items-center justify-between rounded-t-lg gap-2">
