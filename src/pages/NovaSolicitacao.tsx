@@ -613,6 +613,23 @@ export default function NovaSolicitacao() {
       const maxRetries = 2;
 
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        if (draftId) {
+          // Promote rascunho → recebido (trigger gera o protocolo)
+          const { data: updateResult, error } = await supabase
+            .from('solicitacoes')
+            .update({ ...insertData, status: 'recebido' as any })
+            .eq('id', draftId)
+            .select('id, protocolo')
+            .single();
+          if (!error) { data = updateResult; break; }
+          if (error.code === '23505' && error.message?.includes('protocolo')) {
+            logger.warn(`[SUBMIT][RETRY] Conflito de protocolo (rascunho) ${attempt}/${maxRetries}`);
+            lastError = error;
+            if (attempt < maxRetries) await new Promise(r => setTimeout(r, 300 + Math.random() * 500));
+            continue;
+          }
+          throw error;
+        }
         const { data: insertResult, error } = await supabase
           .from('solicitacoes')
           .insert(insertData as any)
@@ -1015,6 +1032,10 @@ export default function NovaSolicitacao() {
           onNext={goNext}
           onBack={goBack}
           onSubmit={handleSubmit}
+          onSaveDraft={handleSaveDraft}
+          canSaveDraft={canSaveDraft}
+          savingDraft={savingDraft}
+          draftButtonLabel={draftId ? 'Atualizar Rascunho' : 'Salvar Rascunho'}
         />
         </div>
 
