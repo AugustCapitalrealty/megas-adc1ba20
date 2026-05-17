@@ -687,9 +687,24 @@ export default function NovaSolicitacao() {
             .from('solicitacoes')
             .update({ ...insertData, status: 'recebido' as any })
             .eq('id', draftId)
+            .eq('status', 'rascunho' as any)
             .select('id, protocolo')
-            .single();
-          if (!error) { data = updateResult; break; }
+            .maybeSingle();
+          if (!error) {
+            if (!updateResult) {
+              // Rascunho foi removido / promovido em outra aba
+              toast({
+                title: 'Rascunho não está mais disponível',
+                description: 'Ele foi enviado ou excluído em outra aba. Recarregue a página.',
+                variant: 'destructive',
+              });
+              isSubmittingRef.current = false;
+              setSubmitting(false);
+              return;
+            }
+            data = updateResult;
+            break;
+          }
           if (error.code === '23505' && error.message?.includes('protocolo')) {
             logger.warn(`[SUBMIT][RETRY] Conflito de protocolo (rascunho) ${attempt}/${maxRetries}`);
             lastError = error;
