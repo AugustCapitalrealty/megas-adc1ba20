@@ -62,7 +62,7 @@ const ATTACHMENT_TYPES = {
   orcamento_concorrente_2: 'Orçamento Concorrente 2',
 } as const;
 
-type FilterTab = 'todas' | 'com_backoffice' | 'pendentes' | 'correcoes' | 'informacoes' | 'oc_emitida' | 'liberadas' | 'enviadas' | 'canceladas' | 'ciencia' | 'concluidas';
+type FilterTab = 'todas' | 'com_backoffice' | 'pendentes' | 'correcoes' | 'informacoes' | 'oc_emitida' | 'liberadas' | 'enviadas' | 'canceladas' | 'ciencia' | 'concluidas' | 'rascunhos';
 type PendentesSubFilter = 'todos' | 'corrigir' | 'responder';
 type ViewMode = 'minhas' | 'empreendimento';
 
