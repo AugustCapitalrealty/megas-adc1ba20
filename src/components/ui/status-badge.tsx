@@ -14,7 +14,7 @@ const statusConfig: Record<RequestStatus, {
   className: string;
   Icon: typeof Clock;
 }> = {
-  rascunho: { className: 'status-cancelado', Icon: FileEdit },
+  rascunho: { className: 'status-pendente', Icon: FileEdit },
   recebido: { className: 'status-recebido', Icon: Clock },
   em_analise: { className: 'status-em-analise', Icon: Eye },
   pendente_correcao: { className: 'status-pendente', Icon: AlertCircle },

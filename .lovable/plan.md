@@ -1,101 +1,64 @@
 ## Objetivo
 
-Permitir que o solicitante crie uma solicitação **incompleta** (rascunho) e a salve sem enviar para o backoffice. Mais tarde ele retoma, completa as informações faltantes e envia. Anexos podem ser carregados desde o rascunho.
+Endurecer o **Modo Rascunho** já implementado, cobrindo riscos identificados em uso real: ausência de aba dedicada, anexos duplicados, drafts vazando em KPIs/listas, perda de trabalho, concorrência entre abas e falta de notificação ao promover o rascunho.
 
-## Como o usuário vai usar
+## Riscos atuais x correção
 
-```text
-Nova Solicitação
- ├─ preenche o que tem
- ├─ adiciona anexos parciais
- ├─ [Salvar Rascunho]  ← novo botão (sempre visível)
- └─ [Enviar Solicitação] (continua existindo, exige tudo válido)
+| # | Risco hoje | Correção |
+|---|---|---|
+| 1 | Rascunhos aparecem na aba "Todas" / contadores do solicitante (RLS só esconde para colegas, não para o dono) | Filtrar `status !== 'rascunho'` em todos os `statusCounts` e tabs gerais; adicionar aba dedicada "Rascunhos" |
+| 2 | Não existe botão **Excluir rascunho**; storage fica órfão se o usuário apagar manualmente | Botão "Excluir" no card + handler que apaga `anexos` (DB) + arquivos em `storage.objects` antes de deletar a linha |
+| 3 | Anexos ficam **duplicados** se o usuário salvar o rascunho 2× com o mesmo arquivo no mesmo `tipo` | Antes de inserir, deletar `anexos` existentes de mesmo `(solicitacao_id, tipo)` e o respectivo arquivo no storage |
+| 4 | Ao carregar `?rascunho=id`, os anexos já salvos **não aparecem** no step de anexos → usuário re-anexa (duplica) ou pensa que precisa enviar tudo de novo | Buscar `anexos` no load e popular `formState.anexos` com placeholders "(já enviado: nome.pdf)" + lista em `outrosAnexos`; expor opção "Remover" que apaga do servidor |
+| 5 | `useFormPersistence` (localStorage) continua salvando enquanto o usuário edita um rascunho do servidor → conflito ao reabrir | Pausar autosave quando `draftId` está setado (já há `clearDraft()` no load — adicionar flag `disabled` no hook) |
+| 6 | Duas abas editando o mesmo rascunho → última escrita ganha sem aviso | Versionamento otimista: incluir `updated_at` no payload do `update` com `.eq('updated_at', loadedUpdatedAt)` — se 0 linhas afetadas, mostrar toast "Rascunho foi alterado em outra aba, recarregue" |
+| 7 | Saída acidental da página com mudanças não salvas perde dados | `beforeunload` quando há campos preenchidos e `savingDraft === false` e draft está "sujo" (dirty flag) |
+| 8 | Quando rascunho é promovido a `recebido`, o trigger `notify_new_solicitacao` (AFTER INSERT) **não dispara** → o solicitante não recebe a notificação in-app "Sua solicitação foi criada" | Estender `handle_rascunho_envio` para também inserir em `public.notifications` na promoção |
+| 9 | RLS UPDATE de rascunho permite `WITH CHECK (auth.uid() = user_id)` — sem restrição de `status`. Já cobre promoção, mas permite o dono "mover" para qualquer status manualmente (ex.: `concluida`). Não é exploitável via UI mas é folgado | Restringir `WITH CHECK` para `status IN ('rascunho','recebido')` (apenas manter rascunho ou enviar) |
+| 10 | Card de rascunho pode renderizar com `descricao/valor/fornecedor` nulos e quebrar componentes que assumem valores | Guards defensivos no `SolicitanteSolicitacaoCard`: placeholders "Sem descrição", "Sem valor", "Sem fornecedor"; ocultar ações de fluxo (NF, ciência, transferir) quando `status === 'rascunho'` |
+| 11 | Badge do status "Rascunho" usa classe `status-cancelado` (vermelho — confunde com cancelado) | Trocar para classe neutra (cinza/info), ícone `FileEdit` mantido |
+| 12 | Limite implícito 0 → usuário pode acumular centenas de rascunhos | Limite de **20 rascunhos por usuário** (check no `handleSaveDraft`: contar antes do insert) |
+| 13 | Ao apagar rascunho durante o submit (caso raro de UPDATE com `.eq('id', draftId)`), se outra aba já excluiu, o update retorna 0 linhas e o frontend mostra "sucesso silencioso" | Após o `update` do submit, validar `data` retornado; se nulo → toast "Rascunho não existe mais" |
+| 14 | `handleSaveDraft` limpa `setAnexos({})` mesmo se o upload falhar parcialmente | Só limpar os `tipos` cujo upload foi confirmado (Promise.allSettled) |
 
-Minhas Solicitações
- └─ aba "Rascunhos" (nova) → lista somente os rascunhos do usuário
-      ├─ Continuar  → reabre o wizard pré-preenchido
-      └─ Excluir    → apaga rascunho + anexos
-```
+## Mudanças
 
-Backoffice **nunca vê** rascunhos. Colegas do mesmo empreendimento **também não** — rascunho é privado do autor até ser enviado.
+### Migration
 
-## Comportamento
+- Atualizar policy `Users can update own rascunho` para `WITH CHECK (auth.uid() = user_id AND status IN ('rascunho','recebido'))`.
+- Atualizar função `handle_rascunho_envio` para inserir notificação in-app no momento da promoção.
 
-**Salvar Rascunho:**
-- Disponível em qualquer etapa do wizard.
-- Exige apenas `empreendimento` + `descrição` (mínimo para identificar). Demais campos podem ficar vazios/null.
-- Cria a `solicitacao` com `status = 'rascunho'`, **sem** gerar protocolo (ou com protocolo prefixado `RAS-...` para não consumir contador). Decisão: **não gerar protocolo** enquanto for rascunho — protocolo definitivo é atribuído no envio.
-- Não dispara notificações (e-mail, GChat, histórico de "criacao").
-- Anexos podem ser enviados normalmente vinculados ao id do rascunho.
-
-**Continuar Rascunho:**
-- Rota `/nova-solicitacao?rascunho={id}` carrega os campos da `solicitacoes` + anexos existentes.
-- Salvar de novo: `UPDATE` no mesmo registro.
-- Botão Enviar: valida tudo, faz `UPDATE` mudando `status` para `recebido`, gera **protocolo agora**, insere histórico de criação e dispara as notificações que hoje rodam no submit.
-
-**Excluir Rascunho:**
-- Delete em `solicitacoes` + cascata manual em `anexos` + arquivos do storage.
-- Disponível apenas para o dono.
-
-## Mudanças técnicas
-
-### 1. Banco (migration)
-
-- Adicionar valor `'rascunho'` ao enum `request_status`.
-- Tornar `protocolo` aceitar `NULL` ou string vazia (já é `''` default). Verificar a unique constraint de protocolo — ignorar `''`/`NULL` (`CREATE UNIQUE INDEX ... WHERE protocolo <> ''`). Se já existir constraint simples, recriar como índice parcial.
-- Tornar `fornecedor_id` e demais campos hoje obrigatórios para insert continuarem opcionais (a maioria já é nullable; confirmar `descricao`, `valor`, `tipo`, `natureza_orcamentaria`).
-  - Estratégia: manter colunas `NOT NULL` para registros enviados, mas o rascunho exige relaxar. Alternativa segura: adicionar `valor` default 0, `tipo` default `'OC'`, `natureza_orcamentaria` default `'servicos_diversos'` — para rascunho preencher placeholders. **Preferida**: relaxar `NOT NULL` desses campos e validar via trigger só quando `status <> 'rascunho'`.
-- Policies RLS:
-  - **Esconder rascunho do backoffice**: alterar `Backoffice can view all solicitacoes` para `... AND status <> 'rascunho'`. (Ou criar policy nova e ajustar a antiga.)
-  - **Esconder rascunho do empreendimento**: alterar `Users can view solicitacoes from their empreendimento` para excluir rascunhos (`status <> 'rascunho'`). Dono continua vendo via `Users can view own solicitacoes`.
-  - **UPDATE do dono em rascunho**: adicionar policy `Users can update own rascunho` (`auth.uid() = user_id AND status = 'rascunho'`).
-  - **DELETE do dono em rascunho**: adicionar policy `Users can delete own rascunho`.
-  - **anexos / documentos_fiscais**: as policies atuais usam `user_can_access_solicitacao`. Como rascunho fica invisível para empreendimento, garantir que a policy "own" cubra inserts em anexos quando status = rascunho. Já cobre.
-- Trigger/edge: `protocol` generation hoje provavelmente roda em insert. Verificar e mover geração para quando status muda de `rascunho` → `recebido` (ou rodar no insert apenas se status != rascunho).
-
-### 2. Frontend
+### Frontend
 
 **`src/pages/NovaSolicitacao.tsx`**
-- Adicionar botão `Salvar Rascunho` no header e/ou no `FormNavigation` (sempre habilitado se `empreendimento` + `descricao` preenchidos).
-- Novo handler `handleSaveDraft`: monta payload parcial, faz insert com `status: 'rascunho'`, OU update se já existir `draftId` no estado.
-- Detectar `?rascunho={id}` na URL → buscar `solicitacao` + `anexos`, popular `formState` via setters, guardar `draftId` em estado.
-- No `handleSubmit` existente: se `draftId`, faz `UPDATE` em vez de `INSERT`, definindo `status: 'recebido'` e disparando geração de protocolo (RPC ou deixar trigger gerar quando status != rascunho).
+- Load de `?rascunho=id`: ler `anexos` existentes + popular placeholders no step de anexos; guardar `loadedUpdatedAt`.
+- `handleSaveDraft`: limite 20, dedup de anexos por `tipo` (delete antigo antes de inserir), `Promise.allSettled` para parcial, `updated_at` check otimista.
+- `beforeunload` listener quando dirty.
+- Desabilitar autosave do `useFormPersistence` quando `draftId` está setado.
+- Submit: tratar `data === null` após `update`.
 
-**`src/components/nova-solicitacao/FormNavigation.tsx`**
-- Aceitar prop `onSaveDraft` e renderizar botão secundário ao lado de Voltar.
+**`src/hooks/useFormPersistence.ts`**
+- Aceitar prop `disabled` para pausar leitura/escrita no localStorage.
 
 **`src/pages/MinhasSolicitacoes.tsx`**
-- Nova aba/filtro "Rascunhos" mostrando `status = 'rascunho'` do próprio usuário.
-- Card simplificado com: empreendimento, descrição (se houver), valor (se houver), data atualização, botões "Continuar" (navega para `/nova-solicitacao?rascunho=<id>`) e "Excluir".
+- Nova aba **"Rascunhos"** dentro de "Em Andamento" com contador.
+- Excluir rascunhos das demais abas (`status_counts` + filtros) usando `status !== 'rascunho'` na base `solicitacoesFiltradasBase`.
+- Modal de confirmação "Excluir rascunho" + handler que lista `anexos`, faz `supabase.storage.from('anexos').remove([paths])` e depois `delete().eq('id', draftId)`.
 
-**`src/types/index.ts`**
-- Adicionar `'rascunho'` em `RequestStatus`, `STATUS_LABELS` ("Rascunho"), `STATUS_ACTION_LABELS` ("Complete e envie quando estiver pronto").
+**`src/components/solicitante/SolicitanteSolicitacaoCard.tsx`**
+- Quando `status === 'rascunho'`: card simplificado mostrando empreendimento, descrição (ou "Sem descrição"), valor (ou "—"), data da última atualização, dois botões **"Continuar editando"** e **"Excluir"**. Esconder badges/ações de fluxo normal.
 
 **`src/components/ui/status-badge.tsx`**
-- Novo `statusConfig.rascunho` com ícone `FileEdit` e classe neutra (cinza).
+- Classe `rascunho` → `status-pendente` neutra (cinza), não `status-cancelado`.
 
-**Hooks de dashboard / KPIs / backoffice**
-- Filtrar `status <> 'rascunho'` em queries de contagem (dashboard, SLA, backoffice list, monitoramento). Usar busca global por `status` para ajustar.
+### Sem alterações
 
-### 3. Anexos
+- Trigger `set_protocolo` (já trata rascunho).
+- RLS de anexos/documentos_fiscais (já cobrem via `user_can_access_solicitacao` + dono).
+- Backoffice / Dashboard / SLA (RLS já oculta rascunho deles).
 
-- Upload de anexos para rascunho usa o mesmo bucket. Storage path continua `{user_id}/{solicitacao_id}/...`. Nada muda na policy.
-- Ao excluir rascunho, remover arquivos do storage (loop sobre `anexos.storage_path`).
+## Não escopo
 
-### 4. Notificações
-
-- Não enviar nada em `salvar rascunho`.
-- Manter notificações atuais no envio (rascunho → recebido).
-
-## Pontos de atenção
-
-- **Protocolo**: precisa garantir que rascunho não consuma `protocolo_counters`. Se a geração for por trigger BEFORE INSERT, condicionar a `status <> 'rascunho'`. Se for via RPC chamada do frontend, simplesmente não chamar.
-- **Limite de rascunhos por usuário**: opcional — sugestão de 10 para evitar acúmulo. Decidir com base em feedback futuro; nesta entrega: sem limite.
-- **localStorage `nova_solicitacao_draft`**: continua existindo para resgatar trabalho não salvo no servidor. Quando o usuário abre um rascunho do servidor, o autosave local fica desabilitado (ou é limpo) para não conflitar.
-- **Edição em rascunho não passa por validações de envio**, mas o `handleSubmit` já roda todas as validações antes de mudar status para `recebido`.
-
-## Perguntas para confirmar
-
-1. O botão "Salvar Rascunho" deve aparecer **em todas as etapas** do wizard ou só a partir de uma etapa mínima?
-2. Confirmar que **rascunho é privado do autor** (colegas do empreendimento não enxergam até ser enviado)?
-3. Quando o usuário "Continuar" um rascunho e clicar em Enviar, o registro mantém o **mesmo id** e ganha **protocolo novo no envio** — ok?
+- Compartilhar rascunho com colegas do empreendimento (continua privado do autor).
+- Histórico de versões do rascunho.
+- Edição de rascunho fora do wizard `/nova-solicitacao`.

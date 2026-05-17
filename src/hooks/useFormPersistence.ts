@@ -49,7 +49,8 @@ export interface FormDraft {
   savedAt: number;
 }
 
-export function useFormPersistence() {
+export function useFormPersistence(options?: { disabled?: boolean }) {
+  const disabled = options?.disabled ?? false;
   const [hasDraft, setHasDraft] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const [justRestored, setJustRestored] = useState(false);
@@ -57,6 +58,7 @@ export function useFormPersistence() {
 
   // Check if there's a saved draft on mount
   useEffect(() => {
+    if (disabled) return;
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       try {
@@ -75,9 +77,10 @@ export function useFormPersistence() {
         localStorage.removeItem(STORAGE_KEY);
       }
     }
-  }, []);
+  }, [disabled]);
 
   const saveDraft = useCallback((draft: Omit<FormDraft, 'savedAt'>) => {
+    if (disabled) return;
     // Debounce the save to avoid too many writes
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
@@ -93,7 +96,7 @@ export function useFormPersistence() {
       setHasDraft(true);
       setLastSavedAt(now);
     }, DEBOUNCE_MS);
-  }, []);
+  }, [disabled]);
 
   const loadDraft = useCallback((): FormDraft | null => {
     const saved = localStorage.getItem(STORAGE_KEY);

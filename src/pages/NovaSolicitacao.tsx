@@ -46,7 +46,7 @@ export default function NovaSolicitacao() {
   const rascunhoId = searchParams.get('rascunho');
   const effectiveUserId = effectiveProfile?.id ?? user?.id;
 
-  const form = useNovaSolicitacaoForm(effectiveUserId);
+  const form = useNovaSolicitacaoForm(effectiveUserId, { disableLocalDraft: !!rascunhoId });
   const {
     formState, derived, setters,
     currentStep, setCurrentStep, submitting, setSubmitting,
@@ -80,6 +80,24 @@ export default function NovaSolicitacao() {
   useEffect(() => {
     setShowErrors(false);
   }, [currentStep]);
+
+  // Dirty tracking — qualquer mudança em campo do form ou anexos marca dirty.
+  // Limpamos em handleSaveDraft (após sucesso) e em handleSubmit (após sucesso, ao navegar).
+  useEffect(() => {
+    dirtyRef.current = true;
+  }, [formState]);
+
+  // beforeunload: avisa antes de sair se houver mudanças não salvas e algum dado preenchido
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (!dirtyRef.current) return;
+      if (!formState.empreendimento && !formState.descricao && !formState.valor) return;
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [formState.empreendimento, formState.descricao, formState.valor]);
 
   // Focus management: move focus to step heading when step changes
   const stepContainerRef = useRef<HTMLDivElement>(null);
@@ -217,24 +235,44 @@ export default function NovaSolicitacao() {
   }, [currentStep, currentIndex, stepErrors]);
 
   // Upload attachments
-  const uploadAnexos = async (solicitacaoId: string) => {
-    const uploadPromises = Object.entries(formState.anexos)
-      .filter(([_, file]) => file !== null)
-      .map(async ([tipo, uploadedFile]) => {
-        if (!uploadedFile) return;
-        const { file } = uploadedFile;
-        const fileExt = file.name.split('.').pop();
-        const filePath = `${solicitacaoId}/${tipo}_${Date.now()}.${fileExt}`;
-        const { error: uploadError } = await supabase.storage.from('anexos').upload(filePath, file);
-        if (uploadError) throw uploadError;
-        const { error: dbError } = await supabase.from('anexos').insert({
-          solicitacao_id: solicitacaoId, tipo, nome_arquivo: file.name,
-          storage_path: filePath, mime_type: file.type, tamanho_bytes: file.size,
-        });
-        if (dbError) throw dbError;
-      });
+  // Upload attachments. Returns the list of `tipo` keys that were uploaded successfully
+  // (used by draft save to clear only the confirmed file refs).
+  // For "typed" anexos we dedup: any previous file of the same tipo is removed first,
+  // so saving a draft twice doesn't duplicate attachments.
+  const uploadAnexos = async (solicitacaoId: string): Promise<{ uploadedTipos: string[] }> => {
+    const uploadedTipos: string[] = [];
 
-    const outrosPromises = formState.outrosAnexos.map(async (uploadedFile, index) => {
+    // Typed anexos — replace previous file of same tipo
+    for (const [tipo, uploadedFile] of Object.entries(formState.anexos)) {
+      if (!uploadedFile) continue;
+      const { data: existing } = await supabase
+        .from('anexos')
+        .select('id, storage_path')
+        .eq('solicitacao_id', solicitacaoId)
+        .eq('tipo', tipo);
+      if (existing && existing.length > 0) {
+        const paths = existing.map((a: any) => a.storage_path).filter(Boolean);
+        if (paths.length > 0) {
+          await supabase.storage.from('anexos').remove(paths);
+        }
+        await supabase.from('anexos').delete().in('id', existing.map((a: any) => a.id));
+      }
+      const { file } = uploadedFile;
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${solicitacaoId}/${tipo}_${Date.now()}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage.from('anexos').upload(filePath, file);
+      if (uploadError) throw uploadError;
+      const { error: dbError } = await supabase.from('anexos').insert({
+        solicitacao_id: solicitacaoId, tipo, nome_arquivo: file.name,
+        storage_path: filePath, mime_type: file.type, tamanho_bytes: file.size,
+      });
+      if (dbError) throw dbError;
+      uploadedTipos.push(tipo);
+    }
+
+    // Outros — always append
+    for (let index = 0; index < formState.outrosAnexos.length; index++) {
+      const uploadedFile = formState.outrosAnexos[index];
       const { file } = uploadedFile;
       const fileExt = file.name.split('.').pop();
       const filePath = `${solicitacaoId}/outros_${Date.now()}_${index}.${fileExt}`;
@@ -245,9 +283,9 @@ export default function NovaSolicitacao() {
         storage_path: filePath, mime_type: file.type, tamanho_bytes: file.size,
       });
       if (dbError) throw dbError;
-    });
+    }
 
-    await Promise.all([...uploadPromises, ...outrosPromises]);
+    return { uploadedTipos };
   };
 
   // Submit
@@ -260,6 +298,12 @@ export default function NovaSolicitacao() {
   const [draftId, setDraftId] = useState<string | null>(rascunhoId);
   const [savingDraft, setSavingDraft] = useState(false);
   const [loadingDraft, setLoadingDraft] = useState(!!rascunhoId);
+  // Optimistic concurrency: snapshot of updated_at when the draft was loaded
+  const [loadedUpdatedAt, setLoadedUpdatedAt] = useState<string | null>(null);
+  // Anexos already persisted server-side (loaded from a draft we're continuing)
+  const [existingAnexos, setExistingAnexos] = useState<Array<{ id: string; tipo: string; nome_arquivo: string }>>([]);
+  // Dirty flag — anything filled that hasn't been persisted in this session
+  const dirtyRef = useRef(false);
 
   // Load existing rascunho when ?rascunho=id is present
   useEffect(() => {
@@ -331,6 +375,13 @@ export default function NovaSolicitacao() {
         if (s.conc1) setters.setFornecedorConcorrente1(s.conc1);
         if (s.conc2) setters.setFornecedorConcorrente2(s.conc2);
         setDraftId(s.id);
+        setLoadedUpdatedAt(s.updated_at ?? null);
+        // Carregar anexos já enviados (apenas para exibir banner — não populamos File objects)
+        const { data: anexosRows } = await supabase
+          .from('anexos')
+          .select('id, tipo, nome_arquivo')
+          .eq('solicitacao_id', s.id);
+        setExistingAnexos(anexosRows || []);
         // Disable localStorage draft so it doesn't conflict
         clearDraft();
         toast({ title: 'Rascunho carregado', description: 'Continue de onde parou.' });
@@ -399,25 +450,60 @@ export default function NovaSolicitacao() {
       const payload = buildDraftPayload();
       let id = draftId;
       if (id) {
-        const { error } = await supabase.from('solicitacoes').update(payload).eq('id', id);
+        // Optimistic concurrency: bail if another tab/process edited the draft after we loaded it
+        let q = supabase.from('solicitacoes').update(payload).eq('id', id);
+        if (loadedUpdatedAt) q = q.eq('updated_at', loadedUpdatedAt);
+        const { data: updated, error } = await q.select('id, updated_at').maybeSingle();
         if (error) throw error;
+        if (!updated) {
+          toast({
+            title: 'Rascunho foi alterado em outra aba',
+            description: 'Recarregue a página para evitar perda de dados.',
+            variant: 'destructive',
+          });
+          return;
+        }
+        setLoadedUpdatedAt(updated.updated_at ?? null);
       } else {
-        const { data, error } = await supabase.from('solicitacoes').insert(payload).select('id').single();
+        // Limite: 20 rascunhos por usuário
+        const { count } = await supabase
+          .from('solicitacoes')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', effectiveUserId ?? user.id)
+          .eq('status', 'rascunho' as any);
+        if ((count ?? 0) >= 20) {
+          toast({
+            title: 'Limite de rascunhos atingido',
+            description: 'Você já tem 20 rascunhos. Conclua ou exclua algum antes de criar outro.',
+            variant: 'destructive',
+          });
+          return;
+        }
+        const { data, error } = await supabase.from('solicitacoes').insert(payload).select('id, updated_at').single();
         if (error) throw error;
         id = data.id;
         setDraftId(id);
+        setLoadedUpdatedAt((data as any).updated_at ?? null);
       }
-      // Upload any new attachments to this rascunho
+      // Upload any new attachments to this rascunho. Só limpa as refs em memória dos `tipos`
+      // que subiram com sucesso — se um falhou, o arquivo permanece para nova tentativa.
       try {
-        await uploadAnexos(id!);
-        // Clear in-memory file refs since they are now persisted
-        setters.setAnexos({});
+        const { uploadedTipos } = await uploadAnexos(id!);
+        if (uploadedTipos.length > 0) {
+          const remaining = { ...formState.anexos };
+          for (const tipo of uploadedTipos) delete remaining[tipo];
+          setters.setAnexos(remaining);
+        }
         setters.setOutrosAnexos([]);
+        const { data: anexosRows } = await supabase
+          .from('anexos').select('id, tipo, nome_arquivo').eq('solicitacao_id', id!);
+        setExistingAnexos(anexosRows || []);
       } catch (anexoErr) {
         console.error('[DRAFT] Falha ao subir anexos:', anexoErr);
         toast({ title: 'Rascunho salvo, anexos pendentes', description: 'Tente reenviar os anexos.', variant: 'destructive' });
       }
       clearDraft();
+      dirtyRef.current = false;
       toast({ title: 'Rascunho salvo', description: 'Você pode retomar mais tarde em Minhas Solicitações.' });
       track('draft_saved', { id }, '/nova-solicitacao');
     } catch (err: any) {
@@ -619,9 +705,24 @@ export default function NovaSolicitacao() {
             .from('solicitacoes')
             .update({ ...insertData, status: 'recebido' as any })
             .eq('id', draftId)
+            .eq('status', 'rascunho' as any)
             .select('id, protocolo')
-            .single();
-          if (!error) { data = updateResult; break; }
+            .maybeSingle();
+          if (!error) {
+            if (!updateResult) {
+              // Rascunho foi removido / promovido em outra aba
+              toast({
+                title: 'Rascunho não está mais disponível',
+                description: 'Ele foi enviado ou excluído em outra aba. Recarregue a página.',
+                variant: 'destructive',
+              });
+              isSubmittingRef.current = false;
+              setSubmitting(false);
+              return;
+            }
+            data = updateResult;
+            break;
+          }
           if (error.code === '23505' && error.message?.includes('protocolo')) {
             logger.warn(`[SUBMIT][RETRY] Conflito de protocolo (rascunho) ${attempt}/${maxRetries}`);
             lastError = error;
@@ -839,6 +940,17 @@ export default function NovaSolicitacao() {
             <AlertDescription>
               <span className="font-medium">Reanexar arquivos:</span> seu rascunho foi restaurado, mas
               os arquivos não ficam salvos no navegador. Reenvie os anexos obrigatórios para concluir.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {draftId && existingAnexos.length > 0 && (
+          <Alert className="bg-primary/5 border-primary/30 animate-fade-in">
+            <Paperclip className="h-4 w-4 text-primary" />
+            <AlertDescription className="text-sm">
+              <span className="font-medium">{existingAnexos.length} anexo(s) já salvo(s) neste rascunho:</span>{' '}
+              {existingAnexos.map((a) => a.nome_arquivo).join(', ')}.{' '}
+              Reenviar um arquivo do mesmo tipo substitui o anterior automaticamente.
             </AlertDescription>
           </Alert>
         )}

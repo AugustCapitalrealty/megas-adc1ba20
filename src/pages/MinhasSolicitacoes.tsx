@@ -62,7 +62,7 @@ const ATTACHMENT_TYPES = {
   orcamento_concorrente_2: 'Orçamento Concorrente 2',
 } as const;
 
-type FilterTab = 'todas' | 'com_backoffice' | 'pendentes' | 'correcoes' | 'informacoes' | 'oc_emitida' | 'liberadas' | 'enviadas' | 'canceladas' | 'ciencia' | 'concluidas';
+type FilterTab = 'todas' | 'com_backoffice' | 'pendentes' | 'correcoes' | 'informacoes' | 'oc_emitida' | 'liberadas' | 'enviadas' | 'canceladas' | 'ciencia' | 'concluidas' | 'rascunhos';
 type PendentesSubFilter = 'todos' | 'corrigir' | 'responder';
 type ViewMode = 'minhas' | 'empreendimento';
 
@@ -388,6 +388,9 @@ export default function MinhasSolicitacoes() {
     }
     
     switch (activeTab) {
+      case 'rascunhos':
+        filtered = filtered.filter(s => s.status === 'rascunho');
+        break;
       case 'com_backoffice':
         filtered = filtered.filter(s => ['recebido', 'em_analise', 'aprovado', 'em_processamento'].includes(s.status));
         break;
@@ -425,6 +428,10 @@ export default function MinhasSolicitacoes() {
         break;
       case 'concluidas':
         filtered = filtered.filter(s => s.status === 'concluida' || s.status === 'enviado_pagamento');
+        break;
+      case 'todas':
+        // Excluir rascunhos da listagem "Todas" — eles têm aba dedicada
+        filtered = filtered.filter(s => s.status !== 'rascunho');
         break;
     }
     
@@ -467,7 +474,8 @@ export default function MinhasSolicitacoes() {
   }, [solicitacoes, viewMode, empreendimentoFilter, debouncedSearch]);
 
   const statusCounts = useMemo(() => ({
-    todas: solicitacoesFiltradasBase.length,
+    todas: solicitacoesFiltradasBase.filter(s => s.status !== 'rascunho').length,
+    rascunhos: solicitacoesFiltradasBase.filter(s => s.status === 'rascunho').length,
     com_backoffice: solicitacoesFiltradasBase.filter(s => ['recebido', 'em_analise', 'aprovado', 'em_processamento'].includes(s.status)).length,
     pendentes: solicitacoesFiltradasBase.filter(s => s.status === 'pendente_correcao' || s.status === 'aguardando_informacoes').length,
     correcoes: solicitacoesFiltradasBase.filter(s => s.status === 'pendente_correcao').length,
@@ -1005,6 +1013,7 @@ export default function MinhasSolicitacoes() {
       tabs: [
         { id: 'todas', label: 'Todas', count: statusCounts.todas, icon: <FileText className="h-3.5 w-3.5" /> },
         { id: 'com_backoffice', label: 'Com Backoffice', count: statusCounts.com_backoffice },
+        { id: 'rascunhos', label: 'Rascunhos', count: statusCounts.rascunhos, showCountWhenZero: false },
       ],
     },
     {

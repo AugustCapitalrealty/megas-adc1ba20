@@ -43,10 +43,15 @@ function parseFornecedorRow(data: any): Fornecedor {
   } as Fornecedor;
 }
 
-export function useNovaSolicitacaoForm(effectiveUserId: string | undefined) {
+export function useNovaSolicitacaoForm(
+  effectiveUserId: string | undefined,
+  options?: { disableLocalDraft?: boolean },
+) {
   const { toast } = useToast();
   const location = useLocation();
-  const { hasDraft, lastSavedAt, justRestored, dismissRestoredBanner, saveDraft, loadDraft, clearDraft } = useFormPersistence();
+  const { hasDraft, lastSavedAt, justRestored, dismissRestoredBanner, saveDraft, loadDraft, clearDraft } = useFormPersistence({
+    disabled: !!options?.disableLocalDraft,
+  });
 
   const duplicateFrom = (location.state as { duplicateFrom?: DuplicateData })?.duplicateFrom;
   const draftLoadedRef = useRef(false);
