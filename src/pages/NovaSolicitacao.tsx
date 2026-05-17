@@ -357,6 +357,13 @@ export default function NovaSolicitacao() {
         if (s.conc1) setters.setFornecedorConcorrente1(s.conc1);
         if (s.conc2) setters.setFornecedorConcorrente2(s.conc2);
         setDraftId(s.id);
+        setLoadedUpdatedAt(s.updated_at ?? null);
+        // Carregar anexos já enviados (apenas para exibir banner — não populamos File objects)
+        const { data: anexosRows } = await supabase
+          .from('anexos')
+          .select('id, tipo, nome_arquivo')
+          .eq('solicitacao_id', s.id);
+        setExistingAnexos(anexosRows || []);
         // Disable localStorage draft so it doesn't conflict
         clearDraft();
         toast({ title: 'Rascunho carregado', description: 'Continue de onde parou.' });
