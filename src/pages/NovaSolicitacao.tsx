@@ -81,6 +81,24 @@ export default function NovaSolicitacao() {
     setShowErrors(false);
   }, [currentStep]);
 
+  // Dirty tracking — qualquer mudança em campo do form ou anexos marca dirty.
+  // Limpamos em handleSaveDraft (após sucesso) e em handleSubmit (após sucesso, ao navegar).
+  useEffect(() => {
+    dirtyRef.current = true;
+  }, [formState]);
+
+  // beforeunload: avisa antes de sair se houver mudanças não salvas e algum dado preenchido
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (!dirtyRef.current) return;
+      if (!formState.empreendimento && !formState.descricao && !formState.valor) return;
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [formState.empreendimento, formState.descricao, formState.valor]);
+
   // Focus management: move focus to step heading when step changes
   const stepContainerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
