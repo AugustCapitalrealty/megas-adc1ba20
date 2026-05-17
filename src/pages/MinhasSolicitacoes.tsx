@@ -1013,6 +1013,7 @@ export default function MinhasSolicitacoes() {
       tabs: [
         { id: 'todas', label: 'Todas', count: statusCounts.todas, icon: <FileText className="h-3.5 w-3.5" /> },
         { id: 'com_backoffice', label: 'Com Backoffice', count: statusCounts.com_backoffice },
+        { id: 'rascunhos', label: 'Rascunhos', count: statusCounts.rascunhos, showCountWhenZero: false },
       ],
     },
     {
