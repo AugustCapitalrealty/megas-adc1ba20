@@ -388,6 +388,9 @@ export default function MinhasSolicitacoes() {
     }
     
     switch (activeTab) {
+      case 'rascunhos':
+        filtered = filtered.filter(s => s.status === 'rascunho');
+        break;
       case 'com_backoffice':
         filtered = filtered.filter(s => ['recebido', 'em_analise', 'aprovado', 'em_processamento'].includes(s.status));
         break;
@@ -425,6 +428,10 @@ export default function MinhasSolicitacoes() {
         break;
       case 'concluidas':
         filtered = filtered.filter(s => s.status === 'concluida' || s.status === 'enviado_pagamento');
+        break;
+      case 'todas':
+        // Excluir rascunhos da listagem "Todas" — eles têm aba dedicada
+        filtered = filtered.filter(s => s.status !== 'rascunho');
         break;
     }
     
