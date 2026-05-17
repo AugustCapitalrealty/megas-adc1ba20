@@ -46,7 +46,7 @@ export default function NovaSolicitacao() {
   const rascunhoId = searchParams.get('rascunho');
   const effectiveUserId = effectiveProfile?.id ?? user?.id;
 
-  const form = useNovaSolicitacaoForm(effectiveUserId);
+  const form = useNovaSolicitacaoForm(effectiveUserId, { disableLocalDraft: !!rascunhoId });
   const {
     formState, derived, setters,
     currentStep, setCurrentStep, submitting, setSubmitting,
@@ -217,24 +217,44 @@ export default function NovaSolicitacao() {
   }, [currentStep, currentIndex, stepErrors]);
 
   // Upload attachments
-  const uploadAnexos = async (solicitacaoId: string) => {
-    const uploadPromises = Object.entries(formState.anexos)
-      .filter(([_, file]) => file !== null)
-      .map(async ([tipo, uploadedFile]) => {
-        if (!uploadedFile) return;
-        const { file } = uploadedFile;
-        const fileExt = file.name.split('.').pop();
-        const filePath = `${solicitacaoId}/${tipo}_${Date.now()}.${fileExt}`;
-        const { error: uploadError } = await supabase.storage.from('anexos').upload(filePath, file);
-        if (uploadError) throw uploadError;
-        const { error: dbError } = await supabase.from('anexos').insert({
-          solicitacao_id: solicitacaoId, tipo, nome_arquivo: file.name,
-          storage_path: filePath, mime_type: file.type, tamanho_bytes: file.size,
-        });
-        if (dbError) throw dbError;
-      });
+  // Upload attachments. Returns the list of `tipo` keys that were uploaded successfully
+  // (used by draft save to clear only the confirmed file refs).
+  // For "typed" anexos we dedup: any previous file of the same tipo is removed first,
+  // so saving a draft twice doesn't duplicate attachments.
+  const uploadAnexos = async (solicitacaoId: string): Promise<{ uploadedTipos: string[] }> => {
+    const uploadedTipos: string[] = [];
 
-    const outrosPromises = formState.outrosAnexos.map(async (uploadedFile, index) => {
+    // Typed anexos — replace previous file of same tipo
+    for (const [tipo, uploadedFile] of Object.entries(formState.anexos)) {
+      if (!uploadedFile) continue;
+      const { data: existing } = await supabase
+        .from('anexos')
+        .select('id, storage_path')
+        .eq('solicitacao_id', solicitacaoId)
+        .eq('tipo', tipo);
+      if (existing && existing.length > 0) {
+        const paths = existing.map((a: any) => a.storage_path).filter(Boolean);
+        if (paths.length > 0) {
+          await supabase.storage.from('anexos').remove(paths);
+        }
+        await supabase.from('anexos').delete().in('id', existing.map((a: any) => a.id));
+      }
+      const { file } = uploadedFile;
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${solicitacaoId}/${tipo}_${Date.now()}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage.from('anexos').upload(filePath, file);
+      if (uploadError) throw uploadError;
+      const { error: dbError } = await supabase.from('anexos').insert({
+        solicitacao_id: solicitacaoId, tipo, nome_arquivo: file.name,
+        storage_path: filePath, mime_type: file.type, tamanho_bytes: file.size,
+      });
+      if (dbError) throw dbError;
+      uploadedTipos.push(tipo);
+    }
+
+    // Outros — always append
+    for (let index = 0; index < formState.outrosAnexos.length; index++) {
+      const uploadedFile = formState.outrosAnexos[index];
       const { file } = uploadedFile;
       const fileExt = file.name.split('.').pop();
       const filePath = `${solicitacaoId}/outros_${Date.now()}_${index}.${fileExt}`;
@@ -245,9 +265,9 @@ export default function NovaSolicitacao() {
         storage_path: filePath, mime_type: file.type, tamanho_bytes: file.size,
       });
       if (dbError) throw dbError;
-    });
+    }
 
-    await Promise.all([...uploadPromises, ...outrosPromises]);
+    return { uploadedTipos };
   };
 
   // Submit
