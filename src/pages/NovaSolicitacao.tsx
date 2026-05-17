@@ -944,6 +944,17 @@ export default function NovaSolicitacao() {
           </Alert>
         )}
 
+        {draftId && existingAnexos.length > 0 && (
+          <Alert className="bg-primary/5 border-primary/30 animate-fade-in">
+            <Paperclip className="h-4 w-4 text-primary" />
+            <AlertDescription className="text-sm">
+              <span className="font-medium">{existingAnexos.length} anexo(s) já salvo(s) neste rascunho:</span>{' '}
+              {existingAnexos.map((a) => a.nome_arquivo).join(', ')}.{' '}
+              Reenviar um arquivo do mesmo tipo substitui o anterior automaticamente.
+            </AlertDescription>
+          </Alert>
+        )}
+
         {justRestored && (
           <Alert className="bg-primary/5 border-primary/30 animate-fade-in">
             <History className="h-4 w-4 text-primary" />
