@@ -474,7 +474,8 @@ export default function MinhasSolicitacoes() {
   }, [solicitacoes, viewMode, empreendimentoFilter, debouncedSearch]);
 
   const statusCounts = useMemo(() => ({
-    todas: solicitacoesFiltradasBase.length,
+    todas: solicitacoesFiltradasBase.filter(s => s.status !== 'rascunho').length,
+    rascunhos: solicitacoesFiltradasBase.filter(s => s.status === 'rascunho').length,
     com_backoffice: solicitacoesFiltradasBase.filter(s => ['recebido', 'em_analise', 'aprovado', 'em_processamento'].includes(s.status)).length,
     pendentes: solicitacoesFiltradasBase.filter(s => s.status === 'pendente_correcao' || s.status === 'aguardando_informacoes').length,
     correcoes: solicitacoesFiltradasBase.filter(s => s.status === 'pendente_correcao').length,
