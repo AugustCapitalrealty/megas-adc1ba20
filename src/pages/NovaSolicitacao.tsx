@@ -311,7 +311,6 @@ export default function NovaSolicitacao() {
   // Optimistic concurrency: snapshot of updated_at when the draft was loaded
   const [loadedUpdatedAt, setLoadedUpdatedAt] = useState<string | null>(null);
   // Anexos already persisted server-side (loaded from a draft we're continuing)
-  const [existingAnexos, setExistingAnexos] = useState<Array<{ id: string; tipo: string; nome_arquivo: string }>>([]);
   // Dirty flag — anything filled that hasn't been persisted in this session
   const dirtyRef = useRef(false);
 
