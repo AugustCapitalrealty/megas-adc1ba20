@@ -1,5 +1,5 @@
 import { logger } from '@/lib/logger';
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useMemo } from 'react';
 import { useTrackEvent } from '@/hooks/useTrackEvent';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
@@ -71,9 +71,19 @@ export default function NovaSolicitacao() {
   const visibleSteps = steps.filter((s) => s.show);
   const currentIndex = visibleSteps.findIndex((s) => s.id === currentStep);
 
+  // Anexos already persisted server-side (loaded from a draft we're continuing).
+  // Declared early so that step validation can treat them as fulfilling required slots.
+  const [existingAnexos, setExistingAnexos] = useState<Array<{ id: string; tipo: string; nome_arquivo: string }>>([]);
+  const existingAnexoTipos = useMemo(
+    () => new Set(existingAnexos.map((a) => a.tipo)),
+    [existingAnexos],
+  );
+  const hasAnexo = (tipo: string) =>
+    !!formState.anexos[tipo] || existingAnexoTipos.has(tipo);
+
   // Inline validation errors (only shown after attempt to advance)
   const requiredAttachments = getRequiredAttachments();
-  const stepErrors = useStepErrors(currentStep, formState, derived, requiredAttachments, undefined);
+  const stepErrors = useStepErrors(currentStep, formState, derived, requiredAttachments, existingAnexoTipos);
   const [showErrors, setShowErrors] = useState(false);
 
   // Reset error display when step changes
