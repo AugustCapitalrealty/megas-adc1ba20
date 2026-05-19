@@ -1,5 +1,5 @@
 import { logger } from '@/lib/logger';
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useMemo } from 'react';
 import { useTrackEvent } from '@/hooks/useTrackEvent';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
@@ -71,9 +71,19 @@ export default function NovaSolicitacao() {
   const visibleSteps = steps.filter((s) => s.show);
   const currentIndex = visibleSteps.findIndex((s) => s.id === currentStep);
 
+  // Anexos already persisted server-side (loaded from a draft we're continuing).
+  // Declared early so that step validation can treat them as fulfilling required slots.
+  const [existingAnexos, setExistingAnexos] = useState<Array<{ id: string; tipo: string; nome_arquivo: string }>>([]);
+  const existingAnexoTipos = useMemo(
+    () => new Set(existingAnexos.map((a) => a.tipo)),
+    [existingAnexos],
+  );
+  const hasAnexo = (tipo: string) =>
+    !!formState.anexos[tipo] || existingAnexoTipos.has(tipo);
+
   // Inline validation errors (only shown after attempt to advance)
   const requiredAttachments = getRequiredAttachments();
-  const stepErrors = useStepErrors(currentStep, formState, derived, requiredAttachments);
+  const stepErrors = useStepErrors(currentStep, formState, derived, requiredAttachments, existingAnexoTipos);
   const [showErrors, setShowErrors] = useState(false);
 
   // Reset error display when step changes
@@ -157,7 +167,7 @@ export default function NovaSolicitacao() {
       }
       case 'anexos': {
         const requiredAttachments = getRequiredAttachments();
-        const attachmentsOk = requiredAttachments.every(att => !att.required || !!formState.anexos[att.tipo]);
+        const attachmentsOk = requiredAttachments.every((att) => !att.required || hasAnexo(att.tipo));
         if (formState.semMemorial && !formState.justificativaSemMemorial.trim()) return false;
         return attachmentsOk;
       }
@@ -190,7 +200,8 @@ export default function NovaSolicitacao() {
     justRestored &&
     (currentStep === 'anexos' || currentStep === 'revisao') &&
     Object.values(formState.anexos).every((f) => !f) &&
-    formState.outrosAnexos.length === 0;
+    formState.outrosAnexos.length === 0 &&
+    existingAnexos.length === 0;
 
   useEffect(() => {
     if (restoredWithoutAnexos && currentStep === 'revisao') {
@@ -301,7 +312,6 @@ export default function NovaSolicitacao() {
   // Optimistic concurrency: snapshot of updated_at when the draft was loaded
   const [loadedUpdatedAt, setLoadedUpdatedAt] = useState<string | null>(null);
   // Anexos already persisted server-side (loaded from a draft we're continuing)
-  const [existingAnexos, setExistingAnexos] = useState<Array<{ id: string; tipo: string; nome_arquivo: string }>>([]);
   // Dirty flag — anything filled that hasn't been persisted in this session
   const dirtyRef = useRef(false);
 
@@ -332,7 +342,7 @@ export default function NovaSolicitacao() {
         const s = data as any;
         if (s.empreendimento) setters.setEmpreendimento(s.empreendimento);
         if (s.descricao) setters.setDescricao(s.descricao);
-        if (s.valor != null) setters.setValor(String(s.valor));
+        if (s.valor != null) setters.setValor(String(Math.round(Number(s.valor) * 100)));
         if (s.tipo_contratacao) setters.setTipoContratacao(s.tipo_contratacao);
         if (s.natureza_orcamentaria) setters.setNaturezaOrcamentaria(s.natureza_orcamentaria);
         if (s.origem_custo) setters.setOrigemCusto(s.origem_custo);
@@ -341,8 +351,8 @@ export default function NovaSolicitacao() {
         if (s.parcelas) setters.setParcelas(String(s.parcelas));
         setters.setContratoMensal(!!s.contrato_mensal);
         setters.setFaturamentoDireto(!!s.faturamento_direto);
-        if (s.valor_servico != null) setters.setValorServico(String(s.valor_servico));
-        if (s.valor_material != null) setters.setValorMaterial(String(s.valor_material));
+        if (s.valor_servico != null) setters.setValorServico(String(Math.round(Number(s.valor_servico) * 100)));
+        if (s.valor_material != null) setters.setValorMaterial(String(Math.round(Number(s.valor_material) * 100)));
         setters.setRetencao6(!!s.retencao_6_porcento);
         if (s.tipo_garantia) setters.setTipoGarantia(s.tipo_garantia);
         if (s.dias_garantia != null) setters.setDiasGarantia(String(s.dias_garantia));
@@ -554,7 +564,7 @@ export default function NovaSolicitacao() {
       let extraDescription = '';
       if (firstInvalidStep === 'anexos') {
         const missing = getRequiredAttachments()
-          .filter((a) => a.required && !formState.anexos[a.tipo])
+          .filter((a) => a.required && !hasAnexo(a.tipo))
           .map((a) => a.label);
         if (missing.length > 0) {
           extraDescription = ` Faltando: ${missing.join(', ')}.`;
@@ -627,7 +637,9 @@ export default function NovaSolicitacao() {
     }
 
     const requiredAttachments = getRequiredAttachments();
-    const missingAttachments = requiredAttachments.filter(att => att.required && !formState.anexos[att.tipo]).map(att => att.label);
+    const missingAttachments = requiredAttachments
+      .filter((att) => att.required && !hasAnexo(att.tipo))
+      .map((att) => att.label);
     if (missingAttachments.length > 0) {
       toast({ title: 'Anexos obrigatórios', description: `Faltando: ${missingAttachments.join(', ')}`, variant: 'destructive' });
       isSubmittingRef.current = false;

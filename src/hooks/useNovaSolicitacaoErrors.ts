@@ -12,6 +12,7 @@ export function computeStepErrors(
   formState: FormState,
   derived: DerivedValues,
   attachmentsRequired: { tipo: string; required: boolean; label: string }[],
+  persistedAnexoTipos: Set<string> = new Set(),
 ): FieldErrors {
   const errors: FieldErrors = {};
 
@@ -105,7 +106,9 @@ export function computeStepErrors(
     }
 
     case 'anexos': {
-      const missing = attachmentsRequired.filter(a => a.required && !formState.anexos[a.tipo]);
+      const missing = attachmentsRequired.filter(
+        (a) => a.required && !formState.anexos[a.tipo] && !persistedAnexoTipos.has(a.tipo),
+      );
       if (missing.length > 0) {
         errors.anexos = `Anexos obrigatórios faltando: ${missing.map(a => a.label).join(', ')}.`;
       }
@@ -124,9 +127,10 @@ export function useStepErrors(
   formState: FormState,
   derived: DerivedValues,
   attachmentsRequired: { tipo: string; required: boolean; label: string }[],
+  persistedAnexoTipos: Set<string> = new Set(),
 ): FieldErrors {
   return useMemo(
-    () => computeStepErrors(step, formState, derived, attachmentsRequired),
-    [step, formState, derived, attachmentsRequired],
+    () => computeStepErrors(step, formState, derived, attachmentsRequired, persistedAnexoTipos),
+    [step, formState, derived, attachmentsRequired, persistedAnexoTipos],
   );
 }
