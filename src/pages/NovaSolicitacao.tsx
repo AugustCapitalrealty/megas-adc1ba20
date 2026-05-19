@@ -73,13 +73,7 @@ export default function NovaSolicitacao() {
 
   // Inline validation errors (only shown after attempt to advance)
   const requiredAttachments = getRequiredAttachments();
-  const existingAnexoTipos = useMemo(
-    () => new Set(existingAnexos.map((a) => a.tipo)),
-    [existingAnexos],
-  );
-  const hasAnexo = (tipo: string) =>
-    !!formState.anexos[tipo] || existingAnexoTipos.has(tipo);
-  const stepErrors = useStepErrors(currentStep, formState, derived, requiredAttachments, existingAnexoTipos);
+  const stepErrors = useStepErrors(currentStep, formState, derived, requiredAttachments, undefined);
   const [showErrors, setShowErrors] = useState(false);
 
   // Reset error display when step changes
