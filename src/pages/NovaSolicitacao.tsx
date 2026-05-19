@@ -167,7 +167,7 @@ export default function NovaSolicitacao() {
       }
       case 'anexos': {
         const requiredAttachments = getRequiredAttachments();
-        const attachmentsOk = requiredAttachments.every(att => !att.required || !!formState.anexos[att.tipo]);
+        const attachmentsOk = requiredAttachments.every((att) => !att.required || hasAnexo(att.tipo));
         if (formState.semMemorial && !formState.justificativaSemMemorial.trim()) return false;
         return attachmentsOk;
       }
@@ -200,7 +200,8 @@ export default function NovaSolicitacao() {
     justRestored &&
     (currentStep === 'anexos' || currentStep === 'revisao') &&
     Object.values(formState.anexos).every((f) => !f) &&
-    formState.outrosAnexos.length === 0;
+    formState.outrosAnexos.length === 0 &&
+    existingAnexos.length === 0;
 
   useEffect(() => {
     if (restoredWithoutAnexos && currentStep === 'revisao') {
@@ -563,7 +564,7 @@ export default function NovaSolicitacao() {
       let extraDescription = '';
       if (firstInvalidStep === 'anexos') {
         const missing = getRequiredAttachments()
-          .filter((a) => a.required && !formState.anexos[a.tipo])
+          .filter((a) => a.required && !hasAnexo(a.tipo))
           .map((a) => a.label);
         if (missing.length > 0) {
           extraDescription = ` Faltando: ${missing.join(', ')}.`;
@@ -636,7 +637,9 @@ export default function NovaSolicitacao() {
     }
 
     const requiredAttachments = getRequiredAttachments();
-    const missingAttachments = requiredAttachments.filter(att => att.required && !formState.anexos[att.tipo]).map(att => att.label);
+    const missingAttachments = requiredAttachments
+      .filter((att) => att.required && !hasAnexo(att.tipo))
+      .map((att) => att.label);
     if (missingAttachments.length > 0) {
       toast({ title: 'Anexos obrigatórios', description: `Faltando: ${missingAttachments.join(', ')}`, variant: 'destructive' });
       isSubmittingRef.current = false;
