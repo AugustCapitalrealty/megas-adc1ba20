@@ -20,6 +20,7 @@ import type { UploadedFile } from '@/components/FileUpload';
 import type { RateioValor } from '@/components/RateioPreview';
 import type { Step, DerivedValues, FormSetters } from '@/components/nova-solicitacao/types';
 import { NATUREZAS_ISENTAS_ANEXOS, NATUREZAS_AGUA_ENERGIA, TIPO_TO_NATUREZA } from '@/components/nova-solicitacao/types';
+import { toCentsString } from '@/lib/valor-monetario';
 
 interface DuplicateData {
   tipo?: string;
@@ -67,7 +68,7 @@ export function useNovaSolicitacaoForm(
   // Form data
   const [empreendimento, setEmpreendimento] = useState<Empreendimento | ''>(duplicateFrom?.empreendimento || '');
   const [descricao, setDescricao] = useState(duplicateFrom?.descricao || '');
-  const [valor, setValor] = useState(duplicateFrom?.valor ? String(Math.round(duplicateFrom.valor * 100)) : '');
+  const [valor, setValor] = useState(toCentsString(duplicateFrom?.valor));
   const [tipoContratacao, setTipoContratacao] = useState<TipoContratacao | ''>(duplicateFrom?.tipo_contratacao || '');
   const [naturezaOrcamentaria, setNaturezaOrcamentaria] = useState<NaturezaOrcamentaria | ''>(duplicateFrom?.natureza_orcamentaria || '');
   const [origemCusto, setOrigemCusto] = useState<OrigemCusto>(duplicateFrom?.origem_custo || 'empreendimento');

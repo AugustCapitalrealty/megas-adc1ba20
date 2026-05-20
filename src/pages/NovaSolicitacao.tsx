@@ -26,6 +26,8 @@ import { FluxoBadge } from '@/components/nova-solicitacao/FluxoBadge';
 import { useStepErrors } from '@/hooks/useNovaSolicitacaoErrors';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { toCentsString } from '@/lib/valor-monetario';
+import { logDraftAudit } from '@/lib/draft-audit';
 
 // Step components
 import { EmpreendimentoStep } from '@/components/nova-solicitacao/steps/EmpreendimentoStep';
@@ -342,7 +344,7 @@ export default function NovaSolicitacao() {
         const s = data as any;
         if (s.empreendimento) setters.setEmpreendimento(s.empreendimento);
         if (s.descricao) setters.setDescricao(s.descricao);
-        if (s.valor != null) setters.setValor(String(Math.round(Number(s.valor) * 100)));
+        if (s.valor != null) setters.setValor(toCentsString(Number(s.valor)));
         if (s.tipo_contratacao) setters.setTipoContratacao(s.tipo_contratacao);
         if (s.natureza_orcamentaria) setters.setNaturezaOrcamentaria(s.natureza_orcamentaria);
         if (s.origem_custo) setters.setOrigemCusto(s.origem_custo);
@@ -351,8 +353,8 @@ export default function NovaSolicitacao() {
         if (s.parcelas) setters.setParcelas(String(s.parcelas));
         setters.setContratoMensal(!!s.contrato_mensal);
         setters.setFaturamentoDireto(!!s.faturamento_direto);
-        if (s.valor_servico != null) setters.setValorServico(String(Math.round(Number(s.valor_servico) * 100)));
-        if (s.valor_material != null) setters.setValorMaterial(String(Math.round(Number(s.valor_material) * 100)));
+        if (s.valor_servico != null) setters.setValorServico(toCentsString(Number(s.valor_servico)));
+        if (s.valor_material != null) setters.setValorMaterial(toCentsString(Number(s.valor_material)));
         setters.setRetencao6(!!s.retencao_6_porcento);
         if (s.tipo_garantia) setters.setTipoGarantia(s.tipo_garantia);
         if (s.dias_garantia != null) setters.setDiasGarantia(String(s.dias_garantia));
