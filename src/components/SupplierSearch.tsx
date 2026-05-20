@@ -285,8 +285,9 @@ export function SupplierSearch({ label, required = false, value, onChange, compa
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        {formatCNPJ(fornecedor.cnpj)}
-                        {fornecedor.cidade && ` • ${fornecedor.cidade}/${fornecedor.uf}`}
+                        {(fornecedor.tipo_fornecedor ?? 'nacional') === 'internacional'
+                          ? `🌐 ${fornecedor.pais ?? ''} • ${fornecedor.tipo_identificador_fiscal ?? 'ID'}: ${fornecedor.identificador_fiscal ?? '—'}`
+                          : `${formatCNPJ(fornecedor.cnpj ?? '')}${fornecedor.cidade ? ` • ${fornecedor.cidade}/${fornecedor.uf}` : ''}`}
                       </p>
                       {fornecedor.cnae_principal_descricao && (
                         <p className="text-xs text-muted-foreground truncate">
