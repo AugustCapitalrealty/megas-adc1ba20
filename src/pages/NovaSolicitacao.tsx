@@ -192,6 +192,23 @@ export default function NovaSolicitacao() {
     ? visibleSteps.find((s) => s.id === firstInvalidStep)?.label ?? null
     : null;
 
+  // Audit log: registra a transição `canSubmit` false → true para rascunhos editados.
+  // Só dispara quando temos draftId (rascunho server-side) para não poluir o log com
+  // formulários novos em digitação.
+  const prevCanSubmitRef = useRef(false);
+  useEffect(() => {
+    if (!draftId || !effectiveUserId) return;
+    if (canSubmit && !prevCanSubmitRef.current) {
+      logDraftAudit('rascunho_liberado_envio', draftId, effectiveUserId, {
+        etapa: currentStep,
+        valor: derived.valorNumerico,
+        anexos_persistidos: Array.from(existingAnexoTipos),
+        anexos_novos: Object.keys(formState.anexos).filter((k) => !!formState.anexos[k]),
+      });
+    }
+    prevCanSubmitRef.current = canSubmit;
+  }, [canSubmit, draftId, effectiveUserId]);
+
   // List of all invalid step ids (for visual hint in StepIndicator)
   const invalidStepIds: string[] = visibleSteps
     .filter((s) => s.id !== 'revisao' && !validateStep(s.id))
