@@ -93,7 +93,7 @@ export function SupplierSearch({ label, required = false, value, onChange, compa
   };
 
   const handleRefresh = async () => {
-    if (!value) return;
+    if (!value || !value.cnpj) return;
     
     setRefreshing(true);
     const result = await lookupCNPJ(value.cnpj, true); // Force refresh
@@ -108,8 +108,16 @@ export function SupplierSearch({ label, required = false, value, onChange, compa
   };
 
   const handleSelectSuggestion = async (fornecedor: Fornecedor) => {
+    // Internacional: usar como está, sem buscar BrasilAPI
+    if ((fornecedor.tipo_fornecedor ?? 'nacional') === 'internacional') {
+      onChange(fornecedor);
+      setSearchTerm('');
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
     // Se não tem dados enriquecidos, tenta buscar da API
-    if (!fornecedor.ultima_atualizacao_api) {
+    if (!fornecedor.ultima_atualizacao_api && fornecedor.cnpj) {
       setSearchLoading(true);
       const enrichedFornecedor = await lookupCNPJ(fornecedor.cnpj);
       setSearchLoading(false);
