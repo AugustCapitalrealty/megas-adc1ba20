@@ -667,6 +667,21 @@ export default function NovaSolicitacao() {
       return;
     }
 
+    // Audit: registra quais anexos obrigatórios foram supridos APENAS por arquivos
+    // já persistidos no servidor (sem upload novo nesta sessão). Só dispara para
+    // rascunhos (draftId presente).
+    if (draftId) {
+      const tiposCobertosPorPersistidos = requiredAttachments
+        .filter((att) => att.required)
+        .filter((att) => !formState.anexos[att.tipo] && existingAnexoTipos.has(att.tipo))
+        .map((att) => att.tipo);
+      if (tiposCobertosPorPersistidos.length > 0) {
+        logDraftAudit('anexo_persistido_aceito', draftId, effectiveUserId, {
+          tipos: tiposCobertosPorPersistidos,
+        });
+      }
+    }
+
     try {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       if (sessionError || !session) {
