@@ -941,6 +941,33 @@ export type Database = {
         }
         Relationships: []
       }
+      solicitacao_draft_audit: {
+        Row: {
+          created_at: string
+          detalhes: Json
+          evento: string
+          id: string
+          solicitacao_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          detalhes?: Json
+          evento: string
+          id?: string
+          solicitacao_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          detalhes?: Json
+          evento?: string
+          id?: string
+          solicitacao_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       solicitacao_mensagens: {
         Row: {
           created_at: string

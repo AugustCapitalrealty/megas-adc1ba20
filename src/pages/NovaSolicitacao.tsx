@@ -26,6 +26,8 @@ import { FluxoBadge } from '@/components/nova-solicitacao/FluxoBadge';
 import { useStepErrors } from '@/hooks/useNovaSolicitacaoErrors';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { toCentsString } from '@/lib/valor-monetario';
+import { logDraftAudit } from '@/lib/draft-audit';
 
 // Step components
 import { EmpreendimentoStep } from '@/components/nova-solicitacao/steps/EmpreendimentoStep';
@@ -189,6 +191,7 @@ export default function NovaSolicitacao() {
   const firstInvalidStepLabel = firstInvalidStep
     ? visibleSteps.find((s) => s.id === firstInvalidStep)?.label ?? null
     : null;
+  const prevCanSubmitRef = useRef(false);
 
   // List of all invalid step ids (for visual hint in StepIndicator)
   const invalidStepIds: string[] = visibleSteps
@@ -315,6 +318,23 @@ export default function NovaSolicitacao() {
   // Dirty flag — anything filled that hasn't been persisted in this session
   const dirtyRef = useRef(false);
 
+  // Audit log: registra a transição `canSubmit` false → true para rascunhos editados.
+  // Só dispara quando temos draftId (rascunho server-side) — não polui o log com
+  // formulários novos em digitação.
+  useEffect(() => {
+    if (!draftId || !effectiveUserId) return;
+    if (canSubmit && !prevCanSubmitRef.current) {
+      logDraftAudit('rascunho_liberado_envio', draftId, effectiveUserId, {
+        etapa: currentStep,
+        valor: derived.valorNumerico,
+        anexos_persistidos: Array.from(existingAnexoTipos),
+        anexos_novos: Object.keys(formState.anexos).filter((k) => !!formState.anexos[k]),
+      });
+    }
+    prevCanSubmitRef.current = canSubmit;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canSubmit, draftId, effectiveUserId]);
+
   // Load existing rascunho when ?rascunho=id is present
   useEffect(() => {
     if (!rascunhoId || !effectiveUserId) return;
@@ -342,7 +362,7 @@ export default function NovaSolicitacao() {
         const s = data as any;
         if (s.empreendimento) setters.setEmpreendimento(s.empreendimento);
         if (s.descricao) setters.setDescricao(s.descricao);
-        if (s.valor != null) setters.setValor(String(Math.round(Number(s.valor) * 100)));
+        if (s.valor != null) setters.setValor(toCentsString(Number(s.valor)));
         if (s.tipo_contratacao) setters.setTipoContratacao(s.tipo_contratacao);
         if (s.natureza_orcamentaria) setters.setNaturezaOrcamentaria(s.natureza_orcamentaria);
         if (s.origem_custo) setters.setOrigemCusto(s.origem_custo);
@@ -351,8 +371,8 @@ export default function NovaSolicitacao() {
         if (s.parcelas) setters.setParcelas(String(s.parcelas));
         setters.setContratoMensal(!!s.contrato_mensal);
         setters.setFaturamentoDireto(!!s.faturamento_direto);
-        if (s.valor_servico != null) setters.setValorServico(String(Math.round(Number(s.valor_servico) * 100)));
-        if (s.valor_material != null) setters.setValorMaterial(String(Math.round(Number(s.valor_material) * 100)));
+        if (s.valor_servico != null) setters.setValorServico(toCentsString(Number(s.valor_servico)));
+        if (s.valor_material != null) setters.setValorMaterial(toCentsString(Number(s.valor_material)));
         setters.setRetencao6(!!s.retencao_6_porcento);
         if (s.tipo_garantia) setters.setTipoGarantia(s.tipo_garantia);
         if (s.dias_garantia != null) setters.setDiasGarantia(String(s.dias_garantia));
@@ -645,6 +665,21 @@ export default function NovaSolicitacao() {
       isSubmittingRef.current = false;
       setSubmitting(false);
       return;
+    }
+
+    // Audit: registra quais anexos obrigatórios foram supridos APENAS por arquivos
+    // já persistidos no servidor (sem upload novo nesta sessão). Só dispara para
+    // rascunhos (draftId presente).
+    if (draftId) {
+      const tiposCobertosPorPersistidos = requiredAttachments
+        .filter((att) => att.required)
+        .filter((att) => !formState.anexos[att.tipo] && existingAnexoTipos.has(att.tipo))
+        .map((att) => att.tipo);
+      if (tiposCobertosPorPersistidos.length > 0) {
+        logDraftAudit('anexo_persistido_aceito', draftId, effectiveUserId, {
+          tipos: tiposCobertosPorPersistidos,
+        });
+      }
     }
 
     try {
