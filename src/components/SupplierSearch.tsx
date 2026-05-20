@@ -4,11 +4,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useCNPJ, dbRowToFornecedor } from '@/hooks/useCNPJ';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, Search, Building2, RefreshCw } from 'lucide-react';
+import { Loader2, Search, Building2, RefreshCw, Globe } from 'lucide-react';
 import { type Fornecedor } from '@/types';
 import { cn } from '@/lib/utils';
 import { FornecedorCard } from './FornecedorCard';
 import { useToast } from '@/hooks/use-toast';
+import { InternationalSupplierForm } from './InternationalSupplierForm';
 
 interface SupplierSearchProps {
   label: string;
@@ -24,6 +25,7 @@ export function SupplierSearch({ label, required = false, value, onChange, compa
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [showIntlForm, setShowIntlForm] = useState(false);
   const { formatCNPJ, lookupCNPJ, loading: cnpjLoading, error } = useCNPJ();
   const { toast } = useToast();
 
@@ -52,7 +54,7 @@ export function SupplierSearch({ label, required = false, value, onChange, compa
       if (isLikelyCNPJ) {
         query = query.ilike('cnpj', `%${searchTerm.replace(/\D/g, '')}%`);
       } else {
-        query = query.or(`razao_social.ilike.%${term}%,nome_fantasia.ilike.%${term}%`);
+        query = query.or(`razao_social.ilike.%${term}%,nome_fantasia.ilike.%${term}%,identificador_fiscal.ilike.%${term}%`);
       }
 
       const { data, error } = await query;
@@ -164,6 +166,7 @@ export function SupplierSearch({ label, required = false, value, onChange, compa
   };
 
   const isCNPJComplete = searchTerm.replace(/\D/g, '').length === 14;
+  const isInternational = (value?.tipo_fornecedor ?? 'nacional') === 'internacional';
 
   return (
     <div className="space-y-2">
@@ -181,7 +184,7 @@ export function SupplierSearch({ label, required = false, value, onChange, compa
             compact={compact}
             formatCNPJ={formatCNPJ}
           />
-          {!compact && (
+          {!compact && !isInternational && (
             <Button 
               variant="outline" 
               size="sm" 
@@ -198,6 +201,11 @@ export function SupplierSearch({ label, required = false, value, onChange, compa
             </Button>
           )}
         </div>
+      ) : showIntlForm ? (
+        <InternationalSupplierForm
+          onCreated={(f) => { setShowIntlForm(false); onChange(f); }}
+          onCancel={() => setShowIntlForm(false)}
+        />
       ) : (
         <div className="relative">
           <div className="flex gap-2">
@@ -231,6 +239,15 @@ export function SupplierSearch({ label, required = false, value, onChange, compa
               title={!isCNPJComplete ? 'Digite um CNPJ completo para buscar na Receita Federal' : 'Buscar CNPJ na Receita Federal'}
             >
               {cnpjLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowIntlForm(true)}
+              title="Cadastrar fornecedor internacional (sem CNPJ)"
+            >
+              <Globe className="h-4 w-4 mr-1" />
+              Internacional
             </Button>
           </div>
 
@@ -286,11 +303,21 @@ export function SupplierSearch({ label, required = false, value, onChange, compa
           {/* No results message */}
           {showSuggestions && searchTerm.length >= 3 && suggestions.length === 0 && !searchLoading && (
             <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg p-3">
-              <p className="text-sm text-muted-foreground text-center">
+              <p className="text-sm text-muted-foreground text-center mb-2">
                 {isCNPJComplete 
                   ? 'CNPJ não encontrado. Clique no botão de busca para consultar na Receita Federal.'
                   : 'Nenhum fornecedor encontrado. Digite um CNPJ completo para cadastrar.'}
               </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onMouseDown={(e) => { e.preventDefault(); setShowIntlForm(true); setShowSuggestions(false); }}
+              >
+                <Globe className="h-4 w-4 mr-1" />
+                Cadastrar fornecedor internacional
+              </Button>
             </div>
           )}
         </div>
