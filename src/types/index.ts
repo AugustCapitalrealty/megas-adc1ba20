@@ -50,7 +50,7 @@ export interface CNAESecundario {
 
 export interface Fornecedor {
   id: string;
-  cnpj: string;
+  cnpj: string | null;
   razao_social: string | null;
   nome_fantasia: string | null;
   endereco: string | null;
@@ -78,6 +78,12 @@ export interface Fornecedor {
   complemento: string | null;
   logradouro: string | null;
   ultima_atualizacao_api: string | null;
+  // Internacional
+  tipo_fornecedor?: 'nacional' | 'internacional';
+  pais?: string | null;
+  identificador_fiscal?: string | null;
+  tipo_identificador_fiscal?: 'VAT' | 'EIN' | 'TAX_ID' | 'OTHER' | null;
+  moeda_padrao?: string | null;
 }
 
 export interface Cliente {

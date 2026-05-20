@@ -1,78 +1,68 @@
-## Objetivo
+# Fornecedores Internacionais
 
-Reforçar o modo rascunho com (1) utilitário puro e testado para parsing/rounding do valor monetário, (2) log de auditoria leve quando anexos persistidos suprem requisitos ou quando o rascunho fica liberado para envio, e (3) testes automatizados cobrindo o cenário "editei valor do rascunho mas o anexo já salvo continua valendo".
+Hoje o cadastro de fornecedor depende 100% de CNPJ (busca BrasilAPI, validação dos 14 dígitos, coluna `cnpj NOT NULL`). Para uma compra internacional como a Invoice da Lovable Labs (US, VAT EU/GB, sem CNPJ) precisamos de um fluxo paralelo de cadastro manual.
 
-## 1. Utilitário de valor monetário
+## 1. Banco (migration)
 
-Criar `src/lib/valor-monetario.ts` centralizando a conversão usada hoje espalhada entre `useNovaSolicitacaoForm.ts`, `NovaSolicitacao.tsx` (load do rascunho) e `duplicateFrom`:
+Tabela `fornecedores`:
+- `tipo_fornecedor text NOT NULL DEFAULT 'nacional'` — valores: `nacional` | `internacional`.
+- Tornar `cnpj` nullable; adicionar índice único parcial `(cnpj) WHERE cnpj IS NOT NULL`.
+- Novos campos para internacionais:
+  - `pais text` (ISO-3166 alpha-2, ex.: `US`)
+  - `identificador_fiscal text` (VAT, EIN, TAX ID...)
+  - `tipo_identificador_fiscal text` (`VAT`, `EIN`, `TAX_ID`, `OTHER`)
+  - `moeda_padrao text` (ISO-4217, ex.: `USD`, `EUR`)
+- Constraint: nacional exige `cnpj`; internacional exige `pais` + `identificador_fiscal`.
+- Backfill `tipo_fornecedor = 'nacional'` para registros existentes.
 
-- `toCentsString(value: number | string | null | undefined): string` — converte valor numérico (reais) para string de centavos (formato interno do input). Trata `null`, `undefined`, `NaN`, negativos, strings com vírgula, strings já em centavos.
-- `fromCentsString(input: string): number` — devolve valor em reais (`parseFloat(digits)/100`), idempotente.
-- `formatBRL(value: number): string` — wrapper de `Intl.NumberFormat`.
+RLS: manter políticas atuais (já cobrem insert/select por usuários aprovados).
 
-Refatorar os 3 call-sites para usar `toCentsString` — garante que load do rascunho, duplicação e edição passem pelo mesmo caminho. Sem mudança de comportamento esperada; só elimina a divergência que causou o bug do "R$ 10,00".
+## 2. Tipos e helpers
 
-## 2. Log de auditoria
+- `src/types/index.ts`: adicionar campos opcionais em `Fornecedor` (`tipo_fornecedor`, `pais`, `identificador_fiscal`, `tipo_identificador_fiscal`, `moeda_padrao`).
+- `src/hooks/useCNPJ.ts`: `dbRowToFornecedor` propaga novos campos (sem mudar lógica nacional).
+- Novo `src/lib/paises.ts`: lista curta de países (label + ISO + moeda default) para o select.
 
-Tabela nova `solicitacao_draft_audit` (migration):
+## 3. UI — `SupplierSearch`
 
-```text
-id, solicitacao_id, user_id, evento, detalhes jsonb, created_at
-```
+- Adicionar toggle no topo do componente (quando `value` é null):
+  - "Nacional (CNPJ)" — fluxo atual intacto.
+  - "Internacional" — abre formulário manual.
+- Botão secundário "Cadastrar fornecedor internacional" também aparece no estado "nenhum resultado".
 
-Eventos registrados:
+Novo `src/components/InternationalSupplierForm.tsx`:
+- Campos: Razão social *, Nome fantasia, País * (select), Tipo de ID fiscal (VAT/EIN/TAX_ID/OTHER), Identificador fiscal *, Moeda padrão (auto pelo país, editável), Endereço, Cidade, Email, Telefone.
+- Submit: insere em `fornecedores` com `tipo_fornecedor='internacional'`, `cnpj=null`, `ultima_atualizacao_api=null` e devolve o registro via `onChange`.
+- Validação leve: identificador fiscal não vazio + país obrigatório. Sem chamadas BrasilAPI.
 
-- `anexo_persistido_aceito` — quando `hasAnexo(tipo)` resolve via `existingAnexoTipos` (e não via novo upload) no momento do submit/promote. `detalhes`: `{ tipos: string[] }`.
-- `rascunho_liberado_envio` — quando `canSubmit` passa de `false` para `true` numa edição de rascunho. `detalhes`: `{ etapa, valor, anexos_persistidos: string[] }`.
+Busca existente (`SupplierSearch`):
+- Expandir filtro para também buscar por `identificador_fiscal ilike` quando o termo não parece CNPJ.
+- Resultados mostram badge "Internacional" + país no `FornecedorCard`.
 
-RLS: insert pelo próprio dono do rascunho (`auth.uid() = user_id`); select restrito a backoffice/admin via `is_backoffice_or_admin`.
+## 4. Card e exibição
 
-Disparo no front: helper `logDraftAudit(evento, solicitacaoId, detalhes)` chamado em `NovaSolicitacao.tsx` no `promoteDraft` (anexos persistidos aceitos) e num `useEffect` que observa transição de `canSubmit` quando há `draftId`. Fire-and-forget (mesmo padrão do `useTrackEvent`), não bloqueia UI.
+`src/components/FornecedorCard.tsx`:
+- Se `tipo_fornecedor='internacional'`: ocultar CNPJ/CNAE/Situação Cadastral; exibir País (bandeira/UF), `tipo_identificador_fiscal: identificador_fiscal`, moeda.
+- Esconder botão "Atualizar dados da Receita Federal" e alertas MEI/CNAE para internacionais.
 
-## 3. Testes
+`FornecedorStep.tsx`: pular `CNAECompatibilityBadge` e `MEIAlertBadge` quando internacional.
 
-### 3a. Unit (Vitest) — `src/lib/valor-monetario.test.ts`
+## 5. Regras de negócio relacionadas
 
-- `toCentsString(1000)` → `"100000"` (regressão direta do bug)
-- `toCentsString(770.37)` → `"77037"`
-- `toCentsString("1.234,56")` → `"123456"`
-- `toCentsString(null)` / `undefined` / `NaN` → `""`
-- Round-trip: `fromCentsString(toCentsString(v)) ≈ v` para amostra de valores
-- `toCentsString(0.1 + 0.2)` → `"30"` (sem erro de ponto flutuante)
+- `requires3CNPJs` / exceção fornecedores: manter, mas a UI passa a aceitar concorrentes internacionais (sem mudança lógica — `Fornecedor.id` continua sendo a chave).
+- Validações de retenção/MEI/Receita são puladas para internacionais (já não se aplicam).
+- Documentos fiscais: nenhuma mudança nesta fase — invoice é anexada normalmente.
 
-### 3b. Validação de anexos — `src/hooks/useNovaSolicitacaoErrors.test.ts`
+## 6. Fora de escopo (a confirmar)
 
-Cobre `computeStepErrors` na etapa `anexos`:
+- Conversão de moeda USD→BRL automática.
+- Importação automática dos campos via parsing do PDF da invoice.
+- Workflow Fluig específico para importação.
 
-- Sem nenhum anexo → erro
-- Anexo novo no formState → sem erro
-- Anexo persistido (Set) → sem erro
-- Anexo persistido + valor alterado no formState (cenário do bug) → sem erro
-- Anexo persistido de tipo diferente do exigido → erro mantém
-
-### 3c. Integração leve — `src/pages/NovaSolicitacao.draft.test.tsx`
-
-Smoke test renderizando `NovaSolicitacao` com mock do `supabase` retornando um rascunho (`valor = 1500`, 1 anexo `proposta` salvo):
-
-- Asserta input "Valor" exibe `R$ 15,00` — não `R$ 0,15` ou `R$ 1500,00`
-- Asserta botão "Enviar Solicitação" fica habilitado mesmo sem novo upload
-- Simula `setValor(novoValor)` e confirma que botão continua habilitado
-
-Mocks mínimos: `supabase.from('solicitacoes').select().eq().maybeSingle()`, `supabase.from('anexos').select().eq()`, `useAuth`.
+Se quiser, adiciono qualquer um destes em uma segunda etapa.
 
 ## Arquivos
 
-- `src/lib/valor-monetario.ts` (novo)
-- `src/lib/valor-monetario.test.ts` (novo)
-- `src/hooks/useNovaSolicitacaoErrors.test.ts` (novo)
-- `src/pages/NovaSolicitacao.draft.test.tsx` (novo)
-- `src/pages/NovaSolicitacao.tsx` (refactor para usar `toCentsString` + chamadas `logDraftAudit`)
-- `src/hooks/useNovaSolicitacaoForm.ts` (refactor `duplicateFrom` para `toCentsString`)
-- `src/lib/draft-audit.ts` (novo — helper fire-and-forget)
-- Migration: cria `solicitacao_draft_audit` + RLS
-
-## Fora de escopo
-
-- UI para visualizar o audit log (consumido só por queries do backoffice por enquanto)
-- Mudar formato de armazenamento do `valor` no estado (continua string de centavos)
-- Testes E2E Playwright (cobertura via Vitest é suficiente para o bug)
+- Migration nova em `supabase/migrations/`.
+- Editar: `src/types/index.ts`, `src/hooks/useCNPJ.ts`, `src/components/SupplierSearch.tsx`, `src/components/FornecedorCard.tsx`, `src/components/nova-solicitacao/steps/FornecedorStep.tsx`.
+- Criar: `src/components/InternationalSupplierForm.tsx`, `src/lib/paises.ts`.

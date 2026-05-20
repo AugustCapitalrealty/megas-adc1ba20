@@ -479,7 +479,7 @@ export type Database = {
           cnae_principal_codigo: number | null
           cnae_principal_descricao: string | null
           cnaes_secundarios: Json | null
-          cnpj: string
+          cnpj: string | null
           complemento: string | null
           created_at: string
           data_inicio_atividade: string | null
@@ -487,16 +487,21 @@ export type Database = {
           email: string | null
           endereco: string | null
           id: string
+          identificador_fiscal: string | null
           is_mei: boolean | null
           logradouro: string | null
+          moeda_padrao: string | null
           natureza_juridica: string | null
           nome_fantasia: string | null
           numero: string | null
+          pais: string | null
           porte: string | null
           razao_social: string | null
           situacao_cadastral: number | null
           situacao_cadastral_descricao: string | null
           telefone: string | null
+          tipo_fornecedor: string
+          tipo_identificador_fiscal: string | null
           uf: string | null
           ultima_atualizacao_api: string | null
           updated_at: string
@@ -509,7 +514,7 @@ export type Database = {
           cnae_principal_codigo?: number | null
           cnae_principal_descricao?: string | null
           cnaes_secundarios?: Json | null
-          cnpj: string
+          cnpj?: string | null
           complemento?: string | null
           created_at?: string
           data_inicio_atividade?: string | null
@@ -517,16 +522,21 @@ export type Database = {
           email?: string | null
           endereco?: string | null
           id?: string
+          identificador_fiscal?: string | null
           is_mei?: boolean | null
           logradouro?: string | null
+          moeda_padrao?: string | null
           natureza_juridica?: string | null
           nome_fantasia?: string | null
           numero?: string | null
+          pais?: string | null
           porte?: string | null
           razao_social?: string | null
           situacao_cadastral?: number | null
           situacao_cadastral_descricao?: string | null
           telefone?: string | null
+          tipo_fornecedor?: string
+          tipo_identificador_fiscal?: string | null
           uf?: string | null
           ultima_atualizacao_api?: string | null
           updated_at?: string
@@ -539,7 +549,7 @@ export type Database = {
           cnae_principal_codigo?: number | null
           cnae_principal_descricao?: string | null
           cnaes_secundarios?: Json | null
-          cnpj?: string
+          cnpj?: string | null
           complemento?: string | null
           created_at?: string
           data_inicio_atividade?: string | null
@@ -547,16 +557,21 @@ export type Database = {
           email?: string | null
           endereco?: string | null
           id?: string
+          identificador_fiscal?: string | null
           is_mei?: boolean | null
           logradouro?: string | null
+          moeda_padrao?: string | null
           natureza_juridica?: string | null
           nome_fantasia?: string | null
           numero?: string | null
+          pais?: string | null
           porte?: string | null
           razao_social?: string | null
           situacao_cadastral?: number | null
           situacao_cadastral_descricao?: string | null
           telefone?: string | null
+          tipo_fornecedor?: string
+          tipo_identificador_fiscal?: string | null
           uf?: string | null
           ultima_atualizacao_api?: string | null
           updated_at?: string

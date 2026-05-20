@@ -17,11 +17,13 @@ import {
   Check,
   AlertTriangle,
   Loader2,
-  Info
+  Info,
+  Globe
 } from 'lucide-react';
 import { type Fornecedor } from '@/types';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { getPais } from '@/lib/paises';
 
 interface FornecedorCardProps {
   fornecedor: Fornecedor;
@@ -43,6 +45,11 @@ export function FornecedorCard({
   const [cnaesOpen, setCnaesOpen] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const { toast } = useToast();
+  const isIntl = (fornecedor.tipo_fornecedor ?? 'nacional') === 'internacional';
+  const paisInfo = isIntl ? getPais(fornecedor.pais) : undefined;
+  const idLabel = isIntl
+    ? `${fornecedor.tipo_identificador_fiscal ?? 'ID'}: ${fornecedor.identificador_fiscal ?? '—'}`
+    : null;
 
   const handleCopy = async (text: string, field: string) => {
     try {
@@ -103,12 +110,18 @@ export function FornecedorCard({
               <p className="font-medium text-sm truncate">
                 {fornecedor.razao_social || fornecedor.nome_fantasia || 'Sem nome'}
               </p>
-              {fornecedor.situacao_cadastral_descricao && (
+              {isIntl && (
+                <Badge variant="outline" className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                  <Globe className="h-3 w-3 mr-1" />
+                  {paisInfo ? `${paisInfo.bandeira} ${paisInfo.iso}` : 'Internacional'}
+                </Badge>
+              )}
+              {!isIntl && fornecedor.situacao_cadastral_descricao && (
                 <Badge variant="outline" className={cn("text-xs", getSituacaoStyle(fornecedor.situacao_cadastral, fornecedor.situacao_cadastral_descricao))}>
                   {fornecedor.situacao_cadastral_descricao}
                 </Badge>
               )}
-              {fornecedor.is_mei && (
+              {!isIntl && fornecedor.is_mei && (
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -137,10 +150,11 @@ export function FornecedorCard({
               <p className="text-xs text-muted-foreground truncate">{fornecedor.nome_fantasia}</p>
             )}
             <p className="text-xs text-muted-foreground">
-              {formatCNPJ(fornecedor.cnpj)}
-              {fornecedor.cidade && ` • ${fornecedor.cidade}/${fornecedor.uf}`}
+              {isIntl
+                ? `${idLabel}${fornecedor.moeda_padrao ? ` • ${fornecedor.moeda_padrao}` : ''}`
+                : `${formatCNPJ(fornecedor.cnpj ?? '')}${fornecedor.cidade ? ` • ${fornecedor.cidade}/${fornecedor.uf}` : ''}`}
             </p>
-            {fornecedor.cnae_principal_descricao && (
+            {!isIntl && fornecedor.cnae_principal_descricao && (
               <p className="text-xs text-muted-foreground truncate mt-0.5">
                 CNAE: {fornecedor.cnae_principal_codigo} - {fornecedor.cnae_principal_descricao}
               </p>
@@ -176,7 +190,7 @@ export function FornecedorCard({
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <Building2 className="h-5 w-5 text-primary flex-shrink-0" />
+                  {isIntl ? <Globe className="h-5 w-5 text-primary flex-shrink-0" /> : <Building2 className="h-5 w-5 text-primary flex-shrink-0" />}
                   <h3 className="font-semibold text-base truncate">
                     {fornecedor.razao_social || fornecedor.nome_fantasia || 'Sem nome'}
                   </h3>
@@ -184,9 +198,16 @@ export function FornecedorCard({
                 {fornecedor.nome_fantasia && fornecedor.razao_social && (
                   <p className="text-sm text-muted-foreground ml-7">{fornecedor.nome_fantasia}</p>
                 )}
-                <p className="text-sm text-muted-foreground ml-7">
-                  CNPJ: {formatCNPJ(fornecedor.cnpj)}
-                </p>
+                {isIntl ? (
+                  <p className="text-sm text-muted-foreground ml-7">
+                    {paisInfo ? `${paisInfo.bandeira} ${paisInfo.nome}` : 'País não informado'} • {idLabel}
+                    {fornecedor.moeda_padrao && ` • Moeda: ${fornecedor.moeda_padrao}`}
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground ml-7">
+                    CNPJ: {formatCNPJ(fornecedor.cnpj ?? '')}
+                  </p>
+                )}
               </div>
               {showClearButton && onClear && (
                 <Button variant="ghost" size="icon" onClick={onClear}>
@@ -195,9 +216,15 @@ export function FornecedorCard({
               )}
             </div>
 
-            {/* Status, MEI e Porte */}
+            {/* Status, MEI e Porte (nacional) ou Badge Internacional */}
             <div className="flex flex-wrap items-center gap-2">
-              {fornecedor.situacao_cadastral_descricao && (
+              {isIntl && (
+                <Badge variant="outline" className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                  <Globe className="h-3 w-3 mr-1" />
+                  Fornecedor internacional
+                </Badge>
+              )}
+              {!isIntl && fornecedor.situacao_cadastral_descricao && (
                 <Badge 
                   variant="outline" 
                   className={cn("text-sm font-medium", getSituacaoStyle(fornecedor.situacao_cadastral, fornecedor.situacao_cadastral_descricao))}
@@ -210,7 +237,7 @@ export function FornecedorCard({
                   )}
                 </Badge>
               )}
-              {fornecedor.is_mei && (
+              {!isIntl && fornecedor.is_mei && (
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -243,7 +270,7 @@ export function FornecedorCard({
                   </Tooltip>
                 </TooltipProvider>
               )}
-              {fornecedor.porte && (
+              {!isIntl && fornecedor.porte && (
                 <Badge variant="outline" className="text-muted-foreground">
                   {fornecedor.porte}
                 </Badge>
@@ -251,7 +278,7 @@ export function FornecedorCard({
             </div>
 
             {/* Alerta de situação irregular */}
-            {isIrregular && (
+            {!isIntl && isIrregular && (
               <div className="flex items-start gap-2 p-3 bg-destructive/10 rounded-lg border border-destructive/20">
                 <AlertTriangle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
                 <div>
@@ -266,7 +293,7 @@ export function FornecedorCard({
             )}
 
             {/* CNAE Principal */}
-            {fornecedor.cnae_principal_codigo && (
+            {!isIntl && fornecedor.cnae_principal_codigo && (
               <div className="bg-accent/50 rounded-lg p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
@@ -297,7 +324,7 @@ export function FornecedorCard({
             )}
 
             {/* CNAEs Secundários (colapsável) */}
-            {fornecedor.cnaes_secundarios && fornecedor.cnaes_secundarios.length > 0 && (
+            {!isIntl && fornecedor.cnaes_secundarios && fornecedor.cnaes_secundarios.length > 0 && (
               <Collapsible open={cnaesOpen} onOpenChange={setCnaesOpen}>
                 <CollapsibleTrigger asChild>
                   <Button variant="ghost" className="w-full justify-between p-2 h-auto">
@@ -387,7 +414,7 @@ export function FornecedorCard({
             )}
 
             {/* Indicador de dados não enriquecidos */}
-            {!hasEnrichedData && (
+            {!isIntl && !hasEnrichedData && (
               <div className="text-xs text-muted-foreground text-center py-2 border-t">
                 Dados básicos. Clique em buscar para atualizar informações da Receita Federal.
               </div>

@@ -22,8 +22,10 @@ export function FornecedorStep({ formState, derived, setters }: StepProps) {
 
       {fornecedor && (
         <div className="space-y-3 mt-4">
-          {fornecedor.is_mei && <MEIAlertBadge showInlineAlert valorTotal={valorNumerico} />}
-          {fornecedor.cnae_principal_codigo && (
+          {(fornecedor.tipo_fornecedor ?? 'nacional') !== 'internacional' && fornecedor.is_mei && (
+            <MEIAlertBadge showInlineAlert valorTotal={valorNumerico} />
+          )}
+          {(fornecedor.tipo_fornecedor ?? 'nacional') !== 'internacional' && fornecedor.cnae_principal_codigo && (
             <CNAECompatibilityBadge descricao={descricao} fornecedor={fornecedor} enabled={descricao.length >= 20} />
           )}
         </div>
