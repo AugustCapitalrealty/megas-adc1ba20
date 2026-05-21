@@ -1232,7 +1232,7 @@ export default function Backoffice() {
       tipo_fornecedor: ((sol[`${prefix}_tipo_fornecedor` as keyof typeof sol] as string) || 'nacional') as any,
       pais: (sol[`${prefix}_pais` as keyof typeof sol] as string) || null,
       identificador_fiscal: idFiscal || null,
-      tipo_identificador_fiscal: (sol[`${prefix}_tipo_identificador_fiscal` as keyof typeof sol] as string) || null,
+      tipo_identificador_fiscal: ((sol[`${prefix}_tipo_identificador_fiscal` as keyof typeof sol] as any) || null),
       moeda_padrao: (sol[`${prefix}_moeda_padrao` as keyof typeof sol] as string) || null,
       created_at: '',
       updated_at: '',
