@@ -1175,6 +1175,11 @@ export default function Backoffice() {
       capital_social: sol.fornecedor_capital_social || null,
       data_inicio_atividade: sol.fornecedor_data_inicio_atividade || null,
       ultima_atualizacao_api: null,
+      tipo_fornecedor: (sol as any).fornecedor_tipo_fornecedor || 'nacional',
+      pais: (sol as any).fornecedor_pais || null,
+      identificador_fiscal: (sol as any).fornecedor_identificador_fiscal || null,
+      tipo_identificador_fiscal: (sol as any).fornecedor_tipo_identificador_fiscal || null,
+      moeda_padrao: (sol as any).fornecedor_moeda_padrao || null,
       created_at: '',
       updated_at: '',
     };
@@ -1187,8 +1192,9 @@ export default function Backoffice() {
   ): Fornecedor | null => {
     const prefix = numero === 1 ? 'concorrente1' : 'concorrente2';
     const cnpj = sol[`${prefix}_cnpj` as keyof typeof sol] as string | undefined;
-    
-    if (!cnpj) return null;
+    const idFiscal = sol[`${prefix}_identificador_fiscal` as keyof typeof sol] as string | undefined;
+
+    if (!cnpj && !idFiscal) return null;
 
     let cnaesSecundarios: CNAESecundario[] = [];
     const rawCnaes = sol[`${prefix}_cnaes_secundarios` as keyof typeof sol];
@@ -1223,6 +1229,11 @@ export default function Backoffice() {
       capital_social: (sol[`${prefix}_capital_social` as keyof typeof sol] as number) || null,
       data_inicio_atividade: (sol[`${prefix}_data_inicio_atividade` as keyof typeof sol] as string) || null,
       ultima_atualizacao_api: null,
+      tipo_fornecedor: ((sol[`${prefix}_tipo_fornecedor` as keyof typeof sol] as string) || 'nacional') as any,
+      pais: (sol[`${prefix}_pais` as keyof typeof sol] as string) || null,
+      identificador_fiscal: idFiscal || null,
+      tipo_identificador_fiscal: (sol[`${prefix}_tipo_identificador_fiscal` as keyof typeof sol] as string) || null,
+      moeda_padrao: (sol[`${prefix}_moeda_padrao` as keyof typeof sol] as string) || null,
       created_at: '',
       updated_at: '',
     };
