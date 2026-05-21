@@ -684,15 +684,15 @@ export function BackofficeModals(props: BackofficeModalsProps) {
                 )}
 
                 {/* Fornecedor */}
-                {detalhes.solicitacao.fornecedor_cnpj && (
+                {(detalhes.solicitacao.fornecedor_cnpj || (detalhes.solicitacao as any).fornecedor_identificador_fiscal) && (
                   <>
                     <div className="space-y-4">
                       <h4 className="font-semibold flex items-center gap-2"><Truck className="h-4 w-4" /> Fornecedor</h4>
                       <FornecedorCard fornecedor={buildFornecedorFromDetalhes(detalhes.solicitacao)} showClearButton={false} compact={false} formatCNPJ={formatCNPJ} />
-                      {buildFornecedorFromDetalhes(detalhes.solicitacao)?.is_mei && (
+                      {buildFornecedorFromDetalhes(detalhes.solicitacao)?.tipo_fornecedor !== 'internacional' && buildFornecedorFromDetalhes(detalhes.solicitacao)?.is_mei && (
                         <MEIAlertBadge showInlineAlert valorTotal={detalhes.solicitacao.valor} />
                       )}
-                      {buildFornecedorFromDetalhes(detalhes.solicitacao)?.cnae_principal_codigo && (
+                      {buildFornecedorFromDetalhes(detalhes.solicitacao)?.tipo_fornecedor !== 'internacional' && buildFornecedorFromDetalhes(detalhes.solicitacao)?.cnae_principal_codigo && (
                         <CNAECompatibilityBadge
                           descricao={detalhes.solicitacao.descricao}
                           fornecedor={buildFornecedorFromDetalhes(detalhes.solicitacao)}
