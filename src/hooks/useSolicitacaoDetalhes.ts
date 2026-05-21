@@ -66,6 +66,11 @@ export interface SolicitacaoDetalhes {
     fornecedor_porte?: string;
     fornecedor_capital_social?: number;
     fornecedor_data_inicio_atividade?: string;
+    fornecedor_tipo_fornecedor?: string;
+    fornecedor_pais?: string;
+    fornecedor_identificador_fiscal?: string;
+    fornecedor_tipo_identificador_fiscal?: string;
+    fornecedor_moeda_padrao?: string;
     // Concorrente 1 (completo)
     concorrente1_id?: string;
     concorrente1_cnpj?: string;
@@ -92,6 +97,11 @@ export interface SolicitacaoDetalhes {
     concorrente1_porte?: string;
     concorrente1_capital_social?: number;
     concorrente1_data_inicio_atividade?: string;
+    concorrente1_tipo_fornecedor?: string;
+    concorrente1_pais?: string;
+    concorrente1_identificador_fiscal?: string;
+    concorrente1_tipo_identificador_fiscal?: string;
+    concorrente1_moeda_padrao?: string;
     // Concorrente 2 (completo)
     concorrente2_id?: string;
     concorrente2_cnpj?: string;
@@ -118,6 +128,11 @@ export interface SolicitacaoDetalhes {
     concorrente2_porte?: string;
     concorrente2_capital_social?: number;
     concorrente2_data_inicio_atividade?: string;
+    concorrente2_tipo_fornecedor?: string;
+    concorrente2_pais?: string;
+    concorrente2_identificador_fiscal?: string;
+    concorrente2_tipo_identificador_fiscal?: string;
+    concorrente2_moeda_padrao?: string;
     // Justificativas
     justificativa_sem_chamado?: string;
     justificativa_sem_memorial?: string;
