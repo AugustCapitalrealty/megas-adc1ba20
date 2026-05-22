@@ -76,9 +76,12 @@ export type OcVisualStatus =
   | 'cancel_solicitado'
   | 'cancelado';
 
+export const DEFAULT_DIA_CORTE_JUSTIFICATIVA = 23;
+
 export const computeOcStatus = (
   oc: OCItem,
-  group: Pick<OCGroupRow, 'status' | 'cancelamento_pendente'>
+  group: Pick<OCGroupRow, 'status' | 'cancelamento_pendente'>,
+  diaCorte: number = DEFAULT_DIA_CORTE_JUSTIFICATIVA
 ): OcVisualStatus => {
   if (group.status === 'cancelado') return 'cancelado';
   if (group.cancelamento_pendente) return 'cancel_solicitado';
@@ -88,14 +91,14 @@ export const computeOcStatus = (
   if (previsaoValida) return 'adiado';
 
   const dia = new Date().getDate();
-  // Critério de pendência: OC do mês anterior, OU mês atual após dia 23 sem previsão válida
+  // Critério de pendência: OC do mês anterior, OU mês atual a partir do dia de corte sem previsão válida
   if (!isCurrentMonth(oc.data_oc)) return 'pendente_justificativa';
-  if (dia >= 23 && !oc.tem_nf && !previsaoValida) return 'pendente_justificativa';
+  if (dia >= diaCorte && !oc.tem_nf && !previsaoValida) return 'pendente_justificativa';
   if (oc.dias_aberto >= 15) return 'atencao';
   return 'em_prazo';
 };
 
-export const computeGroupStatus = (group: OCGroupRow): OcVisualStatus => {
+export const computeGroupStatus = (group: OCGroupRow, diaCorte: number = DEFAULT_DIA_CORTE_JUSTIFICATIVA): OcVisualStatus => {
   // Status do grupo = pior status entre as OCs (priorização)
   const order: OcVisualStatus[] = [
     'cancelado',
@@ -106,7 +109,7 @@ export const computeGroupStatus = (group: OCGroupRow): OcVisualStatus => {
     'em_prazo',
     'aguardando_nf',
   ];
-  const statuses = group.ocs.map(o => computeOcStatus(o, group));
+  const statuses = group.ocs.map(o => computeOcStatus(o, group, diaCorte));
   for (const s of order) if (statuses.includes(s)) return s;
   return 'em_prazo';
 };
@@ -123,7 +126,7 @@ export interface OcAggregates {
   agingMedio: number;
 }
 
-export function computeAggregates(groups: OCGroupRow[]): OcAggregates {
+export function computeAggregates(groups: OCGroupRow[], diaCorte: number = DEFAULT_DIA_CORTE_JUSTIFICATIVA): OcAggregates {
   let semNf = 0;
   let pendente = 0;
   let cancel = 0;
@@ -142,7 +145,7 @@ export function computeAggregates(groups: OCGroupRow[]): OcAggregates {
 
     let groupTemNfPendente = false;
     g.ocs.forEach(oc => {
-      const st = computeOcStatus(oc, g);
+      const st = computeOcStatus(oc, g, diaCorte);
       if (ativo && !oc.tem_nf) {
         semNf++;
         groupTemNfPendente = true;
@@ -161,7 +164,7 @@ export function computeAggregates(groups: OCGroupRow[]): OcAggregates {
 
     // Distribuição operacional conta GRUPOS (solicitações) pelo pior status
     // do grupo, alinhando com cards e abas.
-    const groupStatus = computeGroupStatus(g);
+    const groupStatus = computeGroupStatus(g, diaCorte);
     if (groupStatus === 'pendente_justificativa' || groupStatus === 'atencao') {
       dist.pendente++;
     } else if (groupStatus === 'adiado') {
@@ -196,6 +199,42 @@ export function useMonitoramentoOC(opts: {
   const [loading, setLoading] = useState(true);
   const [groups, setGroups] = useState<OCGroupRow[]>([]);
   const [historicalKpis, setHistoricalKpis] = useState<{ prev: OcKpis | null }>({ prev: null });
+  const [diaCorte, setDiaCorte] = useState<number>(DEFAULT_DIA_CORTE_JUSTIFICATIVA);
+  const [configId, setConfigId] = useState<string | null>(null);
+
+  const fetchConfig = useCallback(async () => {
+    const { data } = await (supabase as any)
+      .from('monitoramento_oc_config')
+      .select('id, dia_corte_justificativa')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (data) {
+      setConfigId(data.id);
+      setDiaCorte(Number(data.dia_corte_justificativa) || DEFAULT_DIA_CORTE_JUSTIFICATIVA);
+    }
+  }, []);
+
+  const updateDiaCorte = useCallback(async (novoDia: number) => {
+    const dia = Math.min(28, Math.max(1, Math.round(novoDia)));
+    const { data: { user } } = await supabase.auth.getUser();
+    if (configId) {
+      const { error } = await (supabase as any)
+        .from('monitoramento_oc_config')
+        .update({ dia_corte_justificativa: dia, updated_at: new Date().toISOString(), updated_by: user?.id ?? null })
+        .eq('id', configId);
+      if (error) throw error;
+    } else {
+      const { data, error } = await (supabase as any)
+        .from('monitoramento_oc_config')
+        .insert({ dia_corte_justificativa: dia, updated_by: user?.id ?? null })
+        .select('id')
+        .single();
+      if (error) throw error;
+      if (data?.id) setConfigId(data.id);
+    }
+    setDiaCorte(dia);
+  }, [configId]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -346,8 +385,11 @@ export function useMonitoramentoOC(opts: {
   }, [hasAllAccess, userEmpreendimentos]);
 
   useEffect(() => {
-    if (enabled) fetchData();
-  }, [enabled, fetchData]);
+    if (enabled) {
+      fetchData();
+      fetchConfig();
+    }
+  }, [enabled, fetchData, fetchConfig]);
 
   // KPIs computados
   const kpis: OcKpis = useMemo(() => {
@@ -358,7 +400,7 @@ export function useMonitoramentoOC(opts: {
     ativas.forEach(g => {
       // Cada OC contabiliza individualmente para os KPIs operacionais
       g.ocs.forEach(oc => {
-        const st = computeOcStatus(oc, g);
+        const st = computeOcStatus(oc, g, diaCorte);
         if (!oc.tem_nf) semNf++;
         if (st === 'pendente_justificativa') pendente++;
       });
@@ -383,31 +425,31 @@ export function useMonitoramentoOC(opts: {
       delta_pendente: delta(pendente, prev?.pendente_justificativa),
       delta_cancel: delta(cancel, prev?.cancelamento_pendente),
     };
-  }, [groups, historicalKpis]);
+  }, [groups, historicalKpis, diaCorte]);
 
   const distribution: OcDistribution = useMemo(() => {
     const dist: OcDistribution = { pendente: 0, adiado: 0 };
     groups.forEach(g => {
       g.ocs.forEach(oc => {
-        const st = computeOcStatus(oc, g);
+        const st = computeOcStatus(oc, g, diaCorte);
         if (st === 'pendente_justificativa') dist.pendente++;
         else if (st === 'adiado') dist.adiado++;
       });
     });
     return dist;
-  }, [groups]);
+  }, [groups, diaCorte]);
 
   // Top ofensores: OCs (não grupos) com maior aging e sem justificativa válida
   const topOfensores = useMemo(() => {
     const candidates: { group: OCGroupRow; oc: OCItem }[] = [];
     groups.forEach(g => {
       g.ocs.forEach(oc => {
-        const st = computeOcStatus(oc, g);
+        const st = computeOcStatus(oc, g, diaCorte);
         if (st === 'pendente_justificativa') candidates.push({ group: g, oc });
       });
     });
     return candidates.sort((a, b) => b.oc.dias_aberto - a.oc.dias_aberto).slice(0, 5);
-  }, [groups]);
+  }, [groups, diaCorte]);
 
   // Meta do mês: % de OCs do mês com NF emitida (meta 90%)
   const metaMes = useMemo(() => {
@@ -460,5 +502,7 @@ export function useMonitoramentoOC(opts: {
     valorEmAberto,
     agingMedio,
     refetch: fetchData,
+    diaCorte,
+    updateDiaCorte,
   };
 }

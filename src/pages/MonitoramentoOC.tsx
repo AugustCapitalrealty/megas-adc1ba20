@@ -147,11 +147,11 @@ function StatusBadge({ status }: { status: OcVisualStatus }) {
   );
 }
 
-function AgingBadge({ dias, hasJustificativa, dataOc }: { dias: number; hasJustificativa: boolean; dataOc: string }) {
+function AgingBadge({ dias, hasJustificativa, dataOc, diaCorte }: { dias: number; hasJustificativa: boolean; dataOc: string; diaCorte: number }) {
   const tone =
     dias < 15
       ? 'bg-success/10 text-success border-success/30'
-      : dias <= 23 || hasJustificativa
+      : dias <= diaCorte || hasJustificativa
       ? 'bg-warning/10 text-warning border-warning/30'
       : 'bg-destructive/10 text-destructive border-destructive/30';
   return (
@@ -169,7 +169,7 @@ function AgingBadge({ dias, hasJustificativa, dataOc }: { dias: number; hasJusti
 }
 
 export default function MonitoramentoOC() {
-  const { user, effectiveProfile, isImpersonating } = useAuth();
+  const { user, effectiveProfile, isImpersonating, isBackofficeOrAdmin } = useAuth();
   useDocumentTitle('Monitoramento de OC');
   const effectiveUserId = isImpersonating ? effectiveProfile?.id : user?.id;
   const { empreendimentos: userEmpreendimentos, loading: loadingEmpreendimentos, hasAllAccess } = useUserEmpreendimentos(effectiveUserId);
@@ -178,6 +178,8 @@ export default function MonitoramentoOC() {
     loading,
     groups,
     refetch,
+    diaCorte,
+    updateDiaCorte,
   } = useMonitoramentoOC({ userEmpreendimentos, hasAllAccess, enabled: !loadingEmpreendimentos });
 
   const [filterEmpreendimento, setFilterEmpreendimento] = useState<string>('todos');
@@ -240,7 +242,7 @@ export default function MonitoramentoOC() {
 
   // KPIs (4 cards) sempre vêm do conjunto base — para que clicar em um card
   // não zere os outros números.
-  const baseAggregates = useMemo(() => computeAggregates(baseFilteredGroups), [baseFilteredGroups]);
+  const baseAggregates = useMemo(() => computeAggregates(baseFilteredGroups, diaCorte), [baseFilteredGroups, diaCorte]);
   // baseAggregates pode ser usado no futuro; KPIs dos cards vêm de cardCounts
   void baseAggregates;
 
@@ -255,16 +257,16 @@ export default function MonitoramentoOC() {
         case 'nao_liberada':
           return STATUS_NAO_LIBERADA.has(g.status);
         case 'pendente':
-          return g.ocs.some(oc => computeOcStatus(oc, g) === 'pendente_justificativa');
+          return g.ocs.some(oc => computeOcStatus(oc, g, diaCorte) === 'pendente_justificativa');
         case 'justificadas':
-          return g.ocs.some(oc => computeOcStatus(oc, g) === 'adiado');
+          return g.ocs.some(oc => computeOcStatus(oc, g, diaCorte) === 'adiado');
         default:
           return true;
       }
     });
   }, [baseFilteredGroups, cardFilter]);
 
-  const viewAggregates = useMemo(() => computeAggregates(cardFilteredGroups), [cardFilteredGroups]);
+  const viewAggregates = useMemo(() => computeAggregates(cardFilteredGroups, diaCorte), [cardFilteredGroups, diaCorte]);
   const { distribution, topOfensores, valorEmAberto, agingMedio } = viewAggregates;
 
   // Contagens dos cards a partir do recorte base (empreendimento + busca),
@@ -277,7 +279,7 @@ export default function MonitoramentoOC() {
     baseFilteredGroups.forEach(g => {
       if (STATUS_LIBERADA.has(g.status)) liberada++;
       else if (STATUS_NAO_LIBERADA.has(g.status)) naoLiberada++;
-      const ocStatuses = g.ocs.map(oc => computeOcStatus(oc, g));
+      const ocStatuses = g.ocs.map(oc => computeOcStatus(oc, g, diaCorte));
       if (ocStatuses.some(st => st === 'pendente_justificativa')) pendente++;
       if (ocStatuses.some(st => st === 'adiado')) justificadas++;
     });
@@ -288,7 +290,7 @@ export default function MonitoramentoOC() {
   const tabCounts = useMemo(() => {
     const counts = { todas: cardFilteredGroups.length, pendencia: 0, justificadas: 0 };
     cardFilteredGroups.forEach(g => {
-      const st = computeGroupStatus(g);
+      const st = computeGroupStatus(g, diaCorte);
       if (TAB_STATUS.pendencia.includes(st)) counts.pendencia++;
       else counts.justificadas++;
     });
@@ -298,7 +300,7 @@ export default function MonitoramentoOC() {
   // Tabela = aplica filtro de aba sobre o recorte do card
   const filteredGroups = useMemo(() => {
     return cardFilteredGroups.filter(g => {
-      const st = computeGroupStatus(g);
+      const st = computeGroupStatus(g, diaCorte);
       return TAB_STATUS[activeTab].includes(st);
     });
   }, [cardFilteredGroups, activeTab]);
@@ -484,7 +486,7 @@ export default function MonitoramentoOC() {
                   tone="destructive"
                   active={cardFilter === 'pendente'}
                   onClick={() => toggleCardFilter('pendente', 'pendencia')}
-                  hint="OCs que ainda precisam de justificativa pela regra (mês anterior sem NF, ou mês atual após dia 23 sem previsão futura)."
+                  hint={`OCs que ainda precisam de justificativa pela regra (mês anterior sem NF, ou mês atual a partir do dia ${diaCorte} sem previsão futura).`}
                 />
                 <SlaKpiCard
                   label="Justificadas"
@@ -526,6 +528,39 @@ export default function MonitoramentoOC() {
               </Select>
 
               <div className="ml-auto flex items-center gap-3">
+                {isBackofficeOrAdmin ? (
+                  <div className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5">
+                    <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
+                    <Label htmlFor="dia-corte" className="text-xs text-muted-foreground whitespace-nowrap m-0">
+                      Justificativa a partir do dia
+                    </Label>
+                    <Select
+                      value={String(diaCorte)}
+                      onValueChange={async (v) => {
+                        try {
+                          await updateDiaCorte(Number(v));
+                          toast.success(`Dia de corte atualizado para o dia ${v}`);
+                        } catch {
+                          toast.error('Não foi possível atualizar o dia de corte');
+                        }
+                      }}
+                    >
+                      <SelectTrigger id="dia-corte" className="h-7 w-16 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 28 }, (_, i) => i + 1).map(d => (
+                          <SelectItem key={d} value={String(d)}>{d}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : (
+                  <Badge variant="outline" className="gap-1 text-muted-foreground">
+                    <CalendarDays className="h-3 w-3" />
+                    Justificativa obrigatória a partir do dia {diaCorte}
+                  </Badge>
+                )}
                 {hasActiveFilters && (
                   <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-1 text-muted-foreground hover:text-foreground">
                     <X className="h-3.5 w-3.5" />
@@ -546,7 +581,7 @@ export default function MonitoramentoOC() {
                         'Valor (R$)': g.valor,
                         'Data OC': formatBR(oc.data_oc, 'dd/MM/yyyy'),
                         'Dias Aberto': oc.dias_aberto,
-                        'Status': STATUS_LABEL_MAP[computeOcStatus(oc, g)] || '-',
+                        'Status': STATUS_LABEL_MAP[computeOcStatus(oc, g, diaCorte)] || '-',
                         'Tem NF': oc.tem_nf ? 'Sim' : 'Não',
                         'Previsão NF': oc.previsao_nf || '-',
                       }))
@@ -703,9 +738,9 @@ export default function MonitoramentoOC() {
                         filteredGroups.map(group => {
                           const isExpanded = expanded.has(group.solicitacao_id);
                           const isOwn = group.user_id === user?.id;
-                          const groupStatus = computeGroupStatus(group);
+                          const groupStatus = computeGroupStatus(group, diaCorte);
                           const primary = group.primary;
-                          const primaryStatus = computeOcStatus(primary, group);
+                          const primaryStatus = computeOcStatus(primary, group, diaCorte);
                           // Borda lateral colorida em vez de fundo na linha inteira
                           const leftAccent =
                             primaryStatus === 'pendente_justificativa' ? 'border-l-destructive' :
@@ -776,7 +811,7 @@ export default function MonitoramentoOC() {
                                         <span className="ml-1 text-[10px] text-muted-foreground font-normal">+{group.ocs.length - 1}</span>
                                       )}
                                     </span>
-                                    <AgingBadge dias={primary.dias_aberto} hasJustificativa={!!primary.ultima_justificativa} dataOc={primary.data_oc} />
+                                    <AgingBadge dias={primary.dias_aberto} hasJustificativa={!!primary.ultima_justificativa} dataOc={primary.data_oc}  diaCorte={diaCorte} />
                                   </div>
                                 </TableCell>
                                 {/* Status + Última ação mesclados */}
@@ -845,7 +880,7 @@ export default function MonitoramentoOC() {
 
                               {/* Linhas filhas (OCs adicionais) */}
                               {isExpanded && group.has_multiple && group.ocs.slice(1).map(oc => {
-                                const ocStatus = computeOcStatus(oc, group);
+                                const ocStatus = computeOcStatus(oc, group, diaCorte);
                                 return (
                                   <TableRow key={oc.id} className="bg-muted/30 hover:bg-muted/40 border-l-4 border-l-transparent">
                                     <TableCell className="w-8"></TableCell>
@@ -858,7 +893,7 @@ export default function MonitoramentoOC() {
                                     <TableCell>
                                       <div className="flex flex-col gap-1">
                                         <span className="text-sm tabular-nums font-medium leading-none">{oc.numero_documento}</span>
-                                        <AgingBadge dias={oc.dias_aberto} hasJustificativa={!!oc.ultima_justificativa} dataOc={oc.data_oc} />
+                                        <AgingBadge dias={oc.dias_aberto} hasJustificativa={!!oc.ultima_justificativa} dataOc={oc.data_oc}  diaCorte={diaCorte} />
                                       </div>
                                     </TableCell>
                                     <TableCell>

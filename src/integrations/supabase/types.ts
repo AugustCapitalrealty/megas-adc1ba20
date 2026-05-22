@@ -670,6 +670,27 @@ export type Database = {
           },
         ]
       }
+      monitoramento_oc_config: {
+        Row: {
+          dia_corte_justificativa: number
+          id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          dia_corte_justificativa?: number
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          dia_corte_justificativa?: number
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string
