@@ -76,9 +76,12 @@ export type OcVisualStatus =
   | 'cancel_solicitado'
   | 'cancelado';
 
+export const DEFAULT_DIA_CORTE_JUSTIFICATIVA = 23;
+
 export const computeOcStatus = (
   oc: OCItem,
-  group: Pick<OCGroupRow, 'status' | 'cancelamento_pendente'>
+  group: Pick<OCGroupRow, 'status' | 'cancelamento_pendente'>,
+  diaCorte: number = DEFAULT_DIA_CORTE_JUSTIFICATIVA
 ): OcVisualStatus => {
   if (group.status === 'cancelado') return 'cancelado';
   if (group.cancelamento_pendente) return 'cancel_solicitado';
@@ -88,14 +91,14 @@ export const computeOcStatus = (
   if (previsaoValida) return 'adiado';
 
   const dia = new Date().getDate();
-  // Critério de pendência: OC do mês anterior, OU mês atual após dia 23 sem previsão válida
+  // Critério de pendência: OC do mês anterior, OU mês atual a partir do dia de corte sem previsão válida
   if (!isCurrentMonth(oc.data_oc)) return 'pendente_justificativa';
-  if (dia >= 23 && !oc.tem_nf && !previsaoValida) return 'pendente_justificativa';
+  if (dia >= diaCorte && !oc.tem_nf && !previsaoValida) return 'pendente_justificativa';
   if (oc.dias_aberto >= 15) return 'atencao';
   return 'em_prazo';
 };
 
-export const computeGroupStatus = (group: OCGroupRow): OcVisualStatus => {
+export const computeGroupStatus = (group: OCGroupRow, diaCorte: number = DEFAULT_DIA_CORTE_JUSTIFICATIVA): OcVisualStatus => {
   // Status do grupo = pior status entre as OCs (priorização)
   const order: OcVisualStatus[] = [
     'cancelado',
@@ -106,7 +109,7 @@ export const computeGroupStatus = (group: OCGroupRow): OcVisualStatus => {
     'em_prazo',
     'aguardando_nf',
   ];
-  const statuses = group.ocs.map(o => computeOcStatus(o, group));
+  const statuses = group.ocs.map(o => computeOcStatus(o, group, diaCorte));
   for (const s of order) if (statuses.includes(s)) return s;
   return 'em_prazo';
 };
@@ -123,7 +126,7 @@ export interface OcAggregates {
   agingMedio: number;
 }
 
-export function computeAggregates(groups: OCGroupRow[]): OcAggregates {
+export function computeAggregates(groups: OCGroupRow[], diaCorte: number = DEFAULT_DIA_CORTE_JUSTIFICATIVA): OcAggregates {
   let semNf = 0;
   let pendente = 0;
   let cancel = 0;
@@ -142,7 +145,7 @@ export function computeAggregates(groups: OCGroupRow[]): OcAggregates {
 
     let groupTemNfPendente = false;
     g.ocs.forEach(oc => {
-      const st = computeOcStatus(oc, g);
+      const st = computeOcStatus(oc, g, diaCorte);
       if (ativo && !oc.tem_nf) {
         semNf++;
         groupTemNfPendente = true;
@@ -161,7 +164,7 @@ export function computeAggregates(groups: OCGroupRow[]): OcAggregates {
 
     // Distribuição operacional conta GRUPOS (solicitações) pelo pior status
     // do grupo, alinhando com cards e abas.
-    const groupStatus = computeGroupStatus(g);
+    const groupStatus = computeGroupStatus(g, diaCorte);
     if (groupStatus === 'pendente_justificativa' || groupStatus === 'atencao') {
       dist.pendente++;
     } else if (groupStatus === 'adiado') {
