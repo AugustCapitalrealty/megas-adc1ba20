@@ -161,27 +161,47 @@ export function useFluigImport() {
     };
 
     try {
-      // Get existing snapshots
-      const { data: existing } = await supabase
-        .from('fluig_painel_snapshot')
-        .select('id, solicitacao_fluig, situacao, localizacao, responsavel_atual, gerencia_conclusao, gerencia_facilities_conclusao, gerencia_financeiro_conclusao, diretoria_conclusao');
-      
-      const existingMap = new Map((existing || []).map(e => [e.solicitacao_fluig, e]));
-      
-      // Get links to internal solicitations and create a Set of valid IDs
-      const { data: internalLinks } = await supabase
-        .from('solicitacoes')
-        .select('id, numero_chamado_fluig')
-        .not('numero_chamado_fluig', 'is', null);
-      
-      const linkMap = new Map((internalLinks || []).map(l => [l.numero_chamado_fluig?.trim(), l.id]));
-      
-      // Create a Set of valid solicitacao IDs for quick validation
-      const { data: validSolicitacoes } = await supabase
-        .from('solicitacoes')
-        .select('id');
-      
-      const validIds = new Set((validSolicitacoes || []).map(s => s.id));
+      // Helper: paginate any SELECT to bypass PostgREST's 1000-row default limit
+      const PAGE = 1000;
+      async function fetchAll<T>(builder: () => any): Promise<T[]> {
+        const all: T[] = [];
+        let from = 0;
+        while (true) {
+          const { data: page, error } = await builder().range(from, from + PAGE - 1);
+          if (error) throw error;
+          if (!page || page.length === 0) break;
+          all.push(...(page as T[]));
+          if (page.length < PAGE) break;
+          from += PAGE;
+        }
+        return all;
+      }
+
+      // Get existing snapshots (paginated)
+      const existing = await fetchAll<{ id: string; solicitacao_fluig: string; situacao: string | null; localizacao: string | null; responsavel_atual: string | null; gerencia_conclusao: string | null; gerencia_facilities_conclusao: string | null; gerencia_financeiro_conclusao: string | null; diretoria_conclusao: string | null }>(() =>
+        supabase
+          .from('fluig_painel_snapshot')
+          .select('id, solicitacao_fluig, situacao, localizacao, responsavel_atual, gerencia_conclusao, gerencia_facilities_conclusao, gerencia_financeiro_conclusao, diretoria_conclusao')
+      );
+
+      const existingMap = new Map(existing.map(e => [e.solicitacao_fluig, e]));
+
+      // Get links to internal solicitations (paginated)
+      const internalLinks = await fetchAll<{ id: string; numero_chamado_fluig: string | null }>(() =>
+        supabase
+          .from('solicitacoes')
+          .select('id, numero_chamado_fluig')
+          .not('numero_chamado_fluig', 'is', null)
+      );
+
+      const linkMap = new Map(internalLinks.map(l => [l.numero_chamado_fluig?.trim(), l.id]));
+
+      // Create a Set of valid solicitacao IDs for quick validation (paginated)
+      const validSolicitacoes = await fetchAll<{ id: string }>(() =>
+        supabase.from('solicitacoes').select('id')
+      );
+
+      const validIds = new Set(validSolicitacoes.map(s => s.id));
       
       for (let i = 0; i < data.length; i++) {
         const row = data[i];
@@ -413,10 +433,10 @@ export function useFluigImport() {
               }
             }
           } else {
-            // Insert new
+            // Insert new (upsert as safety net against race conditions / stale existingMap)
             const { error } = await supabase
               .from('fluig_painel_snapshot')
-              .insert(snapshotData);
+              .upsert(snapshotData, { onConflict: 'solicitacao_fluig' });
             
             if (error) throw error;
             result.novas++;
