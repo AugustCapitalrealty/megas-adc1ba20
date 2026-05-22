@@ -125,6 +125,7 @@ interface FluigSnapshotLike {
   gerencia_financeiro_responsavel?: string | null;
   diretoria_conclusao?: string | null;
   diretoria_responsavel?: string | null;
+  data_fim?: string | null;
 }
 
 /**
@@ -132,6 +133,11 @@ interface FluigSnapshotLike {
  * Fecha quando Financeiro aprova. valor > 2500 precisa de Diretoria.
  */
 export function isFluigFechado(snapshot: FluigSnapshotLike): boolean {
+  const sit = snapshot.situacao?.toLowerCase().trim() || '';
+  // Fonte primária: coluna Situação da planilha
+  if (sit === 'finalizada' || sit === 'finalizado') return true;
+  if (sit === 'em aberto' || sit === 'cancelado' || sit === 'cancelada') return false;
+  // Fallback (situação indefinida): usa aprovações
   if (!snapshot.valor) return false;
   if (snapshot.valor <= 2500) {
     return !!snapshot.gerencia_financeiro_conclusao;
@@ -151,13 +157,13 @@ export function isFluigCancelado(snapshot: FluigSnapshotLike): boolean {
  * Retorna a data de conclusão final do snapshot
  */
 export function getDataConclusaoFluig(snapshot: FluigSnapshotLike): Date | null {
-  if (!snapshot.valor) return null;
-  if (snapshot.valor <= 2500 && snapshot.gerencia_financeiro_conclusao) {
+  if (!isFluigFechado(snapshot)) return null;
+  if (snapshot.data_fim) return new Date(snapshot.data_fim);
+  if (snapshot.valor != null && snapshot.valor <= 2500 && snapshot.gerencia_financeiro_conclusao) {
     return new Date(snapshot.gerencia_financeiro_conclusao);
   }
-  if (snapshot.diretoria_conclusao) {
-    return new Date(snapshot.diretoria_conclusao);
-  }
+  if (snapshot.diretoria_conclusao) return new Date(snapshot.diretoria_conclusao);
+  if (snapshot.gerencia_financeiro_conclusao) return new Date(snapshot.gerencia_financeiro_conclusao);
   return null;
 }
 
