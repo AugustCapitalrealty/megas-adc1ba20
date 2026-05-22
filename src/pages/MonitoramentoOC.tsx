@@ -528,6 +528,39 @@ export default function MonitoramentoOC() {
               </Select>
 
               <div className="ml-auto flex items-center gap-3">
+                {isBackofficeOrAdmin ? (
+                  <div className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5">
+                    <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
+                    <Label htmlFor="dia-corte" className="text-xs text-muted-foreground whitespace-nowrap m-0">
+                      Justificativa a partir do dia
+                    </Label>
+                    <Select
+                      value={String(diaCorte)}
+                      onValueChange={async (v) => {
+                        try {
+                          await updateDiaCorte(Number(v));
+                          toast.success(`Dia de corte atualizado para o dia ${v}`);
+                        } catch {
+                          toast.error('Não foi possível atualizar o dia de corte');
+                        }
+                      }}
+                    >
+                      <SelectTrigger id="dia-corte" className="h-7 w-16 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: 28 }, (_, i) => i + 1).map(d => (
+                          <SelectItem key={d} value={String(d)}>{d}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : (
+                  <Badge variant="outline" className="gap-1 text-muted-foreground">
+                    <CalendarDays className="h-3 w-3" />
+                    Justificativa obrigatória a partir do dia {diaCorte}
+                  </Badge>
+                )}
                 {hasActiveFilters && (
                   <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-1 text-muted-foreground hover:text-foreground">
                     <X className="h-3.5 w-3.5" />
