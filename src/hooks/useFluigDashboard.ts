@@ -24,43 +24,58 @@ export function useFluigSnapshots(filters?: FluigFilters) {
     setError(null);
     
     try {
-      let query = supabase
-        .from('fluig_painel_snapshot')
-        .select('*')
-        .order('data_lancamento', { ascending: true, nullsFirst: false });
-      
-      if (filters?.search) {
-        query = query.or(`solicitacao_fluig.ilike.%${filters.search}%,fornecedor.ilike.%${filters.search}%,servico.ilike.%${filters.search}%`);
+      const PAGE = 1000;
+      const allSnapshots: FluigSnapshot[] = [];
+      let from = 0;
+
+      const buildQuery = () => {
+        let query: any = supabase
+          .from('fluig_painel_snapshot')
+          .select('*')
+          .order('data_lancamento', { ascending: true, nullsFirst: false });
+        
+        if (filters?.search) {
+          query = query.or(`solicitacao_fluig.ilike.%${filters.search}%,fornecedor.ilike.%${filters.search}%,servico.ilike.%${filters.search}%`);
+        }
+        
+        if (filters?.empreendimento) {
+          query = query.eq('empreendimento', filters.empreendimento);
+        }
+        
+        if (filters?.situacao) {
+          query = query.eq('situacao', filters.situacao);
+        }
+        
+        if (filters?.localizacao) {
+          query = query.eq('localizacao', filters.localizacao);
+        }
+        
+        if (filters?.responsavel) {
+          query = query.eq('responsavel_atual', filters.responsavel);
+        }
+        
+        if (filters?.dataInicio) {
+          query = query.gte('data_lancamento', filters.dataInicio.toISOString());
+        }
+        
+        if (filters?.dataFim) {
+          query = query.lte('data_lancamento', filters.dataFim.toISOString());
+        }
+
+        return query;
+      };
+
+      while (true) {
+        const { data, error: fetchError } = await buildQuery().range(from, from + PAGE - 1);
+        if (fetchError) throw fetchError;
+        if (!data || data.length === 0) break;
+
+        allSnapshots.push(...(data as FluigSnapshot[]));
+        if (data.length < PAGE) break;
+        from += PAGE;
       }
-      
-      if (filters?.empreendimento) {
-        query = query.eq('empreendimento', filters.empreendimento);
-      }
-      
-      if (filters?.situacao) {
-        query = query.eq('situacao', filters.situacao);
-      }
-      
-      if (filters?.localizacao) {
-        query = query.eq('localizacao', filters.localizacao);
-      }
-      
-      if (filters?.responsavel) {
-        query = query.eq('responsavel_atual', filters.responsavel);
-      }
-      
-      if (filters?.dataInicio) {
-        query = query.gte('data_lancamento', filters.dataInicio.toISOString());
-      }
-      
-      if (filters?.dataFim) {
-        query = query.lte('data_lancamento', filters.dataFim.toISOString());
-      }
-      
-      const { data, error: fetchError } = await query;
-      
-      if (fetchError) throw fetchError;
-      setSnapshots((data || []) as FluigSnapshot[]);
+
+      setSnapshots(allSnapshots);
     } catch (err) {
       console.error('Error fetching Fluig snapshots:', err);
       setError('Erro ao carregar dados do Fluig');

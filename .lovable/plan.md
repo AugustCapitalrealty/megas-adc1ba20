@@ -1,15 +1,10 @@
-Reverter a mudança em `isFluigFechado` / `getDataConclusaoFluig` que estava reclassificando como abertos vários registros que já estavam corretamente fechados pelas aprovações.
+Causa real do "sumiram": o hook `useFluigSnapshots` em `src/hooks/useFluigDashboard.ts` faz `supabase.from('fluig_painel_snapshot').select('*')` sem paginação, então bate no limite padrão do PostgREST de **1.000 linhas**. Hoje a tabela tem **1.136 registros**, ordenados por `data_lancamento` ascendente — ou seja, os **mais recentes (incluindo 155232 e os demais "Em Aberto" recém-importados)** são justamente os 136 que estão sendo cortados.
 
-Investigação:
-- Verifiquei o registro 155232 na planilha e no banco. Ele está como `Em Aberto`, `Localização = Aprovação Financeiro`, valor R$ 7.703,70, sem `gerencia_financeiro_conclusao` nem `diretoria_conclusao`.
-- Pela regra original (valor > 2500 exige aprovação da Diretoria; sem ela = aberto), 155232 já aparece corretamente na aba Abertos > Curitiba. Não havia falha nesse caso — a regra antiga já o classifica como aberto.
-- A regra que mudei começou a usar `situacao` como fonte primária, o que reabriu erradamente registros `Em Aberto` mas que já tinham todas as aprovações concluídas (situação que ocorre quando o Fluig ainda não atualizou o campo Situação, mas o fluxo aprovou tudo).
+Por isso a UI mostra Mega Curitiba (206) em vez de 226 (DB), e Abertos = 0 nas três unidades, mesmo com 24 "Em Aberto" só em Curitiba no banco.
 
 Plano:
-1. Restaurar a lógica original em `src/lib/fluig-utils.ts`
-   - `isFluigFechado`: voltar a basear apenas em valor + aprovações (≤2500 → financeiro; >2500 → diretoria).
-   - `getDataConclusaoFluig`: voltar a usar `gerencia_financeiro_conclusao` (≤2500) ou `diretoria_conclusao` (>2500).
-2. Manter o campo opcional `data_fim` na interface (não atrapalha, é só tipagem).
-3. Não alterar parser, hook, schema ou UI.
+1. Em `src/hooks/useFluigDashboard.ts`, no `fetchSnapshots`, paginar a leitura de `fluig_painel_snapshot` em blocos de 1000 (`.range(from, from+999)`) acumulando até a página retornar menos de 1000 — mesmo padrão `fetchAll` já usado no `useFluigImport`.
+2. Manter a ordenação atual (`data_lancamento` asc, nulls por último) e todos os filtros existentes.
+3. Não tocar em `isFluigFechado`, parser, schema ou UI — a regra de aprovações por valor (≤2500 → Financeiro; >2500 → Diretoria) já está correta.
 
-Após reverter, o registro 155232 deve voltar a aparecer na aba Curitiba > Abertos automaticamente (sem reimportação), e os registros que já estavam fechados continuarão fechados.
+Após o ajuste, 155232 (R$ 7.703,70, sem aprovação da Diretoria) e os demais "Em Aberto" recentes voltam a aparecer em Mega Curitiba > Abertos sem precisar reimportar.
