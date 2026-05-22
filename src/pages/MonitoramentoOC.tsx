@@ -147,11 +147,11 @@ function StatusBadge({ status }: { status: OcVisualStatus }) {
   );
 }
 
-function AgingBadge({ dias, hasJustificativa, dataOc }: { dias: number; hasJustificativa: boolean; dataOc: string }) {
+function AgingBadge({ dias, hasJustificativa, dataOc, diaCorte }: { dias: number; hasJustificativa: boolean; dataOc: string; diaCorte: number }) {
   const tone =
     dias < 15
       ? 'bg-success/10 text-success border-success/30'
-      : dias <= 23 || hasJustificativa
+      : dias <= diaCorte || hasJustificativa
       ? 'bg-warning/10 text-warning border-warning/30'
       : 'bg-destructive/10 text-destructive border-destructive/30';
   return (
@@ -169,7 +169,7 @@ function AgingBadge({ dias, hasJustificativa, dataOc }: { dias: number; hasJusti
 }
 
 export default function MonitoramentoOC() {
-  const { user, effectiveProfile, isImpersonating } = useAuth();
+  const { user, effectiveProfile, isImpersonating, isBackofficeOrAdmin } = useAuth();
   useDocumentTitle('Monitoramento de OC');
   const effectiveUserId = isImpersonating ? effectiveProfile?.id : user?.id;
   const { empreendimentos: userEmpreendimentos, loading: loadingEmpreendimentos, hasAllAccess } = useUserEmpreendimentos(effectiveUserId);
@@ -178,6 +178,8 @@ export default function MonitoramentoOC() {
     loading,
     groups,
     refetch,
+    diaCorte,
+    updateDiaCorte,
   } = useMonitoramentoOC({ userEmpreendimentos, hasAllAccess, enabled: !loadingEmpreendimentos });
 
   const [filterEmpreendimento, setFilterEmpreendimento] = useState<string>('todos');
