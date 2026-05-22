@@ -1,26 +1,15 @@
-Identifiquei o problema na planilha enviada: ela tem 36 linhas com `Situação = Em Aberto`, mas 19 delas estão sendo classificadas como fechadas porque a regra atual considera apenas as datas de aprovação Financeiro/Diretoria. Exemplo: solicitações em `Execução Serviço Contratado` continuam `Em Aberto`, mas têm aprovações preenchidas, então somem da aba Abertos.
+Reverter a mudança em `isFluigFechado` / `getDataConclusaoFluig` que estava reclassificando como abertos vários registros que já estavam corretamente fechados pelas aprovações.
 
-Plano de correção:
+Investigação:
+- Verifiquei o registro 155232 na planilha e no banco. Ele está como `Em Aberto`, `Localização = Aprovação Financeiro`, valor R$ 7.703,70, sem `gerencia_financeiro_conclusao` nem `diretoria_conclusao`.
+- Pela regra original (valor > 2500 exige aprovação da Diretoria; sem ela = aberto), 155232 já aparece corretamente na aba Abertos > Curitiba. Não havia falha nesse caso — a regra antiga já o classifica como aberto.
+- A regra que mudei começou a usar `situacao` como fonte primária, o que reabriu erradamente registros `Em Aberto` mas que já tinham todas as aprovações concluídas (situação que ocorre quando o Fluig ainda não atualizou o campo Situação, mas o fluxo aprovou tudo).
 
-1. Ajustar a regra central `isFluigFechado`
-   - Priorizar a coluna `situacao` da planilha como fonte principal.
-   - `Finalizada`/`Finalizado` = fechado.
-   - `Cancelada`/`Cancelado` continua cancelado.
-   - `Em Aberto` nunca deve ser tratado como fechado, mesmo com aprovações preenchidas.
-   - Manter fallback por aprovações apenas quando a situação vier vazia ou indefinida.
+Plano:
+1. Restaurar a lógica original em `src/lib/fluig-utils.ts`
+   - `isFluigFechado`: voltar a basear apenas em valor + aprovações (≤2500 → financeiro; >2500 → diretoria).
+   - `getDataConclusaoFluig`: voltar a usar `gerencia_financeiro_conclusao` (≤2500) ou `diretoria_conclusao` (>2500).
+2. Manter o campo opcional `data_fim` na interface (não atrapalha, é só tipagem).
+3. Não alterar parser, hook, schema ou UI.
 
-2. Ajustar `getDataConclusaoFluig`
-   - Usar `data_fim` quando a solicitação estiver realmente finalizada.
-   - Evitar mostrar data de conclusão em registros `Em Aberto` só porque uma aprovação intermediária foi concluída.
-
-3. Atualizar o tipo compartilhado do snapshot
-   - Incluir `data_fim` na interface usada pelos utilitários, sem alterar schema do banco.
-
-4. Validar com a planilha enviada
-   - Confirmar que os 36 registros `Em Aberto` passam a aparecer na aba Abertos.
-   - Confirmar que cancelados continuam na aba Cancelados e finalizados continuam na aba Fechados.
-
-Arquivos previstos:
-- `src/lib/fluig-utils.ts`
-
-Sem mudança de banco de dados.
+Após reverter, o registro 155232 deve voltar a aparecer na aba Curitiba > Abertos automaticamente (sem reimportação), e os registros que já estavam fechados continuarão fechados.
