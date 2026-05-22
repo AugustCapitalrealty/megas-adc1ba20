@@ -199,6 +199,42 @@ export function useMonitoramentoOC(opts: {
   const [loading, setLoading] = useState(true);
   const [groups, setGroups] = useState<OCGroupRow[]>([]);
   const [historicalKpis, setHistoricalKpis] = useState<{ prev: OcKpis | null }>({ prev: null });
+  const [diaCorte, setDiaCorte] = useState<number>(DEFAULT_DIA_CORTE_JUSTIFICATIVA);
+  const [configId, setConfigId] = useState<string | null>(null);
+
+  const fetchConfig = useCallback(async () => {
+    const { data } = await (supabase as any)
+      .from('monitoramento_oc_config')
+      .select('id, dia_corte_justificativa')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (data) {
+      setConfigId(data.id);
+      setDiaCorte(Number(data.dia_corte_justificativa) || DEFAULT_DIA_CORTE_JUSTIFICATIVA);
+    }
+  }, []);
+
+  const updateDiaCorte = useCallback(async (novoDia: number) => {
+    const dia = Math.min(28, Math.max(1, Math.round(novoDia)));
+    const { data: { user } } = await supabase.auth.getUser();
+    if (configId) {
+      const { error } = await (supabase as any)
+        .from('monitoramento_oc_config')
+        .update({ dia_corte_justificativa: dia, updated_at: new Date().toISOString(), updated_by: user?.id ?? null })
+        .eq('id', configId);
+      if (error) throw error;
+    } else {
+      const { data, error } = await (supabase as any)
+        .from('monitoramento_oc_config')
+        .insert({ dia_corte_justificativa: dia, updated_by: user?.id ?? null })
+        .select('id')
+        .single();
+      if (error) throw error;
+      if (data?.id) setConfigId(data.id);
+    }
+    setDiaCorte(dia);
+  }, [configId]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -349,8 +385,11 @@ export function useMonitoramentoOC(opts: {
   }, [hasAllAccess, userEmpreendimentos]);
 
   useEffect(() => {
-    if (enabled) fetchData();
-  }, [enabled, fetchData]);
+    if (enabled) {
+      fetchData();
+      fetchConfig();
+    }
+  }, [enabled, fetchData, fetchConfig]);
 
   // KPIs computados
   const kpis: OcKpis = useMemo(() => {
@@ -361,7 +400,7 @@ export function useMonitoramentoOC(opts: {
     ativas.forEach(g => {
       // Cada OC contabiliza individualmente para os KPIs operacionais
       g.ocs.forEach(oc => {
-        const st = computeOcStatus(oc, g);
+        const st = computeOcStatus(oc, g, diaCorte);
         if (!oc.tem_nf) semNf++;
         if (st === 'pendente_justificativa') pendente++;
       });
@@ -386,31 +425,31 @@ export function useMonitoramentoOC(opts: {
       delta_pendente: delta(pendente, prev?.pendente_justificativa),
       delta_cancel: delta(cancel, prev?.cancelamento_pendente),
     };
-  }, [groups, historicalKpis]);
+  }, [groups, historicalKpis, diaCorte]);
 
   const distribution: OcDistribution = useMemo(() => {
     const dist: OcDistribution = { pendente: 0, adiado: 0 };
     groups.forEach(g => {
       g.ocs.forEach(oc => {
-        const st = computeOcStatus(oc, g);
+        const st = computeOcStatus(oc, g, diaCorte);
         if (st === 'pendente_justificativa') dist.pendente++;
         else if (st === 'adiado') dist.adiado++;
       });
     });
     return dist;
-  }, [groups]);
+  }, [groups, diaCorte]);
 
   // Top ofensores: OCs (não grupos) com maior aging e sem justificativa válida
   const topOfensores = useMemo(() => {
     const candidates: { group: OCGroupRow; oc: OCItem }[] = [];
     groups.forEach(g => {
       g.ocs.forEach(oc => {
-        const st = computeOcStatus(oc, g);
+        const st = computeOcStatus(oc, g, diaCorte);
         if (st === 'pendente_justificativa') candidates.push({ group: g, oc });
       });
     });
     return candidates.sort((a, b) => b.oc.dias_aberto - a.oc.dias_aberto).slice(0, 5);
-  }, [groups]);
+  }, [groups, diaCorte]);
 
   // Meta do mês: % de OCs do mês com NF emitida (meta 90%)
   const metaMes = useMemo(() => {
@@ -463,5 +502,7 @@ export function useMonitoramentoOC(opts: {
     valorEmAberto,
     agingMedio,
     refetch: fetchData,
+    diaCorte,
+    updateDiaCorte,
   };
 }
