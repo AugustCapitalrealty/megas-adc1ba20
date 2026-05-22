@@ -240,7 +240,7 @@ export default function MonitoramentoOC() {
 
   // KPIs (4 cards) sempre vêm do conjunto base — para que clicar em um card
   // não zere os outros números.
-  const baseAggregates = useMemo(() => computeAggregates(baseFilteredGroups), [baseFilteredGroups]);
+  const baseAggregates = useMemo(() => computeAggregates(baseFilteredGroups, diaCorte), [baseFilteredGroups]);
   // baseAggregates pode ser usado no futuro; KPIs dos cards vêm de cardCounts
   void baseAggregates;
 
@@ -255,16 +255,16 @@ export default function MonitoramentoOC() {
         case 'nao_liberada':
           return STATUS_NAO_LIBERADA.has(g.status);
         case 'pendente':
-          return g.ocs.some(oc => computeOcStatus(oc, g) === 'pendente_justificativa');
+          return g.ocs.some(oc => computeOcStatus(oc, g, diaCorte) === 'pendente_justificativa');
         case 'justificadas':
-          return g.ocs.some(oc => computeOcStatus(oc, g) === 'adiado');
+          return g.ocs.some(oc => computeOcStatus(oc, g, diaCorte) === 'adiado');
         default:
           return true;
       }
     });
   }, [baseFilteredGroups, cardFilter]);
 
-  const viewAggregates = useMemo(() => computeAggregates(cardFilteredGroups), [cardFilteredGroups]);
+  const viewAggregates = useMemo(() => computeAggregates(cardFilteredGroups, diaCorte), [cardFilteredGroups]);
   const { distribution, topOfensores, valorEmAberto, agingMedio } = viewAggregates;
 
   // Contagens dos cards a partir do recorte base (empreendimento + busca),
@@ -277,7 +277,7 @@ export default function MonitoramentoOC() {
     baseFilteredGroups.forEach(g => {
       if (STATUS_LIBERADA.has(g.status)) liberada++;
       else if (STATUS_NAO_LIBERADA.has(g.status)) naoLiberada++;
-      const ocStatuses = g.ocs.map(oc => computeOcStatus(oc, g));
+      const ocStatuses = g.ocs.map(oc => computeOcStatus(oc, g, diaCorte));
       if (ocStatuses.some(st => st === 'pendente_justificativa')) pendente++;
       if (ocStatuses.some(st => st === 'adiado')) justificadas++;
     });
@@ -288,7 +288,7 @@ export default function MonitoramentoOC() {
   const tabCounts = useMemo(() => {
     const counts = { todas: cardFilteredGroups.length, pendencia: 0, justificadas: 0 };
     cardFilteredGroups.forEach(g => {
-      const st = computeGroupStatus(g);
+      const st = computeGroupStatus(g, diaCorte);
       if (TAB_STATUS.pendencia.includes(st)) counts.pendencia++;
       else counts.justificadas++;
     });
@@ -298,7 +298,7 @@ export default function MonitoramentoOC() {
   // Tabela = aplica filtro de aba sobre o recorte do card
   const filteredGroups = useMemo(() => {
     return cardFilteredGroups.filter(g => {
-      const st = computeGroupStatus(g);
+      const st = computeGroupStatus(g, diaCorte);
       return TAB_STATUS[activeTab].includes(st);
     });
   }, [cardFilteredGroups, activeTab]);
@@ -546,7 +546,7 @@ export default function MonitoramentoOC() {
                         'Valor (R$)': g.valor,
                         'Data OC': formatBR(oc.data_oc, 'dd/MM/yyyy'),
                         'Dias Aberto': oc.dias_aberto,
-                        'Status': STATUS_LABEL_MAP[computeOcStatus(oc, g)] || '-',
+                        'Status': STATUS_LABEL_MAP[computeOcStatus(oc, g, diaCorte)] || '-',
                         'Tem NF': oc.tem_nf ? 'Sim' : 'Não',
                         'Previsão NF': oc.previsao_nf || '-',
                       }))
@@ -703,9 +703,9 @@ export default function MonitoramentoOC() {
                         filteredGroups.map(group => {
                           const isExpanded = expanded.has(group.solicitacao_id);
                           const isOwn = group.user_id === user?.id;
-                          const groupStatus = computeGroupStatus(group);
+                          const groupStatus = computeGroupStatus(group, diaCorte);
                           const primary = group.primary;
-                          const primaryStatus = computeOcStatus(primary, group);
+                          const primaryStatus = computeOcStatus(primary, group, diaCorte);
                           // Borda lateral colorida em vez de fundo na linha inteira
                           const leftAccent =
                             primaryStatus === 'pendente_justificativa' ? 'border-l-destructive' :
@@ -845,7 +845,7 @@ export default function MonitoramentoOC() {
 
                               {/* Linhas filhas (OCs adicionais) */}
                               {isExpanded && group.has_multiple && group.ocs.slice(1).map(oc => {
-                                const ocStatus = computeOcStatus(oc, group);
+                                const ocStatus = computeOcStatus(oc, group, diaCorte);
                                 return (
                                   <TableRow key={oc.id} className="bg-muted/30 hover:bg-muted/40 border-l-4 border-l-transparent">
                                     <TableCell className="w-8"></TableCell>
