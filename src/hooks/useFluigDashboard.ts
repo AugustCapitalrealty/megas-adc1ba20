@@ -29,7 +29,7 @@ export function useFluigSnapshots(filters?: FluigFilters) {
       let from = 0;
 
       const buildQuery = () => {
-        let query = supabase
+        let query: any = supabase
           .from('fluig_painel_snapshot')
           .select('*')
           .order('data_lancamento', { ascending: true, nullsFirst: false });
