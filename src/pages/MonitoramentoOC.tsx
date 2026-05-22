@@ -242,7 +242,7 @@ export default function MonitoramentoOC() {
 
   // KPIs (4 cards) sempre vêm do conjunto base — para que clicar em um card
   // não zere os outros números.
-  const baseAggregates = useMemo(() => computeAggregates(baseFilteredGroups, diaCorte), [baseFilteredGroups]);
+  const baseAggregates = useMemo(() => computeAggregates(baseFilteredGroups, diaCorte), [baseFilteredGroups, diaCorte]);
   // baseAggregates pode ser usado no futuro; KPIs dos cards vêm de cardCounts
   void baseAggregates;
 
@@ -266,7 +266,7 @@ export default function MonitoramentoOC() {
     });
   }, [baseFilteredGroups, cardFilter]);
 
-  const viewAggregates = useMemo(() => computeAggregates(cardFilteredGroups, diaCorte), [cardFilteredGroups]);
+  const viewAggregates = useMemo(() => computeAggregates(cardFilteredGroups, diaCorte), [cardFilteredGroups, diaCorte]);
   const { distribution, topOfensores, valorEmAberto, agingMedio } = viewAggregates;
 
   // Contagens dos cards a partir do recorte base (empreendimento + busca),
@@ -486,7 +486,7 @@ export default function MonitoramentoOC() {
                   tone="destructive"
                   active={cardFilter === 'pendente'}
                   onClick={() => toggleCardFilter('pendente', 'pendencia')}
-                  hint="OCs que ainda precisam de justificativa pela regra (mês anterior sem NF, ou mês atual após dia 23 sem previsão futura)."
+                  hint={`OCs que ainda precisam de justificativa pela regra (mês anterior sem NF, ou mês atual a partir do dia ${diaCorte} sem previsão futura).`}
                 />
                 <SlaKpiCard
                   label="Justificadas"
