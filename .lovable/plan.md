@@ -1,52 +1,56 @@
-## Objetivo
+## Problema
 
-Tornar dinâmico o "dia de corte para justificativa" no Monitoramento de OC. Hoje está fixo em 23 — a partir desse dia do mês, OCs sem NF e sem previsão futura entram em **Pendente Justificativa**. O backoffice precisa poder escolher esse dia (mês corrente) na própria aba de Monitoramento.
+A importação da planilha do Fluig está falhando com erros como:
+`duplicate key value violates unique constraint "fluig_painel_snapshot_solicitacao_fluig_key"`
 
-## Mudanças
+### Causa raiz
 
-### 1. Banco — nova tabela `monitoramento_oc_config` (migration)
+Em `src/hooks/useFluigDashboard.ts` (linhas ~165–169), antes de processar cada linha o código faz um `SELECT` único em `fluig_painel_snapshot` para montar o mapa de registros existentes:
 
-Tabela simples key/value para guardar o dia de corte vigente:
+```ts
+const { data: existing } = await supabase
+  .from('fluig_painel_snapshot')
+  .select('id, solicitacao_fluig, ...');
+const existingMap = new Map((existing || []).map(e => [e.solicitacao_fluig, e]));
+```
 
-- `id` (uuid pk)
-- `dia_corte_justificativa` (int, 1–28, default 23)
-- `updated_at`, `updated_by`
+O PostgREST tem **limite default de 1000 linhas por query**, e a tabela já tem **1136 registros**. As ~136 linhas além do limite ficam de fora do `existingMap`, então o código segue pelo ramo `.insert(snapshotData)` (linha ~419) ao invés do `.update(...)` — e bate na unique constraint de `solicitacao_fluig`.
 
-RLS:
-- SELECT: qualquer usuário autenticado (todos precisam aplicar a mesma regra).
-- INSERT/UPDATE: apenas backoffice/admin (`is_backoffice_or_admin(auth.uid())`).
+## Correção
 
-Seed: 1 linha com `dia_corte_justificativa = 23`.
+Trocar o `SELECT` por uma busca paginada que percorre toda a tabela em blocos de 1000, garantindo que o `existingMap` contenha todos os registros:
 
-### 2. Hook `useMonitoramentoOC.ts`
+```ts
+const existingAll: Array<{ id: string; solicitacao_fluig: string; ... }> = [];
+const PAGE = 1000;
+let from = 0;
+while (true) {
+  const { data, error } = await supabase
+    .from('fluig_painel_snapshot')
+    .select('id, solicitacao_fluig, situacao, localizacao, responsavel_atual, gerencia_conclusao, gerencia_facilities_conclusao, gerencia_financeiro_conclusao, diretoria_conclusao')
+    .range(from, from + PAGE - 1);
+  if (error) throw error;
+  if (!data || data.length === 0) break;
+  existingAll.push(...data);
+  if (data.length < PAGE) break;
+  from += PAGE;
+}
+const existingMap = new Map(existingAll.map(e => [e.solicitacao_fluig, e]));
+```
 
-- Buscar o valor atual de `dia_corte_justificativa` junto com o restante do fetch.
-- `computeOcStatus` passa a receber `diaCorte` em vez de constante 23:
-  - `if (dia >= diaCorte && !oc.tem_nf && !previsaoValida) return 'pendente_justificativa';`
-- `computeAggregates` e os `useMemo` internos repassam o `diaCorte`.
-- Hook expõe `diaCorte` e `updateDiaCorte(novoDia)` (faz `upsert` na tabela; só backoffice consegue por RLS).
+Mesmo tratamento para os dois outros `SELECT` da mesma função que podem estourar o limite:
+- `solicitacoes` com `numero_chamado_fluig not null` (linhas ~172–175) → usado para o `linkMap`
+- `solicitacoes` lista de `id` válidos (linhas ~180–183) → usado para `validIds`
 
-### 3. UI — `MonitoramentoOC.tsx`
+### Salvaguarda extra
 
-Adicionar, **visível apenas para backoffice/admin**, um controle no header da página (ao lado dos filtros) tipo:
-
-> "Dia de corte para justificativa: [ Select 1–28 ] do mês"
-
-- `Select` com dias 1–28 (evita 29/30/31 que não existem em todo mês).
-- Ao alterar: chama `updateDiaCorte`, mostra `toast.success`, refaz fetch.
-- Atualizar o `hint` do KPI e o comentário "após dia 23" para usar o valor dinâmico.
-- `dias <= 23` na linha 154 também passa a usar `diaCorte`.
-
-Para usuários comuns (Megas): só leitura — pode mostrar um chip discreto "Justificativa obrigatória a partir do dia X" no topo, para deixar claro a regra do mês.
-
-### 4. Fora de escopo
-
-- Não muda regra de "OC do mês anterior sempre pendente" — continua válida.
-- Não cria histórico de mudanças do dia de corte (decisão simples; pode ser adicionado depois se necessário).
-- Não altera notificações/digests.
+Como reforço (caso surja um caso de corrida em que o registro foi criado entre a leitura e a escrita), trocar o `.insert(snapshotData)` final (linha ~419) por `.upsert(snapshotData, { onConflict: 'solicitacao_fluig' })`. Isso elimina o erro de duplicate key sem mudar o comportamento esperado.
 
 ## Arquivos afetados
 
-- `supabase/migrations/<novo>.sql` (tabela + RLS + seed)
-- `src/hooks/useMonitoramentoOC.ts`
-- `src/pages/MonitoramentoOC.tsx`
+- `src/hooks/useFluigDashboard.ts` — paginar os três SELECTs e trocar `insert` por `upsert` no fallback.
+
+## Fora de escopo
+
+- Mudanças no parser da planilha, no UI do `FluigImport`, ou no schema do banco.
+- Performance geral da importação (continua linha-a-linha como hoje).
