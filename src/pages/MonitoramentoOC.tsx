@@ -778,7 +778,7 @@ export default function MonitoramentoOC() {
                                         <span className="ml-1 text-[10px] text-muted-foreground font-normal">+{group.ocs.length - 1}</span>
                                       )}
                                     </span>
-                                    <AgingBadge dias={primary.dias_aberto} hasJustificativa={!!primary.ultima_justificativa} dataOc={primary.data_oc} />
+                                    <AgingBadge dias={primary.dias_aberto} hasJustificativa={!!primary.ultima_justificativa} dataOc={primary.data_oc}  diaCorte={diaCorte} />
                                   </div>
                                 </TableCell>
                                 {/* Status + Última ação mesclados */}
@@ -860,7 +860,7 @@ export default function MonitoramentoOC() {
                                     <TableCell>
                                       <div className="flex flex-col gap-1">
                                         <span className="text-sm tabular-nums font-medium leading-none">{oc.numero_documento}</span>
-                                        <AgingBadge dias={oc.dias_aberto} hasJustificativa={!!oc.ultima_justificativa} dataOc={oc.data_oc} />
+                                        <AgingBadge dias={oc.dias_aberto} hasJustificativa={!!oc.ultima_justificativa} dataOc={oc.data_oc}  diaCorte={diaCorte} />
                                       </div>
                                     </TableCell>
                                     <TableCell>
