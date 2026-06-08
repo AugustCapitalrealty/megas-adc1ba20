@@ -270,6 +270,122 @@ export type Database = {
           },
         ]
       }
+      energia_clientes: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          id: string
+          nome: string
+          observacao: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          nome: string
+          observacao?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          nome?: string
+          observacao?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      energia_modulos: {
+        Row: {
+          area_m2: number
+          ativo: boolean
+          cliente_id: string | null
+          created_at: string
+          demanda_contratada_kw: number
+          id: string
+          identificador: string
+          observacao: string | null
+          ordem: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          area_m2?: number
+          ativo?: boolean
+          cliente_id?: string | null
+          created_at?: string
+          demanda_contratada_kw?: number
+          id?: string
+          identificador: string
+          observacao?: string | null
+          ordem?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          area_m2?: number
+          ativo?: boolean
+          cliente_id?: string | null
+          created_at?: string
+          demanda_contratada_kw?: number
+          id?: string
+          identificador?: string
+          observacao?: string | null
+          ordem?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "energia_modulos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "energia_clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      energia_parametros: {
+        Row: {
+          cofins_pct: number
+          created_at: string
+          icms_pct: number
+          id: string
+          observacao: string | null
+          pis_pct: number
+          singleton: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          cofins_pct?: number
+          created_at?: string
+          icms_pct?: number
+          id?: string
+          observacao?: string | null
+          pis_pct?: number
+          singleton?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          cofins_pct?: number
+          created_at?: string
+          icms_pct?: number
+          id?: string
+          observacao?: string | null
+          pis_pct?: number
+          singleton?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       error_logs: {
         Row: {
           context: Json
