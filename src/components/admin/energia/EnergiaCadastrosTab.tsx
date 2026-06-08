@@ -40,7 +40,7 @@ interface EnergiaParametros {
 
 const UNASSIGNED = '__none__';
 
-export function RateioEnergiaTab() {
+export function EnergiaCadastrosTab() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [savingParams, setSavingParams] = useState(false);
