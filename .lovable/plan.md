@@ -1,95 +1,134 @@
-## Rateio de Energia — v1 (somente cadastro de parâmetros)
+## Memória de Cálculo — Rateio de Energia (v2)
 
-Objetivo: criar a base de dados para o futuro cálculo de rateio de energia do Mega Curitiba. Nesta versão só cadastramos os **parâmetros estruturais** (módulos, clientes, demanda contratada, geração fotovoltaica e parâmetros Copel). O cálculo mensal e a importação ficam para uma próxima fase.
-
-Acesso: apenas usuários com role `admin`, dentro de **Admin → aba "Rateio de Energia"**.
+Objetivo: reproduzir **exatamente** a aba `MEMÓRIA DE CÁLCULO` da planilha do Mega Curitiba dentro do app, em **Admin → Rateio de Energia**, gerando uma matriz mensal por módulo a partir de inputs simples (fatura Copel + leitura de demanda/consumo por módulo). Cálculos no app (não no banco), totalmente determinísticos.
 
 ---
 
-### 1. O que entra como "parâmetro" nesta v1
+### 1. Como a planilha funciona (o que vamos replicar)
 
-Baseado na planilha enviada, três blocos:
+A aba tem 4 blocos de **input** (digitados/colados a cada mês) e o resto é **derivado**:
 
-**a) Clientes de Energia** (independentes do cadastro `clientes` existente, pois aqui são razões sociais específicas: BOSCH, CALAMO, HP TRADE, NTN-SNR, SHOPEE, VELOZ, ARQUIVO CR, VAGO, etc.)
-- nome
-- ativo (sim/não)
-- observação
+**Inputs por competência (uma vez por mês):**
+- Tarifas Copel (linhas E6–E14 da aba PARÂMETROS COPEL): demanda USD, demanda isenta, ultrapassagem, TE/TUSD ponta, TE/TUSD fora-ponta, iluminação pública, PIS, COFINS, ICMS, bandeira tarifária.
+- Perdas globais (E40, E41, E45, E46): perdas ponta/fora ponta da Copel + perdas do Energy Expert.
+- Créditos/débitos da fatura (E50/E51).
+- Geração fotovoltaica área comum ponta/fora ponta (D45/D46 do RESUMO) — abate da área comum.
 
-**b) Módulos do Mega Curitiba** (linhas da aba LANÇAMENTOS)
-- número/identificador do módulo (ex.: `1`, `MEZ 1`, `ÁREA COMUM`)
-- área locada (m²)
-- cliente vinculado (FK para Clientes de Energia, opcional → "VAGO")
-- demanda contratada (kW)
-- ordem de exibição
-- ativo
+**Inputs por módulo (uma linha por módulo, por mês):**
+- Demanda contratada (F), Demanda USD medida (G), Consumo ponta (Q), Consumo fora ponta (T).
 
-**c) Parâmetros Copel / Concessionária** (cabeçalho fixo, editável)
-- alíquotas tributárias padrão: ICMS %, PIS %, COFINS %
-- texto livre de observações
-- (saldos anteriores e tarifas mensais ficam para a fase de "lançamento mensal" — não entram agora)
+**Derivados (calculados — ~75 colunas):**
+Para cada módulo:
+- **Demanda** (cols H–M): Isenta = max(F−G,0); Ultrapassagem = max(G−F,0); R$ Demanda = min(F,G)·E6; R$ Isenta = H·E7; R$ Ultrap = I·E8.
+- **Consumo** (cols O–U): replica Q/T em ponta/fora; total = Q+T.
+- **Custo bruto** (W–AF): TE/TUSD × kWh; total + demanda.
+- **Perdas rateadas por % de consumo** (AH–AT): `(Umódulo / Σ Umódulos) × (perdas_ponta + perdas_fora)`, valorizadas pelas mesmas tarifas.
+- **ICMS** (AV–BA): cada componente × ICMS%.
+- **PIS/COFINS** (BC–BI): `(componente − ICMS) × (PIS+COFINS)%`.
+- **Iluminação Pública** (BK): rateada por consumo.
+- **Bandeira** (BM–BO): `((kWh + perdas) / 100) × bandeira`.
+- **Cobrança total** (BQ).
+- **Fotovoltaico** (BU): abate área comum (saldo anterior + geração) — só na linha ÁREA COMUM.
+- **Ajustes manuais** (BW): coluna editável livre.
+- **Total Fatura Energy** (BY) e **Total Fatura Copel** (CA = BY − ultrapassagem).
+- **Lançamento financeiro** (CC–CK): consumo arredondado, R$/kWh, comparativo com mês anterior.
+- **Validação** (CL): `BY == CA`.
 
----
-
-### 2. Backend (Lovable Cloud)
-
-Nova migração criando 3 tabelas no schema `public`, todas com RLS:
-
-- `energia_clientes` — cadastro de clientes de energia
-- `energia_modulos` — módulos do empreendimento, com FK opcional para `energia_clientes`
-- `energia_parametros` — linha única (singleton) com alíquotas/observações
-
-Regras de acesso (RLS):
-- **SELECT**: qualquer usuário autenticado (para futuro uso).
-- **INSERT/UPDATE/DELETE**: somente `admin` (`has_role(auth.uid(), 'admin')`).
-- GRANTs explícitos para `authenticated` e `service_role`.
-
-Campos padrão (`id`, `created_at`, `updated_at`, `updated_by`) + trigger de `updated_at`.
+E uma **linha de totais (linha 82 da planilha)** somando todas as colunas.
 
 ---
 
-### 3. Frontend
+### 2. Modelo de dados (nova migração)
 
-**Novo arquivo** `src/components/admin/RateioEnergiaTab.tsx` com 3 sub-seções (cards/tabs internos):
+3 novas tabelas + 1 view; reaproveita `energia_clientes`, `energia_modulos`, `energia_parametros` já existentes.
 
-1. **Parâmetros Copel** — formulário simples (ICMS, PIS, COFINS, observação) com botão Salvar.
-2. **Clientes de Energia** — tabela com inline add/edit/inativar.
-3. **Módulos** — tabela com colunas: Módulo · Área (m²) · Cliente (select) · Demanda contratada (kW) · Ativo. Permite adicionar, editar inline, reordenar e excluir.
+```text
+energia_competencias
+  id, ano_mes (YYYY-MM, unique), status (rascunho|fechada),
+  observacao, fechada_em, fechada_por
 
-Todas as listas usam os componentes canônicos do design system (`PageHeader` interno, `DataTable`, `StandardModal` para confirmação de exclusão) e seguem identidade Mega (laranja `#E87722`, Montserrat).
+energia_competencia_tarifas       -- snapshot Copel do mês
+  competencia_id (unique),
+  demanda_usd, demanda_isenta, ultrapassagem,
+  te_ponta, tusd_ponta, te_fora, tusd_fora,
+  iluminacao_publica,
+  pis_pct, cofins_pct, icms_pct,
+  bandeira_valor,
+  perdas_copel_ponta_kwh, perdas_copel_fora_kwh,
+  perdas_energy_ponta_kwh, perdas_energy_fora_kwh,
+  cred_deb_fatura,
+  fotovoltaico_saldo_ponta, fotovoltaico_geracao_ponta,
+  fotovoltaico_saldo_fora,  fotovoltaico_geracao_fora
 
-**Integração em Admin**: adicionar nova aba `"Rateio de Energia"` em `src/pages/Admin.tsx`, visível apenas para `isAdmin`. Sem entrada no menu lateral por enquanto.
+energia_competencia_lancamentos   -- 1 linha por módulo
+  competencia_id, modulo_id (unique juntos),
+  demanda_contratada_kw, demanda_usd_medida_kw,
+  consumo_ponta_kwh, consumo_fora_kwh,
+  ajuste_manual_reais, observacao
+```
+
+RLS: leitura para `authenticated`, escrita só `admin` (igual às tabelas atuais). GRANTs explícitos.
 
 ---
 
-### 4. Fora do escopo desta v1 (registrado para próxima fase)
+### 3. Cálculo (frontend, TypeScript puro)
 
-- Lançamento mensal da fatura Copel (TE/TUSD ponta/fora, demanda, ultrapassagem, ilum. pública, créd/déb).
-- Lançamento de consumo por módulo no mês.
-- Geração fotovoltaica (saldo anterior, área comum ponta/fora ponta).
-- Cálculo automático de % rateio, multa por ultrapassagem, perdas, valor por cliente.
-- Importação do `.xlsx` mensal.
-- Emissão de fatura/PDF por cliente.
+Novo arquivo `src/lib/energia-rateio.ts`:
+- Função `calcularMemoria({ tarifas, lancamentos })` → array de objetos com todas as ~80 colunas + linha de totais.
+- 100% determinística, sem chamadas ao banco. Reutilizada pela tela de edição e pelo futuro PDF.
+- Testes em `src/lib/energia-rateio.test.ts` validando contra valores conhecidos do mês 08/2025 da planilha.
+
+---
+
+### 4. UI — Admin → Rateio de Energia
+
+Adicionar **nova sub-aba "Memória de Cálculo"** no `RateioEnergiaTab.tsx`.
+
+**Topo:** seletor de competência (combobox YYYY-MM) + botão "Nova competência" + botão "Duplicar do mês anterior" (copia tarifas/lançamentos) + badge de status (Rascunho/Fechada).
+
+**Card "Tarifas Copel do mês":** formulário compacto com todas as tarifas/perdas/créditos da competência (16 campos). Pré-preenchido com defaults dos `energia_parametros`.
+
+**Tabela principal "Memória de Cálculo":**
+- Linhas = módulos ativos do cadastro (`energia_modulos` ordem ASC) + linha "TOTAL".
+- Agrupada visualmente nos mesmos blocos da planilha: Detalhamento · Demanda · Consumo · Custo kWh/mês · Perdas · ICMS · PIS/COFINS · Iluminação · Bandeira · Total · Fotovoltaico · Ajuste · Total Energy · Total Copel · Lançamento financeiro.
+- Colunas de **input** (Demanda USD, Consumo Ponta, Consumo Fora, Ajuste Manual) com fundo amarelo, editáveis inline → autosave (debounce 600 ms).
+- Colunas **derivadas** somente leitura, cinza, recalculadas em memória ao digitar.
+- Rolagem horizontal nativa; colunas Módulo/Cliente fixas (sticky-left).
+- Indicador de validação `BY == CA` por linha (✓ verde / ⚠ vermelho).
+
+**Ações:** "Fechar competência" (bloqueia edição), "Exportar CSV" (mesmo layout da planilha).
+
+---
+
+### 5. Fora de escopo desta entrega
+
+- PDF/fatura por cliente (próxima fase).
+- Importação do .xlsx mensal.
+- Aba RESUMO consolidada por cliente (próxima fase — fica natural depois que a memória estiver no ar).
+- Geração fotovoltaica detalhada por usina (entra como input simples só para área comum agora).
 
 ---
 
 ### Detalhes técnicos
 
-Tabelas SQL (resumo):
+Arquivos a criar/editar:
+- `supabase/migrations/<timestamp>_energia_competencias.sql` — 3 tabelas + RLS + GRANTs + trigger updated_at.
+- `src/lib/energia-rateio.ts` — engine de cálculo.
+- `src/lib/energia-rateio.test.ts` — testes com valores 08/2025.
+- `src/components/admin/energia/MemoriaCalculoTab.tsx` — UI principal.
+- `src/components/admin/energia/TarifasCopelForm.tsx` — formulário de tarifas do mês.
+- `src/components/admin/energia/MemoriaCalculoTable.tsx` — matriz inline editável.
+- `src/components/admin/RateioEnergiaTab.tsx` — adicionar sub-abas internas (`Cadastros` / `Memória de Cálculo`).
+
+Mapeamento direto célula→campo (resumo, para conferência durante a implementação):
 
 ```text
-energia_clientes(id, nome unique, ativo bool default true, observacao text)
-energia_modulos(id, identificador text, area_m2 numeric, cliente_id fk null,
-                demanda_contratada_kw numeric, ordem int, ativo bool)
-energia_parametros(id, icms_pct numeric, pis_pct numeric, cofins_pct numeric,
-                   observacao text)  -- 1 linha apenas, garantida via unique constraint
+E6  → demanda_usd        E11 → te_ponta        E20 → pis+cofins
+E7  → demanda_isenta     E12 → tusd_ponta      E21 → icms
+E8  → ultrapassagem      E13 → te_fora         E24 → bandeira
+E15 → iluminacao_publica E14 → tusd_fora
+E40/E41 → perdas Copel ponta/fora
+E45/E46 → perdas Energy ponta/fora
+E50/E51 → cred/deb fatura
+RESUMO!D45/D46/D47/D48 → fotovoltaico ponta/fora (kWh/R$)
 ```
-
-Seed inicial: 1 linha em `energia_parametros` com ICMS 19, PIS 1.65, COFINS 7.6 (ajustáveis).
-
-Arquivos a criar/editar:
-- `supabase/migrations/<timestamp>_energia_rateio.sql` (novo)
-- `src/components/admin/RateioEnergiaTab.tsx` (novo)
-- `src/components/admin/energia/EnergiaClientesCard.tsx` (novo)
-- `src/components/admin/energia/EnergiaModulosCard.tsx` (novo)
-- `src/components/admin/energia/EnergiaParametrosCard.tsx` (novo)
-- `src/pages/Admin.tsx` (adicionar a aba)

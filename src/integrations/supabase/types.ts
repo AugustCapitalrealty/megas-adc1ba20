@@ -300,6 +300,197 @@ export type Database = {
         }
         Relationships: []
       }
+      energia_competencia_lancamentos: {
+        Row: {
+          ajuste_manual_reais: number
+          competencia_id: string
+          consumo_fora_kwh: number
+          consumo_ponta_kwh: number
+          created_at: string
+          demanda_contratada_kw: number
+          demanda_usd_medida_kw: number
+          id: string
+          modulo_id: string
+          observacao: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          ajuste_manual_reais?: number
+          competencia_id: string
+          consumo_fora_kwh?: number
+          consumo_ponta_kwh?: number
+          created_at?: string
+          demanda_contratada_kw?: number
+          demanda_usd_medida_kw?: number
+          id?: string
+          modulo_id: string
+          observacao?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          ajuste_manual_reais?: number
+          competencia_id?: string
+          consumo_fora_kwh?: number
+          consumo_ponta_kwh?: number
+          created_at?: string
+          demanda_contratada_kw?: number
+          demanda_usd_medida_kw?: number
+          id?: string
+          modulo_id?: string
+          observacao?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "energia_competencia_lancamentos_competencia_id_fkey"
+            columns: ["competencia_id"]
+            isOneToOne: false
+            referencedRelation: "energia_competencias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "energia_competencia_lancamentos_modulo_id_fkey"
+            columns: ["modulo_id"]
+            isOneToOne: false
+            referencedRelation: "energia_modulos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      energia_competencia_tarifas: {
+        Row: {
+          bandeira_valor: number
+          cofins_pct: number
+          competencia_id: string
+          created_at: string
+          cred_deb_fatura: number
+          demanda_isenta: number
+          demanda_usd: number
+          fotovoltaico_geracao_fora: number
+          fotovoltaico_geracao_ponta: number
+          fotovoltaico_saldo_fora: number
+          fotovoltaico_saldo_ponta: number
+          icms_pct: number
+          id: string
+          iluminacao_publica: number
+          perdas_copel_fora_kwh: number
+          perdas_copel_ponta_kwh: number
+          perdas_energy_fora_kwh: number
+          perdas_energy_ponta_kwh: number
+          pis_pct: number
+          te_fora: number
+          te_ponta: number
+          tusd_fora: number
+          tusd_ponta: number
+          ultrapassagem: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          bandeira_valor?: number
+          cofins_pct?: number
+          competencia_id: string
+          created_at?: string
+          cred_deb_fatura?: number
+          demanda_isenta?: number
+          demanda_usd?: number
+          fotovoltaico_geracao_fora?: number
+          fotovoltaico_geracao_ponta?: number
+          fotovoltaico_saldo_fora?: number
+          fotovoltaico_saldo_ponta?: number
+          icms_pct?: number
+          id?: string
+          iluminacao_publica?: number
+          perdas_copel_fora_kwh?: number
+          perdas_copel_ponta_kwh?: number
+          perdas_energy_fora_kwh?: number
+          perdas_energy_ponta_kwh?: number
+          pis_pct?: number
+          te_fora?: number
+          te_ponta?: number
+          tusd_fora?: number
+          tusd_ponta?: number
+          ultrapassagem?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          bandeira_valor?: number
+          cofins_pct?: number
+          competencia_id?: string
+          created_at?: string
+          cred_deb_fatura?: number
+          demanda_isenta?: number
+          demanda_usd?: number
+          fotovoltaico_geracao_fora?: number
+          fotovoltaico_geracao_ponta?: number
+          fotovoltaico_saldo_fora?: number
+          fotovoltaico_saldo_ponta?: number
+          icms_pct?: number
+          id?: string
+          iluminacao_publica?: number
+          perdas_copel_fora_kwh?: number
+          perdas_copel_ponta_kwh?: number
+          perdas_energy_fora_kwh?: number
+          perdas_energy_ponta_kwh?: number
+          pis_pct?: number
+          te_fora?: number
+          te_ponta?: number
+          tusd_fora?: number
+          tusd_ponta?: number
+          ultrapassagem?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "energia_competencia_tarifas_competencia_id_fkey"
+            columns: ["competencia_id"]
+            isOneToOne: true
+            referencedRelation: "energia_competencias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      energia_competencias: {
+        Row: {
+          ano_mes: string
+          created_at: string
+          fechada_em: string | null
+          fechada_por: string | null
+          id: string
+          observacao: string | null
+          status: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          ano_mes: string
+          created_at?: string
+          fechada_em?: string | null
+          fechada_por?: string | null
+          id?: string
+          observacao?: string | null
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          ano_mes?: string
+          created_at?: string
+          fechada_em?: string | null
+          fechada_por?: string | null
+          id?: string
+          observacao?: string | null
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       energia_modulos: {
         Row: {
           area_m2: number
