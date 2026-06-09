@@ -17,6 +17,11 @@ interface EnergiaCliente {
   nome: string;
   ativo: boolean;
   observacao: string | null;
+  cnpj: string | null;
+  razao_social: string | null;
+  nome_fantasia: string | null;
+  cidade: string | null;
+  uf: string | null;
 }
 
 interface EnergiaModulo {
@@ -49,7 +54,9 @@ export function EnergiaCadastrosTab() {
   const [clientes, setClientes] = useState<EnergiaCliente[]>([]);
   const [modulos, setModulos] = useState<EnergiaModulo[]>([]);
 
-  const [newClienteNome, setNewClienteNome] = useState('');
+  const [newCnpj, setNewCnpj] = useState('');
+  const [lookingUp, setLookingUp] = useState(false);
+  const [preview, setPreview] = useState<{ cnpj: string; razao_social: string; nome_fantasia: string; cidade: string; uf: string } | null>(null);
   const [newModuloId, setNewModuloId] = useState('');
 
   const fetchAll = async () => {
@@ -90,15 +97,53 @@ export function EnergiaCadastrosTab() {
   };
 
   // ─── Clientes ────────────────────────────────────────
+  const onlyDigits = (s: string) => s.replace(/\D/g, '');
+  const formatCnpj = (s: string) => {
+    const d = onlyDigits(s).slice(0, 14);
+    return d.replace(/(\d{2})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1/$2').replace(/(\d{4})(\d)/, '$1-$2');
+  };
+
+  const handleLookup = async () => {
+    const digits = onlyDigits(newCnpj);
+    if (digits.length !== 14) return toast.error('CNPJ inválido (14 dígitos)');
+    setLookingUp(true);
+    try {
+      const r = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${digits}`);
+      if (!r.ok) { toast.error('CNPJ não encontrado na Receita'); return; }
+      const d = await r.json();
+      setPreview({
+        cnpj: digits,
+        razao_social: d.razao_social || '',
+        nome_fantasia: d.nome_fantasia || '',
+        cidade: d.municipio || '',
+        uf: d.uf || '',
+      });
+    } catch {
+      toast.error('Erro ao consultar CNPJ');
+    } finally {
+      setLookingUp(false);
+    }
+  };
+
   const handleAddCliente = async () => {
-    const nome = newClienteNome.trim().toUpperCase();
-    if (!nome) return;
-    const { error } = await supabase.from('energia_clientes' as any).insert({ nome, updated_by: user?.id } as any);
+    if (!preview) return;
+    const { error } = await supabase.from('energia_clientes' as any).insert({
+      cnpj: preview.cnpj,
+      razao_social: preview.razao_social,
+      nome_fantasia: preview.nome_fantasia || null,
+      cidade: preview.cidade || null,
+      uf: preview.uf || null,
+      nome: preview.razao_social.toUpperCase(),
+      updated_by: user?.id,
+    } as any);
     if (error) {
-      toast.error(error.message.includes('duplicate') ? 'Cliente já cadastrado' : 'Erro ao adicionar cliente');
+      toast.error(error.message.includes('duplicate') || error.message.includes('unique')
+        ? 'CNPJ ou razão social já cadastrados'
+        : 'Erro ao adicionar cliente');
       return;
     }
-    setNewClienteNome('');
+    setPreview(null);
+    setNewCnpj('');
     toast.success('Cliente adicionado');
     fetchAll();
   };
@@ -162,7 +207,6 @@ export function EnergiaCadastrosTab() {
   }
 
   const totalArea = modulos.reduce((s, m) => s + Number(m.area_m2 || 0), 0);
-  const totalDemanda = modulos.reduce((s, m) => s + Number(m.demanda_contratada_kw || 0), 0);
 
   return (
     <div className="space-y-6">
@@ -229,49 +273,59 @@ export function EnergiaCadastrosTab() {
             Clientes de Energia ({clientes.length})
           </CardTitle>
           <CardDescription>
-            Razões sociais que recebem cobrança de energia rateada.
+            Cadastre o cliente pelo CNPJ. Razão social, fantasia e cidade/UF são preenchidos automaticamente.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex gap-2">
-            <Input
-              placeholder="Nome do cliente (ex.: BOSCH, CALAMO)"
-              value={newClienteNome}
-              onChange={e => setNewClienteNome(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleAddCliente()}
-            />
-            <Button onClick={handleAddCliente}><Plus className="h-4 w-4 mr-2" />Adicionar</Button>
+          <div className="space-y-3 rounded-md border p-3 bg-muted/30">
+            <div className="flex gap-2">
+              <Input
+                placeholder="CNPJ (ex.: 12.345.678/0001-90)"
+                value={newCnpj}
+                onChange={(e) => setNewCnpj(formatCnpj(e.target.value))}
+                onKeyDown={(e) => e.key === 'Enter' && handleLookup()}
+              />
+              <Button onClick={handleLookup} disabled={lookingUp} variant="outline">
+                {lookingUp ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Buscar'}
+              </Button>
+            </div>
+            {preview && (
+              <div className="space-y-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                  <div><span className="text-muted-foreground">Razão Social:</span> <strong>{preview.razao_social}</strong></div>
+                  <div><span className="text-muted-foreground">Nome Fantasia:</span> {preview.nome_fantasia || '—'}</div>
+                  <div><span className="text-muted-foreground">Cidade/UF:</span> {preview.cidade} / {preview.uf}</div>
+                  <div><span className="text-muted-foreground">CNPJ:</span> {formatCnpj(preview.cnpj)}</div>
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={handleAddCliente}><Plus className="h-4 w-4 mr-2" />Confirmar cadastro</Button>
+                  <Button variant="ghost" onClick={() => setPreview(null)}>Descartar</Button>
+                </div>
+              </div>
+            )}
           </div>
           <div className="rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Observação</TableHead>
+                  <TableHead className="w-40">CNPJ</TableHead>
+                  <TableHead>Razão Social</TableHead>
+                  <TableHead>Nome Fantasia</TableHead>
+                  <TableHead className="w-24">Cidade/UF</TableHead>
                   <TableHead className="w-24 text-center">Ativo</TableHead>
                   <TableHead className="w-16" />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {clientes.length === 0 && (
-                  <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-6">Nenhum cliente cadastrado</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">Nenhum cliente cadastrado</TableCell></TableRow>
                 )}
                 {clientes.map(c => (
                   <TableRow key={c.id}>
-                    <TableCell>
-                      <Input
-                        value={c.nome}
-                        onChange={e => setClientes(prev => prev.map(x => x.id === c.id ? { ...x, nome: e.target.value } : x))}
-                        onBlur={e => handleUpdateCliente(c.id, { nome: e.target.value.trim().toUpperCase() })}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        value={c.observacao ?? ''}
-                        onChange={e => setClientes(prev => prev.map(x => x.id === c.id ? { ...x, observacao: e.target.value } : x))}
-                        onBlur={e => handleUpdateCliente(c.id, { observacao: e.target.value || null })}
-                      />
-                    </TableCell>
+                    <TableCell className="text-xs font-mono">{c.cnpj ? formatCnpj(c.cnpj) : <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell className="font-medium">{c.razao_social || c.nome}</TableCell>
+                    <TableCell className="text-sm">{c.nome_fantasia || <span className="text-muted-foreground">—</span>}</TableCell>
+                    <TableCell className="text-xs">{c.cidade ? `${c.cidade}/${c.uf || '—'}` : <span className="text-muted-foreground">—</span>}</TableCell>
                     <TableCell className="text-center">
                       <Switch checked={c.ativo} onCheckedChange={v => handleUpdateCliente(c.id, { ativo: v })} />
                     </TableCell>
@@ -296,7 +350,7 @@ export function EnergiaCadastrosTab() {
             Módulos do Mega Curitiba ({modulos.length})
           </CardTitle>
           <CardDescription>
-            Área total: <strong>{totalArea.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} m²</strong> · Demanda contratada total: <strong>{totalDemanda.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} kW</strong>
+            Área total: <strong>{totalArea.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} m²</strong>. A demanda contratada agora vive no <em>Contrato</em> vinculado ao módulo.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -317,14 +371,13 @@ export function EnergiaCadastrosTab() {
                   <TableHead>Módulo</TableHead>
                   <TableHead className="text-right">Área (m²)</TableHead>
                   <TableHead>Cliente</TableHead>
-                  <TableHead className="text-right">Demanda contratada (kW)</TableHead>
                   <TableHead className="w-24 text-center">Ativo</TableHead>
                   <TableHead className="w-16" />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {modulos.length === 0 && (
-                  <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-6">Nenhum módulo cadastrado</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">Nenhum módulo cadastrado</TableCell></TableRow>
                 )}
                 {modulos.map(m => (
                   <TableRow key={m.id}>
@@ -362,19 +415,10 @@ export function EnergiaCadastrosTab() {
                         <SelectContent>
                           <SelectItem value={UNASSIGNED}>— Vago —</SelectItem>
                           {clientes.filter(c => c.ativo).map(c => (
-                            <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
+                            <SelectItem key={c.id} value={c.id}>{c.razao_social || c.nome}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number" step="0.01"
-                        className="text-right"
-                        value={m.demanda_contratada_kw}
-                        onChange={e => setModulos(prev => prev.map(x => x.id === m.id ? { ...x, demanda_contratada_kw: Number(e.target.value) } : x))}
-                        onBlur={e => handleUpdateModulo(m.id, { demanda_contratada_kw: Number(e.target.value) })}
-                      />
                     </TableCell>
                     <TableCell className="text-center">
                       <Switch checked={m.ativo} onCheckedChange={v => handleUpdateModulo(m.id, { ativo: v })} />
