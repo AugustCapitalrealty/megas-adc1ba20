@@ -33,7 +33,8 @@ interface Modulo {
   demanda_contratada_kw: number;
   cliente_id: string | null;
 }
-interface Cliente { id: string; nome: string; }
+interface Cliente { id: string; nome: string; razao_social: string | null; }
+interface ContratoVigente { modulo_id: string; demanda_contratada_kw: number; numero_contrato: string; }
 interface TarifasRow extends EnergiaTarifas { id: string; competencia_id: string; }
 interface LancamentoRow {
   id?: string;
@@ -89,6 +90,7 @@ export function MemoriaCalculoTab() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [tarifas, setTarifas] = useState<TarifasRow | null>(null);
   const [lancamentos, setLancamentos] = useState<Record<string, LancamentoRow>>({});
+  const [contratoPorModulo, setContratoPorModulo] = useState<Record<string, ContratoVigente>>({});
   const [newAnoMes, setNewAnoMes] = useState(currentYM());
   const [creating, setCreating] = useState(false);
 
@@ -100,7 +102,7 @@ export function MemoriaCalculoTab() {
     const [c, m, cli] = await Promise.all([
       supabase.from('energia_competencias').select('*').order('ano_mes', { ascending: false }),
       supabase.from('energia_modulos').select('*').eq('ativo', true).order('ordem'),
-      supabase.from('energia_clientes').select('id, nome'),
+      supabase.from('energia_clientes').select('id, nome, razao_social'),
     ]);
     if (c.error) toast.error('Erro ao carregar competências');
     else setCompetencias((c.data as any) || []);
@@ -110,7 +112,7 @@ export function MemoriaCalculoTab() {
     else setClientes((cli.data as any) || []);
   }, []);
 
-  const fetchCompData = useCallback(async (compId: string) => {
+  const fetchCompData = useCallback(async (compId: string, anoMes: string) => {
     const [t, l] = await Promise.all([
       supabase.from('energia_competencia_tarifas').select('*').eq('competencia_id', compId).maybeSingle(),
       supabase.from('energia_competencia_lancamentos').select('*').eq('competencia_id', compId),
@@ -121,6 +123,33 @@ export function MemoriaCalculoTab() {
     const map: Record<string, LancamentoRow> = {};
     ((l.data as any[]) || []).forEach((r) => { map[r.modulo_id] = r; });
     setLancamentos(map);
+
+    // Resolver contrato vigente por módulo para o mês da competência
+    // Usa o 1º dia do mês como referência
+    const ref = `${anoMes}-01`;
+    const { data: vinculos, error: vErr } = await supabase
+      .from('energia_contrato_modulos' as any)
+      .select('modulo_id, vigencia_inicio, vigencia_fim, contrato:energia_contratos!inner(id, numero_contrato, demanda_contratada_kw, ativo)')
+      .lte('vigencia_inicio', ref);
+    const cMap: Record<string, ContratoVigente> = {};
+    if (!vErr && vinculos) {
+      for (const v of vinculos as any[]) {
+        const fim = v.vigencia_fim ? v.vigencia_fim : null;
+        if (fim && fim < ref) continue;
+        if (!v.contrato?.ativo) continue;
+        // Em caso de múltiplos, pega o mais recente (vigencia_inicio maior)
+        const prev = cMap[v.modulo_id];
+        if (!prev || v.vigencia_inicio > (prev as any).__inicio) {
+          cMap[v.modulo_id] = {
+            modulo_id: v.modulo_id,
+            demanda_contratada_kw: Number(v.contrato.demanda_contratada_kw) || 0,
+            numero_contrato: v.contrato.numero_contrato,
+          } as ContratoVigente;
+          (cMap[v.modulo_id] as any).__inicio = v.vigencia_inicio;
+        }
+      }
+    }
+    setContratoPorModulo(cMap);
   }, []);
 
   useEffect(() => {
@@ -136,8 +165,11 @@ export function MemoriaCalculoTab() {
   }, [competencias, currentCompId]);
 
   useEffect(() => {
-    if (currentCompId) fetchCompData(currentCompId);
-  }, [currentCompId, fetchCompData]);
+    if (currentCompId) {
+      const comp = competencias.find((c) => c.id === currentCompId);
+      if (comp) fetchCompData(currentCompId, comp.ano_mes);
+    }
+  }, [currentCompId, competencias, fetchCompData]);
 
   // ─── Ações ────────────────────────────────────────────
   const handleCreate = async (copyFromPrevious: boolean) => {
@@ -227,7 +259,7 @@ export function MemoriaCalculoTab() {
       const existing = prev[moduloId] || {
         competencia_id: currentCompId!,
         modulo_id: moduloId,
-        demanda_contratada_kw: modulos.find((m) => m.id === moduloId)?.demanda_contratada_kw || 0,
+        demanda_contratada_kw: contratoPorModulo[moduloId]?.demanda_contratada_kw || 0,
         demanda_usd_medida_kw: 0,
         consumo_ponta_kwh: 0,
         consumo_fora_kwh: 0,
@@ -260,12 +292,13 @@ export function MemoriaCalculoTab() {
     const inputs: EnergiaLancamentoInput[] = modulos.map((m) => {
       const l = lancamentos[m.id];
       const cli = clientes.find((c) => c.id === m.cliente_id);
+      const demandaContrato = contratoPorModulo[m.id]?.demanda_contratada_kw ?? 0;
       return {
         modulo_id: m.id,
         identificador: m.identificador,
-        cliente_nome: cli?.nome || (m.cliente_id ? '—' : 'VAGO'),
+        cliente_nome: cli?.razao_social || cli?.nome || (m.cliente_id ? '—' : 'VAGO'),
         area_m2: m.area_m2,
-        demanda_contratada_kw: l?.demanda_contratada_kw ?? m.demanda_contratada_kw,
+        demanda_contratada_kw: demandaContrato,
         demanda_usd_medida_kw: l?.demanda_usd_medida_kw ?? 0,
         consumo_ponta_kwh: l?.consumo_ponta_kwh ?? 0,
         consumo_fora_kwh: l?.consumo_fora_kwh ?? 0,
@@ -274,7 +307,7 @@ export function MemoriaCalculoTab() {
       };
     });
     return calcularMemoria(tarifas, inputs);
-  }, [tarifas, lancamentos, modulos, clientes]);
+  }, [tarifas, lancamentos, modulos, clientes, contratoPorModulo]);
 
   const exportCSV = () => {
     if (!memoria) return;
