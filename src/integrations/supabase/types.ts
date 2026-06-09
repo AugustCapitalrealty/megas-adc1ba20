@@ -273,28 +273,43 @@ export type Database = {
       energia_clientes: {
         Row: {
           ativo: boolean
+          cidade: string | null
+          cnpj: string | null
           created_at: string
           id: string
           nome: string
+          nome_fantasia: string | null
           observacao: string | null
+          razao_social: string | null
+          uf: string | null
           updated_at: string
           updated_by: string | null
         }
         Insert: {
           ativo?: boolean
+          cidade?: string | null
+          cnpj?: string | null
           created_at?: string
           id?: string
           nome: string
+          nome_fantasia?: string | null
           observacao?: string | null
+          razao_social?: string | null
+          uf?: string | null
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
           ativo?: boolean
+          cidade?: string | null
+          cnpj?: string | null
           created_at?: string
           id?: string
           nome?: string
+          nome_fantasia?: string | null
           observacao?: string | null
+          razao_social?: string | null
+          uf?: string | null
           updated_at?: string
           updated_by?: string | null
         }
@@ -490,6 +505,107 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: []
+      }
+      energia_contrato_modulos: {
+        Row: {
+          contrato_id: string
+          created_at: string
+          id: string
+          modulo_id: string
+          updated_at: string
+          updated_by: string | null
+          vigencia_fim: string | null
+          vigencia_inicio: string
+        }
+        Insert: {
+          contrato_id: string
+          created_at?: string
+          id?: string
+          modulo_id: string
+          updated_at?: string
+          updated_by?: string | null
+          vigencia_fim?: string | null
+          vigencia_inicio: string
+        }
+        Update: {
+          contrato_id?: string
+          created_at?: string
+          id?: string
+          modulo_id?: string
+          updated_at?: string
+          updated_by?: string | null
+          vigencia_fim?: string | null
+          vigencia_inicio?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "energia_contrato_modulos_contrato_id_fkey"
+            columns: ["contrato_id"]
+            isOneToOne: false
+            referencedRelation: "energia_contratos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "energia_contrato_modulos_modulo_id_fkey"
+            columns: ["modulo_id"]
+            isOneToOne: false
+            referencedRelation: "energia_modulos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      energia_contratos: {
+        Row: {
+          ativo: boolean
+          cliente_id: string
+          created_at: string
+          demanda_contratada_kw: number
+          id: string
+          numero_contrato: string
+          observacao: string | null
+          termo_demanda_path: string | null
+          updated_at: string
+          updated_by: string | null
+          vigencia_fim: string | null
+          vigencia_inicio: string
+        }
+        Insert: {
+          ativo?: boolean
+          cliente_id: string
+          created_at?: string
+          demanda_contratada_kw?: number
+          id?: string
+          numero_contrato: string
+          observacao?: string | null
+          termo_demanda_path?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          vigencia_fim?: string | null
+          vigencia_inicio: string
+        }
+        Update: {
+          ativo?: boolean
+          cliente_id?: string
+          created_at?: string
+          demanda_contratada_kw?: number
+          id?: string
+          numero_contrato?: string
+          observacao?: string | null
+          termo_demanda_path?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          vigencia_fim?: string | null
+          vigencia_inicio?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "energia_contratos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "energia_clientes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       energia_modulos: {
         Row: {
