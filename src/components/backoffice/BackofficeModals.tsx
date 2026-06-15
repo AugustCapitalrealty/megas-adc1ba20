@@ -621,6 +621,18 @@ export function BackofficeModals(props: BackofficeModalsProps) {
                     </div>
                   )}
 
+                  <div className="p-3 bg-muted/30 rounded-lg">
+                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">Quantidade de Parcelas</Label>
+                    <p className="font-semibold text-lg mt-1">
+                      {Number(detalhes.solicitacao.parcelas || 1)}x
+                    </p>
+                    {Number(detalhes.solicitacao.parcelas || 1) > 1 && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {formatCurrency((detalhes.solicitacao.valor || 0) / Number(detalhes.solicitacao.parcelas || 1))} por parcela
+                      </p>
+                    )}
+                  </div>
+
                   {(detalhes.solicitacao.data_inicio || detalhes.solicitacao.data_fim) && (
                     <div className="col-span-2 grid grid-cols-2 gap-4 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
                       <div>
