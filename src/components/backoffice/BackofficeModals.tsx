@@ -608,6 +608,11 @@ export function BackofficeModals(props: BackofficeModalsProps) {
                     <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg">
                       <Label className="text-xs uppercase tracking-wide text-muted-foreground">Valor Total</Label>
                       <p className="font-bold text-xl text-primary mt-1">{formatCurrency(detalhes.solicitacao.valor)}</p>
+                      {(detalhes.solicitacao.parcelas ?? 1) > 1 && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {detalhes.solicitacao.parcelas}x de {formatCurrency(detalhes.solicitacao.valor / (detalhes.solicitacao.parcelas || 1))}
+                        </p>
+                      )}
                     </div>
                   )}
 
