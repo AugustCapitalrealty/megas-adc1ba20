@@ -603,6 +603,11 @@ export function BackofficeModals(props: BackofficeModalsProps) {
                           </p>
                         </div>
                       </div>
+                      {(detalhes.solicitacao.parcelas ?? 1) > 1 && (
+                        <p className="text-xs text-muted-foreground">
+                          Parcelado em {detalhes.solicitacao.parcelas}x de {formatCurrency(((detalhes.solicitacao.valor_servico || 0) + (detalhes.solicitacao.valor_material || 0)) / (detalhes.solicitacao.parcelas || 1))}
+                        </p>
+                      )}
                     </div>
                   ) : (
                     <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg">
