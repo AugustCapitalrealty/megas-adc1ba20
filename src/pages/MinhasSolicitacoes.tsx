@@ -21,6 +21,7 @@ import {
   type Fornecedor,
   type DocumentoEmitido,
   type DocumentoFiscal,
+  type TipoGarantia,
 } from '@/types';
 import { Loader2, FileText, AlertTriangle, User, Building2, Download, CheckCircle, X, PartyPopper, LayoutGrid, Rows3, Keyboard } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -148,6 +149,12 @@ export default function MinhasSolicitacoes() {
   const [anexosParaExcluir, setAnexosParaExcluir] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [editMensagemCorrecao, setEditMensagemCorrecao] = useState('');
+
+  // Garantia (preenchida durante correção)
+  const [editTipoGarantia, setEditTipoGarantia] = useState<TipoGarantia>('nenhuma');
+  const [editDiasGarantia, setEditDiasGarantia] = useState('');
+  const [editDiasGarantiaServico, setEditDiasGarantiaServico] = useState('');
+  const [editDiasGarantiaProduto, setEditDiasGarantiaProduto] = useState('');
   
   // Supplier swap state
   const [trocarFornecedor, setTrocarFornecedor] = useState(false);
