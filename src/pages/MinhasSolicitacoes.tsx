@@ -21,6 +21,7 @@ import {
   type Fornecedor,
   type DocumentoEmitido,
   type DocumentoFiscal,
+  type TipoGarantia,
 } from '@/types';
 import { Loader2, FileText, AlertTriangle, User, Building2, Download, CheckCircle, X, PartyPopper, LayoutGrid, Rows3, Keyboard } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -148,6 +149,12 @@ export default function MinhasSolicitacoes() {
   const [anexosParaExcluir, setAnexosParaExcluir] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [editMensagemCorrecao, setEditMensagemCorrecao] = useState('');
+
+  // Garantia (preenchida durante correção)
+  const [editTipoGarantia, setEditTipoGarantia] = useState<TipoGarantia>('nenhuma');
+  const [editDiasGarantia, setEditDiasGarantia] = useState('');
+  const [editDiasGarantiaServico, setEditDiasGarantiaServico] = useState('');
+  const [editDiasGarantiaProduto, setEditDiasGarantiaProduto] = useState('');
   
   // Supplier swap state
   const [trocarFornecedor, setTrocarFornecedor] = useState(false);
@@ -556,6 +563,10 @@ export default function MinhasSolicitacoes() {
     setNovoFornecedorEscolhido(null);
     setNovoFornecedorBuscado(null);
     setFornecedoresInfo({ principal: null, concorrente1: null, concorrente2: null });
+    setEditTipoGarantia((sol.tipo_garantia as TipoGarantia) || 'nenhuma');
+    setEditDiasGarantia(sol.dias_garantia != null ? String(sol.dias_garantia) : '');
+    setEditDiasGarantiaServico(sol.dias_garantia_servico != null ? String(sol.dias_garantia_servico) : '');
+    setEditDiasGarantiaProduto(sol.dias_garantia_produto != null ? String(sol.dias_garantia_produto) : '');
     setEditOpen(true);
     
     const { data: anexosData } = await supabase
@@ -681,6 +692,26 @@ export default function MinhasSolicitacoes() {
         natureza_orcamentaria: editNaturezaOrcamentaria as any, status: 'recebido',
         escopo_detalhado_minuta: editEscopoDetalhado.trim() || null,
       };
+
+      // Garantia
+      const parseDias = (v: string) => {
+        const n = parseInt(v, 10);
+        return Number.isFinite(n) && n > 0 ? n : null;
+      };
+      updateData.tipo_garantia = editTipoGarantia;
+      if (editTipoGarantia === 'nenhuma') {
+        updateData.dias_garantia = null;
+        updateData.dias_garantia_servico = null;
+        updateData.dias_garantia_produto = null;
+      } else if (editTipoGarantia === 'ambos') {
+        updateData.dias_garantia = null;
+        updateData.dias_garantia_servico = parseDias(editDiasGarantiaServico);
+        updateData.dias_garantia_produto = parseDias(editDiasGarantiaProduto);
+      } else {
+        updateData.dias_garantia = parseDias(editDiasGarantia);
+        updateData.dias_garantia_servico = null;
+        updateData.dias_garantia_produto = null;
+      }
       
       if (trocarFornecedor && novoFornecedorEscolhido) {
         const antigoFornecedorId = editingSolicitacao.fornecedor_id;
@@ -1323,6 +1354,10 @@ export default function MinhasSolicitacoes() {
           formatCurrencyInput, getRequiredAttachments, rejectionReasons, infoRequests,
           trocarFornecedor, setTrocarFornecedor, novoFornecedorEscolhido, setNovoFornecedorEscolhido,
           novoFornecedorBuscado, setNovoFornecedorBuscado, fornecedoresInfo,
+          editTipoGarantia, setEditTipoGarantia,
+          editDiasGarantia, setEditDiasGarantia,
+          editDiasGarantiaServico, setEditDiasGarantiaServico,
+          editDiasGarantiaProduto, setEditDiasGarantiaProduto,
         }}
         aceiteOpen={aceiteOpen}
         setAceiteOpen={setAceiteOpen}
