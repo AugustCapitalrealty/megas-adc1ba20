@@ -1354,6 +1354,10 @@ export default function MinhasSolicitacoes() {
           formatCurrencyInput, getRequiredAttachments, rejectionReasons, infoRequests,
           trocarFornecedor, setTrocarFornecedor, novoFornecedorEscolhido, setNovoFornecedorEscolhido,
           novoFornecedorBuscado, setNovoFornecedorBuscado, fornecedoresInfo,
+          editTipoGarantia, setEditTipoGarantia,
+          editDiasGarantia, setEditDiasGarantia,
+          editDiasGarantiaServico, setEditDiasGarantiaServico,
+          editDiasGarantiaProduto, setEditDiasGarantiaProduto,
         }}
         aceiteOpen={aceiteOpen}
         setAceiteOpen={setAceiteOpen}
