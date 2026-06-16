@@ -692,6 +692,26 @@ export default function MinhasSolicitacoes() {
         natureza_orcamentaria: editNaturezaOrcamentaria as any, status: 'recebido',
         escopo_detalhado_minuta: editEscopoDetalhado.trim() || null,
       };
+
+      // Garantia
+      const parseDias = (v: string) => {
+        const n = parseInt(v, 10);
+        return Number.isFinite(n) && n > 0 ? n : null;
+      };
+      updateData.tipo_garantia = editTipoGarantia;
+      if (editTipoGarantia === 'nenhuma') {
+        updateData.dias_garantia = null;
+        updateData.dias_garantia_servico = null;
+        updateData.dias_garantia_produto = null;
+      } else if (editTipoGarantia === 'ambos') {
+        updateData.dias_garantia = null;
+        updateData.dias_garantia_servico = parseDias(editDiasGarantiaServico);
+        updateData.dias_garantia_produto = parseDias(editDiasGarantiaProduto);
+      } else {
+        updateData.dias_garantia = parseDias(editDiasGarantia);
+        updateData.dias_garantia_servico = null;
+        updateData.dias_garantia_produto = null;
+      }
       
       if (trocarFornecedor && novoFornecedorEscolhido) {
         const antigoFornecedorId = editingSolicitacao.fornecedor_id;
