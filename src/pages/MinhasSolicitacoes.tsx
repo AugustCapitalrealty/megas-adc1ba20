@@ -563,6 +563,10 @@ export default function MinhasSolicitacoes() {
     setNovoFornecedorEscolhido(null);
     setNovoFornecedorBuscado(null);
     setFornecedoresInfo({ principal: null, concorrente1: null, concorrente2: null });
+    setEditTipoGarantia((sol.tipo_garantia as TipoGarantia) || 'nenhuma');
+    setEditDiasGarantia(sol.dias_garantia != null ? String(sol.dias_garantia) : '');
+    setEditDiasGarantiaServico(sol.dias_garantia_servico != null ? String(sol.dias_garantia_servico) : '');
+    setEditDiasGarantiaProduto(sol.dias_garantia_produto != null ? String(sol.dias_garantia_produto) : '');
     setEditOpen(true);
     
     const { data: anexosData } = await supabase
