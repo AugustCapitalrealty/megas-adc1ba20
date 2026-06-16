@@ -17,10 +17,12 @@ import { SupplierSearch } from '@/components/SupplierSearch';
 import {
   NATUREZA_ORCAMENTARIA_LABELS,
   ANEXO_LABELS,
+  TIPO_GARANTIA_LABELS,
   type NaturezaOrcamentaria,
   type Solicitacao,
   type Fornecedor,
   type DocumentoEmitido,
+  type TipoGarantia,
 } from '@/types';
 import {
   Loader2, FileText, Edit, Send, AlertTriangle, XCircle, Download,
@@ -71,6 +73,15 @@ interface EditModalProps {
     concorrente1: { id: string; cnpj: string; razao_social: string | null } | null;
     concorrente2: { id: string; cnpj: string; razao_social: string | null } | null;
   };
+  // Garantia (preenchida durante correção)
+  editTipoGarantia: TipoGarantia;
+  setEditTipoGarantia: (v: TipoGarantia) => void;
+  editDiasGarantia: string;
+  setEditDiasGarantia: (v: string) => void;
+  editDiasGarantiaServico: string;
+  setEditDiasGarantiaServico: (v: string) => void;
+  editDiasGarantiaProduto: string;
+  setEditDiasGarantiaProduto: (v: string) => void;
 }
 
 function EditModal(props: EditModalProps) {
@@ -83,6 +94,10 @@ function EditModal(props: EditModalProps) {
     formatCurrencyInput, getRequiredAttachments, rejectionReasons, infoRequests,
     trocarFornecedor, setTrocarFornecedor, novoFornecedorEscolhido, setNovoFornecedorEscolhido,
     novoFornecedorBuscado, setNovoFornecedorBuscado, fornecedoresInfo,
+    editTipoGarantia, setEditTipoGarantia,
+    editDiasGarantia, setEditDiasGarantia,
+    editDiasGarantiaServico, setEditDiasGarantiaServico,
+    editDiasGarantiaProduto, setEditDiasGarantiaProduto,
   } = props;
 
   return (
