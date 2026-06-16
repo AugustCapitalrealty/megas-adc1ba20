@@ -191,6 +191,57 @@ function EditModal(props: EditModalProps) {
               </div>
             )}
 
+            {/* Garantia — disponível durante correção */}
+            {editingSolicitacao?.status && ['pendente_correcao', 'aguardando_informacoes'].includes(editingSolicitacao.status) && (
+              <div className="p-3 rounded-lg border bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 space-y-3">
+                <Label className="text-amber-800 dark:text-amber-200">Tipo de Garantia</Label>
+                <Select value={editTipoGarantia} onValueChange={(v) => setEditTipoGarantia(v as TipoGarantia)}>
+                  <SelectTrigger className="bg-background"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(TIPO_GARANTIA_LABELS).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {editTipoGarantia !== 'nenhuma' && editTipoGarantia !== 'ambos' && (
+                  <div className="space-y-1">
+                    <Label className="text-amber-800 dark:text-amber-200">Dias de Garantia</Label>
+                    <Input
+                      type="number"
+                      value={editDiasGarantia}
+                      onChange={(e) => setEditDiasGarantia(e.target.value)}
+                      placeholder="Ex: 90"
+                      className="bg-background"
+                    />
+                  </div>
+                )}
+                {editTipoGarantia === 'ambos' && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <Label className="text-amber-800 dark:text-amber-200">Dias (Serviço)</Label>
+                      <Input
+                        type="number"
+                        value={editDiasGarantiaServico}
+                        onChange={(e) => setEditDiasGarantiaServico(e.target.value)}
+                        placeholder="Ex: 90"
+                        className="bg-background"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-amber-800 dark:text-amber-200">Dias (Produto)</Label>
+                      <Input
+                        type="number"
+                        value={editDiasGarantiaProduto}
+                        onChange={(e) => setEditDiasGarantiaProduto(e.target.value)}
+                        placeholder="Ex: 365"
+                        className="bg-background"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Supplier swap */}
             {fornecedoresInfo.principal && (
               <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
