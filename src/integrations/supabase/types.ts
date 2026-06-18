@@ -380,13 +380,34 @@ export type Database = {
           bandeira_valor: number
           cofins_pct: number
           competencia_id: string
+          copel_consumo_fora_kwh: number
+          copel_consumo_ponta_kwh: number
+          copel_cred_deb: number
+          copel_demanda_kw: number
+          copel_valor_bandeira: number
+          copel_valor_demanda: number
+          copel_valor_icms: number
+          copel_valor_iluminacao_publica: number
+          copel_valor_pis_cofins: number
+          copel_valor_te_fora: number
+          copel_valor_te_ponta: number
+          copel_valor_total: number
+          copel_valor_tusd_fora: number
+          copel_valor_tusd_ponta: number
+          copel_valor_ultrapassagem: number
           created_at: string
           cred_deb_fatura: number
           demanda_isenta: number
           demanda_usd: number
           fotovoltaico_geracao_fora: number
+          fotovoltaico_geracao_fora_kwh: number
           fotovoltaico_geracao_ponta: number
+          fotovoltaico_geracao_ponta_kwh: number
+          fotovoltaico_saldo_final_fora_kwh: number
+          fotovoltaico_saldo_final_ponta_kwh: number
           fotovoltaico_saldo_fora: number
+          fotovoltaico_saldo_inicial_fora_kwh: number
+          fotovoltaico_saldo_inicial_ponta_kwh: number
           fotovoltaico_saldo_ponta: number
           icms_pct: number
           id: string
@@ -408,13 +429,34 @@ export type Database = {
           bandeira_valor?: number
           cofins_pct?: number
           competencia_id: string
+          copel_consumo_fora_kwh?: number
+          copel_consumo_ponta_kwh?: number
+          copel_cred_deb?: number
+          copel_demanda_kw?: number
+          copel_valor_bandeira?: number
+          copel_valor_demanda?: number
+          copel_valor_icms?: number
+          copel_valor_iluminacao_publica?: number
+          copel_valor_pis_cofins?: number
+          copel_valor_te_fora?: number
+          copel_valor_te_ponta?: number
+          copel_valor_total?: number
+          copel_valor_tusd_fora?: number
+          copel_valor_tusd_ponta?: number
+          copel_valor_ultrapassagem?: number
           created_at?: string
           cred_deb_fatura?: number
           demanda_isenta?: number
           demanda_usd?: number
           fotovoltaico_geracao_fora?: number
+          fotovoltaico_geracao_fora_kwh?: number
           fotovoltaico_geracao_ponta?: number
+          fotovoltaico_geracao_ponta_kwh?: number
+          fotovoltaico_saldo_final_fora_kwh?: number
+          fotovoltaico_saldo_final_ponta_kwh?: number
           fotovoltaico_saldo_fora?: number
+          fotovoltaico_saldo_inicial_fora_kwh?: number
+          fotovoltaico_saldo_inicial_ponta_kwh?: number
           fotovoltaico_saldo_ponta?: number
           icms_pct?: number
           id?: string
@@ -436,13 +478,34 @@ export type Database = {
           bandeira_valor?: number
           cofins_pct?: number
           competencia_id?: string
+          copel_consumo_fora_kwh?: number
+          copel_consumo_ponta_kwh?: number
+          copel_cred_deb?: number
+          copel_demanda_kw?: number
+          copel_valor_bandeira?: number
+          copel_valor_demanda?: number
+          copel_valor_icms?: number
+          copel_valor_iluminacao_publica?: number
+          copel_valor_pis_cofins?: number
+          copel_valor_te_fora?: number
+          copel_valor_te_ponta?: number
+          copel_valor_total?: number
+          copel_valor_tusd_fora?: number
+          copel_valor_tusd_ponta?: number
+          copel_valor_ultrapassagem?: number
           created_at?: string
           cred_deb_fatura?: number
           demanda_isenta?: number
           demanda_usd?: number
           fotovoltaico_geracao_fora?: number
+          fotovoltaico_geracao_fora_kwh?: number
           fotovoltaico_geracao_ponta?: number
+          fotovoltaico_geracao_ponta_kwh?: number
+          fotovoltaico_saldo_final_fora_kwh?: number
+          fotovoltaico_saldo_final_ponta_kwh?: number
           fotovoltaico_saldo_fora?: number
+          fotovoltaico_saldo_inicial_fora_kwh?: number
+          fotovoltaico_saldo_inicial_ponta_kwh?: number
           fotovoltaico_saldo_ponta?: number
           icms_pct?: number
           id?: string
@@ -606,6 +669,101 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      energia_fotovoltaico_saldo_pendente: {
+        Row: {
+          ano_mes: string
+          created_at: string
+          origem_competencia_id: string | null
+          saldo_fora_kwh: number
+          saldo_ponta_kwh: number
+          updated_at: string
+        }
+        Insert: {
+          ano_mes: string
+          created_at?: string
+          origem_competencia_id?: string | null
+          saldo_fora_kwh?: number
+          saldo_ponta_kwh?: number
+          updated_at?: string
+        }
+        Update: {
+          ano_mes?: string
+          created_at?: string
+          origem_competencia_id?: string | null
+          saldo_fora_kwh?: number
+          saldo_ponta_kwh?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "energia_fotovoltaico_saldo_pendente_origem_competencia_id_fkey"
+            columns: ["origem_competencia_id"]
+            isOneToOne: false
+            referencedRelation: "energia_competencias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      energia_grandezas_contratadas: {
+        Row: {
+          bandeira_valor_padrao: number
+          created_at: string
+          demanda_contratada_kw: number
+          id: string
+          iluminacao_publica_padrao: number
+          observacao: string | null
+          tarifa_demanda_isenta: number
+          tarifa_demanda_usd: number
+          tarifa_ultrapassagem: number
+          te_fora: number
+          te_ponta: number
+          tusd_fora: number
+          tusd_ponta: number
+          updated_at: string
+          updated_by: string | null
+          vigencia_fim: string | null
+          vigencia_inicio: string
+        }
+        Insert: {
+          bandeira_valor_padrao?: number
+          created_at?: string
+          demanda_contratada_kw?: number
+          id?: string
+          iluminacao_publica_padrao?: number
+          observacao?: string | null
+          tarifa_demanda_isenta?: number
+          tarifa_demanda_usd?: number
+          tarifa_ultrapassagem?: number
+          te_fora?: number
+          te_ponta?: number
+          tusd_fora?: number
+          tusd_ponta?: number
+          updated_at?: string
+          updated_by?: string | null
+          vigencia_fim?: string | null
+          vigencia_inicio: string
+        }
+        Update: {
+          bandeira_valor_padrao?: number
+          created_at?: string
+          demanda_contratada_kw?: number
+          id?: string
+          iluminacao_publica_padrao?: number
+          observacao?: string | null
+          tarifa_demanda_isenta?: number
+          tarifa_demanda_usd?: number
+          tarifa_ultrapassagem?: number
+          te_fora?: number
+          te_ponta?: number
+          tusd_fora?: number
+          tusd_ponta?: number
+          updated_at?: string
+          updated_by?: string | null
+          vigencia_fim?: string | null
+          vigencia_inicio?: string
+        }
+        Relationships: []
       }
       energia_modulos: {
         Row: {
@@ -1906,6 +2064,35 @@ export type Database = {
         Args: { p_solicitacao_id: string }
         Returns: Json
       }
+      energia_grandeza_vigente: {
+        Args: { p_data: string }
+        Returns: {
+          bandeira_valor_padrao: number
+          created_at: string
+          demanda_contratada_kw: number
+          id: string
+          iluminacao_publica_padrao: number
+          observacao: string | null
+          tarifa_demanda_isenta: number
+          tarifa_demanda_usd: number
+          tarifa_ultrapassagem: number
+          te_fora: number
+          te_ponta: number
+          tusd_fora: number
+          tusd_ponta: number
+          updated_at: string
+          updated_by: string | null
+          vigencia_fim: string | null
+          vigencia_inicio: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "energia_grandezas_contratadas"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      energia_proximo_ano_mes: { Args: { p_ano_mes: string }; Returns: string }
       generate_protocolo: { Args: never; Returns: string }
       get_fluig_filter_options: { Args: never; Returns: Json }
       get_retrabalho_eficiencia: {
