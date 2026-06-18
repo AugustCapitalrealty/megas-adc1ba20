@@ -283,6 +283,32 @@ export function MemoriaCalculoTab() {
     if (error) toast.error('Erro ao salvar tarifas'); else toast.success('Tarifas salvas');
   };
 
+  const updateCopelField = (key: keyof CopelFatura, value: number) => {
+    setTarifas((t) => (t ? ({ ...t, [key]: value } as any) : t));
+  };
+  const saveCopel = async () => {
+    if (!tarifas) return;
+    const payload: any = {};
+    COPEL_FIELDS.forEach(f => { payload[f.key] = (tarifas as any)[f.key] ?? 0; });
+    const { error } = await supabase
+      .from('energia_competencia_tarifas')
+      .update({ ...payload, updated_by: user?.id })
+      .eq('id', tarifas.id);
+    if (error) toast.error('Erro ao salvar fatura Copel'); else toast.success('Fatura Copel salva');
+  };
+
+  const saveFotovoltaicoSaldoFinal = async (saldoPonta: number, saldoFora: number) => {
+    if (!tarifas) return;
+    await supabase
+      .from('energia_competencia_tarifas')
+      .update({
+        fotovoltaico_saldo_final_ponta_kwh: saldoPonta,
+        fotovoltaico_saldo_final_fora_kwh: saldoFora,
+        updated_by: user?.id,
+      } as any)
+      .eq('id', tarifas.id);
+  };
+
   // Inputs por módulo (autosave debounced)
   const debounceRefs = useRef<Record<string, any>>({});
   const updateLanc = (moduloId: string, patch: Partial<LancamentoRow>) => {
