@@ -488,6 +488,132 @@ export function MemoriaCalculoTab() {
             </CardContent>
           </Card>
 
+          {/* Bloco Fotovoltaico (kWh) */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">☀️ Fotovoltaico (kWh)</CardTitle>
+              <CardDescription>
+                Saldo inicial vem do mês anterior automaticamente ao fechar a competência. Geração + Saldo Inicial abatem o consumo da <strong>Área Comum</strong>. O que sobrar fica como saldo final e segue para o próximo mês.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-2">
+                {(['ponta','fora'] as const).map((horario) => {
+                  const sufx = horario === 'ponta' ? 'ponta' : 'fora';
+                  const inicialKey = `fotovoltaico_saldo_inicial_${sufx}_kwh` as const;
+                  const geracaoKey = `fotovoltaico_geracao_${sufx}_kwh` as const;
+                  const inicial = Number((tarifas as any)[inicialKey] ?? 0);
+                  const geracao = Number((tarifas as any)[geracaoKey] ?? 0);
+                  const consumido = horario === 'ponta'
+                    ? memoria?.fotovoltaico.consumido_ponta_kwh ?? 0
+                    : memoria?.fotovoltaico.consumido_fora_kwh ?? 0;
+                  const saldoFinal = horario === 'ponta'
+                    ? memoria?.fotovoltaico.saldo_final_ponta_kwh ?? 0
+                    : memoria?.fotovoltaico.saldo_final_fora_kwh ?? 0;
+                  return (
+                    <div key={horario} className="rounded-md border p-3 space-y-2">
+                      <h4 className="font-semibold text-sm">{horario === 'ponta' ? 'Ponta' : 'Fora Ponta'}</h4>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs">Saldo inicial (kWh)</Label>
+                          <Input type="number" step="0.01" disabled value={inicial} />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Geração do mês (kWh)</Label>
+                          <Input
+                            type="number" step="0.01" disabled={isLocked}
+                            value={geracao}
+                            onChange={(e) => setTarifas((t) => (t ? ({ ...t, [geracaoKey]: Number(e.target.value) } as any) : t))}
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Consumido pela Área Comum</Label>
+                          <div className="text-sm font-medium py-2">{num(consumido)} kWh</div>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-primary">Saldo final → próximo mês</Label>
+                          <div className="text-sm font-bold text-primary py-2">{num(saldoFinal)} kWh</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex justify-end mt-4 gap-2">
+                <Button variant="outline" disabled={isLocked} onClick={saveTarifas}>Salvar Geração</Button>
+                <Button
+                  variant="outline"
+                  disabled={isLocked || !memoria}
+                  onClick={() => memoria && saveFotovoltaicoSaldoFinal(
+                    memoria.fotovoltaico.saldo_final_ponta_kwh,
+                    memoria.fotovoltaico.saldo_final_fora_kwh,
+                  ).then(() => toast.success('Saldo final atualizado'))}
+                >
+                  Persistir Saldo Final
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Bloco Conferência Fatura Copel */}
+          <Card>
+            <CardHeader>
+              <CardTitle>📄 Conferência com a Fatura Copel</CardTitle>
+              <CardDescription>
+                Digite os valores que vieram impressos na fatura Copel. A coluna "Sistema" mostra o calculado pela memória; "Delta" indica a divergência.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="text-xs w-full">
+                  <thead className="bg-muted">
+                    <tr>
+                      <th className="text-left px-2 py-2">Item</th>
+                      <th className="text-right px-2 py-2 w-40">Fatura Copel</th>
+                      <th className="text-right px-2 py-2 w-40">Sistema</th>
+                      <th className="text-right px-2 py-2 w-40">Delta</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {COPEL_FIELDS.map((f) => {
+                      const fatura = Number((tarifas as any)[f.key] ?? 0);
+                      const calc = f.getCalc ? f.getCalc(memoria) : 0;
+                      const delta = fatura - calc;
+                      const absDelta = Math.abs(delta);
+                      const isKwh = f.key.includes('kwh') || f.key === 'copel_demanda_kw';
+                      const okThreshold = isKwh ? 0.1 : 1;
+                      const warnThreshold = isKwh ? Math.max(1, Math.abs(calc) * 0.01) : Math.max(5, Math.abs(calc) * 0.01);
+                      const color = absDelta <= okThreshold ? 'text-green-600' : absDelta <= warnThreshold ? 'text-amber-600' : 'text-red-600';
+                      return (
+                        <tr key={f.key} className="border-b">
+                          <td className="px-2 py-1">{f.label}</td>
+                          <td className="px-2 py-1">
+                            <Input
+                              type="number" step={f.step}
+                              className="h-7 text-right"
+                              disabled={isLocked}
+                              value={fatura}
+                              onChange={(e) => updateCopelField(f.key, Number(e.target.value))}
+                            />
+                          </td>
+                          <td className="px-2 py-1 text-right tabular-nums">
+                            {isKwh ? num(calc) : brl(calc)}
+                          </td>
+                          <td className={`px-2 py-1 text-right tabular-nums font-semibold ${color}`}>
+                            {isKwh ? num(delta) : brl(delta)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div className="flex justify-end mt-3">
+                <Button onClick={saveCopel} disabled={isLocked}>Salvar Fatura Copel</Button>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Matriz Memória de Cálculo */}
           {memoria && (
             <Card>
