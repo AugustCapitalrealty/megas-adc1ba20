@@ -152,7 +152,7 @@ export function calcularMemoria(
   const consumidoPontaKwh = areaComum ? Math.min(disponivelPontaKwh, z(areaComum.consumo_ponta_kwh)) : 0;
   const consumidoForaKwh = areaComum ? Math.min(disponivelForaKwh, z(areaComum.consumo_fora_kwh)) : 0;
   const saldoFinalPontaKwh = Math.max(0, disponivelPontaKwh - consumidoPontaKwh);
-  const saldoFinalForaKwh = Math.max(0, disponivelFora_kwh_safe(disponivelForaKwh, consumidoForaKwh));
+  const saldoFinalForaKwh = Math.max(0, disponivelForaKwh - consumidoForaKwh);
   // valor R$ abatido da linha área comum (TE+TUSD do mês)
   const abatimentoReais = -(
     consumidoPontaKwh * (z(tarifas.te_ponta) + z(tarifas.tusd_ponta)) +
@@ -300,11 +300,6 @@ export function calcularMemoria(
       abatimento_reais: abatimentoReais,
     },
   };
-}
-
-// helper local: evita confundir TS com nome reservado
-function disponivelFora_kwh_safe(disp: number, consumido: number) {
-  return disp - consumido;
 }
 
 export const DEFAULT_TARIFAS: EnergiaTarifas = {
