@@ -24,11 +24,11 @@ export interface EnergiaTarifas {
   perdas_energy_fora_kwh: number;  // E46
   // Lançamento financeiro
   cred_deb_fatura: number;    // E50 (R$)
-  // Fotovoltaico (abate área comum)
-  fotovoltaico_saldo_ponta: number;
-  fotovoltaico_geracao_ponta: number;
-  fotovoltaico_saldo_fora: number;
-  fotovoltaico_geracao_fora: number;
+  // Fotovoltaico (kWh) — abate consumo da ÁREA COMUM, saldo carryover entre meses
+  fotovoltaico_saldo_inicial_ponta_kwh: number;
+  fotovoltaico_saldo_inicial_fora_kwh: number;
+  fotovoltaico_geracao_ponta_kwh: number;
+  fotovoltaico_geracao_fora_kwh: number;
 }
 
 export interface EnergiaLancamentoInput {
