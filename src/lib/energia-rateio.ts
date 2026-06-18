@@ -116,6 +116,15 @@ export interface MemoriaLinha {
 export interface MemoriaResultado {
   linhas: MemoriaLinha[];
   totais: MemoriaLinha;
+  fotovoltaico: {
+    disponivel_ponta_kwh: number;
+    disponivel_fora_kwh: number;
+    consumido_ponta_kwh: number;
+    consumido_fora_kwh: number;
+    saldo_final_ponta_kwh: number;
+    saldo_final_fora_kwh: number;
+    abatimento_reais: number;
+  };
 }
 
 const z = (n: number) => (Number.isFinite(n) ? n : 0);
@@ -133,13 +142,22 @@ export function calcularMemoria(
   const perdasPontaTotal = z(tarifas.perdas_copel_ponta_kwh) + z(tarifas.perdas_energy_ponta_kwh);
   const perdasForaTotal = z(tarifas.perdas_copel_fora_kwh) + z(tarifas.perdas_energy_fora_kwh);
 
-  // Abatimento fotovoltaico (RESUMO!E47 + E48 invertidos): aplicado só na linha
-  // ÁREA COMUM. A planilha usa max(saldo, geração*tarifa)*-1.
-  const abatimentoPonta =
-    Math.max(z(tarifas.fotovoltaico_saldo_ponta), z(tarifas.fotovoltaico_geracao_ponta)) * -1;
-  const abatimentoFora =
-    Math.max(z(tarifas.fotovoltaico_saldo_fora), z(tarifas.fotovoltaico_geracao_fora)) * -1;
-  const abatimentoFotovoltaico = abatimentoPonta + abatimentoFora;
+  // Fotovoltaico (kWh): saldo inicial + geração do mês disponíveis para abater
+  // o consumo da ÁREA COMUM. O remanescente vira saldo final (carryover).
+  const disponivelPontaKwh =
+    z(tarifas.fotovoltaico_saldo_inicial_ponta_kwh) + z(tarifas.fotovoltaico_geracao_ponta_kwh);
+  const disponivelForaKwh =
+    z(tarifas.fotovoltaico_saldo_inicial_fora_kwh) + z(tarifas.fotovoltaico_geracao_fora_kwh);
+  const areaComum = lancamentos.find((l) => l.is_area_comum);
+  const consumidoPontaKwh = areaComum ? Math.min(disponivelPontaKwh, z(areaComum.consumo_ponta_kwh)) : 0;
+  const consumidoForaKwh = areaComum ? Math.min(disponivelForaKwh, z(areaComum.consumo_fora_kwh)) : 0;
+  const saldoFinalPontaKwh = Math.max(0, disponivelPontaKwh - consumidoPontaKwh);
+  const saldoFinalForaKwh = Math.max(0, disponivelFora_kwh_safe(disponivelForaKwh, consumidoForaKwh));
+  // valor R$ abatido da linha área comum (TE+TUSD do mês)
+  const abatimentoReais = -(
+    consumidoPontaKwh * (z(tarifas.te_ponta) + z(tarifas.tusd_ponta)) +
+    consumidoForaKwh * (z(tarifas.te_fora) + z(tarifas.tusd_fora))
+  );
 
   const linhas = lancamentos.map<MemoriaLinha>((l) => {
     const F = z(l.demanda_contratada_kw);
@@ -201,7 +219,7 @@ export function calcularMemoria(
 
     const BQ = AT + BK + BO;
     const BS = consumoTotalGeral > 0 ? (U / consumoTotalGeral) * tarifas.cred_deb_fatura : 0;
-    const BU = l.is_area_comum ? abatimentoFotovoltaico : 0;
+    const BU = l.is_area_comum ? abatimentoReais : 0;
     const BW = z(l.ajuste_manual_reais);
     const BY = BQ + BS + BW + BU;
     const CA = BY - L;
@@ -269,7 +287,24 @@ export function calcularMemoria(
   );
   totais.rs_kwh = totais.consumo_total > 0 ? totais.rs_consumo_total / totais.consumo_total : 0;
 
-  return { linhas, totais };
+  return {
+    linhas,
+    totais,
+    fotovoltaico: {
+      disponivel_ponta_kwh: disponivelPontaKwh,
+      disponivel_fora_kwh: disponivelForaKwh,
+      consumido_ponta_kwh: consumidoPontaKwh,
+      consumido_fora_kwh: consumidoForaKwh,
+      saldo_final_ponta_kwh: saldoFinalPontaKwh,
+      saldo_final_fora_kwh: saldoFinalForaKwh,
+      abatimento_reais: abatimentoReais,
+    },
+  };
+}
+
+// helper local: evita confundir TS com nome reservado
+function disponivelFora_kwh_safe(disp: number, consumido: number) {
+  return disp - consumido;
 }
 
 export const DEFAULT_TARIFAS: EnergiaTarifas = {
@@ -281,6 +316,8 @@ export const DEFAULT_TARIFAS: EnergiaTarifas = {
   perdas_copel_ponta_kwh: 0, perdas_copel_fora_kwh: 0,
   perdas_energy_ponta_kwh: 0, perdas_energy_fora_kwh: 0,
   cred_deb_fatura: 0,
-  fotovoltaico_saldo_ponta: 0, fotovoltaico_geracao_ponta: 0,
-  fotovoltaico_saldo_fora: 0, fotovoltaico_geracao_fora: 0,
+  fotovoltaico_saldo_inicial_ponta_kwh: 0,
+  fotovoltaico_saldo_inicial_fora_kwh: 0,
+  fotovoltaico_geracao_ponta_kwh: 0,
+  fotovoltaico_geracao_fora_kwh: 0,
 };
