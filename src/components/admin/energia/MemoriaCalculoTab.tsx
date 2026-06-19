@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Loader2, Plus, Copy, Lock, Unlock, Download, Calculator, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -624,126 +625,223 @@ export function MemoriaCalculoTab() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="px-0">
-                <div className="overflow-x-auto">
-                  <table className="text-xs border-collapse w-full">
-                    <thead className="bg-muted">
-                      <tr className="border-b">
-                        <th className="sticky left-0 bg-muted px-2 py-2 text-left font-semibold z-10">Módulo</th>
-                        <th className="px-2 py-2 text-left font-semibold">Cliente</th>
-                        <th className="px-2 py-2 text-right">Área m²</th>
-                        <th className="px-2 py-2 text-right">Dem. Contr.</th>
-                        <th className="px-2 py-2 text-right bg-yellow-100 dark:bg-yellow-900/30">Dem. USD</th>
-                        <th className="px-2 py-2 text-right">Ultrap.</th>
-                        <th className="px-2 py-2 text-right">R$ Demanda</th>
-                        <th className="px-2 py-2 text-right bg-yellow-100 dark:bg-yellow-900/30">Cons. Ponta</th>
-                        <th className="px-2 py-2 text-right bg-yellow-100 dark:bg-yellow-900/30">Cons. Fora</th>
-                        <th className="px-2 py-2 text-right">Cons. Total</th>
-                        <th className="px-2 py-2 text-right">R$ Consumo</th>
-                        <th className="px-2 py-2 text-right">Perdas kWh</th>
-                        <th className="px-2 py-2 text-right">R$ Perdas</th>
-                        <th className="px-2 py-2 text-right">ICMS</th>
-                        <th className="px-2 py-2 text-right">PIS/COFINS</th>
-                        <th className="px-2 py-2 text-right">Ilum. Pub.</th>
-                        <th className="px-2 py-2 text-right">Bandeira</th>
-                        <th className="px-2 py-2 text-right">Créd/Déb</th>
-                        <th className="px-2 py-2 text-right">Fotovolt.</th>
-                        <th className="px-2 py-2 text-right bg-yellow-100 dark:bg-yellow-900/30">Ajuste</th>
-                        <th className="px-2 py-2 text-right font-bold">TOTAL Energy</th>
-                        <th className="px-2 py-2 text-right font-bold">TOTAL Copel</th>
-                        <th className="px-2 py-2 text-center">OK</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {memoria.linhas.map((l, i) => {
-                        const lancRow = lancamentos[l.modulo_id];
-                        return (
-                          <tr key={l.modulo_id} className={i % 2 ? 'bg-muted/30' : ''}>
-                            <td className="sticky left-0 bg-background px-2 py-1 font-medium z-10 border-r">{l.identificador}</td>
-                            <td className="px-2 py-1">{l.cliente_nome}</td>
-                            <td className="px-2 py-1 text-right">{num(l.area_m2)}</td>
-                            <td className="px-2 py-1 text-right">{num(l.demanda_contratada)}</td>
-                            <td className="px-2 py-1 bg-yellow-50 dark:bg-yellow-950/30">
-                              <Input type="number" step="0.01" disabled={isLocked}
-                                className="h-7 text-right w-24"
-                                value={lancRow?.demanda_usd_medida_kw ?? 0}
-                                onChange={(e) => updateLanc(l.modulo_id, { demanda_usd_medida_kw: Number(e.target.value) })}
-                              />
-                            </td>
-                            <td className="px-2 py-1 text-right">{num(l.ultrapassagem)}</td>
-                            <td className="px-2 py-1 text-right">{brl(l.rs_demanda_total)}</td>
-                            <td className="px-2 py-1 bg-yellow-50 dark:bg-yellow-950/30">
-                              <Input type="number" step="0.01" disabled={isLocked}
-                                className="h-7 text-right w-24"
-                                value={lancRow?.consumo_ponta_kwh ?? 0}
-                                onChange={(e) => updateLanc(l.modulo_id, { consumo_ponta_kwh: Number(e.target.value) })}
-                              />
-                            </td>
-                            <td className="px-2 py-1 bg-yellow-50 dark:bg-yellow-950/30">
-                              <Input type="number" step="0.01" disabled={isLocked}
-                                className="h-7 text-right w-24"
-                                value={lancRow?.consumo_fora_kwh ?? 0}
-                                onChange={(e) => updateLanc(l.modulo_id, { consumo_fora_kwh: Number(e.target.value) })}
-                              />
-                            </td>
-                            <td className="px-2 py-1 text-right">{num(l.consumo_total)}</td>
-                            <td className="px-2 py-1 text-right">{brl(l.rs_consumo_total)}</td>
-                            <td className="px-2 py-1 text-right">{num(l.perdas_kwh)}</td>
-                            <td className="px-2 py-1 text-right">{brl(l.rs_perdas)}</td>
-                            <td className="px-2 py-1 text-right">{brl(l.icms_total)}</td>
-                            <td className="px-2 py-1 text-right">{brl(l.piscof_total)}</td>
-                            <td className="px-2 py-1 text-right">{brl(l.iluminacao_publica)}</td>
-                            <td className="px-2 py-1 text-right">{brl(l.bandeira_total)}</td>
-                            <td className="px-2 py-1 text-right">{brl(l.cred_deb_rateado)}</td>
-                            <td className="px-2 py-1 text-right">{brl(l.fotovoltaico)}</td>
-                            <td className="px-2 py-1 bg-yellow-50 dark:bg-yellow-950/30">
-                              <Input type="number" step="0.01" disabled={isLocked}
-                                className="h-7 text-right w-24"
-                                value={lancRow?.ajuste_manual_reais ?? 0}
-                                onChange={(e) => updateLanc(l.modulo_id, { ajuste_manual_reais: Number(e.target.value) })}
-                              />
-                            </td>
-                            <td className="px-2 py-1 text-right font-semibold">{brl(l.total_fatura_energy)}</td>
-                            <td className="px-2 py-1 text-right font-semibold">{brl(l.total_fatura_copel)}</td>
-                            <td className="px-2 py-1 text-center">
-                              {l.bate ? <CheckCircle2 className="h-4 w-4 text-green-600 inline" /> : <AlertTriangle className="h-4 w-4 text-amber-600 inline" />}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                      {/* Totais */}
-                      <tr className="border-t-2 border-primary bg-primary/5 font-bold">
-                        <td className="sticky left-0 bg-primary/10 px-2 py-2 z-10 border-r">TOTAL</td>
-                        <td />
-                        <td className="px-2 py-2 text-right">{num(memoria.totais.area_m2)}</td>
-                        <td className="px-2 py-2 text-right">{num(memoria.totais.demanda_contratada)}</td>
-                        <td className="px-2 py-2 text-right">{num(memoria.totais.demanda_usd)}</td>
-                        <td className="px-2 py-2 text-right">{num(memoria.totais.ultrapassagem)}</td>
-                        <td className="px-2 py-2 text-right">{brl(memoria.totais.rs_demanda_total)}</td>
-                        <td className="px-2 py-2 text-right">{num(memoria.totais.consumo_ponta)}</td>
-                        <td className="px-2 py-2 text-right">{num(memoria.totais.consumo_fora)}</td>
-                        <td className="px-2 py-2 text-right">{num(memoria.totais.consumo_total)}</td>
-                        <td className="px-2 py-2 text-right">{brl(memoria.totais.rs_consumo_total)}</td>
-                        <td className="px-2 py-2 text-right">{num(memoria.totais.perdas_kwh)}</td>
-                        <td className="px-2 py-2 text-right">{brl(memoria.totais.rs_perdas)}</td>
-                        <td className="px-2 py-2 text-right">{brl(memoria.totais.icms_total)}</td>
-                        <td className="px-2 py-2 text-right">{brl(memoria.totais.piscof_total)}</td>
-                        <td className="px-2 py-2 text-right">{brl(memoria.totais.iluminacao_publica)}</td>
-                        <td className="px-2 py-2 text-right">{brl(memoria.totais.bandeira_total)}</td>
-                        <td className="px-2 py-2 text-right">{brl(memoria.totais.cred_deb_rateado)}</td>
-                        <td className="px-2 py-2 text-right">{brl(memoria.totais.fotovoltaico)}</td>
-                        <td className="px-2 py-2 text-right">{brl(memoria.totais.ajuste_manual)}</td>
-                        <td className="px-2 py-2 text-right text-primary">{brl(memoria.totais.total_fatura_energy)}</td>
-                        <td className="px-2 py-2 text-right text-primary">{brl(memoria.totais.total_fatura_copel)}</td>
-                        <td />
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
+                <MatrizModulos
+                  memoria={memoria}
+                  lancamentos={lancamentos}
+                  updateLanc={updateLanc}
+                  isLocked={isLocked}
+                  num={num}
+                  brl={brl}
+                />
               </CardContent>
             </Card>
           )}
         </>
       )}
     </div>
+  );
+}
+
+// ─── Matriz por Módulo (visões agrupadas para caber na tela) ───────────────
+type VisaoKey = 'demanda' | 'consumo' | 'tributos' | 'ajustes' | 'completa';
+
+interface MatrizProps {
+  memoria: { linhas: MemoriaLinha[]; totais: MemoriaLinha };
+  lancamentos: Record<string, LancamentoRow>;
+  updateLanc: (modulo_id: string, patch: Partial<LancamentoRow>) => void;
+  isLocked: boolean;
+  num: (v: number) => string;
+  brl: (v: number) => string;
+}
+
+function MatrizModulos({ memoria, lancamentos, updateLanc, isLocked, num, brl }: MatrizProps) {
+  const [visao, setVisao] = useState<VisaoKey>('demanda');
+
+  const headCell = 'px-1.5 py-1.5 text-[11px] whitespace-nowrap font-semibold';
+  const dataCell = 'px-1.5 py-0.5 text-[11px] tabular-nums';
+  const editBg = 'bg-yellow-50 dark:bg-yellow-950/30';
+  const editHeadBg = 'bg-yellow-100 dark:bg-yellow-900/30';
+
+  const renderInput = (
+    moduloId: string,
+    field: 'demanda_usd_medida_kw' | 'consumo_ponta_kwh' | 'consumo_fora_kwh' | 'ajuste_manual_reais',
+  ) => (
+    <Input
+      type="number"
+      step="0.01"
+      disabled={isLocked}
+      className="h-6 text-right w-full min-w-0 px-1 text-[11px]"
+      value={lancamentos[moduloId]?.[field] ?? 0}
+      onChange={(e) => updateLanc(moduloId, { [field]: Number(e.target.value) } as Partial<LancamentoRow>)}
+    />
+  );
+
+  // Colunas dinâmicas por visão
+  const visaoCols: Record<Exclude<VisaoKey, 'completa'>, Array<{
+    head: React.ReactNode;
+    cell: (l: MemoriaLinha) => React.ReactNode;
+    total: React.ReactNode;
+    editable?: boolean;
+    align?: 'left' | 'right' | 'center';
+  }>> = {
+    demanda: [
+      { head: 'Dem. Contr.', cell: (l) => num(l.demanda_contratada), total: num(memoria.totais.demanda_contratada), align: 'right' },
+      { head: 'Dem. USD', editable: true, cell: (l) => renderInput(l.modulo_id, 'demanda_usd_medida_kw'), total: num(memoria.totais.demanda_usd), align: 'right' },
+      { head: 'Ultrap.', cell: (l) => num(l.ultrapassagem), total: num(memoria.totais.ultrapassagem), align: 'right' },
+      { head: 'R$ Demanda', cell: (l) => brl(l.rs_demanda_total), total: brl(memoria.totais.rs_demanda_total), align: 'right' },
+    ],
+    consumo: [
+      { head: 'Cons. Ponta', editable: true, cell: (l) => renderInput(l.modulo_id, 'consumo_ponta_kwh'), total: num(memoria.totais.consumo_ponta), align: 'right' },
+      { head: 'Cons. Fora', editable: true, cell: (l) => renderInput(l.modulo_id, 'consumo_fora_kwh'), total: num(memoria.totais.consumo_fora), align: 'right' },
+      { head: 'Cons. Total', cell: (l) => num(l.consumo_total), total: num(memoria.totais.consumo_total), align: 'right' },
+      { head: 'R$ Consumo', cell: (l) => brl(l.rs_consumo_total), total: brl(memoria.totais.rs_consumo_total), align: 'right' },
+      { head: 'Perdas kWh', cell: (l) => num(l.perdas_kwh), total: num(memoria.totais.perdas_kwh), align: 'right' },
+      { head: 'R$ Perdas', cell: (l) => brl(l.rs_perdas), total: brl(memoria.totais.rs_perdas), align: 'right' },
+    ],
+    tributos: [
+      { head: 'ICMS', cell: (l) => brl(l.icms_total), total: brl(memoria.totais.icms_total), align: 'right' },
+      { head: 'PIS/COFINS', cell: (l) => brl(l.piscof_total), total: brl(memoria.totais.piscof_total), align: 'right' },
+      { head: 'Ilum. Pub.', cell: (l) => brl(l.iluminacao_publica), total: brl(memoria.totais.iluminacao_publica), align: 'right' },
+      { head: 'Bandeira', cell: (l) => brl(l.bandeira_total), total: brl(memoria.totais.bandeira_total), align: 'right' },
+      { head: 'Créd/Déb', cell: (l) => brl(l.cred_deb_rateado), total: brl(memoria.totais.cred_deb_rateado), align: 'right' },
+      { head: 'Fotovolt.', cell: (l) => brl(l.fotovoltaico), total: brl(memoria.totais.fotovoltaico), align: 'right' },
+    ],
+    ajustes: [
+      { head: 'Ajuste', editable: true, cell: (l) => renderInput(l.modulo_id, 'ajuste_manual_reais'), total: brl(memoria.totais.ajuste_manual), align: 'right' },
+    ],
+  };
+
+  const renderTabela = (cols: typeof visaoCols.demanda) => (
+    <div className="overflow-x-auto">
+      <table className="text-[11px] border-collapse w-full table-fixed">
+        <thead className="bg-muted">
+          <tr className="border-b">
+            <th className={`sticky left-0 bg-muted text-left z-10 w-[70px] ${headCell}`}>Módulo</th>
+            <th className={`text-left ${headCell}`} style={{ width: '22%' }}>Cliente</th>
+            <th className={`text-right ${headCell}`} style={{ width: '60px' }}>Área m²</th>
+            {cols.map((c, i) => (
+              <th key={i} className={`text-${c.align ?? 'right'} ${headCell} ${c.editable ? editHeadBg : ''}`}>{c.head}</th>
+            ))}
+            <th className={`text-right ${headCell} font-bold`} style={{ width: '88px' }}>Tot. Energy</th>
+            <th className={`text-right ${headCell} font-bold`} style={{ width: '88px' }}>Tot. Copel</th>
+            <th className={`text-center ${headCell}`} style={{ width: '36px' }}>OK</th>
+          </tr>
+        </thead>
+        <tbody>
+          {memoria.linhas.map((l, i) => (
+            <tr key={l.modulo_id} className={i % 2 ? 'bg-muted/30' : ''}>
+              <td className={`sticky left-0 bg-background font-medium z-10 border-r ${dataCell}`}>{l.identificador}</td>
+              <td className={`${dataCell} truncate`} title={l.cliente_nome}>{l.cliente_nome}</td>
+              <td className={`${dataCell} text-right`}>{num(l.area_m2)}</td>
+              {cols.map((c, j) => (
+                <td key={j} className={`${dataCell} text-${c.align ?? 'right'} ${c.editable ? editBg : ''}`}>
+                  {c.cell(l)}
+                </td>
+              ))}
+              <td className={`${dataCell} text-right font-semibold`}>{brl(l.total_fatura_energy)}</td>
+              <td className={`${dataCell} text-right font-semibold`}>{brl(l.total_fatura_copel)}</td>
+              <td className={`${dataCell} text-center`}>
+                {l.bate ? <CheckCircle2 className="h-3.5 w-3.5 text-green-600 inline" /> : <AlertTriangle className="h-3.5 w-3.5 text-amber-600 inline" />}
+              </td>
+            </tr>
+          ))}
+          <tr className="border-t-2 border-primary bg-primary/5 font-bold">
+            <td className={`sticky left-0 bg-primary/10 z-10 border-r ${dataCell}`}>TOTAL</td>
+            <td />
+            <td className={`${dataCell} text-right`}>{num(memoria.totais.area_m2)}</td>
+            {cols.map((c, j) => (
+              <td key={j} className={`${dataCell} text-${c.align ?? 'right'}`}>{c.total}</td>
+            ))}
+            <td className={`${dataCell} text-right text-primary`}>{brl(memoria.totais.total_fatura_energy)}</td>
+            <td className={`${dataCell} text-right text-primary`}>{brl(memoria.totais.total_fatura_copel)}</td>
+            <td />
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+
+  const renderCompleta = () => (
+    <div className="overflow-x-auto">
+      <table className="text-[11px] border-collapse w-full">
+        <thead className="bg-muted">
+          <tr className="border-b">
+            <th className={`sticky left-0 bg-muted text-left z-10 ${headCell}`}>Módulo</th>
+            <th className={`text-left ${headCell}`}>Cliente</th>
+            <th className={`text-right ${headCell}`}>Área m²</th>
+            <th className={`text-right ${headCell}`}>Dem. Contr.</th>
+            <th className={`text-right ${headCell} ${editHeadBg}`}>Dem. USD</th>
+            <th className={`text-right ${headCell}`}>Ultrap.</th>
+            <th className={`text-right ${headCell}`}>R$ Demanda</th>
+            <th className={`text-right ${headCell} ${editHeadBg}`}>Cons. Ponta</th>
+            <th className={`text-right ${headCell} ${editHeadBg}`}>Cons. Fora</th>
+            <th className={`text-right ${headCell}`}>Cons. Total</th>
+            <th className={`text-right ${headCell}`}>R$ Consumo</th>
+            <th className={`text-right ${headCell}`}>Perdas kWh</th>
+            <th className={`text-right ${headCell}`}>R$ Perdas</th>
+            <th className={`text-right ${headCell}`}>ICMS</th>
+            <th className={`text-right ${headCell}`}>PIS/COFINS</th>
+            <th className={`text-right ${headCell}`}>Ilum. Pub.</th>
+            <th className={`text-right ${headCell}`}>Bandeira</th>
+            <th className={`text-right ${headCell}`}>Créd/Déb</th>
+            <th className={`text-right ${headCell}`}>Fotovolt.</th>
+            <th className={`text-right ${headCell} ${editHeadBg}`}>Ajuste</th>
+            <th className={`text-right ${headCell} font-bold`}>TOTAL Energy</th>
+            <th className={`text-right ${headCell} font-bold`}>TOTAL Copel</th>
+            <th className={`text-center ${headCell}`}>OK</th>
+          </tr>
+        </thead>
+        <tbody>
+          {memoria.linhas.map((l, i) => (
+            <tr key={l.modulo_id} className={i % 2 ? 'bg-muted/30' : ''}>
+              <td className={`sticky left-0 bg-background font-medium z-10 border-r ${dataCell}`}>{l.identificador}</td>
+              <td className={dataCell}>{l.cliente_nome}</td>
+              <td className={`${dataCell} text-right`}>{num(l.area_m2)}</td>
+              <td className={`${dataCell} text-right`}>{num(l.demanda_contratada)}</td>
+              <td className={`${dataCell} ${editBg}`}>{renderInput(l.modulo_id, 'demanda_usd_medida_kw')}</td>
+              <td className={`${dataCell} text-right`}>{num(l.ultrapassagem)}</td>
+              <td className={`${dataCell} text-right`}>{brl(l.rs_demanda_total)}</td>
+              <td className={`${dataCell} ${editBg}`}>{renderInput(l.modulo_id, 'consumo_ponta_kwh')}</td>
+              <td className={`${dataCell} ${editBg}`}>{renderInput(l.modulo_id, 'consumo_fora_kwh')}</td>
+              <td className={`${dataCell} text-right`}>{num(l.consumo_total)}</td>
+              <td className={`${dataCell} text-right`}>{brl(l.rs_consumo_total)}</td>
+              <td className={`${dataCell} text-right`}>{num(l.perdas_kwh)}</td>
+              <td className={`${dataCell} text-right`}>{brl(l.rs_perdas)}</td>
+              <td className={`${dataCell} text-right`}>{brl(l.icms_total)}</td>
+              <td className={`${dataCell} text-right`}>{brl(l.piscof_total)}</td>
+              <td className={`${dataCell} text-right`}>{brl(l.iluminacao_publica)}</td>
+              <td className={`${dataCell} text-right`}>{brl(l.bandeira_total)}</td>
+              <td className={`${dataCell} text-right`}>{brl(l.cred_deb_rateado)}</td>
+              <td className={`${dataCell} text-right`}>{brl(l.fotovoltaico)}</td>
+              <td className={`${dataCell} ${editBg}`}>{renderInput(l.modulo_id, 'ajuste_manual_reais')}</td>
+              <td className={`${dataCell} text-right font-semibold`}>{brl(l.total_fatura_energy)}</td>
+              <td className={`${dataCell} text-right font-semibold`}>{brl(l.total_fatura_copel)}</td>
+              <td className={`${dataCell} text-center`}>
+                {l.bate ? <CheckCircle2 className="h-3.5 w-3.5 text-green-600 inline" /> : <AlertTriangle className="h-3.5 w-3.5 text-amber-600 inline" />}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  return (
+    <Tabs value={visao} onValueChange={(v) => setVisao(v as VisaoKey)} className="w-full">
+      <div className="px-4 pb-3">
+        <TabsList className="grid w-full grid-cols-5 max-w-2xl">
+          <TabsTrigger value="demanda">Demanda</TabsTrigger>
+          <TabsTrigger value="consumo">Consumo</TabsTrigger>
+          <TabsTrigger value="tributos">Tributos/Encargos</TabsTrigger>
+          <TabsTrigger value="ajustes">Ajustes</TabsTrigger>
+          <TabsTrigger value="completa">Completa</TabsTrigger>
+        </TabsList>
+      </div>
+      <TabsContent value="demanda" className="mt-0">{renderTabela(visaoCols.demanda)}</TabsContent>
+      <TabsContent value="consumo" className="mt-0">{renderTabela(visaoCols.consumo)}</TabsContent>
+      <TabsContent value="tributos" className="mt-0">{renderTabela(visaoCols.tributos)}</TabsContent>
+      <TabsContent value="ajustes" className="mt-0">{renderTabela(visaoCols.ajustes)}</TabsContent>
+      <TabsContent value="completa" className="mt-0">{renderCompleta()}</TabsContent>
+    </Tabs>
   );
 }

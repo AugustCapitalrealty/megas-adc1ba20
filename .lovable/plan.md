@@ -1,34 +1,65 @@
 ## Objetivo
 
-Remover a aba "Rateio Energia" de `/admin/usuarios` e criar uma página dedicada `/admin/rateio-energia`, acessível apenas para admin, com experiência completa (header próprio, breadcrumb, item no menu lateral e prefetch).
+1. **Cadastrar os módulos do Mega Curitiba** (módulos 1–70, com o 39 dividido em **39A** e **39B**, mais **"Área Comum"**) → 72 registros no total.
+2. **Refazer o layout da "Matriz por Módulo"** para caber na tela sem scroll horizontal.
 
-## Mudanças
+---
 
-### 1. Nova página `src/pages/AdminRateioEnergia.tsx`
-- `PageContainer` + `PageHeader` com título "Rateio de Energia", descrição e ícone `Zap`.
-- Renderiza `<RateioEnergiaTab />` (mantém as sub-abas internas: Memória de Cálculo, Contratos, Grandezas Contratadas, Cadastros — esse é o conteúdo da página, não muda).
-- Guarda local: se `!isAdmin`, redireciona para `/` (mesma defesa em profundidade que `Admin.tsx`).
+## 1. Seed dos módulos
 
-### 2. Rota em `src/App.tsx`
-- Adicionar dentro do `ProtectedShell`:
-  ```tsx
-  <Route path="admin/rateio-energia" element={<RequireRole role="admin"><AdminRateioEnergia /></RequireRole>} />
-  ```
-- `lazyWithRetry` import da nova página.
+Limpar os módulos existentes (hoje só há o "30" de teste) e inserir via migration:
 
-### 3. Menu lateral `src/components/layout/AppLayout.tsx`
-- Adicionar item admin: `{ href: '/admin/rateio-energia', label: 'Rateio de Energia', icon: Zap }` (após "Design System" ou agrupado com os demais admin).
-- Adicionar entrada no mapa de prefetch: `'/admin/rateio-energia': () => import('@/pages/AdminRateioEnergia')`.
+- Ordem 1 → identificador `1`
+- Ordem 2 → `2`
+- … até ordem 38 → `38`
+- Ordem 39 → `39A`
+- Ordem 40 → `39B`
+- Ordem 41 → `40` … até ordem 71 → `70`
+- Ordem 72 → `Área Comum`
 
-### 4. Breadcrumb `src/components/layout/AppBreadcrumbs.tsx`
-- Adicionar `'/admin/rateio-energia': 'Rateio de Energia'`.
+Todos com `area_m2 = 0`, `ativo = true`, `cliente_id = NULL` (Vago) e `demanda_contratada_kw = 0`. A área de cada módulo será preenchida depois na aba **Cadastros** pelo admin (campo já existente, editável inline).
 
-### 5. Remover da página de Usuários `src/pages/Admin.tsx`
-- Remover `TabsTrigger value="rateio-energia"` (linha ~779) e o `TabsContent value="rateio-energia"` (linhas ~1082-1083).
-- Remover o import `RateioEnergiaTab` e o ícone `Zap` se não for mais usado.
-- Se a rota antiga `?tab=rateio-energia` for acessada, redirecionar via `useEffect` para `/admin/rateio-energia` (compatibilidade com links salvos).
+Aviso: a tabela `energia_contrato_modulos` referencia `energia_modulos`; vamos validar que está vazia antes de truncar. Se houver vínculos, faremos `DELETE` somente do módulo "30" e `INSERT` dos demais sem colidir.
 
-## Não muda
-- Conteúdo interno de `RateioEnergiaTab` e suas sub-abas permanece intacto.
-- Aba "Rateio (áreas)" antiga (`RateioConfigTab`) continua em Usuários — o pedido é só sobre Rateio de Energia.
-- Permissões já existentes (`RequireRole admin`).
+---
+
+## 2. Redesenho da Matriz por Módulo
+
+Hoje a matriz tem **23 colunas** numa única tabela com `overflow-x-auto` — impossível caber em 1338 px. Proposta:
+
+### a) Agrupar colunas em "visões" com tabs internas
+
+A linha do módulo (com `Módulo`, `Cliente`, `Área`, `Total Energy`, `Total Copel`, `OK`) fica **fixa** em todas as visões. As demais colunas viram 4 grupos selecionáveis por um `Tabs` no topo da matriz:
+
+| Visão           | Colunas exibidas                                                                 |
+| --------------- | -------------------------------------------------------------------------------- |
+| **Demanda**     | Dem. Contr. · Dem. USD ✏️ · Ultrap. · R$ Demanda                                  |
+| **Consumo**     | Cons. Ponta ✏️ · Cons. Fora ✏️ · Cons. Total · R$ Consumo · Perdas kWh · R$ Perdas |
+| **Tributos/Encargos** | ICMS · PIS/COFINS · Ilum. Pública · Bandeira · Créd/Déb · Fotovolt.         |
+| **Ajustes**     | Ajuste ✏️                                                                         |
+
+Colunas fixas (sempre visíveis): **Módulo · Cliente · Área · TOTAL Energy · TOTAL Copel · OK**.
+
+Com isso cada visão tem no máximo ~11 colunas → cabe confortavelmente em 1338 px sem scroll horizontal.
+
+### b) Compactação visual
+
+- Reduzir `px-2` → `px-1.5`, padding vertical em linhas para `py-0.5`.
+- Inputs editáveis com `w-20` (em vez de `w-24`) e `h-6`.
+- `Cliente`: truncar com `max-w-[160px] truncate` + tooltip no hover.
+- Cabeçalhos com `whitespace-nowrap` e `text-[11px]`.
+- Linha de **TOTAL** continua sticky no fim, agora respeitando a visão selecionada.
+- Manter a coluna **Módulo** sticky à esquerda.
+
+### c) Visão "Completa" opcional
+
+Adicionar uma 5ª aba **"Completa"** que mantém o comportamento atual (todas as colunas + scroll horizontal) para quem quiser ver tudo de uma vez ou exportar.
+
+---
+
+## Arquivos afetados
+
+- **Novo:** `supabase/migrations/<timestamp>_seed_modulos_mega_curitiba.sql` — limpa e insere os 72 módulos.
+- **Editado:** `src/components/admin/energia/MemoriaCalculoTab.tsx` — refatorar o bloco "Matriz por Módulo" (linhas 617–743) introduzindo `Tabs` com as 4 visões + "Completa", colunas fixas e compactação visual.
+
+Nenhuma alteração no engine de cálculo (`src/lib/energia-rateio.ts`) ou nas demais abas.
