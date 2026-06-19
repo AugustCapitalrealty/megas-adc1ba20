@@ -316,3 +316,91 @@ export const DEFAULT_TARIFAS: EnergiaTarifas = {
   fotovoltaico_geracao_ponta_kwh: 0,
   fotovoltaico_geracao_fora_kwh: 0,
 };
+
+// ── Consolidação por cliente ─────────────────────────────
+// Um cliente (ex.: Mercado Livre) pode ocupar N módulos. A cobrança é UMA
+// fatura por cliente que soma todos os módulos dele. Esta função agrupa as
+// linhas da memória de cálculo por cliente.
+export interface FaturaCliente {
+  cliente_key: string;          // id do cliente, ou 'VAGO' / 'AREA_COMUM'
+  cliente_nome: string;
+  modulos: string[];            // lista de identificadores dos módulos
+  area_m2: number;
+  consumo_ponta: number;
+  consumo_fora: number;
+  consumo_total: number;
+  demanda_usd: number;
+  rs_demanda_total: number;
+  rs_consumo_total: number;
+  rs_perdas: number;
+  icms_total: number;
+  piscof_total: number;
+  iluminacao_publica: number;
+  bandeira_total: number;
+  cred_deb_rateado: number;
+  fotovoltaico: number;
+  ajuste_manual: number;
+  total_fatura_energy: number;
+  total_fatura_copel: number;
+}
+
+export function agruparPorCliente(
+  linhas: MemoriaLinha[],
+  modulos: Array<{ id: string; cliente_id: string | null; identificador: string }>,
+): FaturaCliente[] {
+  const moduloMap = new Map(modulos.map(m => [m.id, m]));
+  const acc = new Map<string, FaturaCliente>();
+
+  for (const l of linhas) {
+    const m = moduloMap.get(l.modulo_id);
+    const isArea = (l.identificador || '').toUpperCase().includes('ÁREA COMUM')
+      || (l.identificador || '').toUpperCase().includes('AREA COMUM');
+    const key = isArea
+      ? 'AREA_COMUM'
+      : (m?.cliente_id ?? `VAGO:${l.modulo_id}`);
+    const nome = isArea ? 'Área Comum' : (l.cliente_nome || 'Vago');
+
+    let bucket = acc.get(key);
+    if (!bucket) {
+      bucket = {
+        cliente_key: key,
+        cliente_nome: nome,
+        modulos: [],
+        area_m2: 0,
+        consumo_ponta: 0, consumo_fora: 0, consumo_total: 0,
+        demanda_usd: 0,
+        rs_demanda_total: 0, rs_consumo_total: 0, rs_perdas: 0,
+        icms_total: 0, piscof_total: 0,
+        iluminacao_publica: 0, bandeira_total: 0,
+        cred_deb_rateado: 0, fotovoltaico: 0, ajuste_manual: 0,
+        total_fatura_energy: 0, total_fatura_copel: 0,
+      };
+      acc.set(key, bucket);
+    }
+    bucket.modulos.push(l.identificador);
+    bucket.area_m2 += l.area_m2;
+    bucket.consumo_ponta += l.consumo_ponta;
+    bucket.consumo_fora += l.consumo_fora;
+    bucket.consumo_total += l.consumo_total;
+    bucket.demanda_usd += l.demanda_usd;
+    bucket.rs_demanda_total += l.rs_demanda_total;
+    bucket.rs_consumo_total += l.rs_consumo_total;
+    bucket.rs_perdas += l.rs_perdas;
+    bucket.icms_total += l.icms_total;
+    bucket.piscof_total += l.piscof_total;
+    bucket.iluminacao_publica += l.iluminacao_publica;
+    bucket.bandeira_total += l.bandeira_total;
+    bucket.cred_deb_rateado += l.cred_deb_rateado;
+    bucket.fotovoltaico += l.fotovoltaico;
+    bucket.ajuste_manual += l.ajuste_manual;
+    bucket.total_fatura_energy += l.total_fatura_energy;
+    bucket.total_fatura_copel += l.total_fatura_copel;
+  }
+
+  // Área Comum sempre por último, demais por total desc
+  return Array.from(acc.values()).sort((a, b) => {
+    if (a.cliente_key === 'AREA_COMUM') return 1;
+    if (b.cliente_key === 'AREA_COMUM') return -1;
+    return b.total_fatura_energy - a.total_fatura_energy;
+  });
+}
