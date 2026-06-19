@@ -16,6 +16,8 @@ import {
   type EnergiaTarifas,
   type EnergiaLancamentoInput,
   type MemoriaLinha,
+  agruparPorCliente,
+  type FaturaCliente,
 } from '@/lib/energia-rateio';
 
 interface Competencia {
@@ -627,6 +629,7 @@ export function MemoriaCalculoTab() {
               <CardContent className="px-0">
                 <MatrizModulos
                   memoria={memoria}
+                  modulos={modulos}
                   lancamentos={lancamentos}
                   updateLanc={updateLanc}
                   isLocked={isLocked}
@@ -643,10 +646,11 @@ export function MemoriaCalculoTab() {
 }
 
 // ─── Matriz por Módulo (visões agrupadas para caber na tela) ───────────────
-type VisaoKey = 'demanda' | 'consumo' | 'tributos' | 'ajustes' | 'completa';
+type VisaoKey = 'cliente' | 'demanda' | 'consumo' | 'tributos' | 'ajustes' | 'completa';
 
 interface MatrizProps {
   memoria: { linhas: MemoriaLinha[]; totais: MemoriaLinha };
+  modulos: Modulo[];
   lancamentos: Record<string, LancamentoRow>;
   updateLanc: (modulo_id: string, patch: Partial<LancamentoRow>) => void;
   isLocked: boolean;
@@ -654,8 +658,17 @@ interface MatrizProps {
   brl: (v: number) => string;
 }
 
-function MatrizModulos({ memoria, lancamentos, updateLanc, isLocked, num, brl }: MatrizProps) {
-  const [visao, setVisao] = useState<VisaoKey>('demanda');
+function MatrizModulos({ memoria, modulos, lancamentos, updateLanc, isLocked, num, brl }: MatrizProps) {
+  const [visao, setVisao] = useState<VisaoKey>('cliente');
+
+  const faturasCliente: FaturaCliente[] = useMemo(
+    () => agruparPorCliente(memoria.linhas, modulos.map(m => ({ id: m.id, cliente_id: m.cliente_id, identificador: m.identificador }))),
+    [memoria.linhas, modulos],
+  );
+  const [expandido, setExpandido] = useState<Record<string, boolean>>({});
+  const toggleCliente = (key: string) => setExpandido(s => ({ ...s, [key]: !s[key] }));
+  const totalEnergyCli = faturasCliente.reduce((s, f) => s + f.total_fatura_energy, 0);
+  const totalCopelCli = faturasCliente.reduce((s, f) => s + f.total_fatura_copel, 0);
 
   const headCell = 'px-1.5 py-1.5 text-[11px] whitespace-nowrap font-semibold';
   const dataCell = 'px-1.5 py-0.5 text-[11px] tabular-nums';
@@ -829,7 +842,8 @@ function MatrizModulos({ memoria, lancamentos, updateLanc, isLocked, num, brl }:
   return (
     <Tabs value={visao} onValueChange={(v) => setVisao(v as VisaoKey)} className="w-full">
       <div className="px-4 pb-3">
-        <TabsList className="grid w-full grid-cols-5 max-w-2xl">
+        <TabsList className="grid w-full grid-cols-6 max-w-3xl">
+          <TabsTrigger value="cliente">Fatura por Cliente</TabsTrigger>
           <TabsTrigger value="demanda">Demanda</TabsTrigger>
           <TabsTrigger value="consumo">Consumo</TabsTrigger>
           <TabsTrigger value="tributos">Tributos/Encargos</TabsTrigger>
@@ -837,6 +851,73 @@ function MatrizModulos({ memoria, lancamentos, updateLanc, isLocked, num, brl }:
           <TabsTrigger value="completa">Completa</TabsTrigger>
         </TabsList>
       </div>
+      <TabsContent value="cliente" className="mt-0">
+        <div className="overflow-x-auto">
+          <table className="text-[12px] border-collapse w-full">
+            <thead className="bg-muted">
+              <tr className="border-b">
+                <th className={`text-left ${headCell} w-8`}></th>
+                <th className={`text-left ${headCell}`}>Cliente</th>
+                <th className={`text-center ${headCell} w-16`}>Módulos</th>
+                <th className={`text-right ${headCell}`}>Área m²</th>
+                <th className={`text-right ${headCell}`}>Cons. Total kWh</th>
+                <th className={`text-right ${headCell}`}>R$ Demanda</th>
+                <th className={`text-right ${headCell}`}>R$ Consumo</th>
+                <th className={`text-right ${headCell}`}>R$ Tributos</th>
+                <th className={`text-right ${headCell}`}>Fotovolt.</th>
+                <th className={`text-right ${headCell} font-bold`}>TOTAL Energy</th>
+                <th className={`text-right ${headCell} font-bold`}>TOTAL Copel</th>
+              </tr>
+            </thead>
+            <tbody>
+              {faturasCliente.map((f) => (
+                <>
+                  <tr
+                    key={f.cliente_key}
+                    className={`border-b cursor-pointer hover:bg-muted/40 ${f.cliente_key === 'AREA_COMUM' ? 'bg-amber-50/40 dark:bg-amber-950/20' : ''}`}
+                    onClick={() => toggleCliente(f.cliente_key)}
+                  >
+                    <td className={`${dataCell} text-center`}>{expandido[f.cliente_key] ? '▾' : '▸'}</td>
+                    <td className={`${dataCell} font-semibold`}>{f.cliente_nome}</td>
+                    <td className={`${dataCell} text-center`}>{f.modulos.length}</td>
+                    <td className={`${dataCell} text-right`}>{num(f.area_m2)}</td>
+                    <td className={`${dataCell} text-right`}>{num(f.consumo_total)}</td>
+                    <td className={`${dataCell} text-right`}>{brl(f.rs_demanda_total)}</td>
+                    <td className={`${dataCell} text-right`}>{brl(f.rs_consumo_total + f.rs_perdas)}</td>
+                    <td className={`${dataCell} text-right`}>{brl(f.icms_total + f.piscof_total + f.iluminacao_publica + f.bandeira_total)}</td>
+                    <td className={`${dataCell} text-right`}>{brl(f.fotovoltaico)}</td>
+                    <td className={`${dataCell} text-right font-bold`}>{brl(f.total_fatura_energy)}</td>
+                    <td className={`${dataCell} text-right font-bold`}>{brl(f.total_fatura_copel)}</td>
+                  </tr>
+                  {expandido[f.cliente_key] && (
+                    <tr className="border-b bg-muted/20">
+                      <td colSpan={11} className="px-4 py-2 text-[11px] text-muted-foreground">
+                        <strong>Módulos:</strong> {f.modulos.join(', ')}
+                      </td>
+                    </tr>
+                  )}
+                </>
+              ))}
+              <tr className="border-t-2 border-primary bg-primary/5 font-bold">
+                <td />
+                <td className={dataCell}>TOTAL ({faturasCliente.length} clientes)</td>
+                <td className={`${dataCell} text-center`}>{memoria.linhas.length}</td>
+                <td className={`${dataCell} text-right`}>{num(memoria.totais.area_m2)}</td>
+                <td className={`${dataCell} text-right`}>{num(memoria.totais.consumo_total)}</td>
+                <td className={`${dataCell} text-right`}>{brl(memoria.totais.rs_demanda_total)}</td>
+                <td className={`${dataCell} text-right`}>{brl(memoria.totais.rs_consumo_total + memoria.totais.rs_perdas)}</td>
+                <td className={`${dataCell} text-right`}>{brl(memoria.totais.icms_total + memoria.totais.piscof_total + memoria.totais.iluminacao_publica + memoria.totais.bandeira_total)}</td>
+                <td className={`${dataCell} text-right`}>{brl(memoria.totais.fotovoltaico)}</td>
+                <td className={`${dataCell} text-right text-primary`}>{brl(totalEnergyCli)}</td>
+                <td className={`${dataCell} text-right text-primary`}>{brl(totalCopelCli)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p className="px-4 pt-2 text-[11px] text-muted-foreground">
+          Cada linha = 1 fatura enviada ao cliente. Clientes com vários módulos (ex.: Mercado Livre) são consolidados em uma cobrança única. Clique para ver os módulos.
+        </p>
+      </TabsContent>
       <TabsContent value="demanda" className="mt-0">{renderTabela(visaoCols.demanda)}</TabsContent>
       <TabsContent value="consumo" className="mt-0">{renderTabela(visaoCols.consumo)}</TabsContent>
       <TabsContent value="tributos" className="mt-0">{renderTabela(visaoCols.tributos)}</TabsContent>
