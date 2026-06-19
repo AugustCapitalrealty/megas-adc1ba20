@@ -1,65 +1,107 @@
 ## Objetivo
 
-1. **Cadastrar os módulos do Mega Curitiba** (módulos 1–70, com o 39 dividido em **39A** e **39B**, mais **"Área Comum"**) → 72 registros no total.
-2. **Refazer o layout da "Matriz por Módulo"** para caber na tela sem scroll horizontal.
+(1) Alinhar **Grandezas Contratadas** ao bloco real do contrato Copel; (2) criar entrada mensal dos **Itens da Fatura Copel**; (3) **agrupar cobrança por cliente** (Mercado Livre = 1 fatura para N módulos); (4) deixar claros os 3 inputs mensais por linha: **Demanda Usada (kW), Consumo Ponta (kWh), Consumo Fora Ponta (kWh)** — o resto é cálculo.
 
 ---
 
-## 1. Seed dos módulos
+## Vocabulário Copel (aprendido da fatura)
 
-Limpar os módulos existentes (hoje só há o "30" de teste) e inserir via migration:
+**GRANDEZAS CONTRATADAS** = bloco fixo do contrato com a concessionária. Só muda quando renegocia.
+- Demanda Todos os Períodos (kW) — hoje **750**
+- Demanda Fora Ponta, Energia Ponta, Energia Fora Ponta, Res. Capacidade Ponta/Fora, Montante Ponta/Fora — hoje **0**
 
-- Ordem 1 → identificador `1`
-- Ordem 2 → `2`
-- … até ordem 38 → `38`
-- Ordem 39 → `39A`
-- Ordem 40 → `39B`
-- Ordem 41 → `40` … até ordem 71 → `70`
-- Ordem 72 → `Área Comum`
+**Demanda Contratada** ≠ **Demanda Usada/Medida**. A contratada é do contrato; a usada é a medição mensal e gera USD/Isenta/Ultrapassagem.
 
-Todos com `area_m2 = 0`, `ativo = true`, `cliente_id = NULL` (Vago) e `demanda_contratada_kw = 0`. A área de cada módulo será preenchida depois na aba **Cadastros** pelo admin (campo já existente, editável inline).
+**ITENS DE FATURA** (6 linhas digitadas mês a mês a partir do PDF):
+TE Ponta, USD Ponta, TE Fora Ponta, USD Fora Ponta, Demanda USD, Iluminação Pública — cada uma com Quant, Preço unit c/ trib, Valor, PIS/COFINS, ICMS, Tarifa unit.
 
-Aviso: a tabela `energia_contrato_modulos` referencia `energia_modulos`; vamos validar que está vazia antes de truncar. Se houver vínculos, faremos `DELETE` somente do módulo "30" e `INSERT` dos demais sem colidir.
-
----
-
-## 2. Redesenho da Matriz por Módulo
-
-Hoje a matriz tem **23 colunas** numa única tabela com `overflow-x-auto` — impossível caber em 1338 px. Proposta:
-
-### a) Agrupar colunas em "visões" com tabs internas
-
-A linha do módulo (com `Módulo`, `Cliente`, `Área`, `Total Energy`, `Total Copel`, `OK`) fica **fixa** em todas as visões. As demais colunas viram 4 grupos selecionáveis por um `Tabs` no topo da matriz:
-
-| Visão           | Colunas exibidas                                                                 |
-| --------------- | -------------------------------------------------------------------------------- |
-| **Demanda**     | Dem. Contr. · Dem. USD ✏️ · Ultrap. · R$ Demanda                                  |
-| **Consumo**     | Cons. Ponta ✏️ · Cons. Fora ✏️ · Cons. Total · R$ Consumo · Perdas kWh · R$ Perdas |
-| **Tributos/Encargos** | ICMS · PIS/COFINS · Ilum. Pública · Bandeira · Créd/Déb · Fotovolt.         |
-| **Ajustes**     | Ajuste ✏️                                                                         |
-
-Colunas fixas (sempre visíveis): **Módulo · Cliente · Área · TOTAL Energy · TOTAL Copel · OK**.
-
-Com isso cada visão tem no máximo ~11 colunas → cabe confortavelmente em 1338 px sem scroll horizontal.
-
-### b) Compactação visual
-
-- Reduzir `px-2` → `px-1.5`, padding vertical em linhas para `py-0.5`.
-- Inputs editáveis com `w-20` (em vez de `w-24`) e `h-6`.
-- `Cliente`: truncar com `max-w-[160px] truncate` + tooltip no hover.
-- Cabeçalhos com `whitespace-nowrap` e `text-[11px]`.
-- Linha de **TOTAL** continua sticky no fim, agora respeitando a visão selecionada.
-- Manter a coluna **Módulo** sticky à esquerda.
-
-### c) Visão "Completa" opcional
-
-Adicionar uma 5ª aba **"Completa"** que mantém o comportamento atual (todas as colunas + scroll horizontal) para quem quiser ver tudo de uma vez ou exportar.
+**Tributos consolidados** ICMS / PIS / COFINS (base, alíquota, valor).
+**SCEE / Fotovoltaico**: saldos mês ponta/fora, acumulado ponta/fora, a expirar próximo mês.
+**Bandeira**: verde/amarela/vermelha 1/vermelha 2.
 
 ---
 
-## Arquivos afetados
+## Plano
 
-- **Novo:** `supabase/migrations/<timestamp>_seed_modulos_mega_curitiba.sql` — limpa e insere os 72 módulos.
-- **Editado:** `src/components/admin/energia/MemoriaCalculoTab.tsx` — refatorar o bloco "Matriz por Módulo" (linhas 617–743) introduzindo `Tabs` com as 4 visões + "Completa", colunas fixas e compactação visual.
+### 1. Aba "Grandezas Contratadas" — só contrato Copel
 
-Nenhuma alteração no engine de cálculo (`src/lib/energia-rateio.ts`) ou nas demais abas.
+Reescrever `src/components/admin/energia/GrandezasContratadasTab.tsx`:
+- Form enxuto: Vigência + 8 grandezas contratadas. Demanda TP default **750**, totalmente editável.
+- Listagem: Vigência | Demanda TP | Demanda FP | badge "Vigente".
+- Remover do form: tarifas TE/TUSD, iluminação, bandeira, PIS/COFINS/ICMS (passam para a fatura mensal).
+
+Migração `energia_grandezas_contratadas`:
+- Adicionar colunas: `demanda_fora_ponta_kw`, `energia_ponta_kwh`, `energia_fora_ponta_kwh`, `res_capacidade_ponta_kw`, `res_capacidade_fora_ponta_kw`, `montante_ponta_kw`, `montante_fora_ponta_kw` (numeric, default 0).
+- Seed: se não houver vigência aberta, inserir uma com `demanda_contratada_kw = 750`.
+- Colunas antigas de tarifa permanecem (compat), mas saem do form.
+
+### 2. Aba mensal "Fatura Copel" (Comparativo Copel)
+
+Novo `FaturaCopelTab.tsx` dentro da página de Rateio, por competência. Admin digita direto do PDF:
+- Cabeçalho: Mês/Ano, Vencimento, Total a Pagar, Leitura ant/atual/dias/próxima, Bandeira vigente.
+- 6 itens da fatura (linhas fixas) com colunas Quant, Preço unit c/trib, Valor, PIS/COFINS, ICMS, Tarifa unit.
+- 3 tributos consolidados ICMS/PIS/COFINS (base, alíquota %, valor).
+- Saldos SCEE da fatura (ponta/fora — mês, acumulado, expira próximo).
+
+Nova tabela `energia_competencia_fatura_copel` (1‑para‑1 com `energia_competencias`) + RLS + GRANTs (admin/backoffice manage, authenticated read, service_role all).
+
+### 3. Cobrança POR CLIENTE (não por módulo)
+
+Mudança conceitual: a unidade de **cobrança** é o cliente. Um cliente (ex.: Mercado Livre) pode ocupar N módulos — recebe **1 fatura** que soma o consumo/demanda/área de todos os módulos dele.
+
+Alterações:
+
+**a) Engine `src/lib/energia-rateio.ts`**
+- Continua recebendo `EnergiaLancamentoInput[]` por módulo (granularidade do medidor/contrato).
+- Nova função `agruparPorCliente(MemoriaResultado)` que soma todas as linhas de mesmo `cliente_id` (ou agrupa "sem cliente" / "Área Comum" separados). Retorna `FaturaCliente[]` com todos os campos somados + área somada + lista de módulos.
+
+**b) UI**
+- **Matriz por Módulo** (já existe) — visão operacional, continua igual.
+- Nova aba **"Fatura por Cliente"** — uma linha por cliente, expansível para mostrar os módulos que compõem. Esta é a tela impressa/enviada ao cliente.
+- PDF de cobrança (`src/lib/rateio-pdf.ts`) — gerar por cliente, não por módulo.
+
+**c) Edição dos inputs mensais** continua **por módulo** (cada módulo tem seu medidor). A consolidação é só na visualização e cobrança.
+
+### 4. Os 3 inputs mensais por módulo
+
+Manter na Matriz por Módulo apenas estes 3 campos editáveis (fundo amarelo já existente):
+- **Demanda Usada (kW)** — `demanda_usd_medida_kw` (G)
+- **Consumo Ponta (kWh)** — `consumo_ponta_kwh` (Q)
+- **Consumo Fora Ponta (kWh)** — `consumo_fora_kwh` (T)
+
+Tudo o mais (USD, Isenta, Ultrapassagem, R$ TE/TUSD, ICMS, PIS/COFINS, perdas, bandeira, IP, totais) é **calculado**. Já é o comportamento atual — vamos reforçar visualmente: tornar somente esses 3 inputs editáveis, demais colunas read-only com `tabular-nums`.
+
+`demanda_contratada_kw` (F) por módulo continua vindo do **contrato/módulo** (não é input mensal). Mostrar como read-only.
+
+### 5. Origem das tarifas para o cálculo
+
+`MemoriaCalculoTab` monta `EnergiaTarifas` a partir de **Fatura Copel da competência** (tarifa unit. dos itens). Fallback: se a fatura do mês não estiver preenchida, usa `energia_grandezas_contratadas` antigas (compat). Aviso visual quando estiver em fallback.
+
+### 6. Saldo Fotovoltaico — carry-over
+
+Já existe trigger `energia_propagar_saldo_fotovoltaico`. Adicionar: quando `energia_competencia_fatura_copel` é salva com saldo SCEE acumulado, sincronizar `fotovoltaico_saldo_final_*` da competência → próxima.
+
+### 7. Validação visual
+
+Card de competência: **Total da Fatura Copel (digitado)** vs **Soma das Faturas por Cliente (calculado)**. Diferença em R$ e %. Badge âmbar se ≠ 0.
+
+---
+
+## Detalhes técnicos
+
+**Migrações (uma só):**
+1. `ALTER energia_grandezas_contratadas ADD COLUMN ...` (7 colunas).
+2. `INSERT INTO energia_grandezas_contratadas` seed Demanda 750 (se vazia).
+3. `CREATE TABLE energia_competencia_fatura_copel (...)` + GRANT authenticated/service_role + RLS + policies + trigger updated_at.
+
+**Frontend:**
+- Reescreve: `GrandezasContratadasTab.tsx`.
+- Cria: `FaturaCopelTab.tsx`, `FaturaPorClienteTab.tsx`.
+- Edita: `MemoriaCalculoTab.tsx` (lê tarifas da fatura, marca apenas 3 inputs como editáveis, adiciona aba "Fatura por Cliente").
+- Edita: `src/lib/energia-rateio.ts` — adiciona `agruparPorCliente()`.
+- Edita: `src/lib/rateio-pdf.ts` — gera PDF por cliente.
+
+**Não muda:**
+- Página `/admin/rateio-energia` (shell).
+- `energia_modulos` (72 módulos carregados).
+- Lógica de fotovoltaico abater Área Comum.
