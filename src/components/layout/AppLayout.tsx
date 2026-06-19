@@ -34,6 +34,7 @@ import {
   CalendarDays,
   Sparkles,
   Palette,
+  Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -100,6 +101,7 @@ export function AppLayout() {
     { href: '/admin/sla', label: 'Dashboard SLA', icon: Timer },
     { href: '/admin/eficiencia', label: 'Eficiência', icon: BarChart3 },
     { href: '/admin/excelencia', label: 'Excelência', icon: Sparkles },
+    { href: '/admin/rateio-energia', label: 'Rateio de Energia', icon: Zap },
     { href: '/admin/design-system', label: 'Design System', icon: Palette },
   ];
 
@@ -132,6 +134,7 @@ export function AppLayout() {
       '/admin/sla': () => import('@/pages/DashboardSLA'),
       '/admin/eficiencia': () => import('@/pages/DashboardEficiencia'),
       '/admin/excelencia': () => import('@/pages/AdminExcelencia'),
+      '/admin/rateio-energia': () => import('@/pages/AdminRateioEnergia'),
       '/notificacoes': () => import('@/pages/Notificacoes'),
     };
     routeMap[path]?.();

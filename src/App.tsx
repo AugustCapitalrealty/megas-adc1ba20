@@ -45,6 +45,7 @@ const Calendario = lazyWithRetry(() => import("./pages/Calendario"));
 const Notificacoes = lazyWithRetry(() => import("./pages/Notificacoes"));
 const AdminExcelencia = lazyWithRetry(() => import("./pages/AdminExcelencia"));
 const AdminDesignSystem = lazyWithRetry(() => import("./pages/AdminDesignSystem"));
+const AdminRateioEnergia = lazyWithRetry(() => import("./pages/AdminRateioEnergia"));
 const NotFound = lazyWithRetry(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -82,6 +83,7 @@ function AppRoutes() {
           <Route path="admin/usuarios" element={<RequireRole role="admin"><Admin /></RequireRole>} />
           <Route path="admin/excelencia" element={<RequireRole role="admin"><AdminExcelencia /></RequireRole>} />
           <Route path="admin/design-system" element={<RequireRole role="admin"><AdminDesignSystem /></RequireRole>} />
+          <Route path="admin/rateio-energia" element={<RequireRole role="admin"><AdminRateioEnergia /></RequireRole>} />
         </Route>
 
         <Route path="*" element={<NotFound />} />
