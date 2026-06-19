@@ -626,121 +626,14 @@ export function MemoriaCalculoTab() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="px-0">
-                <div className="overflow-x-auto">
-                  <table className="text-xs border-collapse w-full">
-                    <thead className="bg-muted">
-                      <tr className="border-b">
-                        <th className="sticky left-0 bg-muted px-2 py-2 text-left font-semibold z-10">Módulo</th>
-                        <th className="px-2 py-2 text-left font-semibold">Cliente</th>
-                        <th className="px-2 py-2 text-right">Área m²</th>
-                        <th className="px-2 py-2 text-right">Dem. Contr.</th>
-                        <th className="px-2 py-2 text-right bg-yellow-100 dark:bg-yellow-900/30">Dem. USD</th>
-                        <th className="px-2 py-2 text-right">Ultrap.</th>
-                        <th className="px-2 py-2 text-right">R$ Demanda</th>
-                        <th className="px-2 py-2 text-right bg-yellow-100 dark:bg-yellow-900/30">Cons. Ponta</th>
-                        <th className="px-2 py-2 text-right bg-yellow-100 dark:bg-yellow-900/30">Cons. Fora</th>
-                        <th className="px-2 py-2 text-right">Cons. Total</th>
-                        <th className="px-2 py-2 text-right">R$ Consumo</th>
-                        <th className="px-2 py-2 text-right">Perdas kWh</th>
-                        <th className="px-2 py-2 text-right">R$ Perdas</th>
-                        <th className="px-2 py-2 text-right">ICMS</th>
-                        <th className="px-2 py-2 text-right">PIS/COFINS</th>
-                        <th className="px-2 py-2 text-right">Ilum. Pub.</th>
-                        <th className="px-2 py-2 text-right">Bandeira</th>
-                        <th className="px-2 py-2 text-right">Créd/Déb</th>
-                        <th className="px-2 py-2 text-right">Fotovolt.</th>
-                        <th className="px-2 py-2 text-right bg-yellow-100 dark:bg-yellow-900/30">Ajuste</th>
-                        <th className="px-2 py-2 text-right font-bold">TOTAL Energy</th>
-                        <th className="px-2 py-2 text-right font-bold">TOTAL Copel</th>
-                        <th className="px-2 py-2 text-center">OK</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {memoria.linhas.map((l, i) => {
-                        const lancRow = lancamentos[l.modulo_id];
-                        return (
-                          <tr key={l.modulo_id} className={i % 2 ? 'bg-muted/30' : ''}>
-                            <td className="sticky left-0 bg-background px-2 py-1 font-medium z-10 border-r">{l.identificador}</td>
-                            <td className="px-2 py-1">{l.cliente_nome}</td>
-                            <td className="px-2 py-1 text-right">{num(l.area_m2)}</td>
-                            <td className="px-2 py-1 text-right">{num(l.demanda_contratada)}</td>
-                            <td className="px-2 py-1 bg-yellow-50 dark:bg-yellow-950/30">
-                              <Input type="number" step="0.01" disabled={isLocked}
-                                className="h-7 text-right w-24"
-                                value={lancRow?.demanda_usd_medida_kw ?? 0}
-                                onChange={(e) => updateLanc(l.modulo_id, { demanda_usd_medida_kw: Number(e.target.value) })}
-                              />
-                            </td>
-                            <td className="px-2 py-1 text-right">{num(l.ultrapassagem)}</td>
-                            <td className="px-2 py-1 text-right">{brl(l.rs_demanda_total)}</td>
-                            <td className="px-2 py-1 bg-yellow-50 dark:bg-yellow-950/30">
-                              <Input type="number" step="0.01" disabled={isLocked}
-                                className="h-7 text-right w-24"
-                                value={lancRow?.consumo_ponta_kwh ?? 0}
-                                onChange={(e) => updateLanc(l.modulo_id, { consumo_ponta_kwh: Number(e.target.value) })}
-                              />
-                            </td>
-                            <td className="px-2 py-1 bg-yellow-50 dark:bg-yellow-950/30">
-                              <Input type="number" step="0.01" disabled={isLocked}
-                                className="h-7 text-right w-24"
-                                value={lancRow?.consumo_fora_kwh ?? 0}
-                                onChange={(e) => updateLanc(l.modulo_id, { consumo_fora_kwh: Number(e.target.value) })}
-                              />
-                            </td>
-                            <td className="px-2 py-1 text-right">{num(l.consumo_total)}</td>
-                            <td className="px-2 py-1 text-right">{brl(l.rs_consumo_total)}</td>
-                            <td className="px-2 py-1 text-right">{num(l.perdas_kwh)}</td>
-                            <td className="px-2 py-1 text-right">{brl(l.rs_perdas)}</td>
-                            <td className="px-2 py-1 text-right">{brl(l.icms_total)}</td>
-                            <td className="px-2 py-1 text-right">{brl(l.piscof_total)}</td>
-                            <td className="px-2 py-1 text-right">{brl(l.iluminacao_publica)}</td>
-                            <td className="px-2 py-1 text-right">{brl(l.bandeira_total)}</td>
-                            <td className="px-2 py-1 text-right">{brl(l.cred_deb_rateado)}</td>
-                            <td className="px-2 py-1 text-right">{brl(l.fotovoltaico)}</td>
-                            <td className="px-2 py-1 bg-yellow-50 dark:bg-yellow-950/30">
-                              <Input type="number" step="0.01" disabled={isLocked}
-                                className="h-7 text-right w-24"
-                                value={lancRow?.ajuste_manual_reais ?? 0}
-                                onChange={(e) => updateLanc(l.modulo_id, { ajuste_manual_reais: Number(e.target.value) })}
-                              />
-                            </td>
-                            <td className="px-2 py-1 text-right font-semibold">{brl(l.total_fatura_energy)}</td>
-                            <td className="px-2 py-1 text-right font-semibold">{brl(l.total_fatura_copel)}</td>
-                            <td className="px-2 py-1 text-center">
-                              {l.bate ? <CheckCircle2 className="h-4 w-4 text-green-600 inline" /> : <AlertTriangle className="h-4 w-4 text-amber-600 inline" />}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                      {/* Totais */}
-                      <tr className="border-t-2 border-primary bg-primary/5 font-bold">
-                        <td className="sticky left-0 bg-primary/10 px-2 py-2 z-10 border-r">TOTAL</td>
-                        <td />
-                        <td className="px-2 py-2 text-right">{num(memoria.totais.area_m2)}</td>
-                        <td className="px-2 py-2 text-right">{num(memoria.totais.demanda_contratada)}</td>
-                        <td className="px-2 py-2 text-right">{num(memoria.totais.demanda_usd)}</td>
-                        <td className="px-2 py-2 text-right">{num(memoria.totais.ultrapassagem)}</td>
-                        <td className="px-2 py-2 text-right">{brl(memoria.totais.rs_demanda_total)}</td>
-                        <td className="px-2 py-2 text-right">{num(memoria.totais.consumo_ponta)}</td>
-                        <td className="px-2 py-2 text-right">{num(memoria.totais.consumo_fora)}</td>
-                        <td className="px-2 py-2 text-right">{num(memoria.totais.consumo_total)}</td>
-                        <td className="px-2 py-2 text-right">{brl(memoria.totais.rs_consumo_total)}</td>
-                        <td className="px-2 py-2 text-right">{num(memoria.totais.perdas_kwh)}</td>
-                        <td className="px-2 py-2 text-right">{brl(memoria.totais.rs_perdas)}</td>
-                        <td className="px-2 py-2 text-right">{brl(memoria.totais.icms_total)}</td>
-                        <td className="px-2 py-2 text-right">{brl(memoria.totais.piscof_total)}</td>
-                        <td className="px-2 py-2 text-right">{brl(memoria.totais.iluminacao_publica)}</td>
-                        <td className="px-2 py-2 text-right">{brl(memoria.totais.bandeira_total)}</td>
-                        <td className="px-2 py-2 text-right">{brl(memoria.totais.cred_deb_rateado)}</td>
-                        <td className="px-2 py-2 text-right">{brl(memoria.totais.fotovoltaico)}</td>
-                        <td className="px-2 py-2 text-right">{brl(memoria.totais.ajuste_manual)}</td>
-                        <td className="px-2 py-2 text-right text-primary">{brl(memoria.totais.total_fatura_energy)}</td>
-                        <td className="px-2 py-2 text-right text-primary">{brl(memoria.totais.total_fatura_copel)}</td>
-                        <td />
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
+                <MatrizModulos
+                  memoria={memoria}
+                  lancamentos={lancamentos}
+                  updateLanc={updateLanc}
+                  isLocked={isLocked}
+                  num={num}
+                  brl={brl}
+                />
               </CardContent>
             </Card>
           )}
