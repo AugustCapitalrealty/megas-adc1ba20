@@ -8,7 +8,6 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Loader2, Plus, Copy, Lock, Unlock, Download, Calculator, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import {
