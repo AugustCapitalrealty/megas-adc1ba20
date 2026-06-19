@@ -710,9 +710,16 @@ export type Database = {
           bandeira_valor_padrao: number
           created_at: string
           demanda_contratada_kw: number
+          demanda_fora_ponta_kw: number
+          energia_fora_ponta_kwh: number
+          energia_ponta_kwh: number
           id: string
           iluminacao_publica_padrao: number
+          montante_fora_ponta_kw: number
+          montante_ponta_kw: number
           observacao: string | null
+          res_capacidade_fora_ponta_kw: number
+          res_capacidade_ponta_kw: number
           tarifa_demanda_isenta: number
           tarifa_demanda_usd: number
           tarifa_ultrapassagem: number
@@ -729,9 +736,16 @@ export type Database = {
           bandeira_valor_padrao?: number
           created_at?: string
           demanda_contratada_kw?: number
+          demanda_fora_ponta_kw?: number
+          energia_fora_ponta_kwh?: number
+          energia_ponta_kwh?: number
           id?: string
           iluminacao_publica_padrao?: number
+          montante_fora_ponta_kw?: number
+          montante_ponta_kw?: number
           observacao?: string | null
+          res_capacidade_fora_ponta_kw?: number
+          res_capacidade_ponta_kw?: number
           tarifa_demanda_isenta?: number
           tarifa_demanda_usd?: number
           tarifa_ultrapassagem?: number
@@ -748,9 +762,16 @@ export type Database = {
           bandeira_valor_padrao?: number
           created_at?: string
           demanda_contratada_kw?: number
+          demanda_fora_ponta_kw?: number
+          energia_fora_ponta_kwh?: number
+          energia_ponta_kwh?: number
           id?: string
           iluminacao_publica_padrao?: number
+          montante_fora_ponta_kw?: number
+          montante_ponta_kw?: number
           observacao?: string | null
+          res_capacidade_fora_ponta_kw?: number
+          res_capacidade_ponta_kw?: number
           tarifa_demanda_isenta?: number
           tarifa_demanda_usd?: number
           tarifa_ultrapassagem?: number
@@ -2070,9 +2091,16 @@ export type Database = {
           bandeira_valor_padrao: number
           created_at: string
           demanda_contratada_kw: number
+          demanda_fora_ponta_kw: number
+          energia_fora_ponta_kwh: number
+          energia_ponta_kwh: number
           id: string
           iluminacao_publica_padrao: number
+          montante_fora_ponta_kw: number
+          montante_ponta_kw: number
           observacao: string | null
+          res_capacidade_fora_ponta_kw: number
+          res_capacidade_ponta_kw: number
           tarifa_demanda_isenta: number
           tarifa_demanda_usd: number
           tarifa_ultrapassagem: number
