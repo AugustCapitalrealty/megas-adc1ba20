@@ -12,11 +12,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Loader2, Search, Shield, Users, UserCheck, UserCog, X, Building2, CheckCircle, XCircle, Clock, FileText, Mail, Pencil, Check, MessageSquare, Send, Wifi, WifiOff, Zap } from 'lucide-react';
+import { Loader2, Search, Shield, Users, UserCheck, UserCog, X, Building2, CheckCircle, XCircle, Clock, FileText, Mail, Pencil, Check, MessageSquare, Send, Wifi, WifiOff } from 'lucide-react';
 import { AppRole, ROLE_LABELS, Empreendimento, EMPREENDIMENTO_LABELS } from '@/types';
 import { SolicitacoesManagement } from '@/components/admin/SolicitacoesManagement';
 import { RateioConfigTab } from '@/components/RateioConfigTab';
-import { RateioEnergiaTab } from '@/components/admin/RateioEnergiaTab';
 import { WhatsAppAdminTab } from '@/components/admin/WhatsAppAdminTab';
 import {
   Dialog,
@@ -97,6 +96,13 @@ export default function Admin() {
   
   const activeTab = searchParams.get('tab') || 'usuarios';
   const setActiveTab = (tab: string) => setSearchParams({ tab });
+
+  // Backwards compatibility: rateio-energia moved to its own page
+  useEffect(() => {
+    if (searchParams.get('tab') === 'rateio-energia') {
+      navigate('/admin/rateio-energia', { replace: true });
+    }
+  }, [searchParams, navigate]);
 
   useEffect(() => {
     if (!authLoading && !isAdmin) {
@@ -776,10 +782,6 @@ export default function Admin() {
               <Building2 className="h-4 w-4" />
               Rateio
             </TabsTrigger>
-            <TabsTrigger value="rateio-energia" className="gap-2">
-              <Zap className="h-4 w-4" />
-              Rateio de Energia
-            </TabsTrigger>
             <TabsTrigger value="whatsapp" className="gap-2">
               <MessageSquare className="h-4 w-4" />
               WhatsApp
@@ -1077,10 +1079,6 @@ export default function Admin() {
 
           <TabsContent value="rateio" className="mt-6">
             <RateioConfigTab />
-          </TabsContent>
-
-          <TabsContent value="rateio-energia" className="mt-6">
-            <RateioEnergiaTab />
           </TabsContent>
 
           <TabsContent value="whatsapp" className="mt-6">
