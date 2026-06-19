@@ -690,7 +690,7 @@ function MatrizModulos({ memoria, modulos, lancamentos, updateLanc, isLocked, nu
   );
 
   // Colunas dinâmicas por visão
-  const visaoCols: Record<Exclude<VisaoKey, 'completa'>, Array<{
+  const visaoCols: Record<Exclude<VisaoKey, 'completa' | 'cliente'>, Array<{
     head: React.ReactNode;
     cell: (l: MemoriaLinha) => React.ReactNode;
     total: React.ReactNode;
