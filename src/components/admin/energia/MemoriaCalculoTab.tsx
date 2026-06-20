@@ -72,6 +72,26 @@ const brl = (n: number) =>
 const num = (n: number, dec = 2) =>
   n.toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
 
+// Parse pt-BR free text (vírgula = decimal, ponto = milhar). Aceita também "1.234,56".
+const parseBR = (s: string): number => {
+  if (s == null) return 0;
+  const t = String(s).trim();
+  if (!t) return 0;
+  // remove tudo que não é dígito, vírgula, ponto ou sinal
+  const cleaned = t.replace(/[^\d.,-]/g, '');
+  // se contém vírgula, a vírgula é o decimal e pontos são milhares
+  if (cleaned.includes(',')) {
+    return Number(cleaned.replace(/\./g, '').replace(',', '.')) || 0;
+  }
+  // sem vírgula: se tiver vários pontos, eles são milhares; senão é decimal normal
+  const dots = (cleaned.match(/\./g) || []).length;
+  if (dots > 1) return Number(cleaned.replace(/\./g, '')) || 0;
+  return Number(cleaned) || 0;
+};
+
+// Formato livre estilo fatura: preserva o que o usuário digitou.
+// Usado apenas para inputs livres (text). Para exibições calculadas usamos brl/num.
+
 function currentYM() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
