@@ -380,6 +380,7 @@ export type Database = {
           bandeira_valor: number
           cofins_pct: number
           competencia_id: string
+          consumo_por_cliente: Json
           copel_consumo_fora_kwh: number
           copel_consumo_ponta_kwh: number
           copel_cred_deb: number
@@ -399,6 +400,7 @@ export type Database = {
           cred_deb_fatura: number
           demanda_isenta: number
           demanda_usd: number
+          fatura_copel_itens: Json
           fotovoltaico_geracao_fora: number
           fotovoltaico_geracao_fora_kwh: number
           fotovoltaico_geracao_ponta: number
@@ -429,6 +431,7 @@ export type Database = {
           bandeira_valor?: number
           cofins_pct?: number
           competencia_id: string
+          consumo_por_cliente?: Json
           copel_consumo_fora_kwh?: number
           copel_consumo_ponta_kwh?: number
           copel_cred_deb?: number
@@ -448,6 +451,7 @@ export type Database = {
           cred_deb_fatura?: number
           demanda_isenta?: number
           demanda_usd?: number
+          fatura_copel_itens?: Json
           fotovoltaico_geracao_fora?: number
           fotovoltaico_geracao_fora_kwh?: number
           fotovoltaico_geracao_ponta?: number
@@ -478,6 +482,7 @@ export type Database = {
           bandeira_valor?: number
           cofins_pct?: number
           competencia_id?: string
+          consumo_por_cliente?: Json
           copel_consumo_fora_kwh?: number
           copel_consumo_ponta_kwh?: number
           copel_cred_deb?: number
@@ -497,6 +502,7 @@ export type Database = {
           cred_deb_fatura?: number
           demanda_isenta?: number
           demanda_usd?: number
+          fatura_copel_itens?: Json
           fotovoltaico_geracao_fora?: number
           fotovoltaico_geracao_fora_kwh?: number
           fotovoltaico_geracao_ponta?: number
