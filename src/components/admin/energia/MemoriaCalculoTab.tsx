@@ -1158,7 +1158,7 @@ function FaturaCopelCard({ faturaItens, updateItem, updateTributo, onSave, savin
       <CardHeader>
         <CardTitle>📄 Itens da Fatura Copel</CardTitle>
         <CardDescription>
-          Preencha exatamente como aparece na fatura física — sem casas decimais forçadas. Aceita "43.689", "0,549525", "24008,18".
+          Preencha apenas <strong>Quant.</strong> e <strong>Preço unit (R$)</strong> de cada linha — o Valor, PIS/COFINS, ICMS, Tarifa unit. e a tabela de Tributos são calculados automaticamente a partir das alíquotas do cadastro. Você ainda pode sobrescrever qualquer campo manualmente se a fatura tiver arredondamento diferente.
         </CardDescription>
       </CardHeader>
       <CardContent>
