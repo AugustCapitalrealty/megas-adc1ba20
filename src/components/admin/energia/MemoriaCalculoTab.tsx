@@ -116,16 +116,13 @@ const parseBR = (s: string): number => {
   if (s == null) return 0;
   const t = String(s).trim();
   if (!t) return 0;
-  // remove tudo que não é dígito, vírgula, ponto ou sinal
   const cleaned = t.replace(/[^\d.,-]/g, '');
-  // se contém vírgula, a vírgula é o decimal e pontos são milhares
+  // Formato pt-BR da fatura: vírgula = decimal, ponto = SEMPRE milhar.
+  // "43.689" => 43689 ; "0,549525" => 0.549525 ; "1.234,56" => 1234.56
   if (cleaned.includes(',')) {
     return Number(cleaned.replace(/\./g, '').replace(',', '.')) || 0;
   }
-  // sem vírgula: se tiver vários pontos, eles são milhares; senão é decimal normal
-  const dots = (cleaned.match(/\./g) || []).length;
-  if (dots > 1) return Number(cleaned.replace(/\./g, '')) || 0;
-  return Number(cleaned) || 0;
+  return Number(cleaned.replace(/\./g, '')) || 0;
 };
 
 // Formato livre estilo fatura: preserva o que o usuário digitou.
