@@ -39,6 +39,45 @@ interface Modulo {
 interface Cliente { id: string; nome: string; razao_social: string | null; }
 interface ContratoVigente { modulo_id: string; demanda_contratada_kw: number; numero_contrato: string; }
 interface TarifasRow extends EnergiaTarifas { id: string; competencia_id: string; }
+
+// ─── Fatura Copel: itens (mesmo layout impresso) ─────────────────────────
+type CopelItemKey = 'te_ponta' | 'usd_ponta' | 'te_fora' | 'usd_fora' | 'demanda_usd' | 'iluminacao_publica';
+interface CopelItem {
+  quant: string;            // input livre (kWh / kW)
+  preco_unit: string;       // R$ unit. com tributos
+  valor: string;            // R$
+  pis_cofins: string;       // R$
+  icms: string;             // R$
+  tarifa_unit: string;      // R$/kWh ou R$/kW
+}
+interface CopelTributo {
+  base: string;             // R$
+  aliquota: string;         // % (ex: "19", "5,80", "1,26")
+  valor: string;            // R$
+}
+interface FaturaCopelItens {
+  itens?: Partial<Record<CopelItemKey, CopelItem>>;
+  tributos?: { icms?: CopelTributo; cofins?: CopelTributo; pis?: CopelTributo };
+}
+const COPEL_ITEM_DEFS: { key: CopelItemKey; label: string; unidade: string; hasUnitario: boolean; hasPisCofins: boolean; hasIcms: boolean; hasTarifa: boolean }[] = [
+  { key: 'te_ponta',           label: 'ENERGIA ELÉTRICA TE PONTA',     unidade: 'kWh', hasUnitario: true, hasPisCofins: true, hasIcms: true, hasTarifa: true },
+  { key: 'usd_ponta',          label: 'ENERGIA ELÉTRICA USD PONTA',    unidade: 'kWh', hasUnitario: true, hasPisCofins: true, hasIcms: true, hasTarifa: true },
+  { key: 'te_fora',            label: 'ENERGIA ELÉTRICA TE F PONTA',   unidade: 'kWh', hasUnitario: true, hasPisCofins: true, hasIcms: true, hasTarifa: true },
+  { key: 'usd_fora',           label: 'ENERGIA ELÉTRICA USD F PONTA',  unidade: 'kWh', hasUnitario: true, hasPisCofins: true, hasIcms: true, hasTarifa: true },
+  { key: 'demanda_usd',        label: 'DEMANDA USD',                   unidade: 'kW',  hasUnitario: true, hasPisCofins: true, hasIcms: true, hasTarifa: true },
+  { key: 'iluminacao_publica', label: 'CONT ILUMIN PÚBLICA MUNICÍPIO', unidade: '—',   hasUnitario: false, hasPisCofins: false, hasIcms: false, hasTarifa: false },
+];
+const emptyItem = (): CopelItem => ({ quant: '', preco_unit: '', valor: '', pis_cofins: '', icms: '', tarifa_unit: '' });
+const emptyTrib = (): CopelTributo => ({ base: '', aliquota: '', valor: '' });
+
+// ─── Consumo por Cliente (entrada manual) ────────────────────────────────
+interface ConsumoCliente {
+  cliente_key: string;        // cliente.id, ou 'AREA_COMUM'
+  demanda_kw: string;         // input livre
+  consumo_ponta_kwh: string;
+  consumo_fora_kwh: string;
+}
+
 interface CopelFatura {
   copel_demanda_kw: number;
   copel_consumo_ponta_kwh: number;
