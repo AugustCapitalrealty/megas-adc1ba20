@@ -869,16 +869,25 @@ function MatrizModulos({ memoria, modulos, lancamentos, updateLanc, isLocked, nu
   const renderInput = (
     moduloId: string,
     field: 'demanda_usd_medida_kw' | 'consumo_ponta_kwh' | 'consumo_fora_kwh' | 'ajuste_manual_reais',
-  ) => (
-    <Input
-      type="number"
-      step="0.01"
-      disabled={isLocked}
-      className="h-6 text-right w-full min-w-0 px-1 text-[11px]"
-      value={lancamentos[moduloId]?.[field] ?? 0}
-      onChange={(e) => updateLanc(moduloId, { [field]: Number(e.target.value) } as Partial<LancamentoRow>)}
-    />
-  );
+  ) => {
+    // Somente "Ajuste" continua editável aqui. Consumo/Demanda são preenchidos
+    // no card "Consumo por Cliente" e ratearam para os módulos.
+    const editable = field === 'ajuste_manual_reais';
+    const val = lancamentos[moduloId]?.[field] ?? 0;
+    if (!editable) {
+      return <span className="text-[11px] tabular-nums">{num(Number(val))}</span>;
+    }
+    return (
+      <Input
+        type="number"
+        step="0.01"
+        disabled={isLocked}
+        className="h-6 text-right w-full min-w-0 px-1 text-[11px]"
+        value={val}
+        onChange={(e) => updateLanc(moduloId, { [field]: Number(e.target.value) } as Partial<LancamentoRow>)}
+      />
+    );
+  };
 
   // Colunas dinâmicas por visão
   const visaoCols: Record<Exclude<VisaoKey, 'completa' | 'cliente'>, Array<{
