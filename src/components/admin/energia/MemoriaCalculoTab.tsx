@@ -814,7 +814,7 @@ export function MemoriaCalculoTab() {
               <CardHeader>
                 <CardTitle>Matriz por Módulo ({modulos.length})</CardTitle>
                 <CardDescription>
-                  Colunas <span className="bg-yellow-100 dark:bg-yellow-900/30 px-1 rounded">amarelas</span> são editáveis (autosave). Demais são calculadas em tempo real.
+                  Visualização read-only do rateio. As entradas de Demanda e Consumo são feitas no card "Consumo por Cliente" acima e distribuídas para os módulos por área. Apenas <span className="bg-yellow-100 dark:bg-yellow-900/30 px-1 rounded">Ajuste</span> permanece editável.
                 </CardDescription>
               </CardHeader>
               <CardContent className="px-0">
