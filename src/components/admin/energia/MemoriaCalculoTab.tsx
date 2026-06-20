@@ -737,37 +737,6 @@ export function MemoriaCalculoTab() {
         <div className="flex items-center justify-center min-h-[150px]"><Loader2 className="h-5 w-5 animate-spin" /></div>
       ) : (
         <>
-          {/* Tarifas Copel */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Tarifas Copel do mês — {currentComp.ano_mes}</CardTitle>
-              <CardDescription>Snapshot dos parâmetros da fatura. Edite e clique em Salvar.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {tarifaGroups.map((g) => (
-                <div key={g}>
-                  <h4 className="text-sm font-semibold text-muted-foreground mb-2">{g}</h4>
-                  <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-4">
-                    {TARIFA_FIELDS.filter((f) => f.group === g).map((f) => (
-                      <div key={f.key}>
-                        <Label className="text-xs">{f.label}</Label>
-                        <Input
-                          type="number" step={f.step}
-                          value={(tarifas as any)[f.key] ?? 0}
-                          disabled={isLocked}
-                          onChange={(e) => updateTarifa(f.key, Number(e.target.value))}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-              <div className="flex justify-end">
-                <Button onClick={saveTarifas} disabled={isLocked}>Salvar Tarifas</Button>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Bloco Fotovoltaico (kWh) */}
           <Card>
             <CardHeader>
@@ -862,27 +831,6 @@ export function MemoriaCalculoTab() {
           />
 
           {/* Matriz Memória de Cálculo */}
-          {memoria && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Matriz por Módulo ({modulos.length})</CardTitle>
-                <CardDescription>
-                  Visualização read-only do rateio. As entradas de Demanda e Consumo são feitas no card "Consumo por Cliente" acima e distribuídas para os módulos por área. Apenas <span className="bg-yellow-100 dark:bg-yellow-900/30 px-1 rounded">Ajuste</span> permanece editável.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="px-0">
-                <MatrizModulos
-                  memoria={memoria}
-                  modulos={modulos}
-                  lancamentos={lancamentos}
-                  updateLanc={updateLanc}
-                  isLocked={isLocked}
-                  num={num}
-                  brl={brl}
-                />
-              </CardContent>
-            </Card>
-          )}
         </>
       )}
     </div>
