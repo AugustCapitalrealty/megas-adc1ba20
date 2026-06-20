@@ -1126,3 +1126,273 @@ function MatrizModulos({ memoria, modulos, lancamentos, updateLanc, isLocked, nu
     </Tabs>
   );
 }
+
+// ─── Card: Itens da Fatura Copel (layout idêntico à fatura) ───────────────
+interface FaturaCopelCardProps {
+  faturaItens: FaturaCopelItens;
+  updateItem: (key: CopelItemKey, field: keyof CopelItem, value: string) => void;
+  updateTributo: (key: 'icms' | 'cofins' | 'pis', field: keyof CopelTributo, value: string) => void;
+  onSave: () => void;
+  saving: boolean;
+  isLocked: boolean;
+}
+function FaturaCopelCard({ faturaItens, updateItem, updateTributo, onSave, saving, isLocked }: FaturaCopelCardProps) {
+  const it = faturaItens.itens || {};
+  const trib = faturaItens.tributos || {};
+  const sumValor = COPEL_ITEM_DEFS.reduce((s, d) => s + parseBR(it[d.key]?.valor || ''), 0);
+
+  const cell = 'border px-1 py-1';
+  const head = 'border bg-muted text-[11px] font-semibold px-1 py-1';
+  const inp = (v: string, onChange: (s: string) => void, align: 'left' | 'right' = 'right') => (
+    <Input
+      type="text"
+      inputMode="decimal"
+      disabled={isLocked}
+      className={`h-7 text-[11px] px-1 ${align === 'right' ? 'text-right' : ''}`}
+      value={v}
+      onChange={(e) => onChange(e.target.value)}
+    />
+  );
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>📄 Itens da Fatura Copel</CardTitle>
+        <CardDescription>
+          Preencha exatamente como aparece na fatura física — sem casas decimais forçadas. Aceita "43.689", "0,549525", "24008,18".
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid lg:grid-cols-[1fr,260px] gap-3 items-start">
+          {/* Itens */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-[11px] border-collapse">
+              <thead>
+                <tr>
+                  <th className={`${head} text-left`}>Itens de fatura</th>
+                  <th className={head}>Unid.</th>
+                  <th className={head}>Quant.</th>
+                  <th className={head}>Preço unit (R$)<br/>com tributos</th>
+                  <th className={head}>Valor (R$)</th>
+                  <th className={head}>PIS/COFINS</th>
+                  <th className={head}>ICMS</th>
+                  <th className={head}>Tarifa unit. (R$)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {COPEL_ITEM_DEFS.map((d) => {
+                  const v = it[d.key] || emptyItem();
+                  return (
+                    <tr key={d.key}>
+                      <td className={`${cell} text-left whitespace-nowrap`}>{d.label}</td>
+                      <td className={`${cell} text-center text-muted-foreground`}>{d.unidade}</td>
+                      <td className={cell}>{d.hasUnitario ? inp(v.quant, (s) => updateItem(d.key, 'quant', s)) : <span className="text-muted-foreground text-center block">—</span>}</td>
+                      <td className={cell}>{d.hasUnitario ? inp(v.preco_unit, (s) => updateItem(d.key, 'preco_unit', s)) : <span className="text-muted-foreground text-center block">—</span>}</td>
+                      <td className={cell}>{inp(v.valor, (s) => updateItem(d.key, 'valor', s))}</td>
+                      <td className={cell}>{d.hasPisCofins ? inp(v.pis_cofins, (s) => updateItem(d.key, 'pis_cofins', s)) : <span className="text-muted-foreground text-center block">—</span>}</td>
+                      <td className={cell}>{d.hasIcms ? inp(v.icms, (s) => updateItem(d.key, 'icms', s)) : <span className="text-muted-foreground text-center block">—</span>}</td>
+                      <td className={cell}>{d.hasTarifa ? inp(v.tarifa_unit, (s) => updateItem(d.key, 'tarifa_unit', s)) : <span className="text-muted-foreground text-center block">—</span>}</td>
+                    </tr>
+                  );
+                })}
+                <tr className="bg-primary/5 font-semibold">
+                  <td className={`${cell} text-right`} colSpan={4}>TOTAL Valor (R$)</td>
+                  <td className={`${cell} text-right tabular-nums`}>{sumValor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                  <td className={cell} colSpan={3} />
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Tributos */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-[11px] border-collapse">
+              <thead>
+                <tr>
+                  <th className={`${head} text-left`}>Tributo</th>
+                  <th className={head}>Base de Cálc. (R$)</th>
+                  <th className={head}>Alíquota (%)</th>
+                  <th className={head}>Valor (R$)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(['icms', 'cofins', 'pis'] as const).map((k) => {
+                  const t = trib[k] || emptyTrib();
+                  return (
+                    <tr key={k}>
+                      <td className={`${cell} text-left font-semibold uppercase`}>{k}</td>
+                      <td className={cell}>{inp(t.base, (s) => updateTributo(k, 'base', s))}</td>
+                      <td className={cell}>{inp(t.aliquota, (s) => updateTributo(k, 'aliquota', s))}</td>
+                      <td className={cell}>{inp(t.valor, (s) => updateTributo(k, 'valor', s))}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="flex justify-end mt-3">
+          <Button onClick={onSave} disabled={isLocked || saving}>
+            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            Salvar Fatura Copel
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Card: Consumo por Cliente (entrada principal) ────────────────────────
+interface ConsumoClienteCardProps {
+  clientes: Cliente[];
+  modulos: Modulo[];
+  consumoCli: Record<string, ConsumoCliente>;
+  updateConsumoCli: (key: string, field: keyof ConsumoCliente, value: string) => void;
+  onSave: () => void;
+  saving: boolean;
+  isLocked: boolean;
+  copelTotais: { d: number; cp: number; cf: number };
+}
+function ConsumoClienteCard({ clientes, modulos, consumoCli, updateConsumoCli, onSave, saving, isLocked, copelTotais }: ConsumoClienteCardProps) {
+  const isAreaComum = (m: Modulo) => /(área|area) comum/i.test(m.identificador);
+
+  // Agrupa módulos por cliente (e identifica Área Comum + Vagos)
+  const grupos: Array<{
+    key: string;
+    nome: string;
+    modulos: Modulo[];
+    isVago?: boolean;
+    isAreaComum?: boolean;
+    demandaContratada: number;
+  }> = [];
+
+  const clienteMap = new Map(clientes.map((c) => [c.id, c]));
+  const byCliente: Record<string, Modulo[]> = {};
+  const areaComumMods: Modulo[] = [];
+  const vagos: Modulo[] = [];
+  for (const m of modulos) {
+    if (isAreaComum(m)) areaComumMods.push(m);
+    else if (!m.cliente_id) vagos.push(m);
+    else (byCliente[m.cliente_id] = byCliente[m.cliente_id] || []).push(m);
+  }
+  for (const [cid, mods] of Object.entries(byCliente)) {
+    const c = clienteMap.get(cid);
+    grupos.push({
+      key: cid,
+      nome: c?.razao_social || c?.nome || '—',
+      modulos: mods,
+      demandaContratada: mods.reduce((s, m) => s + (m.demanda_contratada_kw || 0), 0),
+    });
+  }
+  grupos.sort((a, b) => a.nome.localeCompare(b.nome));
+  if (areaComumMods.length > 0) {
+    grupos.push({
+      key: 'AREA_COMUM',
+      nome: 'ÁREA COMUM',
+      modulos: areaComumMods,
+      isAreaComum: true,
+      demandaContratada: areaComumMods.reduce((s, m) => s + (m.demanda_contratada_kw || 0), 0),
+    });
+  }
+
+  // Totais entrados
+  const sumD = grupos.reduce((s, g) => s + parseBR(consumoCli[g.key]?.demanda_kw || ''), 0);
+  const sumCP = grupos.reduce((s, g) => s + parseBR(consumoCli[g.key]?.consumo_ponta_kwh || ''), 0);
+  const sumCF = grupos.reduce((s, g) => s + parseBR(consumoCli[g.key]?.consumo_fora_kwh || ''), 0);
+  // Resto = módulos vagos (faturado para Mega)
+  const restoD = Math.max(0, copelTotais.d - sumD);
+  const restoCP = Math.max(0, copelTotais.cp - sumCP);
+  const restoCF = Math.max(0, copelTotais.cf - sumCF);
+
+  const cell = 'border px-2 py-1';
+  const head = 'border bg-muted text-[11px] font-semibold px-2 py-1';
+  const inp = (v: string, onChange: (s: string) => void) => (
+    <Input
+      type="text"
+      inputMode="decimal"
+      disabled={isLocked}
+      className="h-7 text-[12px] px-2 text-right bg-yellow-50 dark:bg-yellow-950/30"
+      value={v}
+      onChange={(e) => onChange(e.target.value)}
+    />
+  );
+
+  const fmt = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const overD = sumD + restoD > copelTotais.d + 0.001 && copelTotais.d > 0;
+  const validation = (entered: number, total: number) => {
+    if (total <= 0) return null;
+    const diff = total - entered;
+    if (Math.abs(diff) < 0.01) return <span className="text-green-600">OK</span>;
+    if (diff > 0) return <span className="text-amber-600">Resto p/ Vagos: {fmt(diff)}</span>;
+    return <span className="text-red-600">Excede em {fmt(-diff)}</span>;
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>👥 Consumo por Cliente</CardTitle>
+        <CardDescription>
+          A Copel mede tudo junto. Um cliente recebe <strong>uma fatura</strong> cobrindo todos os seus módulos. Preencha por cliente — o sistema rateia para os módulos por área. <strong>Módulos vagos</strong> recebem o resto e são faturados para a Mega.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[12px] border-collapse">
+            <thead>
+              <tr>
+                <th className={`${head} text-left`}>Cliente</th>
+                <th className={head}>Módulos</th>
+                <th className={head}>Dem. Contratada (kW)</th>
+                <th className={head}>Demanda Usada (kW)</th>
+                <th className={head}>Consumo Ponta (kWh)</th>
+                <th className={head}>Consumo Fora (kWh)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {grupos.map((g) => {
+                const c = consumoCli[g.key] || { cliente_key: g.key, demanda_kw: '', consumo_ponta_kwh: '', consumo_fora_kwh: '' };
+                return (
+                  <tr key={g.key} className={g.isAreaComum ? 'bg-amber-50/40 dark:bg-amber-950/20' : ''}>
+                    <td className={`${cell} font-semibold`}>{g.nome}</td>
+                    <td className={`${cell} text-[11px] text-muted-foreground`}>{g.modulos.map((m) => m.identificador).join(', ')}</td>
+                    <td className={`${cell} text-right tabular-nums`}>{fmt(g.demandaContratada)}</td>
+                    <td className={cell}>{inp(c.demanda_kw, (s) => updateConsumoCli(g.key, 'demanda_kw', s))}</td>
+                    <td className={cell}>{inp(c.consumo_ponta_kwh, (s) => updateConsumoCli(g.key, 'consumo_ponta_kwh', s))}</td>
+                    <td className={cell}>{inp(c.consumo_fora_kwh, (s) => updateConsumoCli(g.key, 'consumo_fora_kwh', s))}</td>
+                  </tr>
+                );
+              })}
+              {/* Linha Módulos Vagos */}
+              <tr className="bg-slate-100 dark:bg-slate-900/40">
+                <td className={`${cell} font-semibold`}>MÓDULOS VAGOS → Mega</td>
+                <td className={`${cell} text-[11px] text-muted-foreground`}>{vagos.map((m) => m.identificador).join(', ') || '—'}</td>
+                <td className={`${cell} text-right tabular-nums`}>{fmt(vagos.reduce((s, m) => s + (m.demanda_contratada_kw || 0), 0))}</td>
+                <td className={`${cell} text-right tabular-nums text-muted-foreground`}>{fmt(restoD)}</td>
+                <td className={`${cell} text-right tabular-nums text-muted-foreground`}>{fmt(restoCP)}</td>
+                <td className={`${cell} text-right tabular-nums text-muted-foreground`}>{fmt(restoCF)}</td>
+              </tr>
+              {/* Totais e validação */}
+              <tr className="bg-primary/5 font-bold">
+                <td className={`${cell} text-right`} colSpan={3}>TOTAL = Copel</td>
+                <td className={`${cell} text-right tabular-nums`}>{fmt(copelTotais.d)}<div className="text-[10px] font-normal">{validation(sumD, copelTotais.d)}</div></td>
+                <td className={`${cell} text-right tabular-nums`}>{fmt(copelTotais.cp)}<div className="text-[10px] font-normal">{validation(sumCP, copelTotais.cp)}</div></td>
+                <td className={`${cell} text-right tabular-nums`}>{fmt(copelTotais.cf)}<div className="text-[10px] font-normal">{validation(sumCF, copelTotais.cf)}</div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        {overD && (
+          <p className="text-[11px] text-red-600 mt-2">⚠ Soma das demandas excede a Copel — revise os valores.</p>
+        )}
+        <div className="flex justify-end mt-3">
+          <Button onClick={onSave} disabled={isLocked || saving}>
+            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            Salvar e Ratear para Módulos
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
