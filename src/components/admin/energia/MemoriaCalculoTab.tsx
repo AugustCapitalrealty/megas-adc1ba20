@@ -190,16 +190,19 @@ export function MemoriaCalculoTab() {
   const [consumoCli, setConsumoCli] = useState<Record<string, ConsumoCliente>>({});
   const [savingFatura, setSavingFatura] = useState(false);
   const [savingConsumo, setSavingConsumo] = useState(false);
+  // Alíquotas vindas do cadastro (energia_parametros). Valores em % (ex.: 19, 1.65, 7.6)
+  const [aliquotas, setAliquotas] = useState<{ pis: number; cofins: number; icms: number }>({ pis: 0, cofins: 0, icms: 0 });
 
   const currentComp = competencias.find((c) => c.id === currentCompId) || null;
   const isLocked = currentComp?.status === 'fechada';
 
   // ─── Loaders ───────────────────────────────────────────
   const fetchBase = useCallback(async () => {
-    const [c, m, cli] = await Promise.all([
+    const [c, m, cli, par] = await Promise.all([
       supabase.from('energia_competencias').select('*').order('ano_mes', { ascending: false }),
       supabase.from('energia_modulos').select('*').eq('ativo', true).order('ordem'),
       supabase.from('energia_clientes').select('id, nome, razao_social'),
+      supabase.from('energia_parametros' as any).select('icms_pct, pis_pct, cofins_pct').limit(1).maybeSingle(),
     ]);
     if (c.error) toast.error('Erro ao carregar competências');
     else setCompetencias((c.data as any) || []);
@@ -207,6 +210,10 @@ export function MemoriaCalculoTab() {
     else setModulos((m.data as any) || []);
     if (cli.error) toast.error('Erro ao carregar clientes');
     else setClientes((cli.data as any) || []);
+    if (par.data) {
+      const p: any = par.data;
+      setAliquotas({ pis: Number(p.pis_pct) || 0, cofins: Number(p.cofins_pct) || 0, icms: Number(p.icms_pct) || 0 });
+    }
   }, []);
 
   const fetchCompData = useCallback(async (compId: string, anoMes: string) => {
@@ -387,12 +394,58 @@ export function MemoriaCalculoTab() {
   };
 
   // ─── Fatura Copel (itens) ────────────────────────────────────
+  // Formata número pt-BR com N casas, vazio se 0
+  const fmtBR = (n: number, dec = 2) =>
+    !n || !isFinite(n) ? '' : n.toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+
   const updateFaturaItem = (key: CopelItemKey, field: keyof CopelItem, value: string) => {
-    setFaturaItens((prev) => ({
-      ...prev,
-      itens: { ...(prev.itens || {}), [key]: { ...(prev.itens?.[key] || emptyItem()), [field]: value } },
-    }));
+    setFaturaItens((prev) => {
+      const curr = prev.itens?.[key] || emptyItem();
+      let next: CopelItem = { ...curr, [field]: value };
+      const def = COPEL_ITEM_DEFS.find((d) => d.key === key);
+      // Quando muda Quant ou Preço unit, recalcula derivados (valor, pis/cofins, icms, tarifa unit)
+      if (def?.hasUnitario && (field === 'quant' || field === 'preco_unit')) {
+        const q = parseBR(next.quant);
+        const p = parseBR(next.preco_unit);
+        const valor = q * p;
+        const pis = aliquotas.pis / 100;
+        const cofins = aliquotas.cofins / 100;
+        const icms = aliquotas.icms / 100;
+        const pisCof = valor * (pis + cofins);
+        const icmsV = valor * icms;
+        // tarifa "limpa" = preço unit removendo a carga tributária embutida
+        const tarifaUnit = p * (1 - pis - cofins - icms);
+        next = {
+          ...next,
+          valor: fmtBR(valor, 2),
+          pis_cofins: fmtBR(pisCof, 2),
+          icms: fmtBR(icmsV, 2),
+          tarifa_unit: fmtBR(tarifaUnit, 6),
+        };
+      }
+      return { ...prev, itens: { ...(prev.itens || {}), [key]: next } };
+    });
   };
+
+  // Auto-preenche a tabela lateral de Tributos a partir dos itens e das alíquotas do cadastro
+  useEffect(() => {
+    const it = faturaItens.itens || {};
+    const baseTributavel = COPEL_ITEM_DEFS
+      .filter((d) => d.hasPisCofins)
+      .reduce((s, d) => s + parseBR(it[d.key]?.valor || ''), 0);
+    const next = {
+      icms: { base: fmtBR(baseTributavel, 2), aliquota: fmtBR(aliquotas.icms, 2), valor: fmtBR(baseTributavel * aliquotas.icms / 100, 2) },
+      cofins: { base: fmtBR(baseTributavel, 2), aliquota: fmtBR(aliquotas.cofins, 2), valor: fmtBR(baseTributavel * aliquotas.cofins / 100, 2) },
+      pis: { base: fmtBR(baseTributavel, 2), aliquota: fmtBR(aliquotas.pis, 2), valor: fmtBR(baseTributavel * aliquotas.pis / 100, 2) },
+    };
+    setFaturaItens((prev) => {
+      const trib = prev.tributos || {};
+      const same = (a?: CopelTributo, b?: CopelTributo) => a && b && a.base === b.base && a.aliquota === b.aliquota && a.valor === b.valor;
+      if (same(trib.icms, next.icms) && same(trib.cofins, next.cofins) && same(trib.pis, next.pis)) return prev;
+      return { ...prev, tributos: next };
+    });
+  }, [faturaItens.itens, aliquotas]);
+
   const updateFaturaTributo = (key: 'icms' | 'cofins' | 'pis', field: keyof CopelTributo, value: string) => {
     setFaturaItens((prev) => ({
       ...prev,
@@ -617,8 +670,6 @@ export function MemoriaCalculoTab() {
     return <div className="flex items-center justify-center min-h-[300px]"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
   }
 
-  const tarifaGroups = Array.from(new Set(TARIFA_FIELDS.map((f) => f.group)));
-
   return (
     <div className="space-y-6">
       {/* Header: competência selector + ações */}
@@ -684,37 +735,6 @@ export function MemoriaCalculoTab() {
         <div className="flex items-center justify-center min-h-[150px]"><Loader2 className="h-5 w-5 animate-spin" /></div>
       ) : (
         <>
-          {/* Tarifas Copel */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Tarifas Copel do mês — {currentComp.ano_mes}</CardTitle>
-              <CardDescription>Snapshot dos parâmetros da fatura. Edite e clique em Salvar.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {tarifaGroups.map((g) => (
-                <div key={g}>
-                  <h4 className="text-sm font-semibold text-muted-foreground mb-2">{g}</h4>
-                  <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-4">
-                    {TARIFA_FIELDS.filter((f) => f.group === g).map((f) => (
-                      <div key={f.key}>
-                        <Label className="text-xs">{f.label}</Label>
-                        <Input
-                          type="number" step={f.step}
-                          value={(tarifas as any)[f.key] ?? 0}
-                          disabled={isLocked}
-                          onChange={(e) => updateTarifa(f.key, Number(e.target.value))}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-              <div className="flex justify-end">
-                <Button onClick={saveTarifas} disabled={isLocked}>Salvar Tarifas</Button>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Bloco Fotovoltaico (kWh) */}
           <Card>
             <CardHeader>
@@ -809,27 +829,6 @@ export function MemoriaCalculoTab() {
           />
 
           {/* Matriz Memória de Cálculo */}
-          {memoria && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Matriz por Módulo ({modulos.length})</CardTitle>
-                <CardDescription>
-                  Visualização read-only do rateio. As entradas de Demanda e Consumo são feitas no card "Consumo por Cliente" acima e distribuídas para os módulos por área. Apenas <span className="bg-yellow-100 dark:bg-yellow-900/30 px-1 rounded">Ajuste</span> permanece editável.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="px-0">
-                <MatrizModulos
-                  memoria={memoria}
-                  modulos={modulos}
-                  lancamentos={lancamentos}
-                  updateLanc={updateLanc}
-                  isLocked={isLocked}
-                  num={num}
-                  brl={brl}
-                />
-              </CardContent>
-            </Card>
-          )}
         </>
       )}
     </div>
@@ -1159,7 +1158,7 @@ function FaturaCopelCard({ faturaItens, updateItem, updateTributo, onSave, savin
       <CardHeader>
         <CardTitle>📄 Itens da Fatura Copel</CardTitle>
         <CardDescription>
-          Preencha exatamente como aparece na fatura física — sem casas decimais forçadas. Aceita "43.689", "0,549525", "24008,18".
+          Preencha apenas <strong>Quant.</strong> e <strong>Preço unit (R$)</strong> de cada linha — o Valor, PIS/COFINS, ICMS, Tarifa unit. e a tabela de Tributos são calculados automaticamente a partir das alíquotas do cadastro. Você ainda pode sobrescrever qualquer campo manualmente se a fatura tiver arredondamento diferente.
         </CardDescription>
       </CardHeader>
       <CardContent>
