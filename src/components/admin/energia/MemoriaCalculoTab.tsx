@@ -386,6 +386,156 @@ export function MemoriaCalculoTab() {
       .eq('id', tarifas.id);
   };
 
+  // ─── Fatura Copel (itens) ────────────────────────────────────
+  const updateFaturaItem = (key: CopelItemKey, field: keyof CopelItem, value: string) => {
+    setFaturaItens((prev) => ({
+      ...prev,
+      itens: { ...(prev.itens || {}), [key]: { ...(prev.itens?.[key] || emptyItem()), [field]: value } },
+    }));
+  };
+  const updateFaturaTributo = (key: 'icms' | 'cofins' | 'pis', field: keyof CopelTributo, value: string) => {
+    setFaturaItens((prev) => ({
+      ...prev,
+      tributos: { ...(prev.tributos || {}), [key]: { ...(prev.tributos?.[key] || emptyTrib()), [field]: value } },
+    }));
+  };
+  const saveFaturaItens = async () => {
+    if (!tarifas) return;
+    setSavingFatura(true);
+    // Espelha valores numéricos nas colunas copel_* (compatibilidade c/ engine atual)
+    const it = faturaItens.itens || {};
+    const v = (k: CopelItemKey) => parseBR(it[k]?.valor || '');
+    const q = (k: CopelItemKey) => parseBR(it[k]?.quant || '');
+    const tarif = (k: CopelItemKey) => parseBR(it[k]?.tarifa_unit || '');
+    const trib = faturaItens.tributos || {};
+    const tributoValor = (t?: CopelTributo) => parseBR(t?.valor || '');
+    const piscof = tributoValor(trib.pis) + tributoValor(trib.cofins);
+    const mirror = {
+      copel_consumo_ponta_kwh: q('te_ponta') || q('usd_ponta'),
+      copel_consumo_fora_kwh: q('te_fora') || q('usd_fora'),
+      copel_demanda_kw: q('demanda_usd'),
+      copel_valor_te_ponta: v('te_ponta'),
+      copel_valor_tusd_ponta: v('usd_ponta'),
+      copel_valor_te_fora: v('te_fora'),
+      copel_valor_tusd_fora: v('usd_fora'),
+      copel_valor_demanda: v('demanda_usd'),
+      copel_valor_iluminacao_publica: v('iluminacao_publica'),
+      copel_valor_icms: tributoValor(trib.icms),
+      copel_valor_pis_cofins: piscof,
+      // Tarifas unitárias podem alimentar tarifas atuais para o cálculo
+      te_ponta: tarif('te_ponta'),
+      tusd_ponta: tarif('usd_ponta'),
+      te_fora: tarif('te_fora'),
+      tusd_fora: tarif('usd_fora'),
+      demanda_usd: tarif('demanda_usd'),
+      iluminacao_publica: v('iluminacao_publica'),
+    };
+    const { error } = await supabase
+      .from('energia_competencia_tarifas')
+      .update({ fatura_copel_itens: faturaItens as any, ...mirror, updated_by: user?.id } as any)
+      .eq('id', tarifas.id);
+    setSavingFatura(false);
+    if (error) toast.error('Erro ao salvar fatura Copel');
+    else {
+      toast.success('Fatura Copel salva');
+      setTarifas((t) => (t ? ({ ...t, ...mirror } as any) : t));
+    }
+  };
+
+  // ─── Consumo por Cliente (entrada) → rateia para módulos por área ────
+  const updateConsumoCli = (key: string, field: keyof ConsumoCliente, value: string) => {
+    setConsumoCli((p) => ({ ...p, [key]: { ...(p[key] || { cliente_key: key, demanda_kw: '', consumo_ponta_kwh: '', consumo_fora_kwh: '' }), [field]: value } }));
+  };
+  const saveConsumoCli = async () => {
+    if (!tarifas || !currentCompId) return;
+    setSavingConsumo(true);
+    // 1) persiste JSON
+    const arr = Object.values(consumoCli);
+    const { error: e1 } = await supabase
+      .from('energia_competencia_tarifas')
+      .update({ consumo_por_cliente: arr as any, updated_by: user?.id } as any)
+      .eq('id', tarifas.id);
+    if (e1) { setSavingConsumo(false); return toast.error('Erro ao salvar consumo'); }
+
+    // 2) Rateia cada cliente entre seus módulos proporcional à área. Faltante vai p/ módulos vagos.
+    const lancMap: Record<string, { d: number; cp: number; cf: number }> = {};
+    for (const m of modulos) lancMap[m.id] = { d: 0, cp: 0, cf: 0 };
+
+    const isAreaComum = (m: Modulo) => /(área|area) comum/i.test(m.identificador);
+    for (const cli of arr) {
+      const mods = consumoCli[cli.cliente_key]
+        ? modulos.filter((m) => {
+            if (cli.cliente_key === 'AREA_COMUM') return isAreaComum(m);
+            return m.cliente_id === cli.cliente_key && !isAreaComum(m);
+          })
+        : [];
+      const totalArea = mods.reduce((s, m) => s + (m.area_m2 || 0), 0);
+      const D = parseBR(cli.demanda_kw);
+      const CP = parseBR(cli.consumo_ponta_kwh);
+      const CF = parseBR(cli.consumo_fora_kwh);
+      if (mods.length === 0) continue;
+      if (totalArea > 0) {
+        for (const m of mods) {
+          const w = m.area_m2 / totalArea;
+          lancMap[m.id] = { d: D * w, cp: CP * w, cf: CF * w };
+        }
+      } else {
+        const w = 1 / mods.length;
+        for (const m of mods) lancMap[m.id] = { d: D * w, cp: CP * w, cf: CF * w };
+      }
+    }
+
+    // 3) Módulos vagos = resto da Copel
+    const totalCopelD = (tarifas as any).copel_demanda_kw || 0;
+    const totalCopelCP = (tarifas as any).copel_consumo_ponta_kwh || 0;
+    const totalCopelCF = (tarifas as any).copel_consumo_fora_kwh || 0;
+    const usedD = Object.values(lancMap).reduce((s, x) => s + x.d, 0);
+    const usedCP = Object.values(lancMap).reduce((s, x) => s + x.cp, 0);
+    const usedCF = Object.values(lancMap).reduce((s, x) => s + x.cf, 0);
+    const restoD = Math.max(0, totalCopelD - usedD);
+    const restoCP = Math.max(0, totalCopelCP - usedCP);
+    const restoCF = Math.max(0, totalCopelCF - usedCF);
+    const vagos = modulos.filter((m) => !m.cliente_id && !isAreaComum(m));
+    const totalAreaVagos = vagos.reduce((s, m) => s + (m.area_m2 || 0), 0);
+    if (vagos.length > 0) {
+      if (totalAreaVagos > 0) {
+        for (const m of vagos) {
+          const w = m.area_m2 / totalAreaVagos;
+          lancMap[m.id] = { d: restoD * w, cp: restoCP * w, cf: restoCF * w };
+        }
+      } else {
+        const w = 1 / vagos.length;
+        for (const m of vagos) lancMap[m.id] = { d: restoD * w, cp: restoCP * w, cf: restoCF * w };
+      }
+    }
+
+    // 4) Upserta lançamentos por módulo
+    const rows = modulos.map((m) => {
+      const x = lancMap[m.id] || { d: 0, cp: 0, cf: 0 };
+      const existing = lancamentos[m.id];
+      return {
+        ...(existing?.id ? { id: existing.id } : {}),
+        competencia_id: currentCompId,
+        modulo_id: m.id,
+        demanda_contratada_kw: contratoPorModulo[m.id]?.demanda_contratada_kw || m.demanda_contratada_kw || 0,
+        demanda_usd_medida_kw: Number(x.d.toFixed(4)),
+        consumo_ponta_kwh: Number(x.cp.toFixed(4)),
+        consumo_fora_kwh: Number(x.cf.toFixed(4)),
+        ajuste_manual_reais: existing?.ajuste_manual_reais || 0,
+        updated_by: user?.id,
+      };
+    });
+    const { error: e2 } = await supabase
+      .from('energia_competencia_lancamentos')
+      .upsert(rows as any, { onConflict: 'competencia_id,modulo_id' });
+    setSavingConsumo(false);
+    if (e2) toast.error('Erro ao distribuir aos módulos: ' + e2.message);
+    else {
+      toast.success('Consumo por cliente salvo e rateado');
+      await fetchCompData(currentCompId, currentComp!.ano_mes);
+    }
+  };
+
   // Inputs por módulo (autosave debounced)
   const debounceRefs = useRef<Record<string, any>>({});
   const updateLanc = (moduloId: string, patch: Partial<LancamentoRow>) => {
