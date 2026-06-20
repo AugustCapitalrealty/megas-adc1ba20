@@ -190,16 +190,19 @@ export function MemoriaCalculoTab() {
   const [consumoCli, setConsumoCli] = useState<Record<string, ConsumoCliente>>({});
   const [savingFatura, setSavingFatura] = useState(false);
   const [savingConsumo, setSavingConsumo] = useState(false);
+  // Alíquotas vindas do cadastro (energia_parametros). Valores em % (ex.: 19, 1.65, 7.6)
+  const [aliquotas, setAliquotas] = useState<{ pis: number; cofins: number; icms: number }>({ pis: 0, cofins: 0, icms: 0 });
 
   const currentComp = competencias.find((c) => c.id === currentCompId) || null;
   const isLocked = currentComp?.status === 'fechada';
 
   // ─── Loaders ───────────────────────────────────────────
   const fetchBase = useCallback(async () => {
-    const [c, m, cli] = await Promise.all([
+    const [c, m, cli, par] = await Promise.all([
       supabase.from('energia_competencias').select('*').order('ano_mes', { ascending: false }),
       supabase.from('energia_modulos').select('*').eq('ativo', true).order('ordem'),
       supabase.from('energia_clientes').select('id, nome, razao_social'),
+      supabase.from('energia_parametros' as any).select('icms_pct, pis_pct, cofins_pct').limit(1).maybeSingle(),
     ]);
     if (c.error) toast.error('Erro ao carregar competências');
     else setCompetencias((c.data as any) || []);
@@ -207,6 +210,10 @@ export function MemoriaCalculoTab() {
     else setModulos((m.data as any) || []);
     if (cli.error) toast.error('Erro ao carregar clientes');
     else setClientes((cli.data as any) || []);
+    if (par.data) {
+      const p: any = par.data;
+      setAliquotas({ pis: Number(p.pis_pct) || 0, cofins: Number(p.cofins_pct) || 0, icms: Number(p.icms_pct) || 0 });
+    }
   }, []);
 
   const fetchCompData = useCallback(async (compId: string, anoMes: string) => {
