@@ -39,6 +39,45 @@ interface Modulo {
 interface Cliente { id: string; nome: string; razao_social: string | null; }
 interface ContratoVigente { modulo_id: string; demanda_contratada_kw: number; numero_contrato: string; }
 interface TarifasRow extends EnergiaTarifas { id: string; competencia_id: string; }
+
+// ─── Fatura Copel: itens (mesmo layout impresso) ─────────────────────────
+type CopelItemKey = 'te_ponta' | 'usd_ponta' | 'te_fora' | 'usd_fora' | 'demanda_usd' | 'iluminacao_publica';
+interface CopelItem {
+  quant: string;            // input livre (kWh / kW)
+  preco_unit: string;       // R$ unit. com tributos
+  valor: string;            // R$
+  pis_cofins: string;       // R$
+  icms: string;             // R$
+  tarifa_unit: string;      // R$/kWh ou R$/kW
+}
+interface CopelTributo {
+  base: string;             // R$
+  aliquota: string;         // % (ex: "19", "5,80", "1,26")
+  valor: string;            // R$
+}
+interface FaturaCopelItens {
+  itens?: Partial<Record<CopelItemKey, CopelItem>>;
+  tributos?: { icms?: CopelTributo; cofins?: CopelTributo; pis?: CopelTributo };
+}
+const COPEL_ITEM_DEFS: { key: CopelItemKey; label: string; unidade: string; hasUnitario: boolean; hasPisCofins: boolean; hasIcms: boolean; hasTarifa: boolean }[] = [
+  { key: 'te_ponta',           label: 'ENERGIA ELÉTRICA TE PONTA',     unidade: 'kWh', hasUnitario: true, hasPisCofins: true, hasIcms: true, hasTarifa: true },
+  { key: 'usd_ponta',          label: 'ENERGIA ELÉTRICA USD PONTA',    unidade: 'kWh', hasUnitario: true, hasPisCofins: true, hasIcms: true, hasTarifa: true },
+  { key: 'te_fora',            label: 'ENERGIA ELÉTRICA TE F PONTA',   unidade: 'kWh', hasUnitario: true, hasPisCofins: true, hasIcms: true, hasTarifa: true },
+  { key: 'usd_fora',           label: 'ENERGIA ELÉTRICA USD F PONTA',  unidade: 'kWh', hasUnitario: true, hasPisCofins: true, hasIcms: true, hasTarifa: true },
+  { key: 'demanda_usd',        label: 'DEMANDA USD',                   unidade: 'kW',  hasUnitario: true, hasPisCofins: true, hasIcms: true, hasTarifa: true },
+  { key: 'iluminacao_publica', label: 'CONT ILUMIN PÚBLICA MUNICÍPIO', unidade: '—',   hasUnitario: false, hasPisCofins: false, hasIcms: false, hasTarifa: false },
+];
+const emptyItem = (): CopelItem => ({ quant: '', preco_unit: '', valor: '', pis_cofins: '', icms: '', tarifa_unit: '' });
+const emptyTrib = (): CopelTributo => ({ base: '', aliquota: '', valor: '' });
+
+// ─── Consumo por Cliente (entrada manual) ────────────────────────────────
+interface ConsumoCliente {
+  cliente_key: string;        // cliente.id, ou 'AREA_COMUM'
+  demanda_kw: string;         // input livre
+  consumo_ponta_kwh: string;
+  consumo_fora_kwh: string;
+}
+
 interface CopelFatura {
   copel_demanda_kw: number;
   copel_consumo_ponta_kwh: number;
@@ -71,6 +110,26 @@ const brl = (n: number) =>
   n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 });
 const num = (n: number, dec = 2) =>
   n.toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+
+// Parse pt-BR free text (vírgula = decimal, ponto = milhar). Aceita também "1.234,56".
+const parseBR = (s: string): number => {
+  if (s == null) return 0;
+  const t = String(s).trim();
+  if (!t) return 0;
+  // remove tudo que não é dígito, vírgula, ponto ou sinal
+  const cleaned = t.replace(/[^\d.,-]/g, '');
+  // se contém vírgula, a vírgula é o decimal e pontos são milhares
+  if (cleaned.includes(',')) {
+    return Number(cleaned.replace(/\./g, '').replace(',', '.')) || 0;
+  }
+  // sem vírgula: se tiver vários pontos, eles são milhares; senão é decimal normal
+  const dots = (cleaned.match(/\./g) || []).length;
+  if (dots > 1) return Number(cleaned.replace(/\./g, '')) || 0;
+  return Number(cleaned) || 0;
+};
+
+// Formato livre estilo fatura: preserva o que o usuário digitou.
+// Usado apenas para inputs livres (text). Para exibições calculadas usamos brl/num.
 
 function currentYM() {
   const d = new Date();
@@ -127,6 +186,10 @@ export function MemoriaCalculoTab() {
   const [contratoPorModulo, setContratoPorModulo] = useState<Record<string, ContratoVigente>>({});
   const [newAnoMes, setNewAnoMes] = useState(currentYM());
   const [creating, setCreating] = useState(false);
+  const [faturaItens, setFaturaItens] = useState<FaturaCopelItens>({ itens: {}, tributos: {} });
+  const [consumoCli, setConsumoCli] = useState<Record<string, ConsumoCliente>>({});
+  const [savingFatura, setSavingFatura] = useState(false);
+  const [savingConsumo, setSavingConsumo] = useState(false);
 
   const currentComp = competencias.find((c) => c.id === currentCompId) || null;
   const isLocked = currentComp?.status === 'fechada';
@@ -153,6 +216,17 @@ export function MemoriaCalculoTab() {
     ]);
     if (t.error) toast.error('Erro ao carregar tarifas');
     setTarifas((t.data as any) || null);
+    // Hidrata Fatura Copel (JSON) e Consumo por Cliente (JSON)
+    const tdata = (t.data as any) || null;
+    const fcRaw = tdata?.fatura_copel_itens || {};
+    setFaturaItens({
+      itens: fcRaw.itens || {},
+      tributos: fcRaw.tributos || {},
+    });
+    const ccRaw: any[] = Array.isArray(tdata?.consumo_por_cliente) ? tdata.consumo_por_cliente : [];
+    const ccMap: Record<string, ConsumoCliente> = {};
+    ccRaw.forEach((r) => { if (r?.cliente_key) ccMap[r.cliente_key] = r; });
+    setConsumoCli(ccMap);
     if (l.error) toast.error('Erro ao carregar lançamentos');
     const map: Record<string, LancamentoRow> = {};
     ((l.data as any[]) || []).forEach((r) => { map[r.modulo_id] = r; });
@@ -310,6 +384,156 @@ export function MemoriaCalculoTab() {
         updated_by: user?.id,
       } as any)
       .eq('id', tarifas.id);
+  };
+
+  // ─── Fatura Copel (itens) ────────────────────────────────────
+  const updateFaturaItem = (key: CopelItemKey, field: keyof CopelItem, value: string) => {
+    setFaturaItens((prev) => ({
+      ...prev,
+      itens: { ...(prev.itens || {}), [key]: { ...(prev.itens?.[key] || emptyItem()), [field]: value } },
+    }));
+  };
+  const updateFaturaTributo = (key: 'icms' | 'cofins' | 'pis', field: keyof CopelTributo, value: string) => {
+    setFaturaItens((prev) => ({
+      ...prev,
+      tributos: { ...(prev.tributos || {}), [key]: { ...(prev.tributos?.[key] || emptyTrib()), [field]: value } },
+    }));
+  };
+  const saveFaturaItens = async () => {
+    if (!tarifas) return;
+    setSavingFatura(true);
+    // Espelha valores numéricos nas colunas copel_* (compatibilidade c/ engine atual)
+    const it = faturaItens.itens || {};
+    const v = (k: CopelItemKey) => parseBR(it[k]?.valor || '');
+    const q = (k: CopelItemKey) => parseBR(it[k]?.quant || '');
+    const tarif = (k: CopelItemKey) => parseBR(it[k]?.tarifa_unit || '');
+    const trib = faturaItens.tributos || {};
+    const tributoValor = (t?: CopelTributo) => parseBR(t?.valor || '');
+    const piscof = tributoValor(trib.pis) + tributoValor(trib.cofins);
+    const mirror = {
+      copel_consumo_ponta_kwh: q('te_ponta') || q('usd_ponta'),
+      copel_consumo_fora_kwh: q('te_fora') || q('usd_fora'),
+      copel_demanda_kw: q('demanda_usd'),
+      copel_valor_te_ponta: v('te_ponta'),
+      copel_valor_tusd_ponta: v('usd_ponta'),
+      copel_valor_te_fora: v('te_fora'),
+      copel_valor_tusd_fora: v('usd_fora'),
+      copel_valor_demanda: v('demanda_usd'),
+      copel_valor_iluminacao_publica: v('iluminacao_publica'),
+      copel_valor_icms: tributoValor(trib.icms),
+      copel_valor_pis_cofins: piscof,
+      // Tarifas unitárias podem alimentar tarifas atuais para o cálculo
+      te_ponta: tarif('te_ponta'),
+      tusd_ponta: tarif('usd_ponta'),
+      te_fora: tarif('te_fora'),
+      tusd_fora: tarif('usd_fora'),
+      demanda_usd: tarif('demanda_usd'),
+      iluminacao_publica: v('iluminacao_publica'),
+    };
+    const { error } = await supabase
+      .from('energia_competencia_tarifas')
+      .update({ fatura_copel_itens: faturaItens as any, ...mirror, updated_by: user?.id } as any)
+      .eq('id', tarifas.id);
+    setSavingFatura(false);
+    if (error) toast.error('Erro ao salvar fatura Copel');
+    else {
+      toast.success('Fatura Copel salva');
+      setTarifas((t) => (t ? ({ ...t, ...mirror } as any) : t));
+    }
+  };
+
+  // ─── Consumo por Cliente (entrada) → rateia para módulos por área ────
+  const updateConsumoCli = (key: string, field: keyof ConsumoCliente, value: string) => {
+    setConsumoCli((p) => ({ ...p, [key]: { ...(p[key] || { cliente_key: key, demanda_kw: '', consumo_ponta_kwh: '', consumo_fora_kwh: '' }), [field]: value } }));
+  };
+  const saveConsumoCli = async () => {
+    if (!tarifas || !currentCompId) return;
+    setSavingConsumo(true);
+    // 1) persiste JSON
+    const arr = Object.values(consumoCli);
+    const { error: e1 } = await supabase
+      .from('energia_competencia_tarifas')
+      .update({ consumo_por_cliente: arr as any, updated_by: user?.id } as any)
+      .eq('id', tarifas.id);
+    if (e1) { setSavingConsumo(false); return toast.error('Erro ao salvar consumo'); }
+
+    // 2) Rateia cada cliente entre seus módulos proporcional à área. Faltante vai p/ módulos vagos.
+    const lancMap: Record<string, { d: number; cp: number; cf: number }> = {};
+    for (const m of modulos) lancMap[m.id] = { d: 0, cp: 0, cf: 0 };
+
+    const isAreaComum = (m: Modulo) => /(área|area) comum/i.test(m.identificador);
+    for (const cli of arr) {
+      const mods = consumoCli[cli.cliente_key]
+        ? modulos.filter((m) => {
+            if (cli.cliente_key === 'AREA_COMUM') return isAreaComum(m);
+            return m.cliente_id === cli.cliente_key && !isAreaComum(m);
+          })
+        : [];
+      const totalArea = mods.reduce((s, m) => s + (m.area_m2 || 0), 0);
+      const D = parseBR(cli.demanda_kw);
+      const CP = parseBR(cli.consumo_ponta_kwh);
+      const CF = parseBR(cli.consumo_fora_kwh);
+      if (mods.length === 0) continue;
+      if (totalArea > 0) {
+        for (const m of mods) {
+          const w = m.area_m2 / totalArea;
+          lancMap[m.id] = { d: D * w, cp: CP * w, cf: CF * w };
+        }
+      } else {
+        const w = 1 / mods.length;
+        for (const m of mods) lancMap[m.id] = { d: D * w, cp: CP * w, cf: CF * w };
+      }
+    }
+
+    // 3) Módulos vagos = resto da Copel
+    const totalCopelD = (tarifas as any).copel_demanda_kw || 0;
+    const totalCopelCP = (tarifas as any).copel_consumo_ponta_kwh || 0;
+    const totalCopelCF = (tarifas as any).copel_consumo_fora_kwh || 0;
+    const usedD = Object.values(lancMap).reduce((s, x) => s + x.d, 0);
+    const usedCP = Object.values(lancMap).reduce((s, x) => s + x.cp, 0);
+    const usedCF = Object.values(lancMap).reduce((s, x) => s + x.cf, 0);
+    const restoD = Math.max(0, totalCopelD - usedD);
+    const restoCP = Math.max(0, totalCopelCP - usedCP);
+    const restoCF = Math.max(0, totalCopelCF - usedCF);
+    const vagos = modulos.filter((m) => !m.cliente_id && !isAreaComum(m));
+    const totalAreaVagos = vagos.reduce((s, m) => s + (m.area_m2 || 0), 0);
+    if (vagos.length > 0) {
+      if (totalAreaVagos > 0) {
+        for (const m of vagos) {
+          const w = m.area_m2 / totalAreaVagos;
+          lancMap[m.id] = { d: restoD * w, cp: restoCP * w, cf: restoCF * w };
+        }
+      } else {
+        const w = 1 / vagos.length;
+        for (const m of vagos) lancMap[m.id] = { d: restoD * w, cp: restoCP * w, cf: restoCF * w };
+      }
+    }
+
+    // 4) Upserta lançamentos por módulo
+    const rows = modulos.map((m) => {
+      const x = lancMap[m.id] || { d: 0, cp: 0, cf: 0 };
+      const existing = lancamentos[m.id];
+      return {
+        ...(existing?.id ? { id: existing.id } : {}),
+        competencia_id: currentCompId,
+        modulo_id: m.id,
+        demanda_contratada_kw: contratoPorModulo[m.id]?.demanda_contratada_kw || m.demanda_contratada_kw || 0,
+        demanda_usd_medida_kw: Number(x.d.toFixed(4)),
+        consumo_ponta_kwh: Number(x.cp.toFixed(4)),
+        consumo_fora_kwh: Number(x.cf.toFixed(4)),
+        ajuste_manual_reais: existing?.ajuste_manual_reais || 0,
+        updated_by: user?.id,
+      };
+    });
+    const { error: e2 } = await supabase
+      .from('energia_competencia_lancamentos')
+      .upsert(rows as any, { onConflict: 'competencia_id,modulo_id' });
+    setSavingConsumo(false);
+    if (e2) toast.error('Erro ao distribuir aos módulos: ' + e2.message);
+    else {
+      toast.success('Consumo por cliente salvo e rateado');
+      await fetchCompData(currentCompId, currentComp!.ano_mes);
+    }
   };
 
   // Inputs por módulo (autosave debounced)
@@ -558,64 +782,31 @@ export function MemoriaCalculoTab() {
             </CardContent>
           </Card>
 
-          {/* Bloco Conferência Fatura Copel */}
-          <Card>
-            <CardHeader>
-              <CardTitle>📄 Conferência com a Fatura Copel</CardTitle>
-              <CardDescription>
-                Digite os valores que vieram impressos na fatura Copel. A coluna "Sistema" mostra o calculado pela memória; "Delta" indica a divergência.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="text-xs w-full">
-                  <thead className="bg-muted">
-                    <tr>
-                      <th className="text-left px-2 py-2">Item</th>
-                      <th className="text-right px-2 py-2 w-40">Fatura Copel</th>
-                      <th className="text-right px-2 py-2 w-40">Sistema</th>
-                      <th className="text-right px-2 py-2 w-40">Delta</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {COPEL_FIELDS.map((f) => {
-                      const fatura = Number((tarifas as any)[f.key] ?? 0);
-                      const calc = f.getCalc ? f.getCalc(memoria) : 0;
-                      const delta = fatura - calc;
-                      const absDelta = Math.abs(delta);
-                      const isKwh = f.key.includes('kwh') || f.key === 'copel_demanda_kw';
-                      const okThreshold = isKwh ? 0.1 : 1;
-                      const warnThreshold = isKwh ? Math.max(1, Math.abs(calc) * 0.01) : Math.max(5, Math.abs(calc) * 0.01);
-                      const color = absDelta <= okThreshold ? 'text-green-600' : absDelta <= warnThreshold ? 'text-amber-600' : 'text-red-600';
-                      return (
-                        <tr key={f.key} className="border-b">
-                          <td className="px-2 py-1">{f.label}</td>
-                          <td className="px-2 py-1">
-                            <Input
-                              type="number" step={f.step}
-                              className="h-7 text-right"
-                              disabled={isLocked}
-                              value={fatura}
-                              onChange={(e) => updateCopelField(f.key, Number(e.target.value))}
-                            />
-                          </td>
-                          <td className="px-2 py-1 text-right tabular-nums">
-                            {isKwh ? num(calc) : brl(calc)}
-                          </td>
-                          <td className={`px-2 py-1 text-right tabular-nums font-semibold ${color}`}>
-                            {isKwh ? num(delta) : brl(delta)}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              <div className="flex justify-end mt-3">
-                <Button onClick={saveCopel} disabled={isLocked}>Salvar Fatura Copel</Button>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Itens da Fatura Copel — mesmo layout impresso */}
+          <FaturaCopelCard
+            faturaItens={faturaItens}
+            updateItem={updateFaturaItem}
+            updateTributo={updateFaturaTributo}
+            onSave={saveFaturaItens}
+            saving={savingFatura}
+            isLocked={isLocked}
+          />
+
+          {/* Consumo por Cliente — entrada principal do mês */}
+          <ConsumoClienteCard
+            clientes={clientes}
+            modulos={modulos}
+            consumoCli={consumoCli}
+            updateConsumoCli={updateConsumoCli}
+            onSave={saveConsumoCli}
+            saving={savingConsumo}
+            isLocked={isLocked}
+            copelTotais={{
+              d: (tarifas as any).copel_demanda_kw || 0,
+              cp: (tarifas as any).copel_consumo_ponta_kwh || 0,
+              cf: (tarifas as any).copel_consumo_fora_kwh || 0,
+            }}
+          />
 
           {/* Matriz Memória de Cálculo */}
           {memoria && (
@@ -623,7 +814,7 @@ export function MemoriaCalculoTab() {
               <CardHeader>
                 <CardTitle>Matriz por Módulo ({modulos.length})</CardTitle>
                 <CardDescription>
-                  Colunas <span className="bg-yellow-100 dark:bg-yellow-900/30 px-1 rounded">amarelas</span> são editáveis (autosave). Demais são calculadas em tempo real.
+                  Visualização read-only do rateio. As entradas de Demanda e Consumo são feitas no card "Consumo por Cliente" acima e distribuídas para os módulos por área. Apenas <span className="bg-yellow-100 dark:bg-yellow-900/30 px-1 rounded">Ajuste</span> permanece editável.
                 </CardDescription>
               </CardHeader>
               <CardContent className="px-0">
@@ -678,16 +869,25 @@ function MatrizModulos({ memoria, modulos, lancamentos, updateLanc, isLocked, nu
   const renderInput = (
     moduloId: string,
     field: 'demanda_usd_medida_kw' | 'consumo_ponta_kwh' | 'consumo_fora_kwh' | 'ajuste_manual_reais',
-  ) => (
-    <Input
-      type="number"
-      step="0.01"
-      disabled={isLocked}
-      className="h-6 text-right w-full min-w-0 px-1 text-[11px]"
-      value={lancamentos[moduloId]?.[field] ?? 0}
-      onChange={(e) => updateLanc(moduloId, { [field]: Number(e.target.value) } as Partial<LancamentoRow>)}
-    />
-  );
+  ) => {
+    // Somente "Ajuste" continua editável aqui. Consumo/Demanda são preenchidos
+    // no card "Consumo por Cliente" e ratearam para os módulos.
+    const editable = field === 'ajuste_manual_reais';
+    const val = lancamentos[moduloId]?.[field] ?? 0;
+    if (!editable) {
+      return <span className="text-[11px] tabular-nums">{num(Number(val))}</span>;
+    }
+    return (
+      <Input
+        type="number"
+        step="0.01"
+        disabled={isLocked}
+        className="h-6 text-right w-full min-w-0 px-1 text-[11px]"
+        value={val}
+        onChange={(e) => updateLanc(moduloId, { [field]: Number(e.target.value) } as Partial<LancamentoRow>)}
+      />
+    );
+  };
 
   // Colunas dinâmicas por visão
   const visaoCols: Record<Exclude<VisaoKey, 'completa' | 'cliente'>, Array<{
@@ -924,5 +1124,275 @@ function MatrizModulos({ memoria, modulos, lancamentos, updateLanc, isLocked, nu
       <TabsContent value="ajustes" className="mt-0">{renderTabela(visaoCols.ajustes)}</TabsContent>
       <TabsContent value="completa" className="mt-0">{renderCompleta()}</TabsContent>
     </Tabs>
+  );
+}
+
+// ─── Card: Itens da Fatura Copel (layout idêntico à fatura) ───────────────
+interface FaturaCopelCardProps {
+  faturaItens: FaturaCopelItens;
+  updateItem: (key: CopelItemKey, field: keyof CopelItem, value: string) => void;
+  updateTributo: (key: 'icms' | 'cofins' | 'pis', field: keyof CopelTributo, value: string) => void;
+  onSave: () => void;
+  saving: boolean;
+  isLocked: boolean;
+}
+function FaturaCopelCard({ faturaItens, updateItem, updateTributo, onSave, saving, isLocked }: FaturaCopelCardProps) {
+  const it = faturaItens.itens || {};
+  const trib = faturaItens.tributos || {};
+  const sumValor = COPEL_ITEM_DEFS.reduce((s, d) => s + parseBR(it[d.key]?.valor || ''), 0);
+
+  const cell = 'border px-1 py-1';
+  const head = 'border bg-muted text-[11px] font-semibold px-1 py-1';
+  const inp = (v: string, onChange: (s: string) => void, align: 'left' | 'right' = 'right') => (
+    <Input
+      type="text"
+      inputMode="decimal"
+      disabled={isLocked}
+      className={`h-7 text-[11px] px-1 ${align === 'right' ? 'text-right' : ''}`}
+      value={v}
+      onChange={(e) => onChange(e.target.value)}
+    />
+  );
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>📄 Itens da Fatura Copel</CardTitle>
+        <CardDescription>
+          Preencha exatamente como aparece na fatura física — sem casas decimais forçadas. Aceita "43.689", "0,549525", "24008,18".
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid lg:grid-cols-[1fr,260px] gap-3 items-start">
+          {/* Itens */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-[11px] border-collapse">
+              <thead>
+                <tr>
+                  <th className={`${head} text-left`}>Itens de fatura</th>
+                  <th className={head}>Unid.</th>
+                  <th className={head}>Quant.</th>
+                  <th className={head}>Preço unit (R$)<br/>com tributos</th>
+                  <th className={head}>Valor (R$)</th>
+                  <th className={head}>PIS/COFINS</th>
+                  <th className={head}>ICMS</th>
+                  <th className={head}>Tarifa unit. (R$)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {COPEL_ITEM_DEFS.map((d) => {
+                  const v = it[d.key] || emptyItem();
+                  return (
+                    <tr key={d.key}>
+                      <td className={`${cell} text-left whitespace-nowrap`}>{d.label}</td>
+                      <td className={`${cell} text-center text-muted-foreground`}>{d.unidade}</td>
+                      <td className={cell}>{d.hasUnitario ? inp(v.quant, (s) => updateItem(d.key, 'quant', s)) : <span className="text-muted-foreground text-center block">—</span>}</td>
+                      <td className={cell}>{d.hasUnitario ? inp(v.preco_unit, (s) => updateItem(d.key, 'preco_unit', s)) : <span className="text-muted-foreground text-center block">—</span>}</td>
+                      <td className={cell}>{inp(v.valor, (s) => updateItem(d.key, 'valor', s))}</td>
+                      <td className={cell}>{d.hasPisCofins ? inp(v.pis_cofins, (s) => updateItem(d.key, 'pis_cofins', s)) : <span className="text-muted-foreground text-center block">—</span>}</td>
+                      <td className={cell}>{d.hasIcms ? inp(v.icms, (s) => updateItem(d.key, 'icms', s)) : <span className="text-muted-foreground text-center block">—</span>}</td>
+                      <td className={cell}>{d.hasTarifa ? inp(v.tarifa_unit, (s) => updateItem(d.key, 'tarifa_unit', s)) : <span className="text-muted-foreground text-center block">—</span>}</td>
+                    </tr>
+                  );
+                })}
+                <tr className="bg-primary/5 font-semibold">
+                  <td className={`${cell} text-right`} colSpan={4}>TOTAL Valor (R$)</td>
+                  <td className={`${cell} text-right tabular-nums`}>{sumValor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                  <td className={cell} colSpan={3} />
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Tributos */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-[11px] border-collapse">
+              <thead>
+                <tr>
+                  <th className={`${head} text-left`}>Tributo</th>
+                  <th className={head}>Base de Cálc. (R$)</th>
+                  <th className={head}>Alíquota (%)</th>
+                  <th className={head}>Valor (R$)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(['icms', 'cofins', 'pis'] as const).map((k) => {
+                  const t = trib[k] || emptyTrib();
+                  return (
+                    <tr key={k}>
+                      <td className={`${cell} text-left font-semibold uppercase`}>{k}</td>
+                      <td className={cell}>{inp(t.base, (s) => updateTributo(k, 'base', s))}</td>
+                      <td className={cell}>{inp(t.aliquota, (s) => updateTributo(k, 'aliquota', s))}</td>
+                      <td className={cell}>{inp(t.valor, (s) => updateTributo(k, 'valor', s))}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="flex justify-end mt-3">
+          <Button onClick={onSave} disabled={isLocked || saving}>
+            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            Salvar Fatura Copel
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Card: Consumo por Cliente (entrada principal) ────────────────────────
+interface ConsumoClienteCardProps {
+  clientes: Cliente[];
+  modulos: Modulo[];
+  consumoCli: Record<string, ConsumoCliente>;
+  updateConsumoCli: (key: string, field: keyof ConsumoCliente, value: string) => void;
+  onSave: () => void;
+  saving: boolean;
+  isLocked: boolean;
+  copelTotais: { d: number; cp: number; cf: number };
+}
+function ConsumoClienteCard({ clientes, modulos, consumoCli, updateConsumoCli, onSave, saving, isLocked, copelTotais }: ConsumoClienteCardProps) {
+  const isAreaComum = (m: Modulo) => /(área|area) comum/i.test(m.identificador);
+
+  // Agrupa módulos por cliente (e identifica Área Comum + Vagos)
+  const grupos: Array<{
+    key: string;
+    nome: string;
+    modulos: Modulo[];
+    isVago?: boolean;
+    isAreaComum?: boolean;
+    demandaContratada: number;
+  }> = [];
+
+  const clienteMap = new Map(clientes.map((c) => [c.id, c]));
+  const byCliente: Record<string, Modulo[]> = {};
+  const areaComumMods: Modulo[] = [];
+  const vagos: Modulo[] = [];
+  for (const m of modulos) {
+    if (isAreaComum(m)) areaComumMods.push(m);
+    else if (!m.cliente_id) vagos.push(m);
+    else (byCliente[m.cliente_id] = byCliente[m.cliente_id] || []).push(m);
+  }
+  for (const [cid, mods] of Object.entries(byCliente)) {
+    const c = clienteMap.get(cid);
+    grupos.push({
+      key: cid,
+      nome: c?.razao_social || c?.nome || '—',
+      modulos: mods,
+      demandaContratada: mods.reduce((s, m) => s + (m.demanda_contratada_kw || 0), 0),
+    });
+  }
+  grupos.sort((a, b) => a.nome.localeCompare(b.nome));
+  if (areaComumMods.length > 0) {
+    grupos.push({
+      key: 'AREA_COMUM',
+      nome: 'ÁREA COMUM',
+      modulos: areaComumMods,
+      isAreaComum: true,
+      demandaContratada: areaComumMods.reduce((s, m) => s + (m.demanda_contratada_kw || 0), 0),
+    });
+  }
+
+  // Totais entrados
+  const sumD = grupos.reduce((s, g) => s + parseBR(consumoCli[g.key]?.demanda_kw || ''), 0);
+  const sumCP = grupos.reduce((s, g) => s + parseBR(consumoCli[g.key]?.consumo_ponta_kwh || ''), 0);
+  const sumCF = grupos.reduce((s, g) => s + parseBR(consumoCli[g.key]?.consumo_fora_kwh || ''), 0);
+  // Resto = módulos vagos (faturado para Mega)
+  const restoD = Math.max(0, copelTotais.d - sumD);
+  const restoCP = Math.max(0, copelTotais.cp - sumCP);
+  const restoCF = Math.max(0, copelTotais.cf - sumCF);
+
+  const cell = 'border px-2 py-1';
+  const head = 'border bg-muted text-[11px] font-semibold px-2 py-1';
+  const inp = (v: string, onChange: (s: string) => void) => (
+    <Input
+      type="text"
+      inputMode="decimal"
+      disabled={isLocked}
+      className="h-7 text-[12px] px-2 text-right bg-yellow-50 dark:bg-yellow-950/30"
+      value={v}
+      onChange={(e) => onChange(e.target.value)}
+    />
+  );
+
+  const fmt = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const overD = sumD + restoD > copelTotais.d + 0.001 && copelTotais.d > 0;
+  const validation = (entered: number, total: number) => {
+    if (total <= 0) return null;
+    const diff = total - entered;
+    if (Math.abs(diff) < 0.01) return <span className="text-green-600">OK</span>;
+    if (diff > 0) return <span className="text-amber-600">Resto p/ Vagos: {fmt(diff)}</span>;
+    return <span className="text-red-600">Excede em {fmt(-diff)}</span>;
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>👥 Consumo por Cliente</CardTitle>
+        <CardDescription>
+          A Copel mede tudo junto. Um cliente recebe <strong>uma fatura</strong> cobrindo todos os seus módulos. Preencha por cliente — o sistema rateia para os módulos por área. <strong>Módulos vagos</strong> recebem o resto e são faturados para a Mega.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[12px] border-collapse">
+            <thead>
+              <tr>
+                <th className={`${head} text-left`}>Cliente</th>
+                <th className={head}>Módulos</th>
+                <th className={head}>Dem. Contratada (kW)</th>
+                <th className={head}>Demanda Usada (kW)</th>
+                <th className={head}>Consumo Ponta (kWh)</th>
+                <th className={head}>Consumo Fora (kWh)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {grupos.map((g) => {
+                const c = consumoCli[g.key] || { cliente_key: g.key, demanda_kw: '', consumo_ponta_kwh: '', consumo_fora_kwh: '' };
+                return (
+                  <tr key={g.key} className={g.isAreaComum ? 'bg-amber-50/40 dark:bg-amber-950/20' : ''}>
+                    <td className={`${cell} font-semibold`}>{g.nome}</td>
+                    <td className={`${cell} text-[11px] text-muted-foreground`}>{g.modulos.map((m) => m.identificador).join(', ')}</td>
+                    <td className={`${cell} text-right tabular-nums`}>{fmt(g.demandaContratada)}</td>
+                    <td className={cell}>{inp(c.demanda_kw, (s) => updateConsumoCli(g.key, 'demanda_kw', s))}</td>
+                    <td className={cell}>{inp(c.consumo_ponta_kwh, (s) => updateConsumoCli(g.key, 'consumo_ponta_kwh', s))}</td>
+                    <td className={cell}>{inp(c.consumo_fora_kwh, (s) => updateConsumoCli(g.key, 'consumo_fora_kwh', s))}</td>
+                  </tr>
+                );
+              })}
+              {/* Linha Módulos Vagos */}
+              <tr className="bg-slate-100 dark:bg-slate-900/40">
+                <td className={`${cell} font-semibold`}>MÓDULOS VAGOS → Mega</td>
+                <td className={`${cell} text-[11px] text-muted-foreground`}>{vagos.map((m) => m.identificador).join(', ') || '—'}</td>
+                <td className={`${cell} text-right tabular-nums`}>{fmt(vagos.reduce((s, m) => s + (m.demanda_contratada_kw || 0), 0))}</td>
+                <td className={`${cell} text-right tabular-nums text-muted-foreground`}>{fmt(restoD)}</td>
+                <td className={`${cell} text-right tabular-nums text-muted-foreground`}>{fmt(restoCP)}</td>
+                <td className={`${cell} text-right tabular-nums text-muted-foreground`}>{fmt(restoCF)}</td>
+              </tr>
+              {/* Totais e validação */}
+              <tr className="bg-primary/5 font-bold">
+                <td className={`${cell} text-right`} colSpan={3}>TOTAL = Copel</td>
+                <td className={`${cell} text-right tabular-nums`}>{fmt(copelTotais.d)}<div className="text-[10px] font-normal">{validation(sumD, copelTotais.d)}</div></td>
+                <td className={`${cell} text-right tabular-nums`}>{fmt(copelTotais.cp)}<div className="text-[10px] font-normal">{validation(sumCP, copelTotais.cp)}</div></td>
+                <td className={`${cell} text-right tabular-nums`}>{fmt(copelTotais.cf)}<div className="text-[10px] font-normal">{validation(sumCF, copelTotais.cf)}</div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        {overD && (
+          <p className="text-[11px] text-red-600 mt-2">⚠ Soma das demandas excede a Copel — revise os valores.</p>
+        )}
+        <div className="flex justify-end mt-3">
+          <Button onClick={onSave} disabled={isLocked || saving}>
+            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            Salvar e Ratear para Módulos
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
