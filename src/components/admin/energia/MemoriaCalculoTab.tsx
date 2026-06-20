@@ -782,64 +782,31 @@ export function MemoriaCalculoTab() {
             </CardContent>
           </Card>
 
-          {/* Bloco Conferência Fatura Copel */}
-          <Card>
-            <CardHeader>
-              <CardTitle>📄 Conferência com a Fatura Copel</CardTitle>
-              <CardDescription>
-                Digite os valores que vieram impressos na fatura Copel. A coluna "Sistema" mostra o calculado pela memória; "Delta" indica a divergência.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="text-xs w-full">
-                  <thead className="bg-muted">
-                    <tr>
-                      <th className="text-left px-2 py-2">Item</th>
-                      <th className="text-right px-2 py-2 w-40">Fatura Copel</th>
-                      <th className="text-right px-2 py-2 w-40">Sistema</th>
-                      <th className="text-right px-2 py-2 w-40">Delta</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {COPEL_FIELDS.map((f) => {
-                      const fatura = Number((tarifas as any)[f.key] ?? 0);
-                      const calc = f.getCalc ? f.getCalc(memoria) : 0;
-                      const delta = fatura - calc;
-                      const absDelta = Math.abs(delta);
-                      const isKwh = f.key.includes('kwh') || f.key === 'copel_demanda_kw';
-                      const okThreshold = isKwh ? 0.1 : 1;
-                      const warnThreshold = isKwh ? Math.max(1, Math.abs(calc) * 0.01) : Math.max(5, Math.abs(calc) * 0.01);
-                      const color = absDelta <= okThreshold ? 'text-green-600' : absDelta <= warnThreshold ? 'text-amber-600' : 'text-red-600';
-                      return (
-                        <tr key={f.key} className="border-b">
-                          <td className="px-2 py-1">{f.label}</td>
-                          <td className="px-2 py-1">
-                            <Input
-                              type="number" step={f.step}
-                              className="h-7 text-right"
-                              disabled={isLocked}
-                              value={fatura}
-                              onChange={(e) => updateCopelField(f.key, Number(e.target.value))}
-                            />
-                          </td>
-                          <td className="px-2 py-1 text-right tabular-nums">
-                            {isKwh ? num(calc) : brl(calc)}
-                          </td>
-                          <td className={`px-2 py-1 text-right tabular-nums font-semibold ${color}`}>
-                            {isKwh ? num(delta) : brl(delta)}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              <div className="flex justify-end mt-3">
-                <Button onClick={saveCopel} disabled={isLocked}>Salvar Fatura Copel</Button>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Itens da Fatura Copel — mesmo layout impresso */}
+          <FaturaCopelCard
+            faturaItens={faturaItens}
+            updateItem={updateFaturaItem}
+            updateTributo={updateFaturaTributo}
+            onSave={saveFaturaItens}
+            saving={savingFatura}
+            isLocked={isLocked}
+          />
+
+          {/* Consumo por Cliente — entrada principal do mês */}
+          <ConsumoClienteCard
+            clientes={clientes}
+            modulos={modulos}
+            consumoCli={consumoCli}
+            updateConsumoCli={updateConsumoCli}
+            onSave={saveConsumoCli}
+            saving={savingConsumo}
+            isLocked={isLocked}
+            copelTotais={{
+              d: (tarifas as any).copel_demanda_kw || 0,
+              cp: (tarifas as any).copel_consumo_ponta_kwh || 0,
+              cf: (tarifas as any).copel_consumo_fora_kwh || 0,
+            }}
+          />
 
           {/* Matriz Memória de Cálculo */}
           {memoria && (
