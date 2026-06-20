@@ -216,6 +216,17 @@ export function MemoriaCalculoTab() {
     ]);
     if (t.error) toast.error('Erro ao carregar tarifas');
     setTarifas((t.data as any) || null);
+    // Hidrata Fatura Copel (JSON) e Consumo por Cliente (JSON)
+    const tdata = (t.data as any) || null;
+    const fcRaw = tdata?.fatura_copel_itens || {};
+    setFaturaItens({
+      itens: fcRaw.itens || {},
+      tributos: fcRaw.tributos || {},
+    });
+    const ccRaw: any[] = Array.isArray(tdata?.consumo_por_cliente) ? tdata.consumo_por_cliente : [];
+    const ccMap: Record<string, ConsumoCliente> = {};
+    ccRaw.forEach((r) => { if (r?.cliente_key) ccMap[r.cliente_key] = r; });
+    setConsumoCli(ccMap);
     if (l.error) toast.error('Erro ao carregar lançamentos');
     const map: Record<string, LancamentoRow> = {};
     ((l.data as any[]) || []).forEach((r) => { map[r.modulo_id] = r; });
