@@ -670,8 +670,6 @@ export function MemoriaCalculoTab() {
     return <div className="flex items-center justify-center min-h-[300px]"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
   }
 
-  const tarifaGroups = Array.from(new Set(TARIFA_FIELDS.map((f) => f.group)));
-
   return (
     <div className="space-y-6">
       {/* Header: competência selector + ações */}
