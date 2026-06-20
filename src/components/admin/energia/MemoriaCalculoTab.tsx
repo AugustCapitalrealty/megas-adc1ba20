@@ -394,12 +394,58 @@ export function MemoriaCalculoTab() {
   };
 
   // ─── Fatura Copel (itens) ────────────────────────────────────
+  // Formata número pt-BR com N casas, vazio se 0
+  const fmtBR = (n: number, dec = 2) =>
+    !n || !isFinite(n) ? '' : n.toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+
   const updateFaturaItem = (key: CopelItemKey, field: keyof CopelItem, value: string) => {
-    setFaturaItens((prev) => ({
-      ...prev,
-      itens: { ...(prev.itens || {}), [key]: { ...(prev.itens?.[key] || emptyItem()), [field]: value } },
-    }));
+    setFaturaItens((prev) => {
+      const curr = prev.itens?.[key] || emptyItem();
+      let next: CopelItem = { ...curr, [field]: value };
+      const def = COPEL_ITEM_DEFS.find((d) => d.key === key);
+      // Quando muda Quant ou Preço unit, recalcula derivados (valor, pis/cofins, icms, tarifa unit)
+      if (def?.hasUnitario && (field === 'quant' || field === 'preco_unit')) {
+        const q = parseBR(next.quant);
+        const p = parseBR(next.preco_unit);
+        const valor = q * p;
+        const pis = aliquotas.pis / 100;
+        const cofins = aliquotas.cofins / 100;
+        const icms = aliquotas.icms / 100;
+        const pisCof = valor * (pis + cofins);
+        const icmsV = valor * icms;
+        // tarifa "limpa" = preço unit removendo a carga tributária embutida
+        const tarifaUnit = p * (1 - pis - cofins - icms);
+        next = {
+          ...next,
+          valor: fmtBR(valor, 2),
+          pis_cofins: fmtBR(pisCof, 2),
+          icms: fmtBR(icmsV, 2),
+          tarifa_unit: fmtBR(tarifaUnit, 6),
+        };
+      }
+      return { ...prev, itens: { ...(prev.itens || {}), [key]: next } };
+    });
   };
+
+  // Auto-preenche a tabela lateral de Tributos a partir dos itens e das alíquotas do cadastro
+  useEffect(() => {
+    const it = faturaItens.itens || {};
+    const baseTributavel = COPEL_ITEM_DEFS
+      .filter((d) => d.hasPisCofins)
+      .reduce((s, d) => s + parseBR(it[d.key]?.valor || ''), 0);
+    const next = {
+      icms: { base: fmtBR(baseTributavel, 2), aliquota: fmtBR(aliquotas.icms, 2), valor: fmtBR(baseTributavel * aliquotas.icms / 100, 2) },
+      cofins: { base: fmtBR(baseTributavel, 2), aliquota: fmtBR(aliquotas.cofins, 2), valor: fmtBR(baseTributavel * aliquotas.cofins / 100, 2) },
+      pis: { base: fmtBR(baseTributavel, 2), aliquota: fmtBR(aliquotas.pis, 2), valor: fmtBR(baseTributavel * aliquotas.pis / 100, 2) },
+    };
+    setFaturaItens((prev) => {
+      const trib = prev.tributos || {};
+      const same = (a?: CopelTributo, b?: CopelTributo) => a && b && a.base === b.base && a.aliquota === b.aliquota && a.valor === b.valor;
+      if (same(trib.icms, next.icms) && same(trib.cofins, next.cofins) && same(trib.pis, next.pis)) return prev;
+      return { ...prev, tributos: next };
+    });
+  }, [faturaItens.itens, aliquotas]);
+
   const updateFaturaTributo = (key: 'icms' | 'cofins' | 'pis', field: keyof CopelTributo, value: string) => {
     setFaturaItens((prev) => ({
       ...prev,
