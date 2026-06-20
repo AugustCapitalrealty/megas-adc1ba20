@@ -186,6 +186,10 @@ export function MemoriaCalculoTab() {
   const [contratoPorModulo, setContratoPorModulo] = useState<Record<string, ContratoVigente>>({});
   const [newAnoMes, setNewAnoMes] = useState(currentYM());
   const [creating, setCreating] = useState(false);
+  const [faturaItens, setFaturaItens] = useState<FaturaCopelItens>({ itens: {}, tributos: {} });
+  const [consumoCli, setConsumoCli] = useState<Record<string, ConsumoCliente>>({});
+  const [savingFatura, setSavingFatura] = useState(false);
+  const [savingConsumo, setSavingConsumo] = useState(false);
 
   const currentComp = competencias.find((c) => c.id === currentCompId) || null;
   const isLocked = currentComp?.status === 'fechada';
