@@ -1,91 +1,47 @@
-## Reestruturação das abas Rateio Energia
+## Problema
 
-### Visão geral
+No modal de Contrato, vincular módulos hoje exige adicionar 1 a 1 (um Select + duas datas por linha). Para clientes com 10+ módulos isso vira uma lista enorme e repetitiva — todas as vigências costumam ser iguais (as do contrato).
 
-Hoje a aba "Memória de Cálculo" acumula muita coisa: seleção de competência, entrada de consumo por cliente, tarifas, memória detalhada, totais e até resíduos da Fatura Copel. Com a "Fatura Copel" já isolada, vamos:
+## Solução
 
-1. Renomear "Memória de Cálculo" → **"Lançamentos"** (focado em entrada de consumo do mês da Copel).
-2. Refatorar a UX da aba para ficar limpa, guiada e visual.
-3. Criar nova aba **"Faturas"** com a visão por cliente (o que cada um vai pagar).
+Substituir a lista linha-a-linha por um seletor em massa com vigência padrão herdada do contrato, e edição de vigência por exceção.
+
+### Novo layout
 
 ```text
-[ Lançamentos ] [ Fatura Copel ] [ Faturas ] [ Contratos ] [ Grandezas ] [ Cadastros ]
+Módulos vinculados                            [3 selecionados]
+┌────────────────────────────────────────────────────────────┐
+│ Vigência padrão: [20/06/2026] até [—]   [Aplicar a todos]  │
+│ ──────────────────────────────────────────────────────────  │
+│ 🔍 Buscar módulo...           [Selecionar todos] [Limpar]   │
+│ ──────────────────────────────────────────────────────────  │
+│ ☑ Módulo 46   início 20/06/2026  fim —     [editar datas]  │
+│ ☑ Módulo 47   início 20/06/2026  fim —     [editar datas]  │
+│ ☐ Módulo 48                                                 │
+│ ☑ Módulo 49   início 01/07/2026  fim —     [editar datas]  │
+│ ☐ Módulo 50                                                 │
+│ ...                                                         │
+└────────────────────────────────────────────────────────────┘
 ```
 
----
+### Comportamento
 
-### 1. Aba "Lançamentos" (refatoração da Memória de Cálculo)
+- **Lista única** de todos os módulos disponíveis com checkbox. Cada linha mostra o identificador e, se marcado, as datas atuais inline.
+- **Busca** por identificador no topo (filtra a lista).
+- **Selecionar todos / Limpar** opera apenas sobre o filtro visível.
+- **Vigência padrão**: dois date inputs herdando `vigencia_inicio`/`vigencia_fim` do contrato. Ao marcar um módulo, ele assume a vigência padrão.
+- **Aplicar a todos**: sobrescreve a vigência de todos os módulos já selecionados.
+- **Editar datas por linha** (popover): só aparece em módulos selecionados que precisam de vigência diferente. Mostra um badge "vigência custom" para sinalizar exceção.
+- **Contador** no header ("3 selecionados") e ordenação: selecionados primeiro, depois alfabético/numérico.
+- **Vínculos existentes** (com `id`) preservam seu `id` ao serem mantidos; desmarcar marca `_delete: true` (mesma lógica atual de sync).
 
-**Objetivo:** registrar o consumo do mês (por cliente / módulo) referente à competência da Fatura Copel já lançada.
+### Detalhes técnicos
 
-**Layout proposto (top → bottom):**
+- Arquivo: `src/components/admin/energia/ContratosTab.tsx` — substituir somente o bloco "Módulos vinculados" dentro de `ContratoModal` (linhas ~426-469). Lógica de save (`handleSave`) e estrutura `vinculosDraft` ficam inalteradas — apenas a UI muda.
+- Reusar `Checkbox`, `Popover`, `Input`, `Button` do design system.
+- Sem alterações em schema, RLS ou em `handleSave`.
 
-- **Header sticky**
-  - Seletor de competência (AAAA-MM) + status (Rascunho / Fechada)
-  - Badge resumo da Fatura Copel do mês (Total R$, Demanda kW, Ponta kWh, Fora kWh) — read-only, link "Editar Fatura Copel"
-  - Botões: "Nova competência", "Fechar competência", "Exportar PDF"
+### Fora de escopo
 
-- **Stepper visual de 3 passos**
-  1. **Fatura Copel** ✅ (preenchida na outra aba) — verde se ok, âmbar se faltando
-  2. **Lançamentos do mês** (esta tela) — destacado
-  3. **Faturas por cliente** → link para nova aba
-
-- **Card "Consumo por Cliente / Módulo"**
-  - Tabela enxuta: Cliente | Módulo | Demanda kW | Consumo Ponta | Consumo Fora | Ações
-  - Linhas agrupadas por cliente, com subtotal
-  - Linha especial "Área Comum" no topo
-  - Botão "Distribuir Copel proporcionalmente" (rateio automático sugerido a partir dos totais Copel)
-  - Validação visual: soma dos lançamentos vs total Copel (badge verde/amarelo)
-
-- **Card "Memória de cálculo detalhada"** (colapsável, fechado por padrão)
-  - Mantém a tabela técnica atual (linhas por módulo com TE, USD, ICMS, etc.)
-  - Botão "Recalcular" e export
-
-- **Footer sticky:** Total calculado | Total Copel | Diferença | Botão "Salvar lançamentos"
-
-**Limpeza:**
-- Remover totalmente o bloco "📄 Itens da Fatura Copel" e "Tributos" desta tela (já vivem na aba Fatura Copel).
-- Remover duplicação do banner "Matriz por Módulo (72)" — manter apenas uma representação.
-
----
-
-### 2. Nova aba "Faturas" (visão por cliente)
-
-**Objetivo:** após Copel + lançamentos preenchidos, mostrar o que cada cliente paga.
-
-**Layout:**
-
-- **Header:** seletor de competência + KPIs (Total faturado, Nº clientes, Diferença vs Copel)
-- **Sidebar de clientes (esquerda):** lista com nome + valor total, busca, badge de status
-- **Painel principal (direita):** detalhe da fatura do cliente selecionado
-  - Cabeçalho: Nome do cliente / Competência / Módulos vinculados
-  - KPI cards: Demanda, Consumo Ponta, Consumo Fora, Total a Pagar
-  - Tabela de composição: TE Ponta, USD Ponta, TE Fora, USD Fora, Demanda, ICMS, PIS/COFINS, Bandeira, Iluminação, Crédito FV — colunas (kWh/kW, R$ unit, R$ total)
-  - Card "Como foi calculado": breve explicação textual com os parâmetros usados
-  - Botões: "Exportar PDF da fatura", "Copiar resumo"
-
-- **Modo "Todos os clientes":** tabela comparativa (Cliente | Demanda | Ponta | Fora | Total | % do mês)
-
-**Fonte de dados:** reutiliza `agruparPorCliente(linhas, modulos)` já existente em `src/lib/energia-rateio.ts` — sem mudanças no engine.
-
----
-
-### 3. Detalhes técnicos
-
-- **Sem migração de banco.** Tudo já existe (`energia_competencia_lancamentos`, `energia_competencia_tarifas`, `fatura_copel_itens`).
-- Novo arquivo: `src/components/admin/energia/FaturasTab.tsx` (visão por cliente).
-- `MemoriaCalculoTab.tsx` será renomeado conceitualmente para "Lançamentos" — mantemos o arquivo para evitar quebrar imports, mas removemos toda a UI relacionada a itens Copel/tributos e reorganizamos os cards conforme acima. Extrair sub-componentes:
-  - `LancamentosHeader.tsx` (seletor + resumo Copel + stepper)
-  - `ConsumoClienteTable.tsx`
-  - `MemoriaDetalhadaCollapsible.tsx`
-- Atualizar `RateioEnergiaTab.tsx`: renomear label "Memória de Cálculo" → "Lançamentos", adicionar aba "Faturas" entre "Fatura Copel" e "Contratos".
-- Manter export PDF existente.
-- Cálculo permanece em `calcularMemoria` / `agruparPorCliente` (sem alterações de regra de negócio).
-
----
-
-### 4. Fluxo final do usuário
-
-1. Abre **Fatura Copel** → preenche quantidades e preços unitários do mês.
-2. Vai para **Lançamentos** → vê o resumo Copel no topo, distribui consumo por cliente (manual ou rateio sugerido), salva.
-3. Vai para **Faturas** → seleciona cliente e vê quanto ele paga, exporta PDF individual.
+- Não mexer em outras abas (FaturaCopel, Lançamentos, Faturas).
+- Não alterar regras de negócio de vigência sobreposta (já tratadas no backend).
