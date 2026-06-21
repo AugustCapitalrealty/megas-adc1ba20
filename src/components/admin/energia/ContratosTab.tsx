@@ -11,7 +11,9 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Loader2, Plus, Pencil, Trash2, Download, Upload, FileText, X } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Loader2, Plus, Pencil, Trash2, Download, Upload, FileText, X, Search, CalendarCog } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Cliente { id: string; razao_social: string | null; nome: string; cnpj: string | null; ativo: boolean; }
