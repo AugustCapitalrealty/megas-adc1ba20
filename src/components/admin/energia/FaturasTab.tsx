@@ -57,16 +57,19 @@ export function FaturasTab() {
     ((l.data as any[]) || []).forEach((r) => { map[r.modulo_id] = r; });
     setLancamentos(map);
 
-    const ref = `${anoMes}-01`;
+    // Vigência sobrepõe o mês: vigencia_inicio <= último dia E (vigencia_fim IS NULL OR >= 1º dia)
+    const [yy, mm] = anoMes.split('-').map(Number);
+    const refInicio = `${anoMes}-01`;
+    const refFim = `${anoMes}-${String(new Date(yy, mm, 0).getDate()).padStart(2, '0')}`;
     const { data: vinc } = await supabase
       .from('energia_contrato_modulos' as any)
       .select('modulo_id, vigencia_inicio, vigencia_fim, contrato:energia_contratos!inner(demanda_contratada_kw, ativo)')
-      .lte('vigencia_inicio', ref);
+      .lte('vigencia_inicio', refFim);
     const cMap: Record<string, any> = {};
     if (vinc) {
       for (const v of vinc as any[]) {
         const fim = v.vigencia_fim ?? null;
-        if (fim && fim < ref) continue;
+        if (fim && fim < refInicio) continue;
         if (!v.contrato?.ativo) continue;
         const prev = cMap[v.modulo_id];
         if (!prev || v.vigencia_inicio > prev.__inicio) {
