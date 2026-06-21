@@ -35,7 +35,6 @@ export function FaturasTab() {
   const [contratoPorModulo, setContratoPorModulo] = useState<Record<string, { demanda_contratada_kw: number }>>({});
   const [busca, setBusca] = useState('');
   const [selecionado, setSelecionado] = useState<string | null>(null);
-  const [memoriaLinhas, setMemoriaLinhas] = useState<MemoriaLinha[]>([]);
 
   const fetchBase = useCallback(async () => {
     const [c, m, cli] = await Promise.all([
@@ -89,8 +88,8 @@ export function FaturasTab() {
 
   const currentComp = competencias.find((c) => c.id === currentCompId) || null;
 
-  const faturas: FaturaCliente[] = useMemo(() => {
-    if (!tarifas) return [];
+  const { faturas, memoriaLinhas } = useMemo<{ faturas: FaturaCliente[]; memoriaLinhas: MemoriaLinha[] }>(() => {
+    if (!tarifas) return { faturas: [], memoriaLinhas: [] };
     const inputs: EnergiaLancamentoInput[] = modulos.map((m) => {
       const l = lancamentos[m.id];
       const cli = clientes.find((c) => c.id === m.cliente_id);
@@ -108,11 +107,11 @@ export function FaturasTab() {
       };
     });
     const memoria = calcularMemoria(tarifas as EnergiaTarifas, inputs);
-    setMemoriaLinhas(memoria.linhas);
-    return agruparPorCliente(
+    const fts = agruparPorCliente(
       memoria.linhas,
       modulos.map((m) => ({ id: m.id, cliente_id: m.cliente_id, identificador: m.identificador })),
     );
+    return { faturas: fts, memoriaLinhas: memoria.linhas };
   }, [tarifas, modulos, lancamentos, clientes, contratoPorModulo]);
 
   const faturasFiltradas = useMemo(() => {
