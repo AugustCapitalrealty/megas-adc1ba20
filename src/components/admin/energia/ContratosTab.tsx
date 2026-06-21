@@ -267,19 +267,71 @@ function ContratoModal({
     existingVinculos.map((v) => ({ id: v.id, modulo_id: v.modulo_id, vigencia_inicio: v.vigencia_inicio, vigencia_fim: v.vigencia_fim })),
   );
 
-  const addVinculo = () => {
-    setVinculosDraft((p) => [...p, { modulo_id: '', vigencia_inicio: vigInicio, vigencia_fim: vigFim || null }]);
-  };
-  const updateVinculo = (i: number, patch: Partial<ModuloVinculoDraft>) => {
-    setVinculosDraft((p) => p.map((v, idx) => idx === i ? { ...v, ...patch } : v));
-  };
-  const removeVinculo = (i: number) => {
+  const [moduloSearch, setModuloSearch] = useState('');
+
+  // Lookup: modulo_id -> índice no draft (apenas não deletados)
+  const draftByModulo = useMemo(() => {
+    const map = new Map<string, number>();
+    vinculosDraft.forEach((v, i) => {
+      if (!v._delete && v.modulo_id) map.set(v.modulo_id, i);
+    });
+    return map;
+  }, [vinculosDraft]);
+
+  const toggleModulo = (moduloId: string, checked: boolean) => {
     setVinculosDraft((p) => {
-      const v = p[i];
-      if (v.id) return p.map((x, idx) => idx === i ? { ...x, _delete: true } : x);
-      return p.filter((_, idx) => idx !== i);
+      const idx = p.findIndex((v) => v.modulo_id === moduloId && !v._delete);
+      if (checked) {
+        if (idx >= 0) return p;
+        // se existe um soft-deleted, restaura
+        const delIdx = p.findIndex((v) => v.modulo_id === moduloId && v._delete);
+        if (delIdx >= 0) {
+          return p.map((v, i) => i === delIdx ? { ...v, _delete: false, vigencia_inicio: vigInicio, vigencia_fim: vigFim || null } : v);
+        }
+        return [...p, { modulo_id: moduloId, vigencia_inicio: vigInicio, vigencia_fim: vigFim || null }];
+      } else {
+        if (idx < 0) return p;
+        const v = p[idx];
+        if (v.id) return p.map((x, i) => i === idx ? { ...x, _delete: true } : x);
+        return p.filter((_, i) => i !== idx);
+      }
     });
   };
+
+  const updateVinculoDates = (moduloId: string, patch: { vigencia_inicio?: string; vigencia_fim?: string | null }) => {
+    setVinculosDraft((p) => p.map((v) => (v.modulo_id === moduloId && !v._delete) ? { ...v, ...patch } : v));
+  };
+
+  const filteredModulos = useMemo(() => {
+    const term = moduloSearch.trim().toLowerCase();
+    const list = term ? modulos.filter((m) => m.identificador.toLowerCase().includes(term)) : modulos;
+    // selecionados primeiro
+    return [...list].sort((a, b) => {
+      const sa = draftByModulo.has(a.id) ? 0 : 1;
+      const sb = draftByModulo.has(b.id) ? 0 : 1;
+      if (sa !== sb) return sa - sb;
+      return a.identificador.localeCompare(b.identificador, undefined, { numeric: true });
+    });
+  }, [modulos, moduloSearch, draftByModulo]);
+
+  const selectAllVisible = () => {
+    filteredModulos.forEach((m) => {
+      if (!draftByModulo.has(m.id)) toggleModulo(m.id, true);
+    });
+  };
+  const clearAllVisible = () => {
+    filteredModulos.forEach((m) => {
+      if (draftByModulo.has(m.id)) toggleModulo(m.id, false);
+    });
+  };
+  const applyDefaultDatesToSelected = () => {
+    setVinculosDraft((p) => p.map((v) => v._delete ? v : ({ ...v, vigencia_inicio: vigInicio, vigencia_fim: vigFim || null })));
+    toast.success('Vigência padrão aplicada aos módulos selecionados');
+  };
+
+  const selectedCount = draftByModulo.size;
+  const hasCustomDates = (v: ModuloVinculoDraft) =>
+    v.vigencia_inicio !== vigInicio || (v.vigencia_fim || '') !== (vigFim || '');
 
   const handleSave = async () => {
     if (!numero.trim()) return toast.error('Informe o número do contrato');
