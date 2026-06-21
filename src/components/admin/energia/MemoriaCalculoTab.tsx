@@ -799,15 +799,20 @@ export function MemoriaCalculoTab() {
             </CardContent>
           </Card>
 
-          {/* Itens da Fatura Copel — mesmo layout impresso */}
-          <FaturaCopelCard
-            faturaItens={faturaItens}
-            updateItem={updateFaturaItem}
-            updateTributo={updateFaturaTributo}
-            onSave={saveFaturaItens}
-            saving={savingFatura}
-            isLocked={isLocked}
-          />
+          {/* Aviso: a Fatura Copel agora vive em aba dedicada */}
+          <Card className="border-primary/30 bg-primary/5">
+            <CardContent className="py-3 flex flex-wrap items-center justify-between gap-3 text-sm">
+              <div className="flex items-center gap-2">
+                <span>📄</span>
+                <span>
+                  {(tarifas as any)?.copel_valor_total > 0
+                    ? <>Fatura Copel desta competência: <strong className="text-primary">{brl((tarifas as any).copel_valor_total)}</strong>{' '}<span className="text-muted-foreground">(Demanda {num((tarifas as any).copel_demanda_kw || 0)} kW · Ponta {num((tarifas as any).copel_consumo_ponta_kwh || 0)} kWh · Fora {num((tarifas as any).copel_consumo_fora_kwh || 0)} kWh)</span></>
+                    : <span className="text-muted-foreground">Fatura Copel ainda não preenchida para esta competência.</span>}
+                </span>
+              </div>
+              <span className="text-xs text-muted-foreground">Edite na aba <strong>Fatura Copel</strong>.</span>
+            </CardContent>
+          </Card>
 
           {/* Consumo por Cliente — entrada principal do mês */}
           <ConsumoClienteCard
