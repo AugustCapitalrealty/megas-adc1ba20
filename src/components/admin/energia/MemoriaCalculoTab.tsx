@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Loader2, Plus, Copy, Lock, Unlock, Download, Calculator, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Loader2, Plus, Copy, Lock, Unlock, Download, ClipboardList, CheckCircle2, AlertTriangle, Receipt, Users, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   calcularMemoria,
@@ -673,11 +673,11 @@ export function MemoriaCalculoTab() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Calculator className="h-5 w-5 text-primary" />
-            Memória de Cálculo
+            <ClipboardList className="h-5 w-5 text-primary" />
+            Lançamentos do Mês
           </CardTitle>
           <CardDescription>
-            Replica integralmente a planilha mensal do Mega Curitiba. Entre a fatura Copel (tarifas) e a leitura por módulo; o cálculo é automático.
+            Registre o consumo de cada cliente referente à competência da Fatura Copel já lançada. O cálculo por módulo e a fatura por cliente são derivados automaticamente.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -725,6 +725,13 @@ export function MemoriaCalculoTab() {
           </div>
         </CardContent>
       </Card>
+
+      {currentComp && tarifas && (
+        <FluxoStepper
+          copelOk={Number((tarifas as any)?.copel_valor_total) > 0}
+          lancamentosOk={Object.keys(consumoCli).length > 0}
+        />
+      )}
 
       {!currentComp ? (
         <Card><CardContent className="py-10 text-center text-muted-foreground">Crie uma competência para começar.</CardContent></Card>
@@ -1393,6 +1400,35 @@ function ConsumoClienteCard({ clientes, modulos, consumoCli, updateConsumoCli, o
             Salvar e Ratear para Módulos
           </Button>
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+// ─── Stepper visual do fluxo ────────────────────────────────────────────────
+function FluxoStepper({ copelOk, lancamentosOk }: { copelOk: boolean; lancamentosOk: boolean }) {
+  const Step = ({ n, icon: Icon, label, state }: { n: number; icon: any; label: string; state: 'done' | 'current' | 'pending' }) => {
+    const tone =
+      state === 'done' ? 'bg-green-100 text-green-700 border-green-300 dark:bg-green-950/40 dark:text-green-400 dark:border-green-800'
+      : state === 'current' ? 'bg-primary/10 text-primary border-primary'
+      : 'bg-muted text-muted-foreground border-border';
+    return (
+      <div className={`flex items-center gap-2 rounded-md border px-3 py-2 ${tone}`}>
+        <div className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${state === 'done' ? 'bg-green-600 text-white' : state === 'current' ? 'bg-primary text-primary-foreground' : 'bg-background border'}`}>
+          {state === 'done' ? '✓' : n}
+        </div>
+        <Icon className="h-4 w-4" />
+        <span className="text-sm font-medium">{label}</span>
+      </div>
+    );
+  };
+  return (
+    <Card className="bg-muted/30">
+      <CardContent className="py-3 flex flex-wrap items-center gap-2">
+        <Step n={1} icon={Receipt} label="Fatura Copel" state={copelOk ? 'done' : 'current'} />
+        <ArrowRight className="h-4 w-4 text-muted-foreground" />
+        <Step n={2} icon={ClipboardList} label="Lançamentos do mês" state={!copelOk ? 'pending' : (lancamentosOk ? 'done' : 'current')} />
+        <ArrowRight className="h-4 w-4 text-muted-foreground" />
+        <Step n={3} icon={Users} label="Faturas por Cliente" state={copelOk && lancamentosOk ? 'current' : 'pending'} />
       </CardContent>
     </Card>
   );
