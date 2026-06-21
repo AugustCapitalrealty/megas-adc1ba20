@@ -14,6 +14,7 @@ import {
   type EnergiaTarifas,
   type EnergiaLancamentoInput,
   type FaturaCliente,
+  type MemoriaLinha,
 } from '@/lib/energia-rateio';
 
 interface Competencia { id: string; ano_mes: string; status: 'rascunho' | 'fechada'; }
@@ -34,6 +35,7 @@ export function FaturasTab() {
   const [contratoPorModulo, setContratoPorModulo] = useState<Record<string, { demanda_contratada_kw: number }>>({});
   const [busca, setBusca] = useState('');
   const [selecionado, setSelecionado] = useState<string | null>(null);
+  const [memoriaLinhas, setMemoriaLinhas] = useState<MemoriaLinha[]>([]);
 
   const fetchBase = useCallback(async () => {
     const [c, m, cli] = await Promise.all([
@@ -106,6 +108,7 @@ export function FaturasTab() {
       };
     });
     const memoria = calcularMemoria(tarifas as EnergiaTarifas, inputs);
+    setMemoriaLinhas(memoria.linhas);
     return agruparPorCliente(
       memoria.linhas,
       modulos.map((m) => ({ id: m.id, cliente_id: m.cliente_id, identificador: m.identificador })),
@@ -274,7 +277,23 @@ export function FaturasTab() {
 
           {/* Detalhe */}
           {faturaSelecionada && (
-            <FaturaDetalhe fatura={faturaSelecionada} competencia={currentComp?.ano_mes ?? ''} onCopy={copiarResumo} />
+            <FaturaOficial
+              fatura={faturaSelecionada}
+              competencia={currentComp?.ano_mes ?? ''}
+              tarifas={tarifas as EnergiaTarifas}
+              linhas={memoriaLinhas.filter((l) => {
+                const m = modulos.find((mm) => mm.id === l.modulo_id);
+                if (!m) return false;
+                if (faturaSelecionada.cliente_key === 'AREA_COMUM') {
+                  return (l.identificador || '').toUpperCase().includes('AREA COMUM') || (l.identificador || '').toUpperCase().includes('ÁREA COMUM');
+                }
+                if (faturaSelecionada.cliente_key.startsWith('VAGO:')) {
+                  return l.modulo_id === faturaSelecionada.cliente_key.slice(5);
+                }
+                return m.cliente_id === faturaSelecionada.cliente_key;
+              })}
+              onCopy={copiarResumo}
+            />
           )}
         </div>
       )}
