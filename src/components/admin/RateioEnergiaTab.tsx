@@ -3,7 +3,8 @@ import { EnergiaCadastrosTab } from './energia/EnergiaCadastrosTab';
 import { MemoriaCalculoTab } from './energia/MemoriaCalculoTab';
 import { ContratosTab } from './energia/ContratosTab';
 import { GrandezasContratadasTab } from './energia/GrandezasContratadasTab';
-import { Settings, Calculator, FileText, FileSignature } from 'lucide-react';
+import { FaturaCopelTab } from './energia/FaturaCopelTab';
+import { Settings, Calculator, FileText, FileSignature, Receipt } from 'lucide-react';
 
 export function RateioEnergiaTab() {
   return (
@@ -11,6 +12,9 @@ export function RateioEnergiaTab() {
       <TabsList>
         <TabsTrigger value="memoria" className="gap-2">
           <Calculator className="h-4 w-4" /> Memória de Cálculo
+        </TabsTrigger>
+        <TabsTrigger value="fatura" className="gap-2">
+          <Receipt className="h-4 w-4" /> Fatura Copel
         </TabsTrigger>
         <TabsTrigger value="contratos" className="gap-2">
           <FileText className="h-4 w-4" /> Contratos
@@ -23,6 +27,7 @@ export function RateioEnergiaTab() {
         </TabsTrigger>
       </TabsList>
       <TabsContent value="memoria"><MemoriaCalculoTab /></TabsContent>
+      <TabsContent value="fatura"><FaturaCopelTab /></TabsContent>
       <TabsContent value="contratos"><ContratosTab /></TabsContent>
       <TabsContent value="grandezas"><GrandezasContratadasTab /></TabsContent>
       <TabsContent value="cadastros"><EnergiaCadastrosTab /></TabsContent>
