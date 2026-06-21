@@ -319,99 +319,245 @@ function KpiCard({ label, value, icon: Icon, tone, suffix }: { label: string; va
   );
 }
 
-function FaturaDetalhe({ fatura: f, competencia, onCopy }: { fatura: FaturaCliente; competencia: string; onCopy: () => void }) {
-  const tributos = f.icms_total + f.piscof_total + f.iluminacao_publica + f.bandeira_total;
-  const consumoR = f.rs_consumo_total + f.rs_perdas;
+// ───────────────────────────────────────────────────────────
+// Fatura Oficial — replica o layout da planilha "FATURA DE ENERGIA"
+// que o cliente já recebe hoje (PDF Mega Centro Logístico).
+// ───────────────────────────────────────────────────────────
+
+function compactarModulos(ids: string[]): string {
+  // Extrai número do identificador (ex. "MÓDULO 48" → 48). Se contíguo, exibe faixa.
+  const nums = ids
+    .map((id) => {
+      const m = id.match(/(\d+)/);
+      return m ? parseInt(m[1], 10) : NaN;
+    })
+    .filter((n) => !Number.isNaN(n))
+    .sort((a, b) => a - b);
+  if (nums.length === 0) return ids.join(', ');
+  if (nums.length === 1) return String(nums[0]);
+  const contiguo = nums.every((n, i) => i === 0 || n === nums[i - 1] + 1);
+  if (contiguo) return `${nums[0]} ao ${nums[nums.length - 1]}`;
+  return nums.join(', ');
+}
+
+function periodoCompetencia(anoMes: string): string {
+  // anoMes = "YYYY-MM" → "01/MM/YYYY → último dia/MM/YYYY"
+  const [y, m] = anoMes.split('-').map(Number);
+  if (!y || !m) return anoMes;
+  const ult = new Date(y, m, 0).getDate();
+  const mm = String(m).padStart(2, '0');
+  return `01/${mm}/${y} — ${String(ult).padStart(2, '0')}/${mm}/${y}`;
+}
+
+function tarifa(n: number) {
+  return `R$ ${(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 6, maximumFractionDigits: 6 })}`;
+}
+
+function FaturaOficial({
+  fatura: f,
+  competencia,
+  tarifas,
+  linhas,
+  onCopy,
+}: {
+  fatura: FaturaCliente;
+  competencia: string;
+  tarifas: EnergiaTarifas;
+  linhas: MemoriaLinha[];
+  onCopy: () => void;
+}) {
+  // Agregados a partir das linhas da memória (mesmas células que geraram o cálculo)
+  const sum = (k: keyof MemoriaLinha) => linhas.reduce((s, l) => s + (Number(l[k] as any) || 0), 0);
+
+  const demandaMedida = sum('demanda_usd');           // G
+  const demandaContratada = sum('demanda_contratada'); // F
+  const demandaIsenta = sum('demanda_isenta');         // H
+  const ultrapassagem = sum('ultrapassagem');          // I
+  const rsDemandaUsd = sum('rs_demanda_usd');          // J
+  const rsDemandaIsenta = sum('rs_demanda_isenta');    // K
+  const rsUltrapassagem = sum('rs_ultrapassagem');     // L
+
+  const consumoPonta = sum('consumo_ponta');
+  const consumoFora = sum('consumo_fora');
+  const consumoTotal = sum('consumo_total');
+  const rsConsumoTotal = sum('rs_consumo_total');
+
+  const rsPonta = sum('rs_ponta');
+  const rsFora = sum('rs_fora');
+
+  const piscof = sum('piscof_total');
+  const icms = sum('icms_total');
+  const ilum = sum('iluminacao_publica');
+  const credito = sum('cred_deb_rateado') + sum('fotovoltaico') + sum('ajuste_manual');
+  const bandeira = sum('bandeira_total');
+
+  const totalFornecimento = sum('rs_consumo_demanda_perdas'); // AT = demanda + consumo + perdas
+  const total = sum('total_fatura_energy');
+
+  // Bases para impostos (apenas exibição informativa, calculada pelas alíquotas)
+  const basePiscof = (tarifas.pis_pct + tarifas.cofins_pct) > 0 ? piscof / (tarifas.pis_pct + tarifas.cofins_pct) : 0;
+  const pctPiscof = (tarifas.pis_pct + tarifas.cofins_pct) * 100;
+  const baseIcms = tarifas.icms_pct > 0 ? icms / tarifas.icms_pct : 0;
+  const pctIcms = tarifas.icms_pct * 100;
+
+  const modulosFaixa = compactarModulos(f.modulos);
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="print:shadow-none print:border-0">
+      <CardHeader className="border-b bg-gradient-to-r from-primary/10 to-transparent">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <CardTitle className="text-xl">{f.cliente_nome}</CardTitle>
+            <div className="text-[11px] font-bold tracking-widest text-primary uppercase">
+              Mega Centro Logístico
+            </div>
+            <CardTitle className="text-xl mt-0.5">Fatura de Energia — {f.cliente_nome}</CardTitle>
             <CardDescription className="mt-1">
-              Competência <strong>{competencia}</strong> · {f.modulos.length} módulo{f.modulos.length > 1 ? 's' : ''}
+              Documento auditável que reproduz o cálculo entregue ao cliente.
             </CardDescription>
           </div>
-          <Button variant="outline" size="sm" onClick={onCopy}>Copiar resumo</Button>
+          <div className="flex gap-2 print:hidden">
+            <Button variant="outline" size="sm" onClick={onCopy}>Copiar resumo</Button>
+            <Button variant="outline" size="sm" onClick={() => window.print()}>
+              Imprimir / PDF
+            </Button>
+          </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {/* KPIs do cliente */}
-        <div className="grid gap-3 md:grid-cols-4">
-          <MiniKpi label="Demanda" value={`${num(f.demanda_usd)} kW`} />
-          <MiniKpi label="Consumo Ponta" value={`${num(f.consumo_ponta)} kWh`} />
-          <MiniKpi label="Consumo Fora" value={`${num(f.consumo_fora)} kWh`} />
-          <MiniKpi label="Total a Pagar" value={brl(f.total_fatura_energy)} highlight />
-        </div>
-
-        {/* Composição */}
-        <div>
-          <h4 className="text-sm font-semibold mb-2">Composição da fatura</h4>
-          <div className="overflow-x-auto rounded-md border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted">
-                <tr>
-                  <th className="px-3 py-2 text-left text-xs font-semibold">Item</th>
-                  <th className="px-3 py-2 text-right text-xs font-semibold">Valor</th>
-                </tr>
-              </thead>
-              <tbody>
-                <Row label="Demanda" v={f.rs_demanda_total} />
-                <Row label="Consumo (energia + perdas)" v={consumoR} />
-                <Row label="ICMS" v={f.icms_total} />
-                <Row label="PIS / COFINS" v={f.piscof_total} />
-                <Row label="Iluminação Pública" v={f.iluminacao_publica} />
-                <Row label="Bandeira tarifária" v={f.bandeira_total} />
-                <Row label="Crédito/Débito rateado" v={f.cred_deb_rateado} />
-                <Row label="Fotovoltaico (abatimento)" v={f.fotovoltaico} />
-                <Row label="Ajuste manual" v={f.ajuste_manual} />
-                <tr className="border-t-2 border-primary bg-primary/5 font-bold">
-                  <td className="px-3 py-2">TOTAL</td>
-                  <td className="px-3 py-2 text-right text-primary text-lg">{brl(f.total_fatura_energy)}</td>
-                </tr>
-                <tr className="text-xs text-muted-foreground">
-                  <td className="px-3 py-1">Tributos totais inclusos</td>
-                  <td className="px-3 py-1 text-right">{brl(tributos)}</td>
-                </tr>
-              </tbody>
-            </table>
+      <CardContent className="space-y-5 pt-5">
+        {/* Bloco 1 — Identificação */}
+        <div className="rounded-md border overflow-hidden">
+          <div className="grid grid-cols-1 md:grid-cols-2 text-sm">
+            <InfoCell label="Cliente" value={f.cliente_nome} />
+            <InfoCell label="Módulos" value={modulosFaixa} />
+            <InfoCell label="Concessionária" value="COPEL-DIS" />
+            <InfoCell label="Modalidade Tarifária" value="A4 Verde" />
+            <InfoCell label="Período" value={periodoCompetencia(competencia)} className="md:col-span-2" />
           </div>
         </div>
 
-        {/* Módulos */}
-        <div>
-          <h4 className="text-sm font-semibold mb-2">Módulos cobertos</h4>
-          <div className="flex flex-wrap gap-1.5">
-            {f.modulos.map((mod) => (
-              <Badge key={mod} variant="secondary" className="font-normal">{mod}</Badge>
-            ))}
-          </div>
+        {/* Bloco 2 — Demanda + Consumo */}
+        <div className="overflow-x-auto rounded-md border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted text-xs uppercase tracking-wide">
+              <tr>
+                <th className="px-3 py-2 text-left font-semibold w-[28%]"></th>
+                <th className="px-3 py-2 text-right font-semibold">Medido</th>
+                <th className="px-3 py-2 text-right font-semibold">Contratado</th>
+                <th className="px-3 py-2 text-right font-semibold">Faturado</th>
+                <th className="px-3 py-2 text-right font-semibold">Tarifa</th>
+                <th className="px-3 py-2 text-right font-semibold">Valores (R$)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <SectionRow label="DEMANDA (kW)" />
+              <DataRow label="Demanda USD" medido={demandaMedida} contratado={demandaContratada} faturado={demandaMedida} tarifa={tarifas.demanda_usd} valor={rsDemandaUsd} dec={2} />
+              <DataRow label="Demanda USD Isenta ICMS" medido={demandaIsenta} faturado={demandaIsenta} tarifa={tarifas.demanda_isenta} valor={rsDemandaIsenta} dec={2} />
+              <DataRow label="Ultrapassagem" faturado={ultrapassagem} tarifa={tarifas.ultrapassagem} valor={rsUltrapassagem} dec={2} />
+
+              <SectionRow label="CONSUMO (kWh)" />
+              <DataRow label="Ponta" medido={consumoPonta} faturado={consumoPonta} tarifa={tarifas.te_ponta + tarifas.tusd_ponta} valor={rsPonta} dec={2} />
+              <DataRow label="Fora Ponta" medido={consumoFora} faturado={consumoFora} tarifa={tarifas.te_fora + tarifas.tusd_fora} valor={rsFora} dec={2} />
+              <DataRow label="Bandeira" valor={bandeira} dec={2} />
+            </tbody>
+          </table>
         </div>
 
-        <div className="rounded-md border bg-muted/30 p-3 text-xs text-muted-foreground">
-          <strong>Como foi calculado:</strong> os valores acima são derivados da Fatura Copel do mês, distribuídos
-          entre os módulos por área (m²) e consolidados por cliente. Tributos (ICMS, PIS/COFINS) seguem as alíquotas do cadastro.
+        {/* Bloco 3 — Resumo */}
+        <div className="overflow-x-auto rounded-md border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted text-xs uppercase tracking-wide">
+              <tr><th className="px-3 py-2 text-left font-semibold" colSpan={2}>Resumo da Conta</th></tr>
+            </thead>
+            <tbody>
+              <tr className="border-b">
+                <td className="px-3 py-2">Consumo Total (kWh)</td>
+                <td className="px-3 py-2 text-right tabular-nums font-medium">{num(consumoTotal)}</td>
+              </tr>
+              <tr>
+                <td className="px-3 py-2">Total Fornecimento (R$)</td>
+                <td className="px-3 py-2 text-right tabular-nums font-medium">{brl(totalFornecimento)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Bloco 4 — Impostos / Tributos */}
+        <div className="overflow-x-auto rounded-md border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted text-xs uppercase tracking-wide">
+              <tr>
+                <th className="px-3 py-2 text-left font-semibold w-[40%]">Impostos / Tributos</th>
+                <th className="px-3 py-2 text-right font-semibold">Base</th>
+                <th className="px-3 py-2 text-right font-semibold">%</th>
+                <th className="px-3 py-2 text-right font-semibold">Valor</th>
+              </tr>
+            </thead>
+            <tbody>
+              <TaxRow label="PIS/COFINS" base={basePiscof} pct={pctPiscof} valor={piscof} />
+              <TaxRow label="ICMS" base={baseIcms} pct={pctIcms} valor={icms} />
+              <TaxRow label="Iluminação Pública" valor={ilum} />
+              <TaxRow label="Crédito" valor={credito} />
+              <TaxRow label="Bandeira Tarifária" valor={bandeira} />
+              <tr className="border-t-2 border-primary bg-primary/10">
+                <td className="px-3 py-3 font-bold uppercase tracking-wide" colSpan={3}>TOTAL DA FATURA</td>
+                <td className="px-3 py-3 text-right tabular-nums text-primary font-extrabold text-lg">{brl(total)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div className="flex flex-wrap gap-1.5 print:hidden">
+          <span className="text-xs text-muted-foreground mr-2 self-center">Módulos:</span>
+          {f.modulos.map((mod) => (
+            <Badge key={mod} variant="secondary" className="font-normal">{mod}</Badge>
+          ))}
         </div>
       </CardContent>
     </Card>
   );
 }
 
-function MiniKpi({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+function InfoCell({ label, value, className = '' }: { label: string; value: string; className?: string }) {
   return (
-    <div className={`rounded-md border p-3 ${highlight ? 'border-primary bg-primary/5' : ''}`}>
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className={`mt-1 text-lg font-bold tabular-nums ${highlight ? 'text-primary' : ''}`}>{value}</div>
+    <div className={`flex border-b md:[&:nth-last-child(-n+2)]:border-b-0 ${className}`}>
+      <div className="bg-muted/50 px-3 py-2 text-xs font-semibold uppercase tracking-wide w-44 shrink-0 flex items-center">
+        {label}
+      </div>
+      <div className="px-3 py-2 flex-1 font-medium">{value || '—'}</div>
     </div>
   );
 }
 
-function Row({ label, v }: { label: string; v: number }) {
+function SectionRow({ label }: { label: string }) {
+  return (
+    <tr className="bg-primary/5">
+      <td className="px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-primary" colSpan={6}>{label}</td>
+    </tr>
+  );
+}
+
+function DataRow({
+  label, medido, contratado, faturado, tarifa: t, valor, dec = 2,
+}: { label: string; medido?: number; contratado?: number; faturado?: number; tarifa?: number; valor: number; dec?: number }) {
+  return (
+    <tr className="border-b last:border-0 hover:bg-muted/30">
+      <td className="px-3 py-1.5">{label}</td>
+      <td className="px-3 py-1.5 text-right tabular-nums text-muted-foreground">{medido !== undefined ? num(medido, dec) : ''}</td>
+      <td className="px-3 py-1.5 text-right tabular-nums text-muted-foreground">{contratado !== undefined ? num(contratado, dec) : ''}</td>
+      <td className="px-3 py-1.5 text-right tabular-nums">{faturado !== undefined ? num(faturado, dec) : ''}</td>
+      <td className="px-3 py-1.5 text-right tabular-nums text-muted-foreground">{t !== undefined ? tarifa(t) : ''}</td>
+      <td className="px-3 py-1.5 text-right tabular-nums font-medium">{brl(valor)}</td>
+    </tr>
+  );
+}
+
+function TaxRow({ label, base, pct, valor }: { label: string; base?: number; pct?: number; valor: number }) {
   return (
     <tr className="border-b last:border-0">
       <td className="px-3 py-1.5">{label}</td>
-      <td className="px-3 py-1.5 text-right tabular-nums">{brl(v)}</td>
+      <td className="px-3 py-1.5 text-right tabular-nums text-muted-foreground">{base !== undefined ? brl(base) : ''}</td>
+      <td className="px-3 py-1.5 text-right tabular-nums text-muted-foreground">{pct !== undefined ? `${pct.toFixed(2)}%` : ''}</td>
+      <td className="px-3 py-1.5 text-right tabular-nums font-medium">{brl(valor)}</td>
     </tr>
   );
 }
