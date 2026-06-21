@@ -673,11 +673,11 @@ export function MemoriaCalculoTab() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Calculator className="h-5 w-5 text-primary" />
-            Memória de Cálculo
+            <ClipboardList className="h-5 w-5 text-primary" />
+            Lançamentos do Mês
           </CardTitle>
           <CardDescription>
-            Replica integralmente a planilha mensal do Mega Curitiba. Entre a fatura Copel (tarifas) e a leitura por módulo; o cálculo é automático.
+            Registre o consumo de cada cliente referente à competência da Fatura Copel já lançada. O cálculo por módulo e a fatura por cliente são derivados automaticamente.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
