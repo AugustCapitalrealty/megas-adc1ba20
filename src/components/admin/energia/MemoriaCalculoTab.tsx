@@ -726,6 +726,13 @@ export function MemoriaCalculoTab() {
         </CardContent>
       </Card>
 
+      {currentComp && tarifas && (
+        <FluxoStepper
+          copelOk={Number((tarifas as any)?.copel_valor_total) > 0}
+          lancamentosOk={Object.keys(consumoCli).length > 0}
+        />
+      )}
+
       {!currentComp ? (
         <Card><CardContent className="py-10 text-center text-muted-foreground">Crie uma competência para começar.</CardContent></Card>
       ) : !tarifas ? (
