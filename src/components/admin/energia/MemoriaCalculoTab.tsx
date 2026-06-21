@@ -236,18 +236,20 @@ export function MemoriaCalculoTab() {
     ((l.data as any[]) || []).forEach((r) => { map[r.modulo_id] = r; });
     setLancamentos(map);
 
-    // Resolver contrato vigente por módulo para o mês da competência
-    // Usa o 1º dia do mês como referência
-    const ref = `${anoMes}-01`;
+    // Resolver contrato vigente por módulo para o mês da competência.
+    // Um contrato é vigente no mês se sua vigência se sobrepõe a [primeiro_dia, último_dia].
+    const [yy, mm] = anoMes.split('-').map(Number);
+    const refInicio = `${anoMes}-01`;
+    const refFim = `${anoMes}-${String(new Date(yy, mm, 0).getDate()).padStart(2, '0')}`;
     const { data: vinculos, error: vErr } = await supabase
       .from('energia_contrato_modulos' as any)
       .select('modulo_id, vigencia_inicio, vigencia_fim, contrato:energia_contratos!inner(id, numero_contrato, demanda_contratada_kw, ativo)')
-      .lte('vigencia_inicio', ref);
+      .lte('vigencia_inicio', refFim);
     const cMap: Record<string, ContratoVigente> = {};
     if (!vErr && vinculos) {
       for (const v of vinculos as any[]) {
         const fim = v.vigencia_fim ? v.vigencia_fim : null;
-        if (fim && fim < ref) continue;
+        if (fim && fim < refInicio) continue;
         if (!v.contrato?.ativo) continue;
         // Em caso de múltiplos, pega o mais recente (vigencia_inicio maior)
         const prev = cMap[v.modulo_id];
