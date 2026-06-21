@@ -480,45 +480,123 @@ function ContratoModal({
           <div>
             <div className="flex items-center justify-between mb-2">
               <Label>Módulos vinculados</Label>
-              <Button type="button" size="sm" variant="outline" onClick={addVinculo}>
-                <Plus className="h-3 w-3 mr-1" /> Adicionar módulo
-              </Button>
+              <Badge variant={selectedCount > 0 ? 'default' : 'secondary'}>
+                {selectedCount} selecionado{selectedCount === 1 ? '' : 's'}
+              </Badge>
             </div>
-            <div className="space-y-2 rounded-md border p-3">
-              {vinculosDraft.filter((v) => !v._delete).length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-3">Nenhum módulo vinculado</p>
-              )}
-              {vinculosDraft.map((v, i) => {
-                if (v._delete) return null;
-                return (
-                  <div key={i} className="grid grid-cols-12 gap-2 items-end">
-                    <div className="col-span-5">
-                      <Label className="text-xs">Módulo</Label>
-                      <Select value={v.modulo_id} onValueChange={(val) => updateVinculo(i, { modulo_id: val })}>
-                        <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                        <SelectContent>
-                          {modulos.map((m) => (
-                            <SelectItem key={m.id} value={m.id}>{m.identificador}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="col-span-3">
-                      <Label className="text-xs">Início</Label>
-                      <Input type="date" value={v.vigencia_inicio} onChange={(e) => updateVinculo(i, { vigencia_inicio: e.target.value })} />
-                    </div>
-                    <div className="col-span-3">
-                      <Label className="text-xs">Fim (opc.)</Label>
-                      <Input type="date" value={v.vigencia_fim || ''} onChange={(e) => updateVinculo(i, { vigencia_fim: e.target.value || null })} />
-                    </div>
-                    <div className="col-span-1">
-                      <Button type="button" size="icon" variant="ghost" onClick={() => removeVinculo(i)}>
-                        <X className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
+            <div className="rounded-md border">
+              {/* Vigência padrão */}
+              <div className="p-3 bg-muted/40 border-b space-y-2">
+                <div className="flex items-end gap-2 flex-wrap">
+                  <div className="flex-1 min-w-[140px]">
+                    <Label className="text-xs">Vigência padrão · início</Label>
+                    <Input type="date" value={vigInicio} onChange={(e) => setVigInicio(e.target.value)} />
                   </div>
-                );
-              })}
+                  <div className="flex-1 min-w-[140px]">
+                    <Label className="text-xs">Fim (opc.)</Label>
+                    <Input type="date" value={vigFim} onChange={(e) => setVigFim(e.target.value)} />
+                  </div>
+                  <Button type="button" size="sm" variant="outline" onClick={applyDefaultDatesToSelected} disabled={selectedCount === 0}>
+                    <CalendarCog className="h-3 w-3 mr-1" /> Aplicar a todos
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Novos módulos marcados herdam essa vigência. Edite por linha se precisar de exceção.
+                </p>
+              </div>
+
+              {/* Busca + ações em massa */}
+              <div className="p-3 border-b flex items-center gap-2 flex-wrap">
+                <div className="relative flex-1 min-w-[200px]">
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar módulo..."
+                    value={moduloSearch}
+                    onChange={(e) => setModuloSearch(e.target.value)}
+                    className="pl-7 h-9"
+                  />
+                </div>
+                <Button type="button" size="sm" variant="ghost" onClick={selectAllVisible} disabled={filteredModulos.length === 0}>
+                  Selecionar todos
+                </Button>
+                <Button type="button" size="sm" variant="ghost" onClick={clearAllVisible} disabled={selectedCount === 0}>
+                  Limpar
+                </Button>
+              </div>
+
+              {/* Lista */}
+              <div className="max-h-80 overflow-y-auto divide-y">
+                {filteredModulos.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-6">Nenhum módulo encontrado</p>
+                )}
+                {filteredModulos.map((m) => {
+                  const draftIdx = draftByModulo.get(m.id);
+                  const checked = draftIdx !== undefined;
+                  const v = checked ? vinculosDraft[draftIdx!] : null;
+                  const custom = v ? hasCustomDates(v) : false;
+                  return (
+                    <div
+                      key={m.id}
+                      className={`flex items-center gap-3 px-3 py-2 hover:bg-muted/30 transition-colors ${checked ? 'bg-primary/5' : ''}`}
+                    >
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(c) => toggleModulo(m.id, !!c)}
+                        id={`mod-${m.id}`}
+                      />
+                      <label htmlFor={`mod-${m.id}`} className="flex-1 cursor-pointer text-sm font-medium">
+                        {m.identificador}
+                      </label>
+                      {v && (
+                        <>
+                          <span className="text-xs text-muted-foreground hidden sm:inline">
+                            {v.vigencia_inicio?.split('-').reverse().join('/')}
+                            {' → '}
+                            {v.vigencia_fim ? v.vigencia_fim.split('-').reverse().join('/') : '—'}
+                          </span>
+                          {custom && <Badge variant="outline" className="text-[10px] h-5">custom</Badge>}
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button type="button" size="sm" variant="ghost" className="h-7 px-2">
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-64 space-y-2" align="end">
+                              <div>
+                                <Label className="text-xs">Início</Label>
+                                <Input
+                                  type="date"
+                                  value={v.vigencia_inicio}
+                                  onChange={(e) => updateVinculoDates(m.id, { vigencia_inicio: e.target.value })}
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-xs">Fim (opc.)</Label>
+                                <Input
+                                  type="date"
+                                  value={v.vigencia_fim || ''}
+                                  onChange={(e) => updateVinculoDates(m.id, { vigencia_fim: e.target.value || null })}
+                                />
+                              </div>
+                              {custom && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="w-full"
+                                  onClick={() => updateVinculoDates(m.id, { vigencia_inicio: vigInicio, vigencia_fim: vigFim || null })}
+                                >
+                                  Restaurar padrão
+                                </Button>
+                              )}
+                            </PopoverContent>
+                          </Popover>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
