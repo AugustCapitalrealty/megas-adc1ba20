@@ -432,8 +432,13 @@ function FaturaOficial({
   const credito = sum('cred_deb_rateado') + sum('fotovoltaico') + sum('ajuste_manual');
   const bandeira = sum('bandeira_total');
 
-  const totalFornecimento = sum('rs_consumo_demanda_perdas'); // AT = demanda + consumo + perdas
-  const total = sum('total_fatura_energy');
+  // Total Fornecimento = Demanda + Consumo (sem perdas, sem tributos —
+  // tributos já estão embutidos nas tarifas brutas da Copel).
+  const totalFornecimento =
+    rsDemandaUsd + rsDemandaIsenta + rsUltrapassagem + rsPonta + rsFora;
+  // TOTAL DA FATURA = Fornecimento + Iluminação + Crédito/Débito + Bandeira.
+  // PIS/COFINS e ICMS NÃO entram (são informativos, já embutidos no preço).
+  const total = totalFornecimento + ilum + credito + bandeira;
 
   // Bases para impostos (apenas exibição informativa, calculada pelas alíquotas)
   const basePiscof = (tarifas.pis_pct + tarifas.cofins_pct) > 0 ? piscof / (tarifas.pis_pct + tarifas.cofins_pct) : 0;
