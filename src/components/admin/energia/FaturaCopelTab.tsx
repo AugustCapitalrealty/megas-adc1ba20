@@ -224,6 +224,12 @@ export function FaturaCopelTab() {
       copel_tarifa_tusd_fora: tarif('usd_fora'),
       copel_tarifa_demanda_usd: tarif('demanda_usd'),
       iluminacao_publica: v('iluminacao_publica'),
+      // Tarifas usadas pelo engine de rateio — cada competência usa as suas
+      demanda_usd: tarif('demanda_usd'),
+      te_ponta:    tarif('te_ponta'),
+      tusd_ponta:  tarif('usd_ponta'),
+      te_fora:     tarif('te_fora'),
+      tusd_fora:   tarif('usd_fora'),
     };
     const { error } = await supabase
       .from('energia_competencia_tarifas')
