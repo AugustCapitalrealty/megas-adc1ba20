@@ -467,9 +467,14 @@ function FaturaOficial({
   const rsPerdasFora = sum('rs_perdas_te_fora') + sum('rs_perdas_tusd_fora');
   const rsPontaExibido = rsPonta + rsPerdasPonta;
   const rsForaExibido = rsFora + rsPerdasFora;
-  // Tarifa exibida ajustada para manter coerência (kWh × tarifa = valor exibido).
-  const tarifaPontaExibida = consumoPonta > 0 ? rsPontaExibido / consumoPonta : (tarifas.te_ponta + tarifas.tusd_ponta);
-  const tarifaForaExibida = consumoFora > 0 ? rsForaExibido / consumoFora : (tarifas.te_fora + tarifas.tusd_fora);
+  // kWh com perdas embutido (mantém coerência: kWh × tarifa = R$ exibido).
+  const perdasPontaKwh = sum('perdas_ponta_kwh');
+  const perdasForaKwh = sum('perdas_fora_kwh');
+  const consumoPontaExibido = consumoPonta + perdasPontaKwh;
+  const consumoForaExibido = consumoFora + perdasForaKwh;
+  const consumoTotalExibido = consumoPontaExibido + consumoForaExibido;
+  const tarifaPontaExibida = consumoPontaExibido > 0 ? rsPontaExibido / consumoPontaExibido : (tarifas.te_ponta + tarifas.tusd_ponta);
+  const tarifaForaExibida = consumoForaExibido > 0 ? rsForaExibido / consumoForaExibido : (tarifas.te_fora + tarifas.tusd_fora);
 
   const piscof = sum('piscof_total');
   const icms = sum('icms_total');
@@ -485,10 +490,17 @@ function FaturaOficial({
   // PIS/COFINS e ICMS NÃO entram (são informativos, já embutidos no preço).
   const total = totalFornecimento + ilum + credito + bandeira;
 
-  // Bases para impostos (apenas exibição informativa, calculada pelas alíquotas)
-  const basePiscof = (tarifas.pis_pct + tarifas.cofins_pct) > 0 ? piscof / (tarifas.pis_pct + tarifas.cofins_pct) : 0;
-  const pctPiscof = (tarifas.pis_pct + tarifas.cofins_pct) * 100;
-  const baseIcms = tarifas.icms_pct > 0 ? icms / tarifas.icms_pct : 0;
+  // Base dos impostos com perdas embutidas (mantém coerência com o consumo exibido).
+  // PIS/COFINS e ICMS continuam informativos (já embutidos nas tarifas brutas).
+  const baseConsumoComPerdas = rsPontaExibido + rsForaExibido;
+  const piscofDemandaSum = sum('piscof_demanda') + sum('piscof_demanda_isenta');
+  const icmsDemandaSum = sum('icms_demanda');
+  const piscofPct = tarifas.pis_pct + tarifas.cofins_pct;
+  const piscofExibido = baseConsumoComPerdas * piscofPct + piscofDemandaSum;
+  const icmsExibido = baseConsumoComPerdas * tarifas.icms_pct + icmsDemandaSum;
+  const basePiscof = piscofPct > 0 ? piscofExibido / piscofPct : 0;
+  const pctPiscof = piscofPct * 100;
+  const baseIcms = tarifas.icms_pct > 0 ? icmsExibido / tarifas.icms_pct : 0;
   const pctIcms = tarifas.icms_pct * 100;
 
   const modulosFaixa = compactarModulos(f.modulos);
@@ -547,8 +559,8 @@ function FaturaOficial({
               <DataRow label="Ultrapassagem" faturado={ultrapassagem} tarifa={tarifas.ultrapassagem} valor={rsUltrapassagem} dec={2} />
 
               <SectionRow label="CONSUMO (kWh)" />
-              <DataRow label="Ponta" medido={consumoPonta} faturado={consumoPonta} tarifa={tarifaPontaExibida} valor={rsPontaExibido} dec={2} />
-              <DataRow label="Fora Ponta" medido={consumoFora} faturado={consumoFora} tarifa={tarifaForaExibida} valor={rsForaExibido} dec={2} />
+              <DataRow label="Ponta" medido={consumoPontaExibido} faturado={consumoPontaExibido} tarifa={tarifaPontaExibida} valor={rsPontaExibido} dec={2} />
+              <DataRow label="Fora Ponta" medido={consumoForaExibido} faturado={consumoForaExibido} tarifa={tarifaForaExibida} valor={rsForaExibido} dec={2} />
               <DataRow label="Bandeira" valor={bandeira} dec={2} />
             </tbody>
           </table>
@@ -568,7 +580,7 @@ function FaturaOficial({
               </tr>
             </thead>
             <tbody>
-              <DataRow label="Consumo Total (kWh)" medido={consumoTotal} dec={2} />
+              <DataRow label="Consumo Total (kWh)" medido={consumoTotalExibido} dec={2} />
               <DataRow label="Total Fornecimento (R$)" valor={totalFornecimento} dec={2} />
             </tbody>
           </table>
@@ -586,8 +598,8 @@ function FaturaOficial({
               </tr>
             </thead>
             <tbody>
-              <TaxRow label="PIS/COFINS" base={basePiscof} pct={pctPiscof} valor={piscof} />
-              <TaxRow label="ICMS" base={baseIcms} pct={pctIcms} valor={icms} />
+              <TaxRow label="PIS/COFINS" base={basePiscof} pct={pctPiscof} valor={piscofExibido} />
+              <TaxRow label="ICMS" base={baseIcms} pct={pctIcms} valor={icmsExibido} />
               <TaxRow label="Iluminação Pública" valor={ilum} />
               <TaxRow label="Crédito" valor={credito} />
               <TaxRow label="Bandeira Tarifária" valor={bandeira} />
