@@ -610,6 +610,7 @@ export function MemoriaCalculoTab() {
     const contratoModsById = new Map<string, Modulo[]>();
     for (const c of contratosVigentes) contratoModsById.set(c.contrato_id, c.modulos.filter((m) => !isAreaComum(m)));
     for (const cli of arr) {
+      if (cli.cliente_key === '__ENTRADA_MEDIDOR__') continue;
       const mods = consumoCli[cli.cliente_key]
         ? modulos.filter((m) => {
             if (cli.cliente_key === 'AREA_COMUM') return isAreaComum(m);
