@@ -580,7 +580,7 @@ function SectionRow({ label }: { label: string }) {
 
 function DataRow({
   label, medido, contratado, faturado, tarifa: t, valor, dec = 2,
-}: { label: string; medido?: number; contratado?: number; faturado?: number; tarifa?: number; valor: number; dec?: number }) {
+}: { label: string; medido?: number; contratado?: number; faturado?: number; tarifa?: number; valor?: number; dec?: number }) {
   return (
     <tr className="border-b last:border-0 hover:bg-muted/30">
       <td className="px-3 py-1.5">{label}</td>
@@ -588,7 +588,7 @@ function DataRow({
       <td className="px-3 py-1.5 text-right tabular-nums text-muted-foreground">{contratado !== undefined ? num(contratado, dec) : ''}</td>
       <td className="px-3 py-1.5 text-right tabular-nums">{faturado !== undefined ? num(faturado, dec) : ''}</td>
       <td className="px-3 py-1.5 text-right tabular-nums text-muted-foreground">{t !== undefined ? tarifa(t) : ''}</td>
-      <td className="px-3 py-1.5 text-right tabular-nums font-medium">{brl(valor)}</td>
+      <td className="px-3 py-1.5 text-right tabular-nums font-medium">{valor !== undefined ? brl(valor) : ''}</td>
     </tr>
   );
 }
