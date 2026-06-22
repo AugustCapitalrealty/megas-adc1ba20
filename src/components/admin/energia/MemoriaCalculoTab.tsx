@@ -943,6 +943,7 @@ export function MemoriaCalculoTab() {
               cp: (tarifas as any).copel_consumo_ponta_kwh || 0,
               cf: (tarifas as any).copel_consumo_fora_kwh || 0,
             }}
+            lancamentos={lancamentos}
           />
 
           {/* Matriz Memória de Cálculo */}
