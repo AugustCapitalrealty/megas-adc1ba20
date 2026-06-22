@@ -587,7 +587,15 @@ export function MemoriaCalculoTab() {
     if (!tarifas || !currentCompId) return;
     setSavingConsumo(true);
     // 1) persiste JSON
-    const arr = Object.values(consumoCli);
+    const arr: any[] = Object.values(consumoCli);
+    if (entradaMedidor.cp || entradaMedidor.cf) {
+      arr.push({
+        cliente_key: '__ENTRADA_MEDIDOR__',
+        demanda_kw: '',
+        consumo_ponta_kwh: entradaMedidor.cp || '',
+        consumo_fora_kwh: entradaMedidor.cf || '',
+      });
+    }
     const { error: e1 } = await supabase
       .from('energia_competencia_tarifas')
       .update({ consumo_por_cliente: arr as any, updated_by: user?.id } as any)
