@@ -207,6 +207,7 @@ export function MemoriaCalculoTab() {
   const [creating, setCreating] = useState(false);
   const [faturaItens, setFaturaItens] = useState<FaturaCopelItens>({ itens: {}, tributos: {} });
   const [consumoCli, setConsumoCli] = useState<Record<string, ConsumoCliente>>({});
+  const [entradaMedidor, setEntradaMedidor] = useState<{ cp: string; cf: string }>({ cp: '', cf: '' });
   const [savingFatura, setSavingFatura] = useState(false);
   const [savingConsumo, setSavingConsumo] = useState(false);
   // Alíquotas vindas do cadastro (energia_parametros). Valores em % (ex.: 19, 1.65, 7.6)
