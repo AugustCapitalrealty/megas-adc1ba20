@@ -33,6 +33,8 @@ export function FaturasTab() {
   const [tarifas, setTarifas] = useState<any>(null);
   const [lancamentos, setLancamentos] = useState<Record<string, any>>({});
   const [contratoPorModulo, setContratoPorModulo] = useState<Record<string, { demanda_contratada_kw: number }>>({});
+  const [contratoIdPorModulo, setContratoIdPorModulo] = useState<Record<string, string>>({});
+  const [contratoDemandaPorId, setContratoDemandaPorId] = useState<Record<string, number>>({});
   const [busca, setBusca] = useState('');
   const [selecionado, setSelecionado] = useState<string | null>(null);
 
@@ -63,9 +65,11 @@ export function FaturasTab() {
     const refFim = `${anoMes}-${String(new Date(yy, mm, 0).getDate()).padStart(2, '0')}`;
     const { data: vinc } = await supabase
       .from('energia_contrato_modulos' as any)
-      .select('modulo_id, vigencia_inicio, vigencia_fim, contrato:energia_contratos!inner(demanda_contratada_kw, ativo)')
+      .select('modulo_id, vigencia_inicio, vigencia_fim, contrato_id, contrato:energia_contratos!inner(id, demanda_contratada_kw, ativo)')
       .lte('vigencia_inicio', refFim);
     const cMap: Record<string, any> = {};
+    const cIdMap: Record<string, string> = {};
+    const cDemMap: Record<string, number> = {};
     if (vinc) {
       for (const v of vinc as any[]) {
         const fim = v.vigencia_fim ?? null;
@@ -74,10 +78,14 @@ export function FaturasTab() {
         const prev = cMap[v.modulo_id];
         if (!prev || v.vigencia_inicio > prev.__inicio) {
           cMap[v.modulo_id] = { demanda_contratada_kw: Number(v.contrato.demanda_contratada_kw) || 0, __inicio: v.vigencia_inicio };
+          cIdMap[v.modulo_id] = v.contrato.id;
+          cDemMap[v.contrato.id] = Number(v.contrato.demanda_contratada_kw) || 0;
         }
       }
     }
     setContratoPorModulo(cMap);
+    setContratoIdPorModulo(cIdMap);
+    setContratoDemandaPorId(cDemMap);
   }, []);
 
   useEffect(() => { (async () => { setLoading(true); await fetchBase(); setLoading(false); })(); }, [fetchBase]);
