@@ -1,45 +1,56 @@
-## Diagnóstico
+## Objetivo
 
-As tarifas exibidas na fatura do cliente vêm dos campos de **Mercado Livre** em `energia_competencia_tarifas`:
+Adicionar uma nova seção na aba **Fatura Copel** (`FaturaCopelTab.tsx`) chamada **"Medidor (Energy)"**, logo abaixo da tabela de itens da Copel. Essa seção registra as perdas medidas no Energy e mostra automaticamente a diferença que sobrou entre o consumo dos clientes e o que a Copel cobrou.
 
-- `demanda_usd`
-- `te_ponta`
-- `tusd_ponta`
-- `te_fora`
-- `tusd_fora`
+## Como vai funcionar
 
-Hoje esses campos estão com os valores antigos:
+A nova seção tem dois blocos:
+
+### Bloco 1 — Diferença da Fatura Copel (somente leitura)
+
+Calculada automaticamente:
 
 ```text
-Demanda USD: 19,805217
-Ponta:       0,394284 + 1,154727 = 1,549011
-Fora Ponta:  0,245430 + 0,115238 = 0,360668
+Soma consumo clientes Ponta   −   Consumo Ponta na fatura Copel   =   Diferença Ponta
+Soma consumo clientes Fora    −   Consumo Fora na fatura Copel    =   Diferença Fora
 ```
 
-Esses são exatamente os valores que aparecem na fatura do cliente.
+- Soma do consumo dos clientes vem de `energia_competencia_lancamentos` (colunas `consumo_ponta_kwh` / `consumo_fora_kwh`) da competência atual.
+- Consumo da Copel vem dos campos `copel_consumo_ponta_kwh` / `copel_consumo_fora_kwh` (já salvos pelos itens TE/USD Ponta/Fora desta mesma aba).
+- Mostrar Ponta, Fora e Total, com badge informando se é positivo (sobra) ou negativo (faltou).
 
-O que foi atualizado na tela **Fatura Copel** fica em campos separados `copel_tarifa_*`, apenas para conferência da conta da concessionária. Eu havia separado esses campos para não sobrescrever as tarifas Mercado Livre automaticamente. Por isso a fatura do cliente continuou mostrando as tarifas antigas.
+### Bloco 2 — Medidor (Energy)
 
-## Correção agora, em fase de testes
+Tabela com 3 linhas (Ponta, Fora da Ponta, Total), e duas colunas:
 
-Como estamos em fase de aprimoramento e você quer que tudo atualizado valha para trás também, vou ajustar para:
+| Linha | Perdas identificadas no Energy (input) | Perdas Totais (calculado) |
+|---|---|---|
+| Ponta | usuário digita | `Energy Ponta + Diferença Copel Ponta` |
+| Fora da Ponta | usuário digita | `Energy Fora + Diferença Copel Fora` |
+| Total | soma | soma |
 
-1. **Adicionar um botão/ação em Memória de Cálculo** para sincronizar as tarifas usadas na fatura do cliente com as tarifas corretas da Fatura Copel já digitada nesta competência.
-2. Ao sincronizar, copiar:
-   - `copel_tarifa_demanda_usd` → `demanda_usd`
-   - `copel_tarifa_te_ponta` → `te_ponta`
-   - `copel_tarifa_tusd_ponta` → `tusd_ponta`
-   - `copel_tarifa_te_fora` → `te_fora`
-   - `copel_tarifa_tusd_fora` → `tusd_fora`
-3. Também manter a propagação das alíquotas do cadastro para todas as competências, como já foi feito.
-4. Ajustar a criação/duplicação de competência para sempre aplicar as alíquotas atuais do cadastro, evitando nascer com PIS/COFINS antigos do `DEFAULT_TARIFAS` ou do mês anterior.
+- Os valores digitados são salvos em `perdas_energy_ponta_kwh` e `perdas_energy_fora_kwh` (colunas já existentes em `energia_competencia_tarifas`).
+- As "Perdas Totais" calculadas alimentam os campos `perdas_copel_ponta_kwh` / `perdas_copel_fora_kwh` no save (que o engine de rateio em `energia-rateio.ts` já soma com `perdas_energy_*` em `perdasPontaTotal/perdasForaTotal`). Assim a memória de cálculo passa a refletir as perdas reais sem dupla contagem — para evitar somar duas vezes, gravaremos `perdas_copel_*` recebendo apenas a **diferença** da fatura Copel (o componente do Energy continua no campo `perdas_energy_*`).
 
-## Observação importante
+## Comportamento
 
-Se a tarifa correta do Mercado Livre não deve ser igual à tarifa líquida da Copel, então precisamos de um cadastro separado de tarifas Mercado Livre. Mas pelo print e pela frase “as tarifas da Copel não está aparecendo na fatura do cliente”, a correção imediata é usar as tarifas da Fatura Copel como fonte para a fatura do cliente durante os testes.
+- Bloqueado quando a competência está fechada (mesma regra dos outros campos).
+- Reage em tempo real à edição dos itens Copel (a diferença recalcula sozinha).
+- Persiste junto com o botão **"Salvar Fatura Copel"** já existente.
+- Se não houver lançamentos de clientes ainda, mostra "—" na diferença e um hint para preencher na Memória de Cálculo.
 
-## Arquivos
+## Detalhes técnicos
 
-- `src/components/admin/energia/MemoriaCalculoTab.tsx`
-- `src/components/admin/energia/FaturasTab.tsx` se necessário apenas para recarregar/exibir após a sincronização
-- `src/lib/energia-rateio.ts` para remover defaults antigos de PIS/COFINS se necessário
+Arquivo único alterado: `src/components/admin/energia/FaturaCopelTab.tsx`
+
+1. No `fetchComp`, carregar também `perdas_energy_ponta_kwh`, `perdas_energy_fora_kwh` da tarifa e a soma de `consumo_ponta_kwh / consumo_fora_kwh` de `energia_competencia_lancamentos` da competência (filtrado por `competencia_id`).
+2. Novo estado: `energyPonta`, `energyFora` (strings BR), `clientesPonta`, `clientesFora` (números).
+3. Memos para `difCopelPonta`, `difCopelFora`, `perdasTotaisPonta`, `perdasTotaisFora`.
+4. Render: novo `Card` "Medidor (Energy) & Diferença Copel" abaixo do grid `Itens + Tributos`.
+5. No `save()`, adicionar ao update:
+   - `perdas_energy_ponta_kwh: parseBR(energyPonta)`
+   - `perdas_energy_fora_kwh: parseBR(energyFora)`
+   - `perdas_copel_ponta_kwh: max(0, difCopelPonta)`
+   - `perdas_copel_fora_kwh: max(0, difCopelFora)`
+
+Nenhuma migração necessária — todas as colunas já existem em `energia_competencia_tarifas`.

@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, FileText, Save, CheckCircle2, AlertTriangle, Lock, Calculator, Receipt, Percent, Lightbulb } from 'lucide-react';
+import { Loader2, FileText, Save, CheckCircle2, AlertTriangle, Lock, Calculator, Receipt, Percent, Lightbulb, Gauge } from 'lucide-react';
 import { toast } from 'sonner';
 
 // ─── Tipos (reaproveita o mesmo JSONB usado na Memória) ─────────────────
@@ -31,7 +31,13 @@ interface Competencia {
   ano_mes: string;
   status: 'rascunho' | 'fechada';
 }
-interface TarifasRow { id: string; competencia_id: string; fatura_copel_itens?: any; }
+interface TarifasRow {
+  id: string;
+  competencia_id: string;
+  fatura_copel_itens?: any;
+  perdas_energy_ponta_kwh?: number | null;
+  perdas_energy_fora_kwh?: number | null;
+}
 
 const COPEL_ITEM_DEFS: { key: CopelItemKey; label: string; unidade: string; hasUnitario: boolean; hasPisCofins: boolean; hasIcms: boolean; hasTarifa: boolean }[] = [
   { key: 'te_ponta',           label: 'ENERGIA ELÉTRICA TE PONTA',     unidade: 'kWh', hasUnitario: true, hasPisCofins: true, hasIcms: true, hasTarifa: true },
@@ -65,6 +71,11 @@ export function FaturaCopelTab() {
   const [faturaItens, setFaturaItens] = useState<FaturaCopelItens>({ itens: {}, tributos: {}, total_a_pagar: '' });
   const [aliquotas, setAliquotas] = useState({ pis: 0, cofins: 0, icms: 0 });
   const [saving, setSaving] = useState(false);
+  const [energyPonta, setEnergyPonta] = useState('');
+  const [energyFora, setEnergyFora] = useState('');
+  const [clientesPonta, setClientesPonta] = useState(0);
+  const [clientesFora, setClientesFora] = useState(0);
+  const [hasLancamentos, setHasLancamentos] = useState(false);
 
   const currentComp = competencias.find((c) => c.id === currentCompId) || null;
   const isLocked = currentComp?.status === 'fechada';
@@ -83,15 +94,29 @@ export function FaturaCopelTab() {
   }, []);
 
   const fetchComp = useCallback(async (compId: string) => {
-    const { data, error } = await supabase
-      .from('energia_competencia_tarifas')
-      .select('id, competencia_id, fatura_copel_itens')
-      .eq('competencia_id', compId)
-      .maybeSingle();
-    if (error) toast.error('Erro ao carregar fatura');
-    setTarifas((data as any) || null);
-    const fc = (data as any)?.fatura_copel_itens || {};
+    const [t, l] = await Promise.all([
+      supabase
+        .from('energia_competencia_tarifas')
+        .select('id, competencia_id, fatura_copel_itens, perdas_energy_ponta_kwh, perdas_energy_fora_kwh')
+        .eq('competencia_id', compId)
+        .maybeSingle(),
+      supabase
+        .from('energia_competencia_lancamentos')
+        .select('consumo_ponta_kwh, consumo_fora_kwh')
+        .eq('competencia_id', compId),
+    ]);
+    if (t.error) toast.error('Erro ao carregar fatura');
+    setTarifas((t.data as any) || null);
+    const fc = (t.data as any)?.fatura_copel_itens || {};
     setFaturaItens({ itens: fc.itens || {}, tributos: fc.tributos || {}, total_a_pagar: fc.total_a_pagar || '' });
+    const ep = Number((t.data as any)?.perdas_energy_ponta_kwh) || 0;
+    const ef = Number((t.data as any)?.perdas_energy_fora_kwh) || 0;
+    setEnergyPonta(ep ? fmtBR(ep, 2) : '');
+    setEnergyFora(ef ? fmtBR(ef, 2) : '');
+    const rows = (l.data as any[]) || [];
+    setHasLancamentos(rows.length > 0);
+    setClientesPonta(rows.reduce((s, r) => s + (Number(r.consumo_ponta_kwh) || 0), 0));
+    setClientesFora(rows.reduce((s, r) => s + (Number(r.consumo_fora_kwh) || 0), 0));
   }, []);
 
   useEffect(() => { (async () => { setLoading(true); await fetchBase(); setLoading(false); })(); }, [fetchBase]);
@@ -151,6 +176,22 @@ export function FaturaCopelTab() {
   const diff = totalAPagar > 0 ? sumValor - totalAPagar : 0;
   const bateOk = totalAPagar > 0 && Math.abs(diff) < 0.01;
 
+  // ─── Medidor (Energy) & Diferença Copel ──────────────────────────
+  const copelPontaKwh = useMemo(() => {
+    const it = faturaItens.itens || {};
+    return parseBR(it.te_ponta?.quant || '') || parseBR(it.usd_ponta?.quant || '');
+  }, [faturaItens.itens]);
+  const copelForaKwh = useMemo(() => {
+    const it = faturaItens.itens || {};
+    return parseBR(it.te_fora?.quant || '') || parseBR(it.usd_fora?.quant || '');
+  }, [faturaItens.itens]);
+  const difCopelPonta = clientesPonta - copelPontaKwh;
+  const difCopelFora = clientesFora - copelForaKwh;
+  const energyPontaNum = parseBR(energyPonta);
+  const energyForaNum = parseBR(energyFora);
+  const perdasTotaisPonta = energyPontaNum + difCopelPonta;
+  const perdasTotaisFora = energyForaNum + difCopelFora;
+
   const save = async () => {
     if (!tarifas) return;
     setSaving(true);
@@ -186,7 +227,15 @@ export function FaturaCopelTab() {
     };
     const { error } = await supabase
       .from('energia_competencia_tarifas')
-      .update({ fatura_copel_itens: faturaItens as any, ...mirror, updated_by: user?.id } as any)
+      .update({
+        fatura_copel_itens: faturaItens as any,
+        ...mirror,
+        perdas_energy_ponta_kwh: energyPontaNum,
+        perdas_energy_fora_kwh: energyForaNum,
+        perdas_copel_ponta_kwh: Math.max(0, difCopelPonta),
+        perdas_copel_fora_kwh: Math.max(0, difCopelFora),
+        updated_by: user?.id,
+      } as any)
       .eq('id', tarifas.id);
     setSaving(false);
     if (error) toast.error('Erro ao salvar fatura Copel');
@@ -394,6 +443,100 @@ export function FaturaCopelTab() {
                 </CardContent>
               </Card>
             </div>
+          </div>
+
+          {/* Medidor (Energy) & Diferença Copel */}
+          <div className="grid lg:grid-cols-2 gap-3">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-500" /> Diferença da Fatura Copel
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Consumo somado dos clientes (lançamentos) menos o consumo da fatura Copel.
+                  {!hasLancamentos && ' Sem lançamentos de clientes nesta competência — preencha na Memória de Cálculo.'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <table className="w-full text-[12px] border-collapse">
+                  <thead>
+                    <tr>
+                      <th className="border bg-muted px-2 py-1 text-left font-semibold">Período</th>
+                      <th className="border bg-muted px-2 py-1 font-semibold">Clientes (kWh)</th>
+                      <th className="border bg-muted px-2 py-1 font-semibold">Copel (kWh)</th>
+                      <th className="border bg-muted px-2 py-1 font-semibold">Diferença (kWh)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { label: 'Ponta', cli: clientesPonta, copel: copelPontaKwh, dif: difCopelPonta },
+                      { label: 'Fora da Ponta', cli: clientesFora, copel: copelForaKwh, dif: difCopelFora },
+                      { label: 'Total', cli: clientesPonta + clientesFora, copel: copelPontaKwh + copelForaKwh, dif: difCopelPonta + difCopelFora, bold: true },
+                    ].map((r) => (
+                      <tr key={r.label} className={r.bold ? 'bg-primary/5 font-bold' : ''}>
+                        <td className="border px-2 py-1">{r.label}</td>
+                        <td className="border px-2 py-1 text-right tabular-nums">{hasLancamentos ? fmtBR(r.cli, 2) : '—'}</td>
+                        <td className="border px-2 py-1 text-right tabular-nums">{r.copel ? fmtBR(r.copel, 2) : '—'}</td>
+                        <td className={`border px-2 py-1 text-right tabular-nums ${r.dif > 0 ? 'text-amber-600' : r.dif < 0 ? 'text-red-600' : ''}`}>
+                          {hasLancamentos && r.copel ? fmtBR(r.dif, 2) : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Gauge className="h-4 w-4 text-primary" /> Medidor (Energy)
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Digite as perdas identificadas no medidor Energy. As <strong>Perdas Totais</strong> somam o que você digitou com a diferença da fatura Copel.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <table className="w-full text-[12px] border-collapse">
+                  <thead>
+                    <tr>
+                      <th className="border bg-muted px-2 py-1 text-left font-semibold">Período</th>
+                      <th className="border bg-yellow-100 dark:bg-yellow-900/30 px-2 py-1 font-semibold">Energy (kWh)</th>
+                      <th className="border bg-muted/60 px-2 py-1 font-semibold">Diferença Copel (kWh)</th>
+                      <th className="border bg-muted/60 px-2 py-1 font-semibold">Perdas Totais (kWh)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="border px-2 py-1">Ponta</td>
+                      <td className="border px-1 py-1">
+                        <Input type="text" inputMode="decimal" disabled={isLocked}
+                          className="h-7 text-[12px] px-1 text-right bg-yellow-50 dark:bg-yellow-950/30 border-yellow-300/60"
+                          value={energyPonta} onChange={(e) => setEnergyPonta(e.target.value)} placeholder="0,00" />
+                      </td>
+                      <td className="border px-2 py-1 text-right tabular-nums text-muted-foreground">{hasLancamentos ? fmtBR(difCopelPonta, 2) : '—'}</td>
+                      <td className="border px-2 py-1 text-right tabular-nums font-semibold">{fmtBR(perdasTotaisPonta, 2) || '0,00'}</td>
+                    </tr>
+                    <tr>
+                      <td className="border px-2 py-1">Fora da Ponta</td>
+                      <td className="border px-1 py-1">
+                        <Input type="text" inputMode="decimal" disabled={isLocked}
+                          className="h-7 text-[12px] px-1 text-right bg-yellow-50 dark:bg-yellow-950/30 border-yellow-300/60"
+                          value={energyFora} onChange={(e) => setEnergyFora(e.target.value)} placeholder="0,00" />
+                      </td>
+                      <td className="border px-2 py-1 text-right tabular-nums text-muted-foreground">{hasLancamentos ? fmtBR(difCopelFora, 2) : '—'}</td>
+                      <td className="border px-2 py-1 text-right tabular-nums font-semibold">{fmtBR(perdasTotaisFora, 2) || '0,00'}</td>
+                    </tr>
+                    <tr className="bg-primary/5 font-bold">
+                      <td className="border px-2 py-1">Total</td>
+                      <td className="border px-2 py-1 text-right tabular-nums">{fmtBR(energyPontaNum + energyForaNum, 2) || '0,00'}</td>
+                      <td className="border px-2 py-1 text-right tabular-nums">{hasLancamentos ? fmtBR(difCopelPonta + difCopelFora, 2) : '—'}</td>
+                      <td className="border px-2 py-1 text-right tabular-nums text-primary">{fmtBR(perdasTotaisPonta + perdasTotaisFora, 2) || '0,00'}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
           </div>
         </>
       )}
