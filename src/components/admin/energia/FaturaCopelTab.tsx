@@ -97,7 +97,7 @@ export function FaturaCopelTab() {
     const [t, l] = await Promise.all([
       supabase
         .from('energia_competencia_tarifas')
-        .select('id, competencia_id, fatura_copel_itens, perdas_energy_ponta_kwh, perdas_energy_fora_kwh')
+        .select('id, competencia_id, fatura_copel_itens, perdas_energy_ponta_kwh, perdas_energy_fora_kwh, copel_consumo_ponta_kwh, copel_consumo_fora_kwh')
         .eq('competencia_id', compId)
         .maybeSingle(),
       supabase
@@ -179,12 +179,14 @@ export function FaturaCopelTab() {
   // ─── Medidor (Energy) & Diferença Copel ──────────────────────────
   const copelPontaKwh = useMemo(() => {
     const it = faturaItens.itens || {};
-    return parseBR(it.te_ponta?.quant || '') || parseBR(it.usd_ponta?.quant || '');
-  }, [faturaItens.itens]);
+    const fromItens = parseBR(it.te_ponta?.quant || '') || parseBR(it.usd_ponta?.quant || '');
+    return fromItens || Number((tarifas as any)?.copel_consumo_ponta_kwh) || 0;
+  }, [faturaItens.itens, tarifas]);
   const copelForaKwh = useMemo(() => {
     const it = faturaItens.itens || {};
-    return parseBR(it.te_fora?.quant || '') || parseBR(it.usd_fora?.quant || '');
-  }, [faturaItens.itens]);
+    const fromItens = parseBR(it.te_fora?.quant || '') || parseBR(it.usd_fora?.quant || '');
+    return fromItens || Number((tarifas as any)?.copel_consumo_fora_kwh) || 0;
+  }, [faturaItens.itens, tarifas]);
   const difCopelPonta = copelPontaKwh - clientesPonta;
   const difCopelFora = copelForaKwh - clientesFora;
   const energyPontaNum = parseBR(energyPonta);
@@ -462,7 +464,7 @@ export function FaturaCopelTab() {
                   <AlertTriangle className="h-4 w-4 text-amber-500" /> Diferença da Fatura Copel
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Consumo da fatura Copel menos o somado dos clientes (lançamentos) = diferença.
+                  Mesmo cálculo da aba Lançamentos: <strong>TOTAL Fatura Copel − TOTAL Preenchido</strong>.
                   {!hasLancamentos && ' Sem lançamentos de clientes nesta competência — preencha na Memória de Cálculo.'}
                 </CardDescription>
               </CardHeader>
@@ -470,27 +472,48 @@ export function FaturaCopelTab() {
                 <table className="w-full text-[12px] border-collapse">
                   <thead>
                     <tr>
-                      <th className="border bg-muted px-2 py-1 text-left font-semibold">Período</th>
-                      <th className="border bg-muted px-2 py-1 font-semibold">Copel (kWh)</th>
-                      <th className="border bg-muted px-2 py-1 font-semibold">Clientes (kWh)</th>
-                      <th className="border bg-muted px-2 py-1 font-semibold">Diferença (kWh)</th>
+                      <th className="border bg-muted px-2 py-1 text-left font-semibold"></th>
+                      <th className="border bg-muted px-2 py-1 font-semibold">Ponta (kWh)</th>
+                      <th className="border bg-muted px-2 py-1 font-semibold">Fora da Ponta (kWh)</th>
+                      <th className="border bg-muted px-2 py-1 font-semibold">Total (kWh)</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {[
-                      { label: 'Ponta', cli: clientesPonta, copel: copelPontaKwh, dif: difCopelPonta },
-                      { label: 'Fora da Ponta', cli: clientesFora, copel: copelForaKwh, dif: difCopelFora },
-                      { label: 'Total', cli: clientesPonta + clientesFora, copel: copelPontaKwh + copelForaKwh, dif: difCopelPonta + difCopelFora, bold: true },
-                    ].map((r) => (
-                      <tr key={r.label} className={r.bold ? 'bg-primary/5 font-bold' : ''}>
-                        <td className="border px-2 py-1">{r.label}</td>
-                        <td className="border px-2 py-1 text-right tabular-nums">{r.copel ? fmtBR(r.copel, 2) : '—'}</td>
-                        <td className="border px-2 py-1 text-right tabular-nums">{hasLancamentos ? fmtBR(r.cli, 2) : '—'}</td>
-                        <td className={`border px-2 py-1 text-right tabular-nums ${r.dif > 0 ? 'text-amber-600' : r.dif < 0 ? 'text-red-600' : ''}`}>
-                          {hasLancamentos && r.copel ? fmtBR(r.dif, 2) : '—'}
-                        </td>
-                      </tr>
-                    ))}
+                    <tr className="bg-primary/5 font-semibold">
+                      <td className="border px-2 py-1">TOTAL Preenchido</td>
+                      <td className="border px-2 py-1 text-right tabular-nums">{hasLancamentos ? fmtBR(clientesPonta, 2) : '—'}</td>
+                      <td className="border px-2 py-1 text-right tabular-nums">{hasLancamentos ? fmtBR(clientesFora, 2) : '—'}</td>
+                      <td className="border px-2 py-1 text-right tabular-nums">{hasLancamentos ? fmtBR(clientesPonta + clientesFora, 2) : '—'}</td>
+                    </tr>
+                    <tr className="bg-primary/5 font-semibold">
+                      <td className="border px-2 py-1">TOTAL Fatura Copel</td>
+                      <td className="border px-2 py-1 text-right tabular-nums">{copelPontaKwh ? fmtBR(copelPontaKwh, 2) : '—'}</td>
+                      <td className="border px-2 py-1 text-right tabular-nums">{copelForaKwh ? fmtBR(copelForaKwh, 2) : '—'}</td>
+                      <td className="border px-2 py-1 text-right tabular-nums">{(copelPontaKwh + copelForaKwh) ? fmtBR(copelPontaKwh + copelForaKwh, 2) : '—'}</td>
+                    </tr>
+                    <tr className="bg-primary/10 font-bold">
+                      <td className="border px-2 py-1">Diferença (Copel − Preenchido)</td>
+                      {[
+                        { entered: clientesPonta, total: copelPontaKwh },
+                        { entered: clientesFora, total: copelForaKwh },
+                        { entered: clientesPonta + clientesFora, total: copelPontaKwh + copelForaKwh },
+                      ].map((c, i) => {
+                        const diff = c.total - c.entered;
+                        const cls = c.total <= 0
+                          ? 'text-muted-foreground'
+                          : Math.abs(diff) < 0.01
+                            ? 'text-green-600'
+                            : diff > 0 ? 'text-amber-600' : 'text-red-600';
+                        const txt = c.total <= 0
+                          ? '—'
+                          : Math.abs(diff) < 0.01
+                            ? '0,00'
+                            : diff > 0 ? `+${fmtBR(diff, 2)}` : `−${fmtBR(-diff, 2)}`;
+                        return (
+                          <td key={i} className={`border px-2 py-1 text-right tabular-nums ${cls}`}>{txt}</td>
+                        );
+                      })}
+                    </tr>
                   </tbody>
                 </table>
               </CardContent>
