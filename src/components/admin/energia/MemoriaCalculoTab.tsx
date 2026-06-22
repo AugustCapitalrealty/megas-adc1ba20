@@ -134,13 +134,13 @@ function currentYM() {
 }
 
 const TARIFA_FIELDS: { key: keyof EnergiaTarifas; label: string; group: string; step?: string }[] = [
-  { key: 'demanda_usd', label: 'R$ Demanda USD (kW)', group: 'Demanda', step: '0.000001' },
-  { key: 'demanda_isenta', label: 'R$ Demanda Isenta (kW)', group: 'Demanda', step: '0.000001' },
-  { key: 'ultrapassagem', label: 'R$ Ultrapassagem (kW)', group: 'Demanda', step: '0.000001' },
-  { key: 'te_ponta', label: 'TE Ponta (R$/kWh)', group: 'Tarifa', step: '0.000001' },
-  { key: 'tusd_ponta', label: 'TUSD Ponta (R$/kWh)', group: 'Tarifa', step: '0.000001' },
-  { key: 'te_fora', label: 'TE Fora Ponta (R$/kWh)', group: 'Tarifa', step: '0.000001' },
-  { key: 'tusd_fora', label: 'TUSD Fora Ponta (R$/kWh)', group: 'Tarifa', step: '0.000001' },
+  { key: 'demanda_usd', label: 'Demanda USD — Mercado Livre (R$/kW)', group: 'Demanda', step: '0.000001' },
+  { key: 'demanda_isenta', label: 'Demanda Isenta — Mercado Livre (R$/kW)', group: 'Demanda', step: '0.000001' },
+  { key: 'ultrapassagem', label: 'Ultrapassagem — Mercado Livre (R$/kW)', group: 'Demanda', step: '0.000001' },
+  { key: 'te_ponta', label: 'TE Ponta — Mercado Livre (R$/kWh)', group: 'Tarifa', step: '0.000001' },
+  { key: 'tusd_ponta', label: 'TUSD Ponta — Mercado Livre (R$/kWh)', group: 'Tarifa', step: '0.000001' },
+  { key: 'te_fora', label: 'TE Fora Ponta — Mercado Livre (R$/kWh)', group: 'Tarifa', step: '0.000001' },
+  { key: 'tusd_fora', label: 'TUSD Fora Ponta — Mercado Livre (R$/kWh)', group: 'Tarifa', step: '0.000001' },
   { key: 'iluminacao_publica', label: 'Iluminação Pública (R$)', group: 'Tarifa', step: '0.01' },
   { key: 'pis_pct', label: 'PIS (decimal, ex 0.0165)', group: 'Tributos', step: '0.0001' },
   { key: 'cofins_pct', label: 'COFINS (decimal, ex 0.076)', group: 'Tributos', step: '0.0001' },
