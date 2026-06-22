@@ -1,47 +1,27 @@
-## Causa raiz
+Problema encontrado: na Fatura Copel você digita a tarifa em **Preço unit (R$)**, mas a fatura do cliente está usando a coluna calculada **Tarifa unit.**. Por isso, para 2026-06, o cliente mostra Ponta **1,549011** porque soma **0,394284 + 1,154727**, em vez de usar a soma dos preços digitados **0,549525 + 1,609375**.
 
-O engine de rateio (`src/lib/energia-rateio.ts`) lê os campos de tarifa em `energia_competencia_tarifas`:
+Plano de correção:
 
-- `demanda_usd`, `te_ponta`, `tusd_ponta`, `te_fora`, `tusd_fora`
+1. Ajustar o salvamento da aba **Fatura Copel**
+   - Quando salvar a Fatura Copel, gravar as tarifas usadas pelo cálculo do cliente a partir de `preco_unit`, não de `tarifa_unit`.
+   - Mapeamento correto por competência:
+     - `demanda_usd` ← preço unitário de DEMANDA USD
+     - `te_ponta` ← preço unitário de ENERGIA ELÉTRICA TE PONTA
+     - `tusd_ponta` ← preço unitário de ENERGIA ELÉTRICA USD PONTA
+     - `te_fora` ← preço unitário de ENERGIA ELÉTRICA TE F PONTA
+     - `tusd_fora` ← preço unitário de ENERGIA ELÉTRICA USD F PONTA
 
-A aba **Fatura Copel** está salvando apenas os campos espelho de auditoria (`copel_tarifa_*`) — os campos do engine continuam com valores antigos. Por isso a fatura do cliente mostra R$ 19,805217 / 1,549011 / 0,360668 mesmo depois de você atualizar a Copel.
+2. Ajustar o salvamento antigo dentro de **Memória de Cálculo**
+   - Existe outro salvamento de Fatura Copel no componente antigo que ainda pode manter o comportamento errado.
+   - Corrigir também esse ponto para evitar que uma tela sobrescreva a outra.
 
-## Correção
+3. Corrigir os dados já salvos
+   - Aplicar uma atualização na base para competências já lançadas, incluindo **2026-06**, copiando os `preco_unit` do JSON da Fatura Copel para as colunas usadas pela fatura do cliente.
+   - Assim não depende de você abrir e salvar de novo manualmente.
 
-Em `src/components/admin/energia/FaturaCopelTab.tsx`, na função `save()`, gravar **também** os campos lidos pelo engine, com as tarifas unitárias pós-tributos da Copel da própria competência:
-
-```ts
-const mirror = {
-  ...mirrorAtual,
-  // Tarifas usadas pelo engine de rateio (cada competência tem as suas)
-  demanda_usd: tarif('demanda_usd'),
-  te_ponta:    tarif('te_ponta'),
-  tusd_ponta:  tarif('usd_ponta'),
-  te_fora:     tarif('te_fora'),
-  tusd_fora:   tarif('usd_fora'),
-};
-```
-
-Resultado: ao salvar a Fatura Copel da competência 2026-06, a fatura do cliente da mesma competência passa a recalcular usando as tarifas da Copel 2026-06 automaticamente — sem botão extra, sem etapa manual.
-
-## Reprocessar competências já lançadas
-
-Para as competências que já têm Fatura Copel preenchida mas continuam exibindo as tarifas antigas (ex.: 2026-06), rodar um `UPDATE` único copiando `copel_tarifa_*` → campos do engine:
-
-```sql
-UPDATE public.energia_competencia_tarifas
-   SET demanda_usd = COALESCE(copel_tarifa_demanda_usd, demanda_usd),
-       te_ponta    = COALESCE(copel_tarifa_te_ponta,    te_ponta),
-       tusd_ponta  = COALESCE(copel_tarifa_tusd_ponta,  tusd_ponta),
-       te_fora     = COALESCE(copel_tarifa_te_fora,     te_fora),
-       tusd_fora   = COALESCE(copel_tarifa_tusd_fora,   tusd_fora)
- WHERE copel_tarifa_demanda_usd IS NOT NULL
-    OR copel_tarifa_te_ponta    IS NOT NULL;
-```
-
-## Arquivos alterados
-
-- `src/components/admin/energia/FaturaCopelTab.tsx` — adicionar 5 campos no `mirror` do `save()`.
-- Um data-fix SQL para sincronizar competências já lançadas.
-
-Sem migração de schema. Sem alteração em `energia-rateio.ts`.
+4. Validar o resultado
+   - Conferir no banco que 2026-06 ficou com:
+     - Ponta = `0,549525 + 1,609375`
+     - Fora Ponta = `0,342063 + 0,160611`
+     - Demanda = `27,603090`
+   - Conferir que a fatura do cliente passa a usar essas tarifas da Fatura Copel da mesma competência.
