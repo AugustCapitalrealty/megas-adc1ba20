@@ -38,6 +38,14 @@ interface Modulo {
 }
 interface Cliente { id: string; nome: string; razao_social: string | null; }
 interface ContratoVigente { modulo_id: string; demanda_contratada_kw: number; numero_contrato: string; }
+interface ContratoGrupo {
+  contrato_id: string;
+  numero_contrato: string;
+  cliente_id: string | null;
+  cliente_nome: string;
+  demanda_contratada_kw: number;
+  modulos: Modulo[];
+}
 interface TarifasRow extends EnergiaTarifas { id: string; competencia_id: string; }
 
 // ─── Fatura Copel: itens (mesmo layout impresso) ─────────────────────────
@@ -194,6 +202,7 @@ export function MemoriaCalculoTab() {
   const [tarifas, setTarifas] = useState<TarifasRow | null>(null);
   const [lancamentos, setLancamentos] = useState<Record<string, LancamentoRow>>({});
   const [contratoPorModulo, setContratoPorModulo] = useState<Record<string, ContratoVigente>>({});
+  const [contratosVigentes, setContratosVigentes] = useState<ContratoGrupo[]>([]);
   const [newAnoMes, setNewAnoMes] = useState(currentYM());
   const [creating, setCreating] = useState(false);
   const [faturaItens, setFaturaItens] = useState<FaturaCopelItens>({ itens: {}, tributos: {} });
@@ -256,7 +265,7 @@ export function MemoriaCalculoTab() {
     const refFim = `${anoMes}-${String(new Date(yy, mm, 0).getDate()).padStart(2, '0')}`;
     const { data: vinculos, error: vErr } = await supabase
       .from('energia_contrato_modulos' as any)
-      .select('modulo_id, vigencia_inicio, vigencia_fim, contrato:energia_contratos!inner(id, numero_contrato, demanda_contratada_kw, ativo)')
+      .select('modulo_id, vigencia_inicio, vigencia_fim, contrato:energia_contratos!inner(id, numero_contrato, demanda_contratada_kw, ativo, cliente_id)')
       .lte('vigencia_inicio', refFim);
     const cMap: Record<string, ContratoVigente> = {};
     if (!vErr && vinculos) {
@@ -277,6 +286,45 @@ export function MemoriaCalculoTab() {
       }
     }
     setContratoPorModulo(cMap);
+
+    // Constrói grupos por contrato vigente (um cliente com 2 contratos = 2 grupos)
+    const modulosById = new Map<string, Modulo>();
+    {
+      const { data: mAll } = await supabase
+        .from('energia_modulos')
+        .select('*')
+        .eq('ativo', true);
+      ((mAll as any[]) || []).forEach((m) => modulosById.set(m.id, m as Modulo));
+    }
+    const grupos = new Map<string, ContratoGrupo>();
+    if (!vErr && vinculos) {
+      // Determina, por módulo, qual contrato é o vigente "vencedor" (mesma regra do cMap)
+      const winner: Record<string, string> = {};
+      for (const mid of Object.keys(cMap)) {
+        winner[mid] = cMap[mid].numero_contrato;
+      }
+      for (const v of vinculos as any[]) {
+        const fim = v.vigencia_fim ? v.vigencia_fim : null;
+        if (fim && fim < refInicio) continue;
+        if (!v.contrato?.ativo) continue;
+        // só inclui se for o contrato vencedor do módulo
+        if (winner[v.modulo_id] !== v.contrato.numero_contrato) continue;
+        const cid = v.contrato.id;
+        if (!grupos.has(cid)) {
+          grupos.set(cid, {
+            contrato_id: cid,
+            numero_contrato: v.contrato.numero_contrato,
+            cliente_id: v.contrato.cliente_id || null,
+            cliente_nome: '',
+            demanda_contratada_kw: Number(v.contrato.demanda_contratada_kw) || 0,
+            modulos: [],
+          });
+        }
+        const mod = modulosById.get(v.modulo_id);
+        if (mod) grupos.get(cid)!.modulos.push(mod);
+      }
+    }
+    setContratosVigentes(Array.from(grupos.values()));
   }, []);
 
   useEffect(() => {
@@ -540,26 +588,33 @@ export function MemoriaCalculoTab() {
     for (const m of modulos) lancMap[m.id] = { d: 0, cp: 0, cf: 0 };
 
     const isAreaComum = (m: Modulo) => /(área|area) comum/i.test(m.identificador);
+    const contratoModsById = new Map<string, Modulo[]>();
+    for (const c of contratosVigentes) contratoModsById.set(c.contrato_id, c.modulos.filter((m) => !isAreaComum(m)));
     for (const cli of arr) {
       const mods = consumoCli[cli.cliente_key]
         ? modulos.filter((m) => {
             if (cli.cliente_key === 'AREA_COMUM') return isAreaComum(m);
-            return m.cliente_id === cli.cliente_key && !isAreaComum(m);
+            return false; // tratado abaixo para CONTRATO_*
           })
         : [];
-      const totalArea = mods.reduce((s, m) => s + (m.area_m2 || 0), 0);
+      let modsFinal: Modulo[] = mods;
+      if (cli.cliente_key.startsWith('CONTRATO_')) {
+        const cid = cli.cliente_key.slice('CONTRATO_'.length);
+        modsFinal = contratoModsById.get(cid) || [];
+      }
+      const totalArea = modsFinal.reduce((s, m) => s + (m.area_m2 || 0), 0);
       const D = parseBR(cli.demanda_kw);
       const CP = parseBR(cli.consumo_ponta_kwh);
       const CF = parseBR(cli.consumo_fora_kwh);
-      if (mods.length === 0) continue;
+      if (modsFinal.length === 0) continue;
       if (totalArea > 0) {
-        for (const m of mods) {
+        for (const m of modsFinal) {
           const w = m.area_m2 / totalArea;
           lancMap[m.id] = { d: D * w, cp: CP * w, cf: CF * w };
         }
       } else {
-        const w = 1 / mods.length;
-        for (const m of mods) lancMap[m.id] = { d: D * w, cp: CP * w, cf: CF * w };
+        const w = 1 / modsFinal.length;
+        for (const m of modsFinal) lancMap[m.id] = { d: D * w, cp: CP * w, cf: CF * w };
       }
     }
 
@@ -573,7 +628,10 @@ export function MemoriaCalculoTab() {
     const restoD = Math.max(0, totalCopelD - usedD);
     const restoCP = Math.max(0, totalCopelCP - usedCP);
     const restoCF = Math.max(0, totalCopelCF - usedCF);
-    const vagos = modulos.filter((m) => !m.cliente_id && !isAreaComum(m));
+    // Módulos vagos: aqueles que não estão cobertos por nenhum contrato vigente e não são área comum
+    const cobertos = new Set<string>();
+    contratosVigentes.forEach((c) => c.modulos.forEach((m) => { if (!isAreaComum(m)) cobertos.add(m.id); }));
+    const vagos = modulos.filter((m) => !cobertos.has(m.id) && !isAreaComum(m));
     const totalAreaVagos = vagos.reduce((s, m) => s + (m.area_m2 || 0), 0);
     if (vagos.length > 0) {
       if (totalAreaVagos > 0) {
@@ -853,6 +911,7 @@ export function MemoriaCalculoTab() {
           <ConsumoClienteCard
             clientes={clientes}
             modulos={modulos}
+            contratosVigentes={contratosVigentes}
             consumoCli={consumoCli}
             updateConsumoCli={updateConsumoCli}
             onSave={saveConsumoCli}
@@ -1283,6 +1342,7 @@ function FaturaCopelCard({ faturaItens, updateItem, updateTributo, onSave, savin
 interface ConsumoClienteCardProps {
   clientes: Cliente[];
   modulos: Modulo[];
+  contratosVigentes: ContratoGrupo[];
   consumoCli: Record<string, ConsumoCliente>;
   updateConsumoCli: (key: string, field: keyof ConsumoCliente, value: string) => void;
   onSave: () => void;
@@ -1290,10 +1350,21 @@ interface ConsumoClienteCardProps {
   isLocked: boolean;
   copelTotais: { d: number; cp: number; cf: number };
 }
-function ConsumoClienteCard({ clientes, modulos, consumoCli, updateConsumoCli, onSave, saving, isLocked, copelTotais }: ConsumoClienteCardProps) {
+function ConsumoClienteCard({ clientes, modulos, contratosVigentes, consumoCli, updateConsumoCli, onSave, saving, isLocked, copelTotais }: ConsumoClienteCardProps) {
   const isAreaComum = (m: Modulo) => /(área|area) comum/i.test(m.identificador);
+  const clienteMap = new Map(clientes.map((c) => [c.id, c]));
+  // Chave numérica para ordenar identificadores tipo "1", "39A", "39B", "Restaurante"
+  const modKey = (id: string): [number, string] => {
+    const m = String(id).match(/(\d+)/);
+    return [m ? Number(m[1]) : 9999, String(id)];
+  };
+  const cmpMod = (a: Modulo, b: Modulo) => {
+    const [na, sa] = modKey(a.identificador);
+    const [nb, sb] = modKey(b.identificador);
+    return na - nb || sa.localeCompare(sb);
+  };
 
-  // Agrupa módulos por cliente (e identifica Área Comum + Vagos)
+  // Agrupa módulos por CONTRATO vigente (e identifica Área Comum + Vagos)
   const grupos: Array<{
     key: string;
     nome: string;
@@ -1303,25 +1374,38 @@ function ConsumoClienteCard({ clientes, modulos, consumoCli, updateConsumoCli, o
     demandaContratada: number;
   }> = [];
 
-  const clienteMap = new Map(clientes.map((c) => [c.id, c]));
-  const byCliente: Record<string, Modulo[]> = {};
-  const areaComumMods: Modulo[] = [];
-  const vagos: Modulo[] = [];
-  for (const m of modulos) {
-    if (isAreaComum(m)) areaComumMods.push(m);
-    else if (!m.cliente_id) vagos.push(m);
-    else (byCliente[m.cliente_id] = byCliente[m.cliente_id] || []).push(m);
+  // Conta contratos por cliente para decidir se mostra número do contrato no nome
+  const contratosPorCliente: Record<string, number> = {};
+  for (const c of contratosVigentes) {
+    if (c.cliente_id) contratosPorCliente[c.cliente_id] = (contratosPorCliente[c.cliente_id] || 0) + 1;
   }
-  for (const [cid, mods] of Object.entries(byCliente)) {
-    const c = clienteMap.get(cid);
+
+  const modulosCobertos = new Set<string>();
+  for (const c of contratosVigentes) {
+    const mods = [...c.modulos].filter((m) => !isAreaComum(m)).sort(cmpMod);
+    mods.forEach((m) => modulosCobertos.add(m.id));
+    const cli = c.cliente_id ? clienteMap.get(c.cliente_id) : null;
+    const baseNome = cli?.razao_social || cli?.nome || '—';
+    const multi = c.cliente_id && contratosPorCliente[c.cliente_id] > 1;
+    const nome = multi ? `${baseNome} — ${c.numero_contrato}` : baseNome;
     grupos.push({
-      key: cid,
-      nome: c?.razao_social || c?.nome || '—',
+      key: `CONTRATO_${c.contrato_id}`,
+      nome,
       modulos: mods,
-      demandaContratada: mods.reduce((s, m) => s + (m.demanda_contratada_kw || 0), 0),
+      demandaContratada: c.demanda_contratada_kw || 0,
     });
   }
-  grupos.sort((a, b) => a.nome.localeCompare(b.nome));
+
+  // Ordena grupos pelo menor número de módulo
+  grupos.sort((a, b) => {
+    const am = a.modulos[0] ? modKey(a.modulos[0].identificador)[0] : 9999;
+    const bm = b.modulos[0] ? modKey(b.modulos[0].identificador)[0] : 9999;
+    return am - bm;
+  });
+
+  const areaComumMods = modulos.filter((m) => isAreaComum(m)).sort(cmpMod);
+  const vagos = modulos.filter((m) => !isAreaComum(m) && !modulosCobertos.has(m.id)).sort(cmpMod);
+
   if (areaComumMods.length > 0) {
     grupos.push({
       key: 'AREA_COMUM',
