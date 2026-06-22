@@ -539,18 +539,12 @@ export function EnergiaCadastrosTab() {
                       />
                     </TableCell>
                     <TableCell>
-                      <Select
-                        value={m.cliente_id ?? UNASSIGNED}
-                        onValueChange={v => handleUpdateModulo(m.id, { cliente_id: v === UNASSIGNED ? null : v })}
-                      >
-                        <SelectTrigger><SelectValue placeholder="Selecionar..." /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={UNASSIGNED}>— Vago —</SelectItem>
-                          {clientes.filter(c => c.ativo).map(c => (
-                            <SelectItem key={c.id} value={c.id}>{c.razao_social || c.nome}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <ClienteCombobox
+                        value={m.cliente_id}
+                        onChange={v => handleUpdateModulo(m.id, { cliente_id: v })}
+                        clientes={clientes}
+                        counts={clienteCounts}
+                      />
                     </TableCell>
                     <TableCell className="text-center">
                       <Switch checked={m.ativo} onCheckedChange={v => handleUpdateModulo(m.id, { ativo: v })} />
