@@ -168,7 +168,20 @@ const COPEL_FIELDS: { key: keyof CopelFatura; label: string; group: string; step
   { key: 'copel_valor_bandeira', label: 'R$ Bandeira', group: 'Tributos', step: '0.01', getCalc: (m) => m?.totais.bandeira_total ?? 0 },
   { key: 'copel_valor_iluminacao_publica', label: 'R$ Iluminação Pública', group: 'Tributos', step: '0.01', getCalc: (m) => m?.totais.iluminacao_publica ?? 0 },
   { key: 'copel_cred_deb', label: 'R$ Crédito/Débito', group: 'Total', step: '0.01', getCalc: (m) => m?.totais.cred_deb_rateado ?? 0 },
-  { key: 'copel_valor_total', label: 'TOTAL Fatura', group: 'Total', step: '0.01', getCalc: (m) => m?.totais.total_fatura_copel ?? 0 },
+  // TOTAL Fatura = soma exata dos 6 "Valores R$" exibidos acima
+  // (TE/TUSD Ponta + TE/TUSD Fora + Demanda + Ultrapassagem).
+  // Tributos, bandeira, iluminação e perdas ficam apenas como linhas
+  // informativas e NÃO entram neste total.
+  { key: 'copel_valor_total', label: 'TOTAL Fatura', group: 'Total', step: '0.01', getCalc: (m) => {
+      const t = m?.totais;
+      if (!t) return 0;
+      return (t.rs_te_ponta ?? 0)
+           + (t.rs_tusd_ponta ?? 0)
+           + (t.rs_te_fora ?? 0)
+           + (t.rs_tusd_fora ?? 0)
+           + (t.rs_demanda_total ?? 0)
+           + (t.rs_ultrapassagem ?? 0);
+    } },
 ];
 
 export function MemoriaCalculoTab() {
