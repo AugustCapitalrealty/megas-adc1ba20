@@ -1488,9 +1488,9 @@ function ConsumoClienteCard({ clientes, modulos, contratosVigentes, consumoCli, 
                 <td className={`${cell} font-semibold`}>MÓDULOS VAGOS → Mega</td>
                 <td className={`${cell} text-[11px] text-muted-foreground`}>{vagos.map((m) => m.identificador).join(', ') || '—'}</td>
                 <td className={`${cell} text-right tabular-nums`}>{fmt(vagos.reduce((s, m) => s + (m.demanda_contratada_kw || 0), 0))}</td>
-                <td className={`${cell} text-right tabular-nums text-muted-foreground`}>{fmt(restoD)}</td>
-                <td className={`${cell} text-right tabular-nums text-muted-foreground`}>{fmt(restoCP)}</td>
-                <td className={`${cell} text-right tabular-nums text-muted-foreground`}>{fmt(restoCF)}</td>
+                <td className={`${cell} text-right tabular-nums text-muted-foreground`}>{fmt(vagos.length > 0 ? restoD : 0)}</td>
+                <td className={`${cell} text-right tabular-nums text-muted-foreground`}>{fmt(vagos.length > 0 ? restoCP : 0)}</td>
+                <td className={`${cell} text-right tabular-nums text-muted-foreground`}>{fmt(vagos.length > 0 ? restoCF : 0)}</td>
               </tr>
               {/* Totais e validação */}
               <tr className="bg-primary/5 font-bold">
