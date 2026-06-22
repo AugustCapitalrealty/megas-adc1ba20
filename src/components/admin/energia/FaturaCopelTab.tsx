@@ -125,11 +125,15 @@ export function FaturaCopelTab() {
   // Auto-tributos
   useEffect(() => {
     const it = faturaItens.itens || {};
-    const base = COPEL_ITEM_DEFS.filter((d) => d.hasPisCofins).reduce((s, d) => s + parseBR(it[d.key]?.valor || ''), 0);
+    // Base ICMS = soma dos itens tributáveis (bruto). PIS/COFINS incidem
+    // sobre a base já líquida do ICMS ("cálculo por dentro" da Copel).
+    const baseIcms = COPEL_ITEM_DEFS.filter((d) => d.hasPisCofins).reduce((s, d) => s + parseBR(it[d.key]?.valor || ''), 0);
+    const valorIcms = baseIcms * aliquotas.icms / 100;
+    const basePisCofins = baseIcms - valorIcms;
     const next = {
-      icms: { base: fmtBR(base, 2), aliquota: fmtBR(aliquotas.icms, 2), valor: fmtBR(base * aliquotas.icms / 100, 2) },
-      cofins: { base: fmtBR(base, 2), aliquota: fmtBR(aliquotas.cofins, 2), valor: fmtBR(base * aliquotas.cofins / 100, 2) },
-      pis: { base: fmtBR(base, 2), aliquota: fmtBR(aliquotas.pis, 2), valor: fmtBR(base * aliquotas.pis / 100, 2) },
+      icms: { base: fmtBR(baseIcms, 2), aliquota: fmtBR(aliquotas.icms, 2), valor: fmtBR(valorIcms, 2) },
+      cofins: { base: fmtBR(basePisCofins, 2), aliquota: fmtBR(aliquotas.cofins, 2), valor: fmtBR(basePisCofins * aliquotas.cofins / 100, 2) },
+      pis: { base: fmtBR(basePisCofins, 2), aliquota: fmtBR(aliquotas.pis, 2), valor: fmtBR(basePisCofins * aliquotas.pis / 100, 2) },
     };
     setFaturaItens((prev) => {
       const tr = prev.tributos || {};
