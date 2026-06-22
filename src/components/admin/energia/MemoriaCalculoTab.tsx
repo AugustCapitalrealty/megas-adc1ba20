@@ -901,6 +901,7 @@ export function MemoriaCalculoTab() {
           <ConsumoClienteCard
             clientes={clientes}
             modulos={modulos}
+            contratosVigentes={contratosVigentes}
             consumoCli={consumoCli}
             updateConsumoCli={updateConsumoCli}
             onSave={saveConsumoCli}
