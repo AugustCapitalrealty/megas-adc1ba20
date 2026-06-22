@@ -1440,12 +1440,12 @@ function ConsumoClienteCard({ clientes, modulos, contratosVigentes, consumoCli, 
   const fmt = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const overD = sumD + restoD > copelTotais.d + 0.001 && copelTotais.d > 0;
-  const validation = (entered: number, total: number) => {
-    if (total <= 0) return null;
+  const diffCell = (entered: number, total: number) => {
+    if (total <= 0) return <span className="text-muted-foreground">—</span>;
     const diff = total - entered;
-    if (Math.abs(diff) < 0.01) return <span className="text-green-600">OK</span>;
-    if (diff > 0) return <span className="text-amber-600">{vagos.length > 0 ? `Resto p/ Vagos: ${fmt(diff)}` : `Faltam ${fmt(diff)} (sem vagos)`}</span>;
-    return <span className="text-red-600">Excede em {fmt(-diff)}</span>;
+    if (Math.abs(diff) < 0.01) return <span className="text-green-600">0,00</span>;
+    if (diff > 0) return <span className="text-amber-600">+{fmt(diff)}</span>;
+    return <span className="text-red-600">−{fmt(-diff)}</span>;
   };
 
   return (
@@ -1492,12 +1492,24 @@ function ConsumoClienteCard({ clientes, modulos, contratosVigentes, consumoCli, 
                 <td className={`${cell} text-right tabular-nums text-muted-foreground`}>{fmt(vagos.length > 0 ? restoCP : 0)}</td>
                 <td className={`${cell} text-right tabular-nums text-muted-foreground`}>{fmt(vagos.length > 0 ? restoCF : 0)}</td>
               </tr>
-              {/* Totais e validação */}
-              <tr className="bg-primary/5 font-bold">
-                <td className={`${cell} text-right`} colSpan={3}>TOTAL = Copel</td>
-                <td className={`${cell} text-right tabular-nums`}>{fmt(copelTotais.d)}<div className="text-[10px] font-normal">{validation(sumD, copelTotais.d)}</div></td>
-                <td className={`${cell} text-right tabular-nums`}>{fmt(copelTotais.cp)}<div className="text-[10px] font-normal">{validation(sumCP, copelTotais.cp)}</div></td>
-                <td className={`${cell} text-right tabular-nums`}>{fmt(copelTotais.cf)}<div className="text-[10px] font-normal">{validation(sumCF, copelTotais.cf)}</div></td>
+              {/* Totais */}
+              <tr className="bg-primary/5 font-semibold">
+                <td className={`${cell} text-right`} colSpan={3}>TOTAL Preenchido</td>
+                <td className={`${cell} text-right tabular-nums`}>{fmt(sumD)}</td>
+                <td className={`${cell} text-right tabular-nums`}>{fmt(sumCP)}</td>
+                <td className={`${cell} text-right tabular-nums`}>{fmt(sumCF)}</td>
+              </tr>
+              <tr className="bg-primary/5 font-semibold">
+                <td className={`${cell} text-right`} colSpan={3}>TOTAL Fatura Copel</td>
+                <td className={`${cell} text-right tabular-nums`}>{fmt(copelTotais.d)}</td>
+                <td className={`${cell} text-right tabular-nums`}>{fmt(copelTotais.cp)}</td>
+                <td className={`${cell} text-right tabular-nums`}>{fmt(copelTotais.cf)}</td>
+              </tr>
+              <tr className="bg-primary/10 font-bold">
+                <td className={`${cell} text-right`} colSpan={3}>Diferença (Copel − Preenchido)</td>
+                <td className={`${cell} text-right tabular-nums`}>{diffCell(sumD, copelTotais.d)}</td>
+                <td className={`${cell} text-right tabular-nums`}>{diffCell(sumCP, copelTotais.cp)}</td>
+                <td className={`${cell} text-right tabular-nums`}>{diffCell(sumCF, copelTotais.cf)}</td>
               </tr>
             </tbody>
           </table>
