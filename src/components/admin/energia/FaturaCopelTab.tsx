@@ -97,7 +97,7 @@ export function FaturaCopelTab() {
     const [t, l] = await Promise.all([
       supabase
         .from('energia_competencia_tarifas')
-        .select('id, competencia_id, fatura_copel_itens, perdas_energy_ponta_kwh, perdas_energy_fora_kwh')
+        .select('id, competencia_id, fatura_copel_itens, perdas_energy_ponta_kwh, perdas_energy_fora_kwh, copel_consumo_ponta_kwh, copel_consumo_fora_kwh')
         .eq('competencia_id', compId)
         .maybeSingle(),
       supabase
@@ -179,12 +179,14 @@ export function FaturaCopelTab() {
   // ─── Medidor (Energy) & Diferença Copel ──────────────────────────
   const copelPontaKwh = useMemo(() => {
     const it = faturaItens.itens || {};
-    return parseBR(it.te_ponta?.quant || '') || parseBR(it.usd_ponta?.quant || '');
-  }, [faturaItens.itens]);
+    const fromItens = parseBR(it.te_ponta?.quant || '') || parseBR(it.usd_ponta?.quant || '');
+    return fromItens || Number((tarifas as any)?.copel_consumo_ponta_kwh) || 0;
+  }, [faturaItens.itens, tarifas]);
   const copelForaKwh = useMemo(() => {
     const it = faturaItens.itens || {};
-    return parseBR(it.te_fora?.quant || '') || parseBR(it.usd_fora?.quant || '');
-  }, [faturaItens.itens]);
+    const fromItens = parseBR(it.te_fora?.quant || '') || parseBR(it.usd_fora?.quant || '');
+    return fromItens || Number((tarifas as any)?.copel_consumo_fora_kwh) || 0;
+  }, [faturaItens.itens, tarifas]);
   const difCopelPonta = copelPontaKwh - clientesPonta;
   const difCopelFora = copelForaKwh - clientesFora;
   const energyPontaNum = parseBR(energyPonta);
