@@ -48,7 +48,7 @@ interface ModuloVinculoDraft {
 const BUCKET = 'energia-contratos';
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
-export function ContratosTab() {
+export function ContratosTab({ initialFocusContratoId, onFocusHandled }: { initialFocusContratoId?: string | null; onFocusHandled?: () => void } = {}) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -81,6 +81,17 @@ export function ContratosTab() {
   };
 
   useEffect(() => { fetchAll(); }, []);
+
+  // Foco vindo do Cadastro de Módulos: abre o modal de edição do contrato indicado.
+  useEffect(() => {
+    if (!initialFocusContratoId || loading) return;
+    const c = contratos.find((x) => x.id === initialFocusContratoId);
+    if (c) {
+      setEditing(c);
+      setModalOpen(true);
+      onFocusHandled?.();
+    }
+  }, [initialFocusContratoId, contratos, loading, onFocusHandled]);
 
   const clienteLabel = (id: string) => {
     const c = clientes.find((x) => x.id === id);

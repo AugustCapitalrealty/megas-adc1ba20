@@ -653,7 +653,7 @@ export function MemoriaCalculoTab() {
         ...(existing?.id ? { id: existing.id } : {}),
         competencia_id: currentCompId,
         modulo_id: m.id,
-        demanda_contratada_kw: contratoPorModulo[m.id]?.demanda_contratada_kw || m.demanda_contratada_kw || 0,
+        demanda_contratada_kw: contratoPorModulo[m.id]?.demanda_contratada_kw || 0,
         demanda_usd_medida_kw: Number(x.d.toFixed(4)),
         consumo_ponta_kwh: Number(x.cp.toFixed(4)),
         consumo_fora_kwh: Number(x.cf.toFixed(4)),

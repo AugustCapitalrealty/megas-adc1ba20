@@ -1,60 +1,51 @@
 ## Objetivo
 
-No card da Memória de Cálculo, trocar o agrupamento de **cliente** para **contrato**. Assim, um cliente com múltiplos contratos aparece em múltiplas linhas, cada uma com seus próprios módulos e Demanda Contratada vinda do contrato. A lista é ordenada pela menor numeração de módulo.
+Eliminar a duplicação Cadastro ↔ Contratos: o **contrato vigente é a fonte única** de cliente e demanda contratada de cada módulo. O Cadastro de Módulos passa a tratar apenas atributos físicos.
 
-## Mudanças (apenas em `src/components/admin/energia/MemoriaCalculoTab.tsx`)
+## Mudanças
 
-### 1. Carregar contratos vigentes com seus módulos
-- `fetchCompData` já consulta `energia_contrato_modulos` + `energia_contratos` para resolver o vigente por módulo. Estender essa mesma query para guardar também o agrupamento inverso: `contratosVigentes: Array<{ contrato_id, numero_contrato, cliente_id, demanda_contratada_kw, modulos: Modulo[] }>`.
-- Novo state `contratosVigentes` populado nessa função (sem nova chamada — reaproveita o resultado).
+### 1. Cadastro de Módulos (`EnergiaCadastrosTab.tsx`)
 
-### 2. Trocar a chave de `consumoCli`
-- Hoje: `cliente_key` = `cliente.id` ou `'AREA_COMUM'`.
-- Novo: `cliente_key` = `CONTRATO_<contrato_id>` ou `'AREA_COMUM'`. Mantém o nome do campo para não quebrar o JSON salvo; valores antigos por cliente continuam carregando, mas não casam mais com nenhum grupo (ficam ignorados) — aceitável já que ainda não há lançamentos em produção para os novos contratos.
+A tabela "Módulos do Mega Curitiba" deixa de editar Cliente e Demanda. Passa a ter as colunas:
 
-### 3. Reescrever os `grupos` em `ConsumoClienteCard`
-- Receber `contratosVigentes` por prop em vez de derivar de `clientes`/`modulos`.
-- Um grupo por contrato:
-  - `key = 'CONTRATO_' + contrato_id`
-  - `nome = razão social do cliente + ' — ' + numero_contrato` (mostra qual contrato quando há mais de um)
-  - `modulos = módulos vinculados ao contrato` (ordenados por número)
-  - `demandaContratada = contrato.demanda_contratada_kw` (vem do contrato, não da soma dos módulos)
-- Continua existindo a linha **ÁREA COMUM** (módulos cujo identificador casa "Área Comum") e a linha **MÓDULOS VAGOS → Mega** (módulos sem contrato vigente e não-área-comum).
+| Ordem | Identificador | Área (m²) | Cliente (vigente) | Demanda (vigente) | Contrato | Ativo | Ações |
 
-### 4. Ordenação por módulo
-- Para cada grupo, ordenar `modulos` por chave numérica natural do `identificador` (extrai o primeiro número; `'39A'` vira `39`, desempate alfabético).
-- Ordenar a lista de grupos pelo menor número de módulo do grupo (o que tem módulo `1` aparece primeiro, depois `2`, etc.). Área Comum e Vagos continuam no final (Vagos sempre por último).
+- **Cliente (vigente)** e **Demanda (vigente)** são **read-only**, derivados do contrato vigente hoje (resolução igual à da Memória de Cálculo).
+- **Contrato**: badge com `numero_contrato` + botão "Abrir contrato" que muda para a aba *Contratos* já filtrada por aquele contrato (via state local em `RateioEnergiaTab`).
+- Quando não há contrato vigente: exibir badge cinza "Sem contrato" + link "Criar contrato".
+- Remover os inputs/dropdowns de cliente e demanda da linha do módulo. O combobox `ClienteCombobox` deixa de ser usado para módulos (mantém para outras telas se houver).
+- Form de "Novo módulo" pede só: ordem, identificador, área, ativo.
 
-### 5. Rateio em `saveConsumoCli`
-- Substituir a lógica que filtra módulos por `cliente_id` por: para cada entrada `CONTRATO_<id>`, usar `contratosVigentes[id].modulos`. Mantém o rateio proporcional à área (e fallback igualitário).
-- `AREA_COMUM` e o resto para Vagos continuam idênticos.
-- `demanda_contratada_kw` por lançamento passa a vir de `contratosVigentes` (já é a mesma fonte que `contratoPorModulo`).
+### 2. Contratos (`ContratosTab.tsx`)
 
-## Comportamento resultante
+- Aceitar prop opcional `initialFocusContratoId` para abrir já com aquele contrato selecionado/expandido (vindo do botão "Abrir contrato" do cadastro).
+- Sem mudança funcional adicional.
 
-Pelos dados atuais, a tabela passa a listar (na ordem dos módulos):
+### 3. Container (`RateioEnergiaTab.tsx` ou equivalente que monta as abas)
 
-```text
-VELOZ — <contrato>          1, 2
-NTN — <contrato>            3, 4, 7
-TORNADO — <contrato>        5
-DAMASIO — <contrato>        6
-HP TRADE — <contrato>       8, 9, 10
-DGI — <contrato>            11
-BOSCH — <contrato>          12-17, 27-30
-CALAMO — <contrato>         18-23, 35-38
-BOTICARIO — <contrato>      31-34
-SHOPEE — <contrato>         39A, 39B, 40, 41, 54-59, 66-71
-SUZANO — <contrato>         42-47
-MERCADOLIVRE — <contrato>   48-52
-SODEXO — <contrato>         Restaurante
-ÁREA COMUM
-MÓDULOS VAGOS → Mega        24, 25, 26, 53, 60-65
-```
+- Passa a controlar `activeTab` e `focusContratoId` por state. O botão "Abrir contrato" no Cadastro chama um callback que muda a aba para "Contratos" e seta o foco.
 
-Se um cliente tiver dois contratos vigentes, aparecem duas linhas distintas, cada uma com sua Dem. Contratada e seus módulos.
+### 4. Banco de dados
+
+- **Não remover** `energia_modulos.cliente_id` e `energia_modulos.demanda_contratada_kw` agora — ficam como legacy, ignorados pela UI. Evita migração arriscada e mantém rollback fácil.
+- Marcar visualmente no código (comentário no tipo) que esses campos são legados.
+- Em uma segunda fase (fora deste plano), depois de confirmar 1–2 meses sem regressão, dropar as colunas.
+
+### 5. Lugares que ainda leem `modulo.cliente_id` / `modulo.demanda_contratada_kw`
+
+Auditar e trocar pela resolução do contrato vigente (ou pelo mapa já existente `contratoPorModulo`):
+- `MemoriaCalculoTab.tsx` — `saveConsumoCli` já usa contrato vigente; trocar o fallback `m.demanda_contratada_kw` por `0`.
+- Card "Consumo por Cliente" — já usa `contratosVigentes` (feito no passo anterior).
+- Qualquer outra ocorrência: ripgrep antes do build.
+
+## UX resultante
+
+- **Cadastro de Módulos**: tela enxuta sobre "o que existe fisicamente no terreno". Para saber quem ocupa cada módulo, o usuário olha — em leitura — a coluna "Cliente (vigente)" ou clica para abrir o contrato.
+- **Contratos**: única tela onde se decide quem ocupa o quê, com qual demanda e por qual vigência. Editar contrato altera automaticamente o que aparece no Cadastro e na Memória.
+- **Memória de Cálculo**: já consome contratos. Sem duplicidade.
 
 ## Fora de escopo
 
-- Não mexe em telas de cadastro/contratos.
-- Não migra valores antigos de `consumo_por_cliente` salvos com chave de cliente — eles são apenas ignorados pelas novas chaves.
+- Não dropar colunas legacy do banco neste passo.
+- Não alterar telas de Cliente/Empreendimento.
+- Sem mudança no Faturamento por Cliente.
