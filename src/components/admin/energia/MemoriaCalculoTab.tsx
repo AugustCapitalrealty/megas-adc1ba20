@@ -1332,6 +1332,7 @@ function FaturaCopelCard({ faturaItens, updateItem, updateTributo, onSave, savin
 interface ConsumoClienteCardProps {
   clientes: Cliente[];
   modulos: Modulo[];
+  contratosVigentes: ContratoGrupo[];
   consumoCli: Record<string, ConsumoCliente>;
   updateConsumoCli: (key: string, field: keyof ConsumoCliente, value: string) => void;
   onSave: () => void;
@@ -1339,10 +1340,21 @@ interface ConsumoClienteCardProps {
   isLocked: boolean;
   copelTotais: { d: number; cp: number; cf: number };
 }
-function ConsumoClienteCard({ clientes, modulos, consumoCli, updateConsumoCli, onSave, saving, isLocked, copelTotais }: ConsumoClienteCardProps) {
+function ConsumoClienteCard({ clientes, modulos, contratosVigentes, consumoCli, updateConsumoCli, onSave, saving, isLocked, copelTotais }: ConsumoClienteCardProps) {
   const isAreaComum = (m: Modulo) => /(área|area) comum/i.test(m.identificador);
+  const clienteMap = new Map(clientes.map((c) => [c.id, c]));
+  // Chave numérica para ordenar identificadores tipo "1", "39A", "39B", "Restaurante"
+  const modKey = (id: string): [number, string] => {
+    const m = String(id).match(/(\d+)/);
+    return [m ? Number(m[1]) : 9999, String(id)];
+  };
+  const cmpMod = (a: Modulo, b: Modulo) => {
+    const [na, sa] = modKey(a.identificador);
+    const [nb, sb] = modKey(b.identificador);
+    return na - nb || sa.localeCompare(sb);
+  };
 
-  // Agrupa módulos por cliente (e identifica Área Comum + Vagos)
+  // Agrupa módulos por CONTRATO vigente (e identifica Área Comum + Vagos)
   const grupos: Array<{
     key: string;
     nome: string;
@@ -1352,25 +1364,38 @@ function ConsumoClienteCard({ clientes, modulos, consumoCli, updateConsumoCli, o
     demandaContratada: number;
   }> = [];
 
-  const clienteMap = new Map(clientes.map((c) => [c.id, c]));
-  const byCliente: Record<string, Modulo[]> = {};
-  const areaComumMods: Modulo[] = [];
-  const vagos: Modulo[] = [];
-  for (const m of modulos) {
-    if (isAreaComum(m)) areaComumMods.push(m);
-    else if (!m.cliente_id) vagos.push(m);
-    else (byCliente[m.cliente_id] = byCliente[m.cliente_id] || []).push(m);
+  // Conta contratos por cliente para decidir se mostra número do contrato no nome
+  const contratosPorCliente: Record<string, number> = {};
+  for (const c of contratosVigentes) {
+    if (c.cliente_id) contratosPorCliente[c.cliente_id] = (contratosPorCliente[c.cliente_id] || 0) + 1;
   }
-  for (const [cid, mods] of Object.entries(byCliente)) {
-    const c = clienteMap.get(cid);
+
+  const modulosCobertos = new Set<string>();
+  for (const c of contratosVigentes) {
+    const mods = [...c.modulos].filter((m) => !isAreaComum(m)).sort(cmpMod);
+    mods.forEach((m) => modulosCobertos.add(m.id));
+    const cli = c.cliente_id ? clienteMap.get(c.cliente_id) : null;
+    const baseNome = cli?.razao_social || cli?.nome || '—';
+    const multi = c.cliente_id && contratosPorCliente[c.cliente_id] > 1;
+    const nome = multi ? `${baseNome} — ${c.numero_contrato}` : baseNome;
     grupos.push({
-      key: cid,
-      nome: c?.razao_social || c?.nome || '—',
+      key: `CONTRATO_${c.contrato_id}`,
+      nome,
       modulos: mods,
-      demandaContratada: mods.reduce((s, m) => s + (m.demanda_contratada_kw || 0), 0),
+      demandaContratada: c.demanda_contratada_kw || 0,
     });
   }
-  grupos.sort((a, b) => a.nome.localeCompare(b.nome));
+
+  // Ordena grupos pelo menor número de módulo
+  grupos.sort((a, b) => {
+    const am = a.modulos[0] ? modKey(a.modulos[0].identificador)[0] : 9999;
+    const bm = b.modulos[0] ? modKey(b.modulos[0].identificador)[0] : 9999;
+    return am - bm;
+  });
+
+  const areaComumMods = modulos.filter((m) => isAreaComum(m)).sort(cmpMod);
+  const vagos = modulos.filter((m) => !isAreaComum(m) && !modulosCobertos.has(m.id)).sort(cmpMod);
+
   if (areaComumMods.length > 0) {
     grupos.push({
       key: 'AREA_COMUM',
