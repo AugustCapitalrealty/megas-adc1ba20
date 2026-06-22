@@ -242,7 +242,7 @@ export function ContratosTab() {
 
 // ─────────────────────────────────────────────────────────────
 function ContratoModal({
-  open, onOpenChange, contrato, clientes, modulos, existingVinculos, userId, onSaved, saving, setSaving,
+  open, onOpenChange, contrato, clientes, modulos, existingVinculos, allVinculos, userId, onSaved, saving, setSaving,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -250,6 +250,7 @@ function ContratoModal({
   clientes: Cliente[];
   modulos: Modulo[];
   existingVinculos: ContratoModulo[];
+  allVinculos: ContratoModulo[];
   userId: string | null;
   onSaved: () => void;
   saving: boolean;
