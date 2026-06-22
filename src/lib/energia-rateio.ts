@@ -322,8 +322,10 @@ export const DEFAULT_TARIFAS: EnergiaTarifas = {
 // fatura por cliente que soma todos os módulos dele. Esta função agrupa as
 // linhas da memória de cálculo por cliente.
 export interface FaturaCliente {
-  cliente_key: string;          // id do cliente, ou 'VAGO' / 'AREA_COMUM'
+  cliente_key: string;          // `${cliente_id}::${contrato_id}`, `VAGO:${modulo_id}` ou `AREA_COMUM`
   cliente_nome: string;
+  contrato_id: string | null;
+  contrato_numero: string | null;
   modulos: string[];            // lista de identificadores dos módulos
   area_m2: number;
   consumo_ponta: number;
@@ -346,7 +348,7 @@ export interface FaturaCliente {
 
 export function agruparPorCliente(
   linhas: MemoriaLinha[],
-  modulos: Array<{ id: string; cliente_id: string | null; identificador: string }>,
+  modulos: Array<{ id: string; cliente_id: string | null; identificador: string; contrato_id?: string | null; contrato_numero?: string | null }>,
 ): FaturaCliente[] {
   const moduloMap = new Map(modulos.map(m => [m.id, m]));
   const acc = new Map<string, FaturaCliente>();
@@ -355,9 +357,11 @@ export function agruparPorCliente(
     const m = moduloMap.get(l.modulo_id);
     const isArea = (l.identificador || '').toUpperCase().includes('ÁREA COMUM')
       || (l.identificador || '').toUpperCase().includes('AREA COMUM');
+    const contratoId = m?.contrato_id ?? null;
+    const contratoNumero = m?.contrato_numero ?? null;
     const key = isArea
       ? 'AREA_COMUM'
-      : (m?.cliente_id ?? `VAGO:${l.modulo_id}`);
+      : (m?.cliente_id ? `${m.cliente_id}::${contratoId ?? 'SEM'}` : `VAGO:${l.modulo_id}`);
     const nome = isArea ? 'Área Comum' : (l.cliente_nome || 'Vago');
 
     let bucket = acc.get(key);
@@ -365,6 +369,8 @@ export function agruparPorCliente(
       bucket = {
         cliente_key: key,
         cliente_nome: nome,
+        contrato_id: isArea ? null : contratoId,
+        contrato_numero: isArea ? null : contratoNumero,
         modulos: [],
         area_m2: 0,
         consumo_ponta: 0, consumo_fora: 0, consumo_total: 0,

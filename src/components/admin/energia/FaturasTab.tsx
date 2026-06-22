@@ -35,6 +35,7 @@ export function FaturasTab() {
   const [contratoPorModulo, setContratoPorModulo] = useState<Record<string, { demanda_contratada_kw: number }>>({});
   const [contratoIdPorModulo, setContratoIdPorModulo] = useState<Record<string, string>>({});
   const [contratoDemandaPorId, setContratoDemandaPorId] = useState<Record<string, number>>({});
+  const [contratoNumeroPorId, setContratoNumeroPorId] = useState<Record<string, string>>({});
   const [busca, setBusca] = useState('');
   const [selecionado, setSelecionado] = useState<string | null>(null);
 
@@ -65,11 +66,12 @@ export function FaturasTab() {
     const refFim = `${anoMes}-${String(new Date(yy, mm, 0).getDate()).padStart(2, '0')}`;
     const { data: vinc } = await supabase
       .from('energia_contrato_modulos' as any)
-      .select('modulo_id, vigencia_inicio, vigencia_fim, contrato_id, contrato:energia_contratos!inner(id, demanda_contratada_kw, ativo)')
+      .select('modulo_id, vigencia_inicio, vigencia_fim, contrato_id, contrato:energia_contratos!inner(id, numero_contrato, demanda_contratada_kw, ativo)')
       .lte('vigencia_inicio', refFim);
     const cMap: Record<string, any> = {};
     const cIdMap: Record<string, string> = {};
     const cDemMap: Record<string, number> = {};
+    const cNumMap: Record<string, string> = {};
     if (vinc) {
       for (const v of vinc as any[]) {
         const fim = v.vigencia_fim ?? null;
@@ -80,12 +82,14 @@ export function FaturasTab() {
           cMap[v.modulo_id] = { demanda_contratada_kw: Number(v.contrato.demanda_contratada_kw) || 0, __inicio: v.vigencia_inicio };
           cIdMap[v.modulo_id] = v.contrato.id;
           cDemMap[v.contrato.id] = Number(v.contrato.demanda_contratada_kw) || 0;
+          cNumMap[v.contrato.id] = v.contrato.numero_contrato || '';
         }
       }
     }
     setContratoPorModulo(cMap);
     setContratoIdPorModulo(cIdMap);
     setContratoDemandaPorId(cDemMap);
+    setContratoNumeroPorId(cNumMap);
   }, []);
 
   useEffect(() => { (async () => { setLoading(true); await fetchBase(); setLoading(false); })(); }, [fetchBase]);
@@ -120,15 +124,27 @@ export function FaturasTab() {
     const memoria = calcularMemoria(tarifas as EnergiaTarifas, inputs);
     const fts = agruparPorCliente(
       memoria.linhas,
-      modulos.map((m) => ({ id: m.id, cliente_id: m.cliente_id, identificador: m.identificador })),
+      modulos.map((m) => {
+        const cid = contratoIdPorModulo[m.id] ?? null;
+        return {
+          id: m.id,
+          cliente_id: m.cliente_id,
+          identificador: m.identificador,
+          contrato_id: cid,
+          contrato_numero: cid ? (contratoNumeroPorId[cid] || null) : null,
+        };
+      }),
     );
     return { faturas: fts, memoriaLinhas: memoria.linhas };
-  }, [tarifas, modulos, lancamentos, clientes, contratoPorModulo]);
+  }, [tarifas, modulos, lancamentos, clientes, contratoPorModulo, contratoIdPorModulo, contratoNumeroPorId]);
 
   const faturasFiltradas = useMemo(() => {
     const q = busca.trim().toLowerCase();
     if (!q) return faturas;
-    return faturas.filter((f) => f.cliente_nome.toLowerCase().includes(q));
+    return faturas.filter((f) =>
+      f.cliente_nome.toLowerCase().includes(q) ||
+      (f.contrato_numero || '').toLowerCase().includes(q),
+    );
   }, [faturas, busca]);
 
   useEffect(() => {
@@ -141,11 +157,23 @@ export function FaturasTab() {
 
   const faturaSelecionada = faturas.find((f) => f.cliente_key === selecionado) || null;
 
+  // Quantos contratos cada cliente tem (para decidir mostrar o nº do contrato no sidebar)
+  const contratosPorCliente = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const f of faturas) {
+      const idx = f.cliente_key.indexOf('::');
+      if (idx < 0) continue;
+      const cli = f.cliente_key.slice(0, idx);
+      m.set(cli, (m.get(cli) || 0) + 1);
+    }
+    return m;
+  }, [faturas]);
+
   const copiarResumo = () => {
     if (!faturaSelecionada || !currentComp) return;
     const f = faturaSelecionada;
     const txt = [
-      `Fatura ${f.cliente_nome} — ${currentComp.ano_mes}`,
+      `Fatura ${f.cliente_nome}${f.contrato_numero ? ` — Contrato ${f.contrato_numero}` : ''} — ${currentComp.ano_mes}`,
       `Módulos: ${f.modulos.join(', ')}`,
       `Demanda USD: ${num(f.demanda_usd)} kW`,
       `Consumo Ponta: ${num(f.consumo_ponta)} kWh`,
@@ -162,9 +190,10 @@ export function FaturasTab() {
 
   const exportCSV = () => {
     if (!currentComp || faturas.length === 0) return;
-    const headers = ['Cliente', 'Módulos', 'Área m²', 'Demanda kW', 'Cons. Ponta', 'Cons. Fora', 'Cons. Total', 'R$ Demanda', 'R$ Consumo', 'R$ Tributos', 'Fotovolt.', 'TOTAL'];
+    const headers = ['Cliente', 'Contrato', 'Módulos', 'Área m²', 'Demanda kW', 'Cons. Ponta', 'Cons. Fora', 'Cons. Total', 'R$ Demanda', 'R$ Consumo', 'R$ Tributos', 'Fotovolt.', 'TOTAL'];
     const rows = faturas.map((f) => [
       f.cliente_nome,
+      f.contrato_numero || '',
       f.modulos.join(' | '),
       f.area_m2.toFixed(2),
       f.demanda_usd.toFixed(2),
@@ -259,6 +288,9 @@ export function FaturasTab() {
               <ul className="space-y-1">
                 {faturasFiltradas.map((f) => {
                   const active = f.cliente_key === selecionado;
+                  const idx = f.cliente_key.indexOf('::');
+                  const cli = idx >= 0 ? f.cliente_key.slice(0, idx) : '';
+                  const showContrato = !!cli && (contratosPorCliente.get(cli) || 0) > 1 && f.contrato_numero;
                   return (
                     <li key={f.cliente_key}>
                       <button
@@ -271,6 +303,11 @@ export function FaturasTab() {
                             <Badge variant={active ? 'secondary' : 'outline'} className="text-[10px]">comum</Badge>
                           )}
                         </div>
+                        {showContrato && (
+                          <div className={`text-[11px] mt-0.5 ${active ? 'text-primary-foreground/90' : 'text-foreground/70'}`}>
+                            Contrato {f.contrato_numero}
+                          </div>
+                        )}
                         <div className={`text-xs mt-0.5 ${active ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
                           {f.modulos.length} mód · {brl(f.total_fatura_energy)}
                         </div>
@@ -292,28 +329,10 @@ export function FaturasTab() {
               competencia={currentComp?.ano_mes ?? ''}
               tarifas={tarifas as EnergiaTarifas}
               demandaContrato={(() => {
-                // Soma das demandas contratadas dos contratos ÚNICOS vinculados
-                // aos módulos do cliente — evita inflar 7×120=840 quando um
-                // mesmo contrato (120 kW) está em 7 módulos.
-                const modIds = modulos
-                  .filter((m) => {
-                    if (faturaSelecionada.cliente_key === 'AREA_COMUM') {
-                      return m.identificador.toUpperCase().includes('AREA COMUM') || m.identificador.toUpperCase().includes('ÁREA COMUM');
-                    }
-                    if (faturaSelecionada.cliente_key.startsWith('VAGO:')) {
-                      return m.id === faturaSelecionada.cliente_key.slice(5);
-                    }
-                    return m.cliente_id === faturaSelecionada.cliente_key;
-                  })
-                  .map((m) => m.id);
-                const contratoIds = new Set<string>();
-                for (const mid of modIds) {
-                  const cid = contratoIdPorModulo[mid];
-                  if (cid) contratoIds.add(cid);
-                }
-                let contratada = 0;
-                for (const cid of contratoIds) contratada += contratoDemandaPorId[cid] || 0;
-                return contratada;
+                // Demanda contratada = demanda do contrato desta fatura (uma por fatura).
+                const cid = faturaSelecionada.contrato_id;
+                if (!cid) return 0;
+                return contratoDemandaPorId[cid] || 0;
               })()}
               linhas={memoriaLinhas.filter((l) => {
                 const m = modulos.find((mm) => mm.id === l.modulo_id);
@@ -324,7 +343,12 @@ export function FaturasTab() {
                 if (faturaSelecionada.cliente_key.startsWith('VAGO:')) {
                   return l.modulo_id === faturaSelecionada.cliente_key.slice(5);
                 }
-                return m.cliente_id === faturaSelecionada.cliente_key;
+                const idx = faturaSelecionada.cliente_key.indexOf('::');
+                const cli = idx >= 0 ? faturaSelecionada.cliente_key.slice(0, idx) : faturaSelecionada.cliente_key;
+                const contrato = idx >= 0 ? faturaSelecionada.cliente_key.slice(idx + 2) : null;
+                if (m.cliente_id !== cli) return false;
+                const mCid = contratoIdPorModulo[m.id] ?? 'SEM';
+                return mCid === contrato;
               })}
               onCopy={copiarResumo}
             />
@@ -458,7 +482,7 @@ function FaturaOficial({
             </div>
             <CardTitle className="text-xl mt-0.5">Fatura de Energia — {f.cliente_nome}</CardTitle>
             <CardDescription className="mt-1">
-              Documento auditável que reproduz o cálculo entregue ao cliente.
+              {f.contrato_numero ? `Contrato Nº ${f.contrato_numero} · ` : ''}Documento auditável que reproduz o cálculo entregue ao cliente.
             </CardDescription>
           </div>
           <div className="flex gap-2 print:hidden">
@@ -474,6 +498,7 @@ function FaturaOficial({
         <div className="rounded-md border overflow-hidden">
           <div className="grid grid-cols-1 md:grid-cols-2 text-sm">
             <InfoCell label="Cliente" value={f.cliente_nome} />
+            <InfoCell label="Contrato" value={f.contrato_numero || '—'} />
             <InfoCell label="Módulos" value={modulosFaixa} />
             <InfoCell label="Concessionária" value="COPEL-DIS" />
             <InfoCell label="Modalidade Tarifária" value="A4 Verde" />
