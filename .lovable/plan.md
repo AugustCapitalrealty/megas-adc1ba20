@@ -1,24 +1,25 @@
-## Objetivo
+## O que ajustar em `MemoriaCalculoTab.tsx`
 
-Logo abaixo do bloco de totais atual (TOTAL Preenchido / TOTAL Fatura Copel / Diferença Copel−Preenchido) na aba **Memória de Cálculo → Consumo por Cliente**, acrescentar:
+### 1. Inverter ordem das subtrações
+As duas linhas de conferência hoje calculam ao contrário. Trocar para:
 
-1. **Linha editável "ENTRADA MEDIDOR"** — dois inputs (Consumo Ponta kWh e Consumo Fora Ponta kWh). Coluna de Demanda fica em branco (não se aplica).
-2. **Linha "ENERGY Clientes − ENERGY Medidor"** — diferença automática (TOTAL Preenchido dos clientes menos ENTRADA MEDIDOR), apenas em Consumo Ponta e Fora Ponta.
-3. **Linha "ENERGY Medidor − Copel"** — diferença automática (ENTRADA MEDIDOR menos TOTAL Fatura Copel), apenas em Consumo Ponta e Fora Ponta.
+- **ENERGY Medidor − ENERGY Clientes**: `diffCell(emCP - sumCP, ...)` (Ponta) e `diffCell(emCF - sumCF, ...)` (Fora Ponta)  
+  *(rótulo da linha também muda de "ENERGY Clientes − ENERGY Medidor" para "ENERGY Medidor − ENERGY Clientes")*
+- **COPEL − ENERGY Medidor**: `diffCell(copelTotais.cp - emCP, ...)` (Ponta) e `diffCell(copelTotais.cf - emCF, ...)` (Fora Ponta)  
+  *(rótulo muda de "ENERGY Medidor − Copel" para "COPEL − ENERGY MEDIDOR")*
 
-As duas linhas de diferença usam o mesmo formatador `diffCell` (com sinal e cor) já em uso.
+### 2. Persistir ENTRADA MEDIDOR por competência
+Hoje o `entradaMedidor` é apenas `useState` local no `ConsumoClienteCard` — perde ao trocar de competência ou recarregar.
 
-## Onde
+Plano:
 
-Arquivo: `src/components/admin/energia/MemoriaCalculoTab.tsx`, dentro de `ConsumoClienteCard` (linhas ~1352–1528), logo após a linha "Diferença (Copel − Preenchido)" (linhas 1508–1513).
+- Subir o estado `entradaMedidor` para o componente pai (`MemoriaCalculoTab`), do mesmo jeito que `consumoCli`.
+- Reaproveitar o JSON existente `consumo_por_cliente` (em `energia_competencia_tarifas`) usando uma chave reservada `__ENTRADA_MEDIDOR__`:
+  - Em `fetchCompData`: ao hidratar `ccMap`, extrair a entrada com essa chave para `setEntradaMedidor({ cp, cf })` e remover do mapa de clientes.
+  - Em `saveConsumoCli`: anexar `{ cliente_key: '__ENTRADA_MEDIDOR__', consumo_ponta_kwh: entradaMedidor.cp, consumo_fora_kwh: entradaMedidor.cf, demanda_kw: '' }` ao array salvo, e ignorá-la na etapa de rateio para módulos.
+- Passar `entradaMedidor` e `setEntradaMedidor` como props para `ConsumoClienteCard` (substituindo o `useState` interno).
 
-## Persistência
+Sem mudança de schema, sem efeito no rateio dos módulos — segue sendo só linha de conferência.
 
-O valor de ENTRADA MEDIDOR é salvo por competência junto com o restante do consumo do cliente (mesmo mecanismo `consumoCli`/`updateConsumoCli` ou estado paralelo `entradaMedidor` propagado via props para o componente pai). Não altera o cálculo de rateio para módulos — é apenas conferência. Não há mudança de schema obrigatória; em primeira versão fica em estado local da competência atual (mesma estratégia atual dos campos Copel quando aplicável).
-
-## Não muda
-
-- Lógica de rateio para módulos.
-- Estrutura de banco de dados.
-- Outras abas (Faturas, Contratos, Copel, etc.).
-- Botão "Salvar e Ratear para Módulos".
+### Arquivo afetado
+- `src/components/admin/energia/MemoriaCalculoTab.tsx`

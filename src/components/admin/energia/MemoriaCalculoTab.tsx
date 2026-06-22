@@ -207,6 +207,7 @@ export function MemoriaCalculoTab() {
   const [creating, setCreating] = useState(false);
   const [faturaItens, setFaturaItens] = useState<FaturaCopelItens>({ itens: {}, tributos: {} });
   const [consumoCli, setConsumoCli] = useState<Record<string, ConsumoCliente>>({});
+  const [entradaMedidor, setEntradaMedidor] = useState<{ cp: string; cf: string }>({ cp: '', cf: '' });
   const [savingFatura, setSavingFatura] = useState(false);
   const [savingConsumo, setSavingConsumo] = useState(false);
   // Alíquotas vindas do cadastro (energia_parametros). Valores em % (ex.: 19, 1.65, 7.6)
@@ -251,8 +252,18 @@ export function MemoriaCalculoTab() {
     });
     const ccRaw: any[] = Array.isArray(tdata?.consumo_por_cliente) ? tdata.consumo_por_cliente : [];
     const ccMap: Record<string, ConsumoCliente> = {};
-    ccRaw.forEach((r) => { if (r?.cliente_key) ccMap[r.cliente_key] = r; });
+    let emCp = '', emCf = '';
+    ccRaw.forEach((r) => {
+      if (!r?.cliente_key) return;
+      if (r.cliente_key === '__ENTRADA_MEDIDOR__') {
+        emCp = r.consumo_ponta_kwh || '';
+        emCf = r.consumo_fora_kwh || '';
+        return;
+      }
+      ccMap[r.cliente_key] = r;
+    });
     setConsumoCli(ccMap);
+    setEntradaMedidor({ cp: emCp, cf: emCf });
     if (l.error) toast.error('Erro ao carregar lançamentos');
     const map: Record<string, LancamentoRow> = {};
     ((l.data as any[]) || []).forEach((r) => { map[r.modulo_id] = r; });
@@ -576,7 +587,15 @@ export function MemoriaCalculoTab() {
     if (!tarifas || !currentCompId) return;
     setSavingConsumo(true);
     // 1) persiste JSON
-    const arr = Object.values(consumoCli);
+    const arr: any[] = Object.values(consumoCli);
+    if (entradaMedidor.cp || entradaMedidor.cf) {
+      arr.push({
+        cliente_key: '__ENTRADA_MEDIDOR__',
+        demanda_kw: '',
+        consumo_ponta_kwh: entradaMedidor.cp || '',
+        consumo_fora_kwh: entradaMedidor.cf || '',
+      });
+    }
     const { error: e1 } = await supabase
       .from('energia_competencia_tarifas')
       .update({ consumo_por_cliente: arr as any, updated_by: user?.id } as any)
@@ -591,6 +610,7 @@ export function MemoriaCalculoTab() {
     const contratoModsById = new Map<string, Modulo[]>();
     for (const c of contratosVigentes) contratoModsById.set(c.contrato_id, c.modulos.filter((m) => !isAreaComum(m)));
     for (const cli of arr) {
+      if (cli.cliente_key === '__ENTRADA_MEDIDOR__') continue;
       const mods = consumoCli[cli.cliente_key]
         ? modulos.filter((m) => {
             if (cli.cliente_key === 'AREA_COMUM') return isAreaComum(m);
@@ -913,6 +933,8 @@ export function MemoriaCalculoTab() {
             contratosVigentes={contratosVigentes}
             consumoCli={consumoCli}
             updateConsumoCli={updateConsumoCli}
+            entradaMedidor={entradaMedidor}
+            setEntradaMedidor={setEntradaMedidor}
             onSave={saveConsumoCli}
             saving={savingConsumo}
             isLocked={isLocked}
@@ -1344,13 +1366,14 @@ interface ConsumoClienteCardProps {
   contratosVigentes: ContratoGrupo[];
   consumoCli: Record<string, ConsumoCliente>;
   updateConsumoCli: (key: string, field: keyof ConsumoCliente, value: string) => void;
+  entradaMedidor: { cp: string; cf: string };
+  setEntradaMedidor: React.Dispatch<React.SetStateAction<{ cp: string; cf: string }>>;
   onSave: () => void;
   saving: boolean;
   isLocked: boolean;
   copelTotais: { d: number; cp: number; cf: number };
 }
-function ConsumoClienteCard({ clientes, modulos, contratosVigentes, consumoCli, updateConsumoCli, onSave, saving, isLocked, copelTotais }: ConsumoClienteCardProps) {
-  const [entradaMedidor, setEntradaMedidor] = useState<{ cp: string; cf: string }>({ cp: '', cf: '' });
+function ConsumoClienteCard({ clientes, modulos, contratosVigentes, consumoCli, updateConsumoCli, entradaMedidor, setEntradaMedidor, onSave, saving, isLocked, copelTotais }: ConsumoClienteCardProps) {
   const emCP = parseBR(entradaMedidor.cp || '');
   const emCF = parseBR(entradaMedidor.cf || '');
   const isAreaComum = (m: Modulo) => /(área|area) comum/i.test(m.identificador);
@@ -1522,13 +1545,13 @@ function ConsumoClienteCard({ clientes, modulos, contratosVigentes, consumoCli, 
                 <td className={cell}>{inp(entradaMedidor.cf, (s) => setEntradaMedidor((p) => ({ ...p, cf: s })))}</td>
               </tr>
               <tr className="bg-primary/5 font-semibold">
-                <td className={`${cell} text-right`} colSpan={3}>ENERGY Clientes − ENERGY Medidor</td>
+                <td className={`${cell} text-right`} colSpan={3}>ENERGY Medidor − ENERGY Clientes</td>
                 <td className={`${cell} text-right tabular-nums text-muted-foreground`}>—</td>
-                <td className={`${cell} text-right tabular-nums`}>{diffCell(emCP, sumCP)}</td>
-                <td className={`${cell} text-right tabular-nums`}>{diffCell(emCF, sumCF)}</td>
+                <td className={`${cell} text-right tabular-nums`}>{diffCell(sumCP, emCP)}</td>
+                <td className={`${cell} text-right tabular-nums`}>{diffCell(sumCF, emCF)}</td>
               </tr>
               <tr className="bg-primary/5 font-semibold">
-                <td className={`${cell} text-right`} colSpan={3}>ENERGY Medidor − Copel</td>
+                <td className={`${cell} text-right`} colSpan={3}>COPEL − ENERGY MEDIDOR</td>
                 <td className={`${cell} text-right tabular-nums text-muted-foreground`}>—</td>
                 <td className={`${cell} text-right tabular-nums`}>{diffCell(emCP, copelTotais.cp)}</td>
                 <td className={`${cell} text-right tabular-nums`}>{diffCell(emCF, copelTotais.cf)}</td>
