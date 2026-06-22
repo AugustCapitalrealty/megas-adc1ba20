@@ -38,6 +38,14 @@ interface Modulo {
 }
 interface Cliente { id: string; nome: string; razao_social: string | null; }
 interface ContratoVigente { modulo_id: string; demanda_contratada_kw: number; numero_contrato: string; }
+interface ContratoGrupo {
+  contrato_id: string;
+  numero_contrato: string;
+  cliente_id: string | null;
+  cliente_nome: string;
+  demanda_contratada_kw: number;
+  modulos: Modulo[];
+}
 interface TarifasRow extends EnergiaTarifas { id: string; competencia_id: string; }
 
 // ─── Fatura Copel: itens (mesmo layout impresso) ─────────────────────────
