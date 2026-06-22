@@ -1366,13 +1366,14 @@ interface ConsumoClienteCardProps {
   contratosVigentes: ContratoGrupo[];
   consumoCli: Record<string, ConsumoCliente>;
   updateConsumoCli: (key: string, field: keyof ConsumoCliente, value: string) => void;
+  entradaMedidor: { cp: string; cf: string };
+  setEntradaMedidor: React.Dispatch<React.SetStateAction<{ cp: string; cf: string }>>;
   onSave: () => void;
   saving: boolean;
   isLocked: boolean;
   copelTotais: { d: number; cp: number; cf: number };
 }
-function ConsumoClienteCard({ clientes, modulos, contratosVigentes, consumoCli, updateConsumoCli, onSave, saving, isLocked, copelTotais }: ConsumoClienteCardProps) {
-  const [entradaMedidor, setEntradaMedidor] = useState<{ cp: string; cf: string }>({ cp: '', cf: '' });
+function ConsumoClienteCard({ clientes, modulos, contratosVigentes, consumoCli, updateConsumoCli, entradaMedidor, setEntradaMedidor, onSave, saving, isLocked, copelTotais }: ConsumoClienteCardProps) {
   const emCP = parseBR(entradaMedidor.cp || '');
   const emCF = parseBR(entradaMedidor.cf || '');
   const isAreaComum = (m: Modulo) => /(área|area) comum/i.test(m.identificador);
