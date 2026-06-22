@@ -291,6 +291,30 @@ export function FaturasTab() {
               fatura={faturaSelecionada}
               competencia={currentComp?.ano_mes ?? ''}
               tarifas={tarifas as EnergiaTarifas}
+              demandaContrato={(() => {
+                // Soma das demandas contratadas dos contratos ÚNICOS vinculados
+                // aos módulos do cliente — evita inflar 7×120=840 quando um
+                // mesmo contrato (120 kW) está em 7 módulos.
+                const modIds = modulos
+                  .filter((m) => {
+                    if (faturaSelecionada.cliente_key === 'AREA_COMUM') {
+                      return m.identificador.toUpperCase().includes('AREA COMUM') || m.identificador.toUpperCase().includes('ÁREA COMUM');
+                    }
+                    if (faturaSelecionada.cliente_key.startsWith('VAGO:')) {
+                      return m.id === faturaSelecionada.cliente_key.slice(5);
+                    }
+                    return m.cliente_id === faturaSelecionada.cliente_key;
+                  })
+                  .map((m) => m.id);
+                const contratoIds = new Set<string>();
+                for (const mid of modIds) {
+                  const cid = contratoIdPorModulo[mid];
+                  if (cid) contratoIds.add(cid);
+                }
+                let contratada = 0;
+                for (const cid of contratoIds) contratada += contratoDemandaPorId[cid] || 0;
+                return contratada;
+              })()}
               linhas={memoriaLinhas.filter((l) => {
                 const m = modulos.find((mm) => mm.id === l.modulo_id);
                 if (!m) return false;
