@@ -94,7 +94,7 @@ export function FaturaCopelTab() {
   }, []);
 
   const fetchComp = useCallback(async (compId: string) => {
-    const [t, l] = await Promise.all([
+    const [t, l, m] = await Promise.all([
       supabase
         .from('energia_competencia_tarifas')
         .select('id, competencia_id, fatura_copel_itens, perdas_energy_ponta_kwh, perdas_energy_fora_kwh, copel_consumo_ponta_kwh, copel_consumo_fora_kwh')
@@ -102,8 +102,12 @@ export function FaturaCopelTab() {
         .maybeSingle(),
       supabase
         .from('energia_competencia_lancamentos')
-        .select('consumo_ponta_kwh, consumo_fora_kwh')
+        .select('modulo_id, consumo_ponta_kwh, consumo_fora_kwh')
         .eq('competencia_id', compId),
+      supabase
+        .from('energia_modulos')
+        .select('id')
+        .eq('ativo', true),
     ]);
     if (t.error) toast.error('Erro ao carregar fatura');
     setTarifas((t.data as any) || null);
@@ -113,7 +117,8 @@ export function FaturaCopelTab() {
     const ef = Number((t.data as any)?.perdas_energy_fora_kwh) || 0;
     setEnergyPonta(ep ? fmtBR(ep, 2) : '');
     setEnergyFora(ef ? fmtBR(ef, 2) : '');
-    const rows = (l.data as any[]) || [];
+    const activeModuloIds = new Set(((m.data as any[]) || []).map((mod) => mod.id));
+    const rows = ((l.data as any[]) || []).filter((row) => activeModuloIds.has(row.modulo_id));
     setHasLancamentos(rows.length > 0);
     setClientesPonta(rows.reduce((s, r) => s + (Number(r.consumo_ponta_kwh) || 0), 0));
     setClientesFora(rows.reduce((s, r) => s + (Number(r.consumo_fora_kwh) || 0), 0));
