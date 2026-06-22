@@ -461,6 +461,16 @@ function FaturaOficial({
   const rsPonta = sum('rs_ponta');
   const rsFora = sum('rs_fora');
 
+  // Rateio de perdas — embutido nas linhas de consumo (sem linha visível na fatura).
+  // O detalhamento técnico continua disponível na aba Memória de Cálculo.
+  const rsPerdasPonta = sum('rs_perdas_te_ponta') + sum('rs_perdas_tusd_ponta');
+  const rsPerdasFora = sum('rs_perdas_te_fora') + sum('rs_perdas_tusd_fora');
+  const rsPontaExibido = rsPonta + rsPerdasPonta;
+  const rsForaExibido = rsFora + rsPerdasFora;
+  // Tarifa exibida ajustada para manter coerência (kWh × tarifa = valor exibido).
+  const tarifaPontaExibida = consumoPonta > 0 ? rsPontaExibido / consumoPonta : (tarifas.te_ponta + tarifas.tusd_ponta);
+  const tarifaForaExibida = consumoFora > 0 ? rsForaExibido / consumoFora : (tarifas.te_fora + tarifas.tusd_fora);
+
   const piscof = sum('piscof_total');
   const icms = sum('icms_total');
   const ilum = sum('iluminacao_publica');
@@ -470,7 +480,7 @@ function FaturaOficial({
   // Total Fornecimento = Demanda + Consumo (sem perdas, sem tributos —
   // tributos já estão embutidos nas tarifas brutas da Copel).
   const totalFornecimento =
-    rsDemandaUsd + rsDemandaIsenta + rsUltrapassagem + rsPonta + rsFora;
+    rsDemandaUsd + rsDemandaIsenta + rsUltrapassagem + rsPontaExibido + rsForaExibido;
   // TOTAL DA FATURA = Fornecimento + Iluminação + Crédito/Débito + Bandeira.
   // PIS/COFINS e ICMS NÃO entram (são informativos, já embutidos no preço).
   const total = totalFornecimento + ilum + credito + bandeira;
@@ -537,8 +547,8 @@ function FaturaOficial({
               <DataRow label="Ultrapassagem" faturado={ultrapassagem} tarifa={tarifas.ultrapassagem} valor={rsUltrapassagem} dec={2} />
 
               <SectionRow label="CONSUMO (kWh)" />
-              <DataRow label="Ponta" medido={consumoPonta} faturado={consumoPonta} tarifa={tarifas.te_ponta + tarifas.tusd_ponta} valor={rsPonta} dec={2} />
-              <DataRow label="Fora Ponta" medido={consumoFora} faturado={consumoFora} tarifa={tarifas.te_fora + tarifas.tusd_fora} valor={rsFora} dec={2} />
+              <DataRow label="Ponta" medido={consumoPonta} faturado={consumoPonta} tarifa={tarifaPontaExibida} valor={rsPontaExibido} dec={2} />
+              <DataRow label="Fora Ponta" medido={consumoFora} faturado={consumoFora} tarifa={tarifaForaExibida} valor={rsForaExibido} dec={2} />
               <DataRow label="Bandeira" valor={bandeira} dec={2} />
             </tbody>
           </table>
