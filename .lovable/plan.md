@@ -1,56 +1,47 @@
-## Objetivo
+## Causa raiz
 
-Adicionar uma nova seção na aba **Fatura Copel** (`FaturaCopelTab.tsx`) chamada **"Medidor (Energy)"**, logo abaixo da tabela de itens da Copel. Essa seção registra as perdas medidas no Energy e mostra automaticamente a diferença que sobrou entre o consumo dos clientes e o que a Copel cobrou.
+O engine de rateio (`src/lib/energia-rateio.ts`) lê os campos de tarifa em `energia_competencia_tarifas`:
 
-## Como vai funcionar
+- `demanda_usd`, `te_ponta`, `tusd_ponta`, `te_fora`, `tusd_fora`
 
-A nova seção tem dois blocos:
+A aba **Fatura Copel** está salvando apenas os campos espelho de auditoria (`copel_tarifa_*`) — os campos do engine continuam com valores antigos. Por isso a fatura do cliente mostra R$ 19,805217 / 1,549011 / 0,360668 mesmo depois de você atualizar a Copel.
 
-### Bloco 1 — Diferença da Fatura Copel (somente leitura)
+## Correção
 
-Calculada automaticamente:
+Em `src/components/admin/energia/FaturaCopelTab.tsx`, na função `save()`, gravar **também** os campos lidos pelo engine, com as tarifas unitárias pós-tributos da Copel da própria competência:
 
-```text
-Soma consumo clientes Ponta   −   Consumo Ponta na fatura Copel   =   Diferença Ponta
-Soma consumo clientes Fora    −   Consumo Fora na fatura Copel    =   Diferença Fora
+```ts
+const mirror = {
+  ...mirrorAtual,
+  // Tarifas usadas pelo engine de rateio (cada competência tem as suas)
+  demanda_usd: tarif('demanda_usd'),
+  te_ponta:    tarif('te_ponta'),
+  tusd_ponta:  tarif('usd_ponta'),
+  te_fora:     tarif('te_fora'),
+  tusd_fora:   tarif('usd_fora'),
+};
 ```
 
-- Soma do consumo dos clientes vem de `energia_competencia_lancamentos` (colunas `consumo_ponta_kwh` / `consumo_fora_kwh`) da competência atual.
-- Consumo da Copel vem dos campos `copel_consumo_ponta_kwh` / `copel_consumo_fora_kwh` (já salvos pelos itens TE/USD Ponta/Fora desta mesma aba).
-- Mostrar Ponta, Fora e Total, com badge informando se é positivo (sobra) ou negativo (faltou).
+Resultado: ao salvar a Fatura Copel da competência 2026-06, a fatura do cliente da mesma competência passa a recalcular usando as tarifas da Copel 2026-06 automaticamente — sem botão extra, sem etapa manual.
 
-### Bloco 2 — Medidor (Energy)
+## Reprocessar competências já lançadas
 
-Tabela com 3 linhas (Ponta, Fora da Ponta, Total), e duas colunas:
+Para as competências que já têm Fatura Copel preenchida mas continuam exibindo as tarifas antigas (ex.: 2026-06), rodar um `UPDATE` único copiando `copel_tarifa_*` → campos do engine:
 
-| Linha | Perdas identificadas no Energy (input) | Perdas Totais (calculado) |
-|---|---|---|
-| Ponta | usuário digita | `Energy Ponta + Diferença Copel Ponta` |
-| Fora da Ponta | usuário digita | `Energy Fora + Diferença Copel Fora` |
-| Total | soma | soma |
+```sql
+UPDATE public.energia_competencia_tarifas
+   SET demanda_usd = COALESCE(copel_tarifa_demanda_usd, demanda_usd),
+       te_ponta    = COALESCE(copel_tarifa_te_ponta,    te_ponta),
+       tusd_ponta  = COALESCE(copel_tarifa_tusd_ponta,  tusd_ponta),
+       te_fora     = COALESCE(copel_tarifa_te_fora,     te_fora),
+       tusd_fora   = COALESCE(copel_tarifa_tusd_fora,   tusd_fora)
+ WHERE copel_tarifa_demanda_usd IS NOT NULL
+    OR copel_tarifa_te_ponta    IS NOT NULL;
+```
 
-- Os valores digitados são salvos em `perdas_energy_ponta_kwh` e `perdas_energy_fora_kwh` (colunas já existentes em `energia_competencia_tarifas`).
-- As "Perdas Totais" calculadas alimentam os campos `perdas_copel_ponta_kwh` / `perdas_copel_fora_kwh` no save (que o engine de rateio em `energia-rateio.ts` já soma com `perdas_energy_*` em `perdasPontaTotal/perdasForaTotal`). Assim a memória de cálculo passa a refletir as perdas reais sem dupla contagem — para evitar somar duas vezes, gravaremos `perdas_copel_*` recebendo apenas a **diferença** da fatura Copel (o componente do Energy continua no campo `perdas_energy_*`).
+## Arquivos alterados
 
-## Comportamento
+- `src/components/admin/energia/FaturaCopelTab.tsx` — adicionar 5 campos no `mirror` do `save()`.
+- Um data-fix SQL para sincronizar competências já lançadas.
 
-- Bloqueado quando a competência está fechada (mesma regra dos outros campos).
-- Reage em tempo real à edição dos itens Copel (a diferença recalcula sozinha).
-- Persiste junto com o botão **"Salvar Fatura Copel"** já existente.
-- Se não houver lançamentos de clientes ainda, mostra "—" na diferença e um hint para preencher na Memória de Cálculo.
-
-## Detalhes técnicos
-
-Arquivo único alterado: `src/components/admin/energia/FaturaCopelTab.tsx`
-
-1. No `fetchComp`, carregar também `perdas_energy_ponta_kwh`, `perdas_energy_fora_kwh` da tarifa e a soma de `consumo_ponta_kwh / consumo_fora_kwh` de `energia_competencia_lancamentos` da competência (filtrado por `competencia_id`).
-2. Novo estado: `energyPonta`, `energyFora` (strings BR), `clientesPonta`, `clientesFora` (números).
-3. Memos para `difCopelPonta`, `difCopelFora`, `perdasTotaisPonta`, `perdasTotaisFora`.
-4. Render: novo `Card` "Medidor (Energy) & Diferença Copel" abaixo do grid `Itens + Tributos`.
-5. No `save()`, adicionar ao update:
-   - `perdas_energy_ponta_kwh: parseBR(energyPonta)`
-   - `perdas_energy_fora_kwh: parseBR(energyFora)`
-   - `perdas_copel_ponta_kwh: max(0, difCopelPonta)`
-   - `perdas_copel_fora_kwh: max(0, difCopelFora)`
-
-Nenhuma migração necessária — todas as colunas já existem em `energia_competencia_tarifas`.
+Sem migração de schema. Sem alteração em `energia-rateio.ts`.
