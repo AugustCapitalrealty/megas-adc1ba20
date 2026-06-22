@@ -252,8 +252,18 @@ export function MemoriaCalculoTab() {
     });
     const ccRaw: any[] = Array.isArray(tdata?.consumo_por_cliente) ? tdata.consumo_por_cliente : [];
     const ccMap: Record<string, ConsumoCliente> = {};
-    ccRaw.forEach((r) => { if (r?.cliente_key) ccMap[r.cliente_key] = r; });
+    let emCp = '', emCf = '';
+    ccRaw.forEach((r) => {
+      if (!r?.cliente_key) return;
+      if (r.cliente_key === '__ENTRADA_MEDIDOR__') {
+        emCp = r.consumo_ponta_kwh || '';
+        emCf = r.consumo_fora_kwh || '';
+        return;
+      }
+      ccMap[r.cliente_key] = r;
+    });
     setConsumoCli(ccMap);
+    setEntradaMedidor({ cp: emCp, cf: emCf });
     if (l.error) toast.error('Erro ao carregar lançamentos');
     const map: Record<string, LancamentoRow> = {};
     ((l.data as any[]) || []).forEach((r) => { map[r.modulo_id] = r; });
