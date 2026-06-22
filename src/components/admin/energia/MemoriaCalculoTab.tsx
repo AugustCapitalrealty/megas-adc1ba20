@@ -588,26 +588,33 @@ export function MemoriaCalculoTab() {
     for (const m of modulos) lancMap[m.id] = { d: 0, cp: 0, cf: 0 };
 
     const isAreaComum = (m: Modulo) => /(área|area) comum/i.test(m.identificador);
+    const contratoModsById = new Map<string, Modulo[]>();
+    for (const c of contratosVigentes) contratoModsById.set(c.contrato_id, c.modulos.filter((m) => !isAreaComum(m)));
     for (const cli of arr) {
       const mods = consumoCli[cli.cliente_key]
         ? modulos.filter((m) => {
             if (cli.cliente_key === 'AREA_COMUM') return isAreaComum(m);
-            return m.cliente_id === cli.cliente_key && !isAreaComum(m);
+            return false; // tratado abaixo para CONTRATO_*
           })
         : [];
-      const totalArea = mods.reduce((s, m) => s + (m.area_m2 || 0), 0);
+      let modsFinal: Modulo[] = mods;
+      if (cli.cliente_key.startsWith('CONTRATO_')) {
+        const cid = cli.cliente_key.slice('CONTRATO_'.length);
+        modsFinal = contratoModsById.get(cid) || [];
+      }
+      const totalArea = modsFinal.reduce((s, m) => s + (m.area_m2 || 0), 0);
       const D = parseBR(cli.demanda_kw);
       const CP = parseBR(cli.consumo_ponta_kwh);
       const CF = parseBR(cli.consumo_fora_kwh);
-      if (mods.length === 0) continue;
+      if (modsFinal.length === 0) continue;
       if (totalArea > 0) {
-        for (const m of mods) {
+        for (const m of modsFinal) {
           const w = m.area_m2 / totalArea;
           lancMap[m.id] = { d: D * w, cp: CP * w, cf: CF * w };
         }
       } else {
-        const w = 1 / mods.length;
-        for (const m of mods) lancMap[m.id] = { d: D * w, cp: CP * w, cf: CF * w };
+        const w = 1 / modsFinal.length;
+        for (const m of modsFinal) lancMap[m.id] = { d: D * w, cp: CP * w, cf: CF * w };
       }
     }
 
@@ -621,7 +628,10 @@ export function MemoriaCalculoTab() {
     const restoD = Math.max(0, totalCopelD - usedD);
     const restoCP = Math.max(0, totalCopelCP - usedCP);
     const restoCF = Math.max(0, totalCopelCF - usedCF);
-    const vagos = modulos.filter((m) => !m.cliente_id && !isAreaComum(m));
+    // Módulos vagos: aqueles que não estão cobertos por nenhum contrato vigente e não são área comum
+    const cobertos = new Set<string>();
+    contratosVigentes.forEach((c) => c.modulos.forEach((m) => { if (!isAreaComum(m)) cobertos.add(m.id); }));
+    const vagos = modulos.filter((m) => !cobertos.has(m.id) && !isAreaComum(m));
     const totalAreaVagos = vagos.reduce((s, m) => s + (m.area_m2 || 0), 0);
     if (vagos.length > 0) {
       if (totalAreaVagos > 0) {
