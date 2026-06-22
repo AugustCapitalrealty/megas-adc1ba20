@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, FileText, Save, CheckCircle2, AlertTriangle, Lock, Calculator, Receipt, Percent, Lightbulb } from 'lucide-react';
+import { Loader2, FileText, Save, CheckCircle2, AlertTriangle, Lock, Calculator, Receipt, Percent, Lightbulb, Gauge } from 'lucide-react';
 import { toast } from 'sonner';
 
 // ─── Tipos (reaproveita o mesmo JSONB usado na Memória) ─────────────────
@@ -31,7 +31,13 @@ interface Competencia {
   ano_mes: string;
   status: 'rascunho' | 'fechada';
 }
-interface TarifasRow { id: string; competencia_id: string; fatura_copel_itens?: any; }
+interface TarifasRow {
+  id: string;
+  competencia_id: string;
+  fatura_copel_itens?: any;
+  perdas_energy_ponta_kwh?: number | null;
+  perdas_energy_fora_kwh?: number | null;
+}
 
 const COPEL_ITEM_DEFS: { key: CopelItemKey; label: string; unidade: string; hasUnitario: boolean; hasPisCofins: boolean; hasIcms: boolean; hasTarifa: boolean }[] = [
   { key: 'te_ponta',           label: 'ENERGIA ELÉTRICA TE PONTA',     unidade: 'kWh', hasUnitario: true, hasPisCofins: true, hasIcms: true, hasTarifa: true },
@@ -65,6 +71,11 @@ export function FaturaCopelTab() {
   const [faturaItens, setFaturaItens] = useState<FaturaCopelItens>({ itens: {}, tributos: {}, total_a_pagar: '' });
   const [aliquotas, setAliquotas] = useState({ pis: 0, cofins: 0, icms: 0 });
   const [saving, setSaving] = useState(false);
+  const [energyPonta, setEnergyPonta] = useState('');
+  const [energyFora, setEnergyFora] = useState('');
+  const [clientesPonta, setClientesPonta] = useState(0);
+  const [clientesFora, setClientesFora] = useState(0);
+  const [hasLancamentos, setHasLancamentos] = useState(false);
 
   const currentComp = competencias.find((c) => c.id === currentCompId) || null;
   const isLocked = currentComp?.status === 'fechada';
@@ -83,15 +94,29 @@ export function FaturaCopelTab() {
   }, []);
 
   const fetchComp = useCallback(async (compId: string) => {
-    const { data, error } = await supabase
-      .from('energia_competencia_tarifas')
-      .select('id, competencia_id, fatura_copel_itens')
-      .eq('competencia_id', compId)
-      .maybeSingle();
-    if (error) toast.error('Erro ao carregar fatura');
-    setTarifas((data as any) || null);
-    const fc = (data as any)?.fatura_copel_itens || {};
+    const [t, l] = await Promise.all([
+      supabase
+        .from('energia_competencia_tarifas')
+        .select('id, competencia_id, fatura_copel_itens, perdas_energy_ponta_kwh, perdas_energy_fora_kwh')
+        .eq('competencia_id', compId)
+        .maybeSingle(),
+      supabase
+        .from('energia_competencia_lancamentos')
+        .select('consumo_ponta_kwh, consumo_fora_kwh')
+        .eq('competencia_id', compId),
+    ]);
+    if (t.error) toast.error('Erro ao carregar fatura');
+    setTarifas((t.data as any) || null);
+    const fc = (t.data as any)?.fatura_copel_itens || {};
     setFaturaItens({ itens: fc.itens || {}, tributos: fc.tributos || {}, total_a_pagar: fc.total_a_pagar || '' });
+    const ep = Number((t.data as any)?.perdas_energy_ponta_kwh) || 0;
+    const ef = Number((t.data as any)?.perdas_energy_fora_kwh) || 0;
+    setEnergyPonta(ep ? fmtBR(ep, 2) : '');
+    setEnergyFora(ef ? fmtBR(ef, 2) : '');
+    const rows = (l.data as any[]) || [];
+    setHasLancamentos(rows.length > 0);
+    setClientesPonta(rows.reduce((s, r) => s + (Number(r.consumo_ponta_kwh) || 0), 0));
+    setClientesFora(rows.reduce((s, r) => s + (Number(r.consumo_fora_kwh) || 0), 0));
   }, []);
 
   useEffect(() => { (async () => { setLoading(true); await fetchBase(); setLoading(false); })(); }, [fetchBase]);
@@ -151,6 +176,22 @@ export function FaturaCopelTab() {
   const diff = totalAPagar > 0 ? sumValor - totalAPagar : 0;
   const bateOk = totalAPagar > 0 && Math.abs(diff) < 0.01;
 
+  // ─── Medidor (Energy) & Diferença Copel ──────────────────────────
+  const copelPontaKwh = useMemo(() => {
+    const it = faturaItens.itens || {};
+    return parseBR(it.te_ponta?.quant || '') || parseBR(it.usd_ponta?.quant || '');
+  }, [faturaItens.itens]);
+  const copelForaKwh = useMemo(() => {
+    const it = faturaItens.itens || {};
+    return parseBR(it.te_fora?.quant || '') || parseBR(it.usd_fora?.quant || '');
+  }, [faturaItens.itens]);
+  const difCopelPonta = clientesPonta - copelPontaKwh;
+  const difCopelFora = clientesFora - copelForaKwh;
+  const energyPontaNum = parseBR(energyPonta);
+  const energyForaNum = parseBR(energyFora);
+  const perdasTotaisPonta = energyPontaNum + difCopelPonta;
+  const perdasTotaisFora = energyForaNum + difCopelFora;
+
   const save = async () => {
     if (!tarifas) return;
     setSaving(true);
@@ -186,7 +227,15 @@ export function FaturaCopelTab() {
     };
     const { error } = await supabase
       .from('energia_competencia_tarifas')
-      .update({ fatura_copel_itens: faturaItens as any, ...mirror, updated_by: user?.id } as any)
+      .update({
+        fatura_copel_itens: faturaItens as any,
+        ...mirror,
+        perdas_energy_ponta_kwh: energyPontaNum,
+        perdas_energy_fora_kwh: energyForaNum,
+        perdas_copel_ponta_kwh: Math.max(0, difCopelPonta),
+        perdas_copel_fora_kwh: Math.max(0, difCopelFora),
+        updated_by: user?.id,
+      } as any)
       .eq('id', tarifas.id);
     setSaving(false);
     if (error) toast.error('Erro ao salvar fatura Copel');
