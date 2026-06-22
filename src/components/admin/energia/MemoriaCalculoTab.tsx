@@ -1444,7 +1444,7 @@ function ConsumoClienteCard({ clientes, modulos, contratosVigentes, consumoCli, 
     if (total <= 0) return null;
     const diff = total - entered;
     if (Math.abs(diff) < 0.01) return <span className="text-green-600">OK</span>;
-    if (diff > 0) return <span className="text-amber-600">Resto p/ Vagos: {fmt(diff)}</span>;
+    if (diff > 0) return <span className="text-amber-600">{vagos.length > 0 ? `Resto p/ Vagos: ${fmt(diff)}` : `Faltam ${fmt(diff)} (sem vagos)`}</span>;
     return <span className="text-red-600">Excede em {fmt(-diff)}</span>;
   };
 

@@ -1,26 +1,15 @@
 ## Problema
 
-Ao clicar em "Distribuir aos módulos" (Consumo por Contrato), o upsert em `energia_competencia_lancamentos` falha com:
+Na aba "Consumo por Cliente", quando não há módulos vagos ativos, o rótulo "Resto p/ Vagos: 4.942,47 / 3.460,74" ainda aparece, sugerindo que existe um resto sendo cobrado de algum vago — confuso, já que os módulos 24/25/26 foram desativados.
 
-> null value in column "id" violates not-null constraint
+## Correção (escopo mínimo)
 
-## Causa
+Em `src/components/admin/energia/MemoriaCalculoTab.tsx`, ajustar a função `validation` (linha ~1443) e o totalizador da linha "MÓDULOS VAGOS → Mega" para deixar claro o estado "sem vagos":
 
-Em `MemoriaCalculoTab.tsx` (linhas ~649–666), o array de rows é montado com:
+1. **Linha MÓDULOS VAGOS**: quando `vagos.length === 0`, exibir `0,00` nas colunas de demanda usada / consumo ponta / consumo fora (em vez de `restoD/CP/CF`), e o rótulo "—" para identificadores (já está assim).
 
-```ts
-...(existing?.id ? { id: existing.id } : {})
-```
+2. **Validação por coluna** (`validation`): quando `vagos.length === 0` e há diferença positiva (entrada < Copel), mostrar `Faltam X (sem vagos)` em âmbar — para o usuário saber que falta consumo a alocar, mas sem prometer destino "para Vagos".
 
-Algumas linhas incluem `id`, outras não. O PostgREST, ao serializar o upsert em lote, normaliza as colunas e envia `id: null` para as linhas sem id — o que viola NOT NULL, mesmo o default `gen_random_uuid()` existindo (default só se aplica quando a coluna é **omitida**, não quando vem null explícito).
+3. **Distribuição (`handleSave`)**: já está correto — quando `vagos.length === 0`, nenhum lançamento é criado para módulos vagos. Manter assim (o roadmap do usuário cuida disso depois).
 
-## Correção
-
-Em `src/components/admin/energia/MemoriaCalculoTab.tsx`, na função que distribui aos módulos (linha ~649):
-
-- Remover o spread condicional do `id`. O upsert já usa `onConflict: 'competencia_id,modulo_id'`, então o banco resolve update vs insert sem precisar do `id`.
-- Linhas novas pegam `id` do default; linhas existentes são atualizadas pelo conflict target.
-
-Resultado: rows uniformes sem coluna `id`, eliminando o erro.
-
-Nenhuma mudança de schema, nenhum outro arquivo afetado.
+Nenhuma mudança em schema, fetch ou em outros arquivos. Sem impacto no cálculo da memória, só nos rótulos da UI quando não há vagos.
