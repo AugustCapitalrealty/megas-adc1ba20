@@ -335,6 +335,10 @@ export function EnergiaCadastrosTab() {
   }
 
   const totalArea = modulos.reduce((s, m) => s + Number(m.area_m2 || 0), 0);
+  const clienteCounts = modulos.reduce<Record<string, number>>((acc, m) => {
+    if (m.cliente_id) acc[m.cliente_id] = (acc[m.cliente_id] ?? 0) + 1;
+    return acc;
+  }, {});
 
   return (
     <div className="space-y-6">
