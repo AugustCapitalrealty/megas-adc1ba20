@@ -933,6 +933,8 @@ export function MemoriaCalculoTab() {
             contratosVigentes={contratosVigentes}
             consumoCli={consumoCli}
             updateConsumoCli={updateConsumoCli}
+            entradaMedidor={entradaMedidor}
+            setEntradaMedidor={setEntradaMedidor}
             onSave={saveConsumoCli}
             saving={savingConsumo}
             isLocked={isLocked}
