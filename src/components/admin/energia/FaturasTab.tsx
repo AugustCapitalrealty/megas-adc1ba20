@@ -36,6 +36,7 @@ export function FaturasTab() {
   const [contratoIdPorModulo, setContratoIdPorModulo] = useState<Record<string, string>>({});
   const [contratoDemandaPorId, setContratoDemandaPorId] = useState<Record<string, number>>({});
   const [contratoNumeroPorId, setContratoNumeroPorId] = useState<Record<string, string>>({});
+  const [contratoClientePorId, setContratoClientePorId] = useState<Record<string, string>>({});
   const [busca, setBusca] = useState('');
   const [selecionado, setSelecionado] = useState<string | null>(null);
 
@@ -66,12 +67,13 @@ export function FaturasTab() {
     const refFim = `${anoMes}-${String(new Date(yy, mm, 0).getDate()).padStart(2, '0')}`;
     const { data: vinc } = await supabase
       .from('energia_contrato_modulos' as any)
-      .select('modulo_id, vigencia_inicio, vigencia_fim, contrato_id, contrato:energia_contratos!inner(id, numero_contrato, demanda_contratada_kw, ativo)')
+      .select('modulo_id, vigencia_inicio, vigencia_fim, contrato_id, contrato:energia_contratos!inner(id, numero_contrato, demanda_contratada_kw, cliente_id, ativo)')
       .lte('vigencia_inicio', refFim);
     const cMap: Record<string, any> = {};
     const cIdMap: Record<string, string> = {};
     const cDemMap: Record<string, number> = {};
     const cNumMap: Record<string, string> = {};
+    const cCliMap: Record<string, string> = {};
     if (vinc) {
       for (const v of vinc as any[]) {
         const fim = v.vigencia_fim ?? null;
@@ -83,6 +85,7 @@ export function FaturasTab() {
           cIdMap[v.modulo_id] = v.contrato.id;
           cDemMap[v.contrato.id] = Number(v.contrato.demanda_contratada_kw) || 0;
           cNumMap[v.contrato.id] = v.contrato.numero_contrato || '';
+          if (v.contrato.cliente_id) cCliMap[v.contrato.id] = v.contrato.cliente_id;
         }
       }
     }
@@ -90,6 +93,7 @@ export function FaturasTab() {
     setContratoIdPorModulo(cIdMap);
     setContratoDemandaPorId(cDemMap);
     setContratoNumeroPorId(cNumMap);
+    setContratoClientePorId(cCliMap);
   }, []);
 
   useEffect(() => { (async () => { setLoading(true); await fetchBase(); setLoading(false); })(); }, [fetchBase]);
@@ -105,13 +109,18 @@ export function FaturasTab() {
 
   const { faturas, memoriaLinhas } = useMemo<{ faturas: FaturaCliente[]; memoriaLinhas: MemoriaLinha[] }>(() => {
     if (!tarifas) return { faturas: [], memoriaLinhas: [] };
-    const inputs: EnergiaLancamentoInput[] = modulos.map((m) => {
+    // Fonte de verdade: módulos COM lançamento nesta competência. Para cada um,
+    // o cliente é o do contrato vigente (não o cliente atual do módulo).
+    const modulosComLanc = modulos.filter((m) => !!lancamentos[m.id]);
+    const inputs: EnergiaLancamentoInput[] = modulosComLanc.map((m) => {
       const l = lancamentos[m.id];
-      const cli = clientes.find((c) => c.id === m.cliente_id);
+      const cid = contratoIdPorModulo[m.id];
+      const cliId = cid ? contratoClientePorId[cid] : null;
+      const cli = clientes.find((c) => c.id === cliId);
       return {
         modulo_id: m.id,
         identificador: m.identificador,
-        cliente_nome: cli?.razao_social || cli?.nome || (m.cliente_id ? '—' : 'VAGO'),
+        cliente_nome: cli?.razao_social || cli?.nome || (cliId ? '—' : 'VAGO'),
         area_m2: m.area_m2,
         demanda_contratada_kw: contratoPorModulo[m.id]?.demanda_contratada_kw ?? 0,
         demanda_usd_medida_kw: l?.demanda_usd_medida_kw ?? 0,
@@ -124,11 +133,12 @@ export function FaturasTab() {
     const memoria = calcularMemoria(tarifas as EnergiaTarifas, inputs);
     const fts = agruparPorCliente(
       memoria.linhas,
-      modulos.map((m) => {
+      modulosComLanc.map((m) => {
         const cid = contratoIdPorModulo[m.id] ?? null;
+        const cliId = cid ? (contratoClientePorId[cid] ?? null) : null;
         return {
           id: m.id,
-          cliente_id: m.cliente_id,
+          cliente_id: cliId,
           identificador: m.identificador,
           contrato_id: cid,
           contrato_numero: cid ? (contratoNumeroPorId[cid] || null) : null,
@@ -136,7 +146,7 @@ export function FaturasTab() {
       }),
     );
     return { faturas: fts, memoriaLinhas: memoria.linhas };
-  }, [tarifas, modulos, lancamentos, clientes, contratoPorModulo, contratoIdPorModulo, contratoNumeroPorId]);
+  }, [tarifas, modulos, lancamentos, clientes, contratoPorModulo, contratoIdPorModulo, contratoNumeroPorId, contratoClientePorId]);
 
   const faturasFiltradas = useMemo(() => {
     const q = busca.trim().toLowerCase();
@@ -346,8 +356,9 @@ export function FaturasTab() {
                 const idx = faturaSelecionada.cliente_key.indexOf('::');
                 const cli = idx >= 0 ? faturaSelecionada.cliente_key.slice(0, idx) : faturaSelecionada.cliente_key;
                 const contrato = idx >= 0 ? faturaSelecionada.cliente_key.slice(idx + 2) : null;
-                if (m.cliente_id !== cli) return false;
                 const mCid = contratoIdPorModulo[m.id] ?? 'SEM';
+                const mCliId = mCid !== 'SEM' ? (contratoClientePorId[mCid] ?? null) : null;
+                if (mCliId !== cli) return false;
                 return mCid === contrato;
               })}
               onCopy={copiarResumo}
