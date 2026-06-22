@@ -1,29 +1,36 @@
-## Faturas por Contrato (não por cliente)
+## Problema
 
-Hoje a aba **Faturas** agrupa tudo por `cliente_id`: se um cliente tem 2 contratos vinculados a módulos diferentes, ele aparece como **uma única fatura**, somando demandas/consumos dos dois contratos. Precisa virar **uma fatura por contrato**.
+A aba **Faturas** hoje monta uma fatura por cliente usando:
+- todos os **módulos ativos** (não importa se houve lançamento na competência);
+- o `cliente_id` **atual** do módulo (`energia_modulos.cliente_id`).
 
-### Mudanças
+Isso quebra em dois casos reais:
+1. Módulo sem lançamento naquele mês aparece (ou some) errado.
+2. Módulo que **trocou de cliente** entre competências mostra a fatura no cliente atual, e não no cliente que era titular do contrato durante aquela competência.
 
-**1. `src/lib/energia-rateio.ts` — `agruparPorCliente`**
-- Renomear (internamente) a chave de agrupamento para combinar `cliente_id + contrato_id`.
-- Aceitar `contrato_id` e `contrato_numero` em cada módulo passado.
-- Nova `cliente_key` = `${cliente_id}::${contrato_id}` (ou `VAGO:${modulo_id}` / `AREA_COMUM` como hoje).
-- Adicionar campos no `FaturaCliente`: `contrato_id`, `contrato_numero`.
-- `cliente_nome` mantém o nome do cliente; UI exibe nº do contrato como subtítulo/badge.
+A fonte de verdade certa é: **lançamentos da competência → contrato vigente naquele mês → cliente do contrato**.
 
-**2. `src/components/admin/energia/FaturasTab.tsx`**
-- Passar `contrato_id` e `contrato_numero` para `agruparPorCliente` (já temos `contratoIdPorModulo`; buscar `numero_contrato` junto com a vigência em `fetchCompData`).
-- Sidebar: cada item mostra `Cliente — Contrato Nº X` (quando houver mais de 1 contrato do mesmo cliente). Quando só há 1 contrato, mostra só o nome (sem ruído visual).
-- Filtragem do detalhe (`linhas` e `modIds`) passa a casar por **contrato** além de cliente: `m.cliente_id === cli && contratoIdPorModulo[m.id] === contrato`.
-- `demandaContrato`: apenas a demanda do contrato daquela fatura (não soma de contratos únicos).
-- Busca por nome continua funcionando; ordenação igual (Área Comum por último, resto por total desc).
+## Mudanças
 
-**3. Export CSV / cópia de resumo**
-- Adicionar coluna `Contrato` no CSV.
-- Incluir `Contrato Nº` na primeira linha do resumo copiado.
+### 1. `src/components/admin/energia/FaturasTab.tsx`
 
-### Não muda
-- Cálculo da memória (`calcularMemoria`) — continua por módulo.
+- Em `fetchCompData`, ao ler `energia_contrato_modulos`, incluir `contrato.cliente_id` no inner join e guardar em um novo mapa `contratoClientePorId: Record<contrato_id, cliente_id>`.
+- Construir os `inputs` de cálculo a partir dos **lançamentos** da competência, e não de todos os módulos ativos:
+  - Iterar sobre `Object.values(lancamentos)`.
+  - Para cada lançamento, achar o `modulo` correspondente (continua precisando para `identificador`, `area_m2`, flag de área comum).
+  - Se um módulo não tem lançamento na competência, ele **não entra** na fatura nem no rateio.
+- Ao chamar `agruparPorCliente`, sobrescrever o `cliente_id` do módulo pelo cliente do contrato vigente (`contratoClientePorId[contratoIdPorModulo[m.id]]`). Se não houver contrato vigente, o módulo cai em `VAGO:`.
+- Atualizar o filtro do detalhe (`linhas={memoriaLinhas.filter(...)}`) para usar o mesmo `cliente_id efetivo` (do contrato), não `m.cliente_id`.
+- `contratosPorCliente` continua igual (já opera sobre as chaves `cliente::contrato` retornadas).
+
+### 2. Sem mudanças em
+
+- `src/lib/energia-rateio.ts` (engine de cálculo e `agruparPorCliente` continuam idênticas — só recebem entradas corretas).
+- Demais abas (Memória, Copel, Contratos, etc.).
 - Schema do banco.
-- KPIs do topo (totais globais).
-- Outras abas (Memória, Copel, Contratos, etc.).
+
+## Efeito esperado
+
+- A barra lateral lista exatamente os clientes/contratos que tiveram lançamento naquele mês.
+- Competências antigas mostram o cliente que era titular do contrato **na época**, mesmo que o módulo hoje pertença a outro cliente.
+- Módulos sem lançamento somem da fatura, e não entram como zerados.
