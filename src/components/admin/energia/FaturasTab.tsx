@@ -451,7 +451,9 @@ function FaturaOficial({
   const faturadoUsd = demandaMedida >= demandaContratada ? demandaContratada : demandaMedida;
   const rsDemandaUsd = faturadoUsd * (tarifas.demanda_usd || 0);
   const rsDemandaIsenta = demandaIsenta * (tarifas.demanda_isenta || 0);
-  const rsUltrapassagem = ultrapassagem * (tarifas.ultrapassagem || 0);
+  // Ultrapassagem = 2 × tarifa de demanda (regra fixa do mercado livre).
+  const tarifaUltrapassagem = (tarifas.demanda_usd || 0) * 2;
+  const rsUltrapassagem = ultrapassagem * tarifaUltrapassagem;
 
   const consumoPonta = sum('consumo_ponta');
   const consumoFora = sum('consumo_fora');
@@ -496,7 +498,9 @@ function FaturaOficial({
   const piscofDemandaSum = sum('piscof_demanda') + sum('piscof_demanda_isenta');
   const icmsDemandaSum = sum('icms_demanda');
   const piscofPct = tarifas.pis_pct + tarifas.cofins_pct;
-  const piscofExibido = baseConsumoComPerdas * piscofPct + piscofDemandaSum;
+  // PIS/COFINS incide sobre o consumo LÍQUIDO de ICMS.
+  const basePiscofConsumo = baseConsumoComPerdas * (1 - tarifas.icms_pct);
+  const piscofExibido = basePiscofConsumo * piscofPct + piscofDemandaSum;
   const icmsExibido = baseConsumoComPerdas * tarifas.icms_pct + icmsDemandaSum;
   const basePiscof = piscofPct > 0 ? piscofExibido / piscofPct : 0;
   const pctPiscof = piscofPct * 100;
@@ -556,7 +560,7 @@ function FaturaOficial({
               <SectionRow label="DEMANDA (kW)" />
               <DataRow label="Demanda USD" medido={demandaMedida} contratado={demandaContratada} faturado={faturadoUsd} tarifa={tarifas.demanda_usd} valor={rsDemandaUsd} dec={2} />
               <DataRow label="Demanda USD Isenta ICMS" medido={demandaIsenta} faturado={demandaIsenta} tarifa={tarifas.demanda_isenta} valor={rsDemandaIsenta} dec={2} />
-              <DataRow label="Ultrapassagem" faturado={ultrapassagem} tarifa={tarifas.ultrapassagem} valor={rsUltrapassagem} dec={2} />
+              <DataRow label="Ultrapassagem" faturado={ultrapassagem} tarifa={tarifaUltrapassagem} valor={rsUltrapassagem} dec={2} />
 
               <SectionRow label="CONSUMO (kWh)" />
               <DataRow label="Ponta" medido={consumoPontaExibido} faturado={consumoPontaExibido} tarifa={tarifaPontaExibida} valor={rsPontaExibido} dec={2} />

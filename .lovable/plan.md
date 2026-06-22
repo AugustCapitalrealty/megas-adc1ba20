@@ -1,31 +1,18 @@
-## Ajuste — embutir perdas também nas colunas de kWh e na base dos impostos
+## Dois ajustes na fatura
 
-### O que está errado hoje
-Embutimos as perdas apenas nas colunas R$ de Ponta / Fora Ponta. As colunas **Medido**, **Faturado** e **Consumo Total (kWh)**, e também a **base** de PIS/COFINS e ICMS, continuam mostrando o valor sem o rateio. Isso quebra a coerência visual (kWh × tarifa ≠ R$).
+### 1. PIS/COFINS — base correta
+Hoje calculo `piscofExibido = baseConsumoComPerdas × (pis_pct + cofins_pct) + parcela_demanda`. A regra correta é cobrar sobre o consumo **líquido de ICMS**:
 
-### Mudança (somente `FaturaCard` em `src/components/admin/energia/FaturasTab.tsx`)
+- `basePiscofConsumo = baseConsumoComPerdas × (1 − icms_pct)`
+- `piscofExibido = basePiscofConsumo × (pis_pct + cofins_pct) + piscofDemandaSum`
+- `basePiscof = piscofExibido / piscofPct` (continua coerente com o que mostra na coluna "Base")
 
-1. **Somar perdas em kWh por cliente** a partir de `MemoriaLinha`:
-   - `perdasPontaKwh = sum('perdas_ponta_kwh')`
-   - `perdasForaKwh = sum('perdas_fora_kwh')`
+Aplicar apenas em `FaturaCard` (`src/components/admin/energia/FaturasTab.tsx`). Engine não muda.
 
-2. **Linhas Ponta / Fora Ponta** — exibir kWh com perdas embutido:
-   - `medido` e `faturado` da linha Ponta = `consumoPonta + perdasPontaKwh`
-   - `medido` e `faturado` da linha Fora Ponta = `consumoFora + perdasForaKwh`
-   - Tarifa exibida continua sendo `rsExibido / kWhExibido` (mantém a identidade kWh × tarifa = valor).
+### 2. Tarifa de Ultrapassagem — 2× a tarifa de demanda
+Hoje uso `tarifas.ultrapassagem` direto. Quando esse campo não está preenchido (ou está com valor errado), a tarifa fica incorreta. Regra fixa do mercado livre: ultrapassagem = `2 × tarifas.demanda_usd`.
 
-3. **Bloco 3 — Consumo Total (kWh)**:
-   - `consumoTotalExibido = (consumoPonta + perdasPontaKwh) + (consumoFora + perdasForaKwh)`
+- Em `FaturaCard`: `tarifaUltrapassagem = tarifas.demanda_usd * 2` e `rsUltrapassagem = ultrapassagem * tarifaUltrapassagem`.
+- Exibir essa tarifa derivada na coluna "Tarifa" da linha Ultrapassagem.
 
-4. **Bloco 4 — Base dos impostos** (PIS/COFINS e ICMS):
-   - Recalcular a partir do novo consumo R$ com perdas: `baseConsumo = rsPontaExibido + rsForaExibido`.
-   - `piscofExibido = baseConsumo × (pis_pct + cofins_pct)` (mais a parcela de demanda que já existe — `piscof_demanda + piscof_demanda_isenta` somadas do bucket).
-   - `icmsExibido = baseConsumo × icms_pct` (mais a parcela de demanda existente).
-   - A base mostrada na coluna "Base" passa a refletir o consumo R$ com perdas.
-   - PIS/COFINS e ICMS continuam informativos (não somam no TOTAL, como já é hoje).
-
-5. **Total** continua: `totalFornecimento + ilum + credito + bandeira` — já correto desde a última alteração.
-
-### Fora do escopo
-- Nenhuma mudança na engine (`energia-rateio.ts`) ou no banco.
-- Memória de Cálculo segue mostrando a quebra técnica (consumo puro + perdas separados) para auditoria.
+Engine e banco não mudam — é apresentação na fatura do cliente.
