@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EnergiaCadastrosTab } from './energia/EnergiaCadastrosTab';
 import { MemoriaCalculoTab } from './energia/MemoriaCalculoTab';
@@ -8,8 +9,14 @@ import { FaturasTab } from './energia/FaturasTab';
 import { Settings, ClipboardList, FileText, FileSignature, Receipt, Users } from 'lucide-react';
 
 export function RateioEnergiaTab() {
+  const [tab, setTab] = useState('lancamentos');
+  const [focusContratoId, setFocusContratoId] = useState<string | null>(null);
+  const openContrato = (id: string) => {
+    setFocusContratoId(id);
+    setTab('contratos');
+  };
   return (
-    <Tabs defaultValue="lancamentos" className="space-y-4">
+    <Tabs value={tab} onValueChange={setTab} className="space-y-4">
       <TabsList>
         <TabsTrigger value="fatura" className="gap-2">
           <Receipt className="h-4 w-4" /> Fatura Copel
@@ -33,9 +40,14 @@ export function RateioEnergiaTab() {
       <TabsContent value="fatura"><FaturaCopelTab /></TabsContent>
       <TabsContent value="lancamentos"><MemoriaCalculoTab /></TabsContent>
       <TabsContent value="faturas"><FaturasTab /></TabsContent>
-      <TabsContent value="contratos"><ContratosTab /></TabsContent>
+      <TabsContent value="contratos">
+        <ContratosTab
+          initialFocusContratoId={focusContratoId}
+          onFocusHandled={() => setFocusContratoId(null)}
+        />
+      </TabsContent>
       <TabsContent value="grandezas"><GrandezasContratadasTab /></TabsContent>
-      <TabsContent value="cadastros"><EnergiaCadastrosTab /></TabsContent>
+      <TabsContent value="cadastros"><EnergiaCadastrosTab onOpenContrato={openContrato} /></TabsContent>
     </Tabs>
   );
 }
