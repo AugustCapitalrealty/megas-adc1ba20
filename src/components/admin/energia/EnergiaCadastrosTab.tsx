@@ -49,6 +49,73 @@ interface EnergiaParametros {
 
 const UNASSIGNED = '__none__';
 
+function ClienteCombobox({
+  value,
+  onChange,
+  clientes,
+  counts,
+}: {
+  value: string | null;
+  onChange: (v: string | null) => void;
+  clientes: EnergiaCliente[];
+  counts: Record<string, number>;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = clientes.find(c => c.id === value);
+  const label = selected ? (selected.nome_fantasia || selected.razao_social || selected.nome) : null;
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between font-normal"
+        >
+          <span className={cn('truncate', !label && 'text-muted-foreground')}>
+            {label ?? '— Vago —'}
+          </span>
+          <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50 ml-2" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[360px] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Buscar cliente..." />
+          <CommandList>
+            <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+            <CommandGroup>
+              <CommandItem
+                value="__vago__"
+                onSelect={() => { onChange(null); setOpen(false); }}
+              >
+                <Check className={cn('mr-2 h-4 w-4', !value ? 'opacity-100' : 'opacity-0')} />
+                <span className="italic text-muted-foreground">— Vago —</span>
+              </CommandItem>
+              {clientes.filter(c => c.ativo).map(c => {
+                const display = c.nome_fantasia || c.razao_social || c.nome;
+                const search = [c.nome, c.razao_social, c.nome_fantasia, c.cidade].filter(Boolean).join(' ');
+                return (
+                  <CommandItem
+                    key={c.id}
+                    value={`${search} ${c.id}`}
+                    onSelect={() => { onChange(c.id); setOpen(false); }}
+                  >
+                    <Check className={cn('mr-2 h-4 w-4', value === c.id ? 'opacity-100' : 'opacity-0')} />
+                    <span className="truncate flex-1">{display}</span>
+                    {counts[c.id] > 0 && (
+                      <Badge variant="secondary" className="ml-2 shrink-0">{counts[c.id]}</Badge>
+                    )}
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export function EnergiaCadastrosTab() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
