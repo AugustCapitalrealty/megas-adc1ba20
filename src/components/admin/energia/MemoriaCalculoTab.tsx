@@ -1350,7 +1350,9 @@ interface ConsumoClienteCardProps {
   copelTotais: { d: number; cp: number; cf: number };
 }
 function ConsumoClienteCard({ clientes, modulos, contratosVigentes, consumoCli, updateConsumoCli, onSave, saving, isLocked, copelTotais }: ConsumoClienteCardProps) {
-  const [entradaMedidor, setEntradaMedidor] = React.useState<{ cp: string; cf: string }>({ cp: '', cf: '' });
+  const [entradaMedidor, setEntradaMedidor] = useState<{ cp: string; cf: string }>({ cp: '', cf: '' });
+  const emCP = parseBR(entradaMedidor.cp || '');
+  const emCF = parseBR(entradaMedidor.cf || '');
   const isAreaComum = (m: Modulo) => /(área|area) comum/i.test(m.identificador);
   const clienteMap = new Map(clientes.map((c) => [c.id, c]));
   // Chave numérica para ordenar identificadores tipo "1", "39A", "39B", "Restaurante"
