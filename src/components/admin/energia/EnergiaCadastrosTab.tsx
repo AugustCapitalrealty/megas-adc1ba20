@@ -539,16 +539,21 @@ export function EnergiaCadastrosTab({ onOpenContrato }: { onOpenContrato?: (cont
                   <TableHead className="w-20">Ordem</TableHead>
                   <TableHead>Módulo</TableHead>
                   <TableHead className="text-right">Área (m²)</TableHead>
-                  <TableHead>Cliente</TableHead>
+                  <TableHead>Cliente (vigente)</TableHead>
+                  <TableHead className="text-right">Demanda (kW)</TableHead>
+                  <TableHead>Contrato</TableHead>
                   <TableHead className="w-24 text-center">Ativo</TableHead>
                   <TableHead className="w-16" />
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {modulos.length === 0 && (
-                  <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">Nenhum módulo cadastrado</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-6">Nenhum módulo cadastrado</TableCell></TableRow>
                 )}
-                {modulos.map(m => (
+                {modulos.map(m => {
+                  const cv = contratoPorModulo[m.id];
+                  const cliNome = cv ? clienteLabel(cv.cliente_id) : null;
+                  return (
                   <TableRow key={m.id}>
                     <TableCell>
                       <Input
@@ -576,12 +581,31 @@ export function EnergiaCadastrosTab({ onOpenContrato }: { onOpenContrato?: (cont
                       />
                     </TableCell>
                     <TableCell>
-                      <ClienteCombobox
-                        value={m.cliente_id}
-                        onChange={v => handleUpdateModulo(m.id, { cliente_id: v })}
-                        clientes={clientes}
-                        counts={clienteCounts}
-                      />
+                      {cliNome ? (
+                        <span className="text-sm">{cliNome}</span>
+                      ) : (
+                        <span className="text-xs italic text-muted-foreground">— Sem contrato vigente —</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-sm">
+                      {cv ? cv.demanda_contratada_kw.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell>
+                      {cv ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 gap-1.5 font-mono text-xs"
+                          onClick={() => onOpenContrato?.(cv.contrato_id)}
+                          title="Abrir contrato"
+                        >
+                          <FileText className="h-3.5 w-3.5" />
+                          {cv.numero_contrato}
+                          <ExternalLink className="h-3 w-3 opacity-60" />
+                        </Button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Sem contrato</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-center">
                       <Switch checked={m.ativo} onCheckedChange={v => handleUpdateModulo(m.id, { ativo: v })} />
@@ -592,7 +616,8 @@ export function EnergiaCadastrosTab({ onOpenContrato }: { onOpenContrato?: (cont
                       </Button>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
