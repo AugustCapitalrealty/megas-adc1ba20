@@ -185,8 +185,8 @@ export function FaturaCopelTab() {
     const it = faturaItens.itens || {};
     return parseBR(it.te_fora?.quant || '') || parseBR(it.usd_fora?.quant || '');
   }, [faturaItens.itens]);
-  const difCopelPonta = clientesPonta - copelPontaKwh;
-  const difCopelFora = clientesFora - copelForaKwh;
+  const difCopelPonta = copelPontaKwh - clientesPonta;
+  const difCopelFora = copelForaKwh - clientesFora;
   const energyPontaNum = parseBR(energyPonta);
   const energyForaNum = parseBR(energyFora);
   const perdasTotaisPonta = energyPontaNum + difCopelPonta;
