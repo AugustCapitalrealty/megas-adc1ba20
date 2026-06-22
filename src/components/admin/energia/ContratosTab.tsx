@@ -229,6 +229,7 @@ export function ContratosTab() {
           clientes={clientes.filter((c) => c.ativo)}
           modulos={modulos.filter((m) => m.ativo)}
           existingVinculos={editing ? vinculos.filter((v) => v.contrato_id === editing.id) : []}
+          allVinculos={vinculos}
           userId={user?.id || null}
           onSaved={() => { setModalOpen(false); setEditing(null); fetchAll(); }}
           saving={saving}

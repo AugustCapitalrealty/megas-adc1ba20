@@ -1,42 +1,28 @@
-## Objetivo
+## Mudança
 
-Criar automaticamente um contrato em `energia_contratos` para cada cliente da planilha, já com os módulos correspondentes vinculados em `energia_contrato_modulos` — para aparecerem na tela **Contratos de Energia** como na referência.
+No modal de contrato (`ContratoModal` em `src/components/admin/energia/ContratosTab.tsx`), ocultar da lista "Módulos vinculados" qualquer módulo já usado em outro contrato.
 
-## Placeholders (campos obrigatórios não informados)
+## Como
 
-- `numero_contrato` = `"A definir - <NOME CURTO>"` (ex.: `A definir - BOSCH`)
-- `demanda_contratada_kw` = `0` (editar depois)
-- `vigencia_inicio` = `CURRENT_DATE`
-- `vigencia_fim` = `NULL` (vigente)
-- `ativo` = `true`
+1. Em `ContratosTab`, passar todos os vínculos para o modal via nova prop `allVinculos={vinculos}` (além de `existingVinculos`, que continua sendo só do contrato editado).
+2. Em `ContratoModal`, calcular o set de `modulo_id`s usados por outros contratos:
+   ```
+   usedByOthers = new Set(allVinculos
+     .filter(v => v.contrato_id !== contrato?.id)
+     .map(v => v.modulo_id))
+   ```
+3. Filtrar `modulos` antes do `useMemo` de `filteredModulos`:
+   ```
+   modulos.filter(m => !usedByOthers.has(m.id))
+   ```
+   Assim eles somem da busca, do "Selecionar todos" e do contador "X selecionados".
 
-Os mesmos valores são usados em `energia_contrato_modulos.vigencia_inicio`.
+## Comportamento
 
-## Contratos a criar
-
-| Cliente | Módulos |
-|---|---|
-| ROBERT BOSCH | 12,13,14,15,16,17,27,28,29,30 |
-| BOTICARIO | 31,32,33,34 |
-| CALAMO | 18,19,20,21,22,23,35,36,37,38 |
-| DAMASIO | 6 |
-| DGI | 11 |
-| HP TRADE | 8,9,10 |
-| NTN ROLAMENTOS | 3,4,2007 |
-| SHPX (SHOPEE) | 39A,39B,40,41,54,55,56,57,58,59,66,67,68,69,70,71 |
-| SODEXO | Restaurante |
-| SUZANO | 42,43,44,45,46,47 |
-| TORNADO | 5 |
-| VELOZ | 1,2 |
-
-Nenhum desses módulos conflita com contratos já existentes (MERCADOLIVRE usa 48–53 e 60,62,63).
-
-## Execução
-
-Uma única chamada `supabase--insert` que:
-1. Insere os 12 contratos em `energia_contratos` (placeholder).
-2. Insere os links em `energia_contrato_modulos` via JOIN entre `energia_clientes` (por razão social) e `energia_modulos` (por `identificador`).
+- Criar contrato novo: só aparecem módulos sem vínculo.
+- Editar contrato existente: aparecem os módulos livres + os já vinculados a esse mesmo contrato (não some o que você já tinha).
+- Se um módulo for desvinculado e salvo, fica disponível para outros contratos no próximo abrir.
 
 ## Validação
 
-Query final: `SELECT cliente, count(modulos)` para confirmar 12 novos contratos com a quantidade certa de módulos cada.
+Abrir um novo contrato — módulos 12–17, 27–30, etc., que já estão nos contratos placeholder, não devem aparecer mais.
