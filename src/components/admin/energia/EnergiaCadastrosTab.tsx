@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Plus, Save, Trash2, Zap, Users, LayoutGrid, Check, ChevronsUpDown } from 'lucide-react';
+import { Loader2, Plus, Save, Trash2, Zap, Users, LayoutGrid, Check, ChevronsUpDown, ExternalLink, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
@@ -32,7 +32,9 @@ interface EnergiaModulo {
   id: string;
   identificador: string;
   area_m2: number;
+  /** @deprecated mantido apenas para compatibilidade. Fonte da verdade: contrato vigente. */
   cliente_id: string | null;
+  /** @deprecated mantido apenas para compatibilidade. Fonte da verdade: contrato vigente. */
   demanda_contratada_kw: number;
   ordem: number;
   ativo: boolean;
@@ -116,7 +118,15 @@ function ClienteCombobox({
   );
 }
 
-export function EnergiaCadastrosTab() {
+interface ContratoVigenteRow {
+  modulo_id: string;
+  contrato_id: string;
+  numero_contrato: string;
+  cliente_id: string | null;
+  demanda_contratada_kw: number;
+}
+
+export function EnergiaCadastrosTab({ onOpenContrato }: { onOpenContrato?: (contratoId: string) => void } = {}) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [savingParams, setSavingParams] = useState(false);
@@ -124,6 +134,7 @@ export function EnergiaCadastrosTab() {
   const [parametros, setParametros] = useState<EnergiaParametros | null>(null);
   const [clientes, setClientes] = useState<EnergiaCliente[]>([]);
   const [modulos, setModulos] = useState<EnergiaModulo[]>([]);
+  const [contratoPorModulo, setContratoPorModulo] = useState<Record<string, ContratoVigenteRow>>({});
 
   const [newCnpj, setNewCnpj] = useState('');
   const [lookingUp, setLookingUp] = useState(false);
@@ -132,10 +143,15 @@ export function EnergiaCadastrosTab() {
 
   const fetchAll = async () => {
     setLoading(true);
-    const [p, c, m] = await Promise.all([
+    const today = new Date().toISOString().slice(0, 10);
+    const [p, c, m, v] = await Promise.all([
       supabase.from('energia_parametros' as any).select('*').limit(1).maybeSingle(),
       supabase.from('energia_clientes' as any).select('*').order('nome'),
       supabase.from('energia_modulos' as any).select('*').order('ordem').order('identificador'),
+      supabase
+        .from('energia_contrato_modulos' as any)
+        .select('modulo_id, vigencia_inicio, vigencia_fim, contrato:energia_contratos!inner(id, numero_contrato, demanda_contratada_kw, ativo, cliente_id)')
+        .lte('vigencia_inicio', today),
     ]);
     if (p.error) toast.error('Erro ao carregar parâmetros');
     else setParametros(p.data as any);
@@ -143,6 +159,26 @@ export function EnergiaCadastrosTab() {
     else setClientes((c.data || []) as any);
     if (m.error) toast.error('Erro ao carregar módulos');
     else setModulos((m.data || []) as any);
+    const cmap: Record<string, ContratoVigenteRow & { __inicio: string }> = {};
+    if (!v.error && v.data) {
+      for (const row of v.data as any[]) {
+        const fim = row.vigencia_fim as string | null;
+        if (fim && fim < today) continue;
+        if (!row.contrato?.ativo) continue;
+        const prev = cmap[row.modulo_id];
+        if (!prev || row.vigencia_inicio > prev.__inicio) {
+          cmap[row.modulo_id] = {
+            modulo_id: row.modulo_id,
+            contrato_id: row.contrato.id,
+            numero_contrato: row.contrato.numero_contrato,
+            cliente_id: row.contrato.cliente_id || null,
+            demanda_contratada_kw: Number(row.contrato.demanda_contratada_kw) || 0,
+            __inicio: row.vigencia_inicio,
+          };
+        }
+      }
+    }
+    setContratoPorModulo(cmap as any);
     setLoading(false);
   };
 
