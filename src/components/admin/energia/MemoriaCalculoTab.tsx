@@ -1350,6 +1350,9 @@ interface ConsumoClienteCardProps {
   copelTotais: { d: number; cp: number; cf: number };
 }
 function ConsumoClienteCard({ clientes, modulos, contratosVigentes, consumoCli, updateConsumoCli, onSave, saving, isLocked, copelTotais }: ConsumoClienteCardProps) {
+  const [entradaMedidor, setEntradaMedidor] = useState<{ cp: string; cf: string }>({ cp: '', cf: '' });
+  const emCP = parseBR(entradaMedidor.cp || '');
+  const emCF = parseBR(entradaMedidor.cf || '');
   const isAreaComum = (m: Modulo) => /(área|area) comum/i.test(m.identificador);
   const clienteMap = new Map(clientes.map((c) => [c.id, c]));
   // Chave numérica para ordenar identificadores tipo "1", "39A", "39B", "Restaurante"
@@ -1510,6 +1513,25 @@ function ConsumoClienteCard({ clientes, modulos, contratosVigentes, consumoCli, 
                 <td className={`${cell} text-right tabular-nums`}>{diffCell(sumD, copelTotais.d)}</td>
                 <td className={`${cell} text-right tabular-nums`}>{diffCell(sumCP, copelTotais.cp)}</td>
                 <td className={`${cell} text-right tabular-nums`}>{diffCell(sumCF, copelTotais.cf)}</td>
+              </tr>
+              {/* ENTRADA MEDIDOR (editável - apenas ponta e fora ponta) */}
+              <tr className="bg-blue-50/40 dark:bg-blue-950/20">
+                <td className={`${cell} font-semibold`} colSpan={3}>ENTRADA MEDIDOR</td>
+                <td className={`${cell} text-right tabular-nums text-muted-foreground`}>—</td>
+                <td className={cell}>{inp(entradaMedidor.cp, (s) => setEntradaMedidor((p) => ({ ...p, cp: s })))}</td>
+                <td className={cell}>{inp(entradaMedidor.cf, (s) => setEntradaMedidor((p) => ({ ...p, cf: s })))}</td>
+              </tr>
+              <tr className="bg-primary/5 font-semibold">
+                <td className={`${cell} text-right`} colSpan={3}>ENERGY Clientes − ENERGY Medidor</td>
+                <td className={`${cell} text-right tabular-nums text-muted-foreground`}>—</td>
+                <td className={`${cell} text-right tabular-nums`}>{diffCell(emCP, sumCP)}</td>
+                <td className={`${cell} text-right tabular-nums`}>{diffCell(emCF, sumCF)}</td>
+              </tr>
+              <tr className="bg-primary/5 font-semibold">
+                <td className={`${cell} text-right`} colSpan={3}>ENERGY Medidor − Copel</td>
+                <td className={`${cell} text-right tabular-nums text-muted-foreground`}>—</td>
+                <td className={`${cell} text-right tabular-nums`}>{diffCell(emCP, copelTotais.cp)}</td>
+                <td className={`${cell} text-right tabular-nums`}>{diffCell(emCF, copelTotais.cf)}</td>
               </tr>
             </tbody>
           </table>
