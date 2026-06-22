@@ -462,7 +462,7 @@ export function FaturaCopelTab() {
                   <AlertTriangle className="h-4 w-4 text-amber-500" /> Diferença da Fatura Copel
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Consumo somado dos clientes (lançamentos) menos o consumo da fatura Copel.
+                  Consumo da fatura Copel menos o somado dos clientes (lançamentos) = diferença.
                   {!hasLancamentos && ' Sem lançamentos de clientes nesta competência — preencha na Memória de Cálculo.'}
                 </CardDescription>
               </CardHeader>
@@ -471,8 +471,8 @@ export function FaturaCopelTab() {
                   <thead>
                     <tr>
                       <th className="border bg-muted px-2 py-1 text-left font-semibold">Período</th>
-                      <th className="border bg-muted px-2 py-1 font-semibold">Clientes (kWh)</th>
                       <th className="border bg-muted px-2 py-1 font-semibold">Copel (kWh)</th>
+                      <th className="border bg-muted px-2 py-1 font-semibold">Clientes (kWh)</th>
                       <th className="border bg-muted px-2 py-1 font-semibold">Diferença (kWh)</th>
                     </tr>
                   </thead>
@@ -484,8 +484,8 @@ export function FaturaCopelTab() {
                     ].map((r) => (
                       <tr key={r.label} className={r.bold ? 'bg-primary/5 font-bold' : ''}>
                         <td className="border px-2 py-1">{r.label}</td>
-                        <td className="border px-2 py-1 text-right tabular-nums">{hasLancamentos ? fmtBR(r.cli, 2) : '—'}</td>
                         <td className="border px-2 py-1 text-right tabular-nums">{r.copel ? fmtBR(r.copel, 2) : '—'}</td>
+                        <td className="border px-2 py-1 text-right tabular-nums">{hasLancamentos ? fmtBR(r.cli, 2) : '—'}</td>
                         <td className={`border px-2 py-1 text-right tabular-nums ${r.dif > 0 ? 'text-amber-600' : r.dif < 0 ? 'text-red-600' : ''}`}>
                           {hasLancamentos && r.copel ? fmtBR(r.dif, 2) : '—'}
                         </td>
