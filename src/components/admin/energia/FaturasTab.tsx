@@ -482,7 +482,7 @@ function FaturaOficial({
             </div>
             <CardTitle className="text-xl mt-0.5">Fatura de Energia — {f.cliente_nome}</CardTitle>
             <CardDescription className="mt-1">
-              Documento auditável que reproduz o cálculo entregue ao cliente.
+              {f.contrato_numero ? `Contrato Nº ${f.contrato_numero} · ` : ''}Documento auditável que reproduz o cálculo entregue ao cliente.
             </CardDescription>
           </div>
           <div className="flex gap-2 print:hidden">
@@ -498,6 +498,7 @@ function FaturaOficial({
         <div className="rounded-md border overflow-hidden">
           <div className="grid grid-cols-1 md:grid-cols-2 text-sm">
             <InfoCell label="Cliente" value={f.cliente_nome} />
+            <InfoCell label="Contrato" value={f.contrato_numero || '—'} />
             <InfoCell label="Módulos" value={modulosFaixa} />
             <InfoCell label="Concessionária" value="COPEL-DIS" />
             <InfoCell label="Modalidade Tarifária" value="A4 Verde" />
