@@ -444,6 +444,100 @@ export function FaturaCopelTab() {
               </Card>
             </div>
           </div>
+
+          {/* Medidor (Energy) & Diferença Copel */}
+          <div className="grid lg:grid-cols-2 gap-3">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-500" /> Diferença da Fatura Copel
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Consumo somado dos clientes (lançamentos) menos o consumo da fatura Copel.
+                  {!hasLancamentos && ' Sem lançamentos de clientes nesta competência — preencha na Memória de Cálculo.'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <table className="w-full text-[12px] border-collapse">
+                  <thead>
+                    <tr>
+                      <th className="border bg-muted px-2 py-1 text-left font-semibold">Período</th>
+                      <th className="border bg-muted px-2 py-1 font-semibold">Clientes (kWh)</th>
+                      <th className="border bg-muted px-2 py-1 font-semibold">Copel (kWh)</th>
+                      <th className="border bg-muted px-2 py-1 font-semibold">Diferença (kWh)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { label: 'Ponta', cli: clientesPonta, copel: copelPontaKwh, dif: difCopelPonta },
+                      { label: 'Fora da Ponta', cli: clientesFora, copel: copelForaKwh, dif: difCopelFora },
+                      { label: 'Total', cli: clientesPonta + clientesFora, copel: copelPontaKwh + copelForaKwh, dif: difCopelPonta + difCopelFora, bold: true },
+                    ].map((r) => (
+                      <tr key={r.label} className={r.bold ? 'bg-primary/5 font-bold' : ''}>
+                        <td className="border px-2 py-1">{r.label}</td>
+                        <td className="border px-2 py-1 text-right tabular-nums">{hasLancamentos ? fmtBR(r.cli, 2) : '—'}</td>
+                        <td className="border px-2 py-1 text-right tabular-nums">{r.copel ? fmtBR(r.copel, 2) : '—'}</td>
+                        <td className={`border px-2 py-1 text-right tabular-nums ${r.dif > 0 ? 'text-amber-600' : r.dif < 0 ? 'text-red-600' : ''}`}>
+                          {hasLancamentos && r.copel ? fmtBR(r.dif, 2) : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Gauge className="h-4 w-4 text-primary" /> Medidor (Energy)
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Digite as perdas identificadas no medidor Energy. As <strong>Perdas Totais</strong> somam o que você digitou com a diferença da fatura Copel.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <table className="w-full text-[12px] border-collapse">
+                  <thead>
+                    <tr>
+                      <th className="border bg-muted px-2 py-1 text-left font-semibold">Período</th>
+                      <th className="border bg-yellow-100 dark:bg-yellow-900/30 px-2 py-1 font-semibold">Energy (kWh)</th>
+                      <th className="border bg-muted/60 px-2 py-1 font-semibold">Diferença Copel (kWh)</th>
+                      <th className="border bg-muted/60 px-2 py-1 font-semibold">Perdas Totais (kWh)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="border px-2 py-1">Ponta</td>
+                      <td className="border px-1 py-1">
+                        <Input type="text" inputMode="decimal" disabled={isLocked}
+                          className="h-7 text-[12px] px-1 text-right bg-yellow-50 dark:bg-yellow-950/30 border-yellow-300/60"
+                          value={energyPonta} onChange={(e) => setEnergyPonta(e.target.value)} placeholder="0,00" />
+                      </td>
+                      <td className="border px-2 py-1 text-right tabular-nums text-muted-foreground">{hasLancamentos ? fmtBR(difCopelPonta, 2) : '—'}</td>
+                      <td className="border px-2 py-1 text-right tabular-nums font-semibold">{fmtBR(perdasTotaisPonta, 2) || '0,00'}</td>
+                    </tr>
+                    <tr>
+                      <td className="border px-2 py-1">Fora da Ponta</td>
+                      <td className="border px-1 py-1">
+                        <Input type="text" inputMode="decimal" disabled={isLocked}
+                          className="h-7 text-[12px] px-1 text-right bg-yellow-50 dark:bg-yellow-950/30 border-yellow-300/60"
+                          value={energyFora} onChange={(e) => setEnergyFora(e.target.value)} placeholder="0,00" />
+                      </td>
+                      <td className="border px-2 py-1 text-right tabular-nums text-muted-foreground">{hasLancamentos ? fmtBR(difCopelFora, 2) : '—'}</td>
+                      <td className="border px-2 py-1 text-right tabular-nums font-semibold">{fmtBR(perdasTotaisFora, 2) || '0,00'}</td>
+                    </tr>
+                    <tr className="bg-primary/5 font-bold">
+                      <td className="border px-2 py-1">Total</td>
+                      <td className="border px-2 py-1 text-right tabular-nums">{fmtBR(energyPontaNum + energyForaNum, 2) || '0,00'}</td>
+                      <td className="border px-2 py-1 text-right tabular-nums">{hasLancamentos ? fmtBR(difCopelPonta + difCopelFora, 2) : '—'}</td>
+                      <td className="border px-2 py-1 text-right tabular-nums text-primary">{fmtBR(perdasTotaisPonta + perdasTotaisFora, 2) || '0,00'}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </CardContent>
+            </Card>
+          </div>
         </>
       )}
 
