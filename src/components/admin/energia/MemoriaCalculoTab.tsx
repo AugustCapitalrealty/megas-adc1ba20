@@ -650,7 +650,6 @@ export function MemoriaCalculoTab() {
       const x = lancMap[m.id] || { d: 0, cp: 0, cf: 0 };
       const existing = lancamentos[m.id];
       return {
-        ...(existing?.id ? { id: existing.id } : {}),
         competencia_id: currentCompId,
         modulo_id: m.id,
         demanda_contratada_kw: contratoPorModulo[m.id]?.demanda_contratada_kw || 0,

@@ -1,51 +1,26 @@
-## Objetivo
+## Problema
 
-Eliminar a duplicação Cadastro ↔ Contratos: o **contrato vigente é a fonte única** de cliente e demanda contratada de cada módulo. O Cadastro de Módulos passa a tratar apenas atributos físicos.
+Ao clicar em "Distribuir aos módulos" (Consumo por Contrato), o upsert em `energia_competencia_lancamentos` falha com:
 
-## Mudanças
+> null value in column "id" violates not-null constraint
 
-### 1. Cadastro de Módulos (`EnergiaCadastrosTab.tsx`)
+## Causa
 
-A tabela "Módulos do Mega Curitiba" deixa de editar Cliente e Demanda. Passa a ter as colunas:
+Em `MemoriaCalculoTab.tsx` (linhas ~649–666), o array de rows é montado com:
 
-| Ordem | Identificador | Área (m²) | Cliente (vigente) | Demanda (vigente) | Contrato | Ativo | Ações |
+```ts
+...(existing?.id ? { id: existing.id } : {})
+```
 
-- **Cliente (vigente)** e **Demanda (vigente)** são **read-only**, derivados do contrato vigente hoje (resolução igual à da Memória de Cálculo).
-- **Contrato**: badge com `numero_contrato` + botão "Abrir contrato" que muda para a aba *Contratos* já filtrada por aquele contrato (via state local em `RateioEnergiaTab`).
-- Quando não há contrato vigente: exibir badge cinza "Sem contrato" + link "Criar contrato".
-- Remover os inputs/dropdowns de cliente e demanda da linha do módulo. O combobox `ClienteCombobox` deixa de ser usado para módulos (mantém para outras telas se houver).
-- Form de "Novo módulo" pede só: ordem, identificador, área, ativo.
+Algumas linhas incluem `id`, outras não. O PostgREST, ao serializar o upsert em lote, normaliza as colunas e envia `id: null` para as linhas sem id — o que viola NOT NULL, mesmo o default `gen_random_uuid()` existindo (default só se aplica quando a coluna é **omitida**, não quando vem null explícito).
 
-### 2. Contratos (`ContratosTab.tsx`)
+## Correção
 
-- Aceitar prop opcional `initialFocusContratoId` para abrir já com aquele contrato selecionado/expandido (vindo do botão "Abrir contrato" do cadastro).
-- Sem mudança funcional adicional.
+Em `src/components/admin/energia/MemoriaCalculoTab.tsx`, na função que distribui aos módulos (linha ~649):
 
-### 3. Container (`RateioEnergiaTab.tsx` ou equivalente que monta as abas)
+- Remover o spread condicional do `id`. O upsert já usa `onConflict: 'competencia_id,modulo_id'`, então o banco resolve update vs insert sem precisar do `id`.
+- Linhas novas pegam `id` do default; linhas existentes são atualizadas pelo conflict target.
 
-- Passa a controlar `activeTab` e `focusContratoId` por state. O botão "Abrir contrato" no Cadastro chama um callback que muda a aba para "Contratos" e seta o foco.
+Resultado: rows uniformes sem coluna `id`, eliminando o erro.
 
-### 4. Banco de dados
-
-- **Não remover** `energia_modulos.cliente_id` e `energia_modulos.demanda_contratada_kw` agora — ficam como legacy, ignorados pela UI. Evita migração arriscada e mantém rollback fácil.
-- Marcar visualmente no código (comentário no tipo) que esses campos são legados.
-- Em uma segunda fase (fora deste plano), depois de confirmar 1–2 meses sem regressão, dropar as colunas.
-
-### 5. Lugares que ainda leem `modulo.cliente_id` / `modulo.demanda_contratada_kw`
-
-Auditar e trocar pela resolução do contrato vigente (ou pelo mapa já existente `contratoPorModulo`):
-- `MemoriaCalculoTab.tsx` — `saveConsumoCli` já usa contrato vigente; trocar o fallback `m.demanda_contratada_kw` por `0`.
-- Card "Consumo por Cliente" — já usa `contratosVigentes` (feito no passo anterior).
-- Qualquer outra ocorrência: ripgrep antes do build.
-
-## UX resultante
-
-- **Cadastro de Módulos**: tela enxuta sobre "o que existe fisicamente no terreno". Para saber quem ocupa cada módulo, o usuário olha — em leitura — a coluna "Cliente (vigente)" ou clica para abrir o contrato.
-- **Contratos**: única tela onde se decide quem ocupa o quê, com qual demanda e por qual vigência. Editar contrato altera automaticamente o que aparece no Cadastro e na Memória.
-- **Memória de Cálculo**: já consome contratos. Sem duplicidade.
-
-## Fora de escopo
-
-- Não dropar colunas legacy do banco neste passo.
-- Não alterar telas de Cliente/Empreendimento.
-- Sem mudança no Faturamento por Cliente.
+Nenhuma mudança de schema, nenhum outro arquivo afetado.
