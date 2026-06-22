@@ -1,43 +1,31 @@
-## Rateio de Perdas — embutir no Consumo da fatura (sem linha visível)
+## Ajuste — embutir perdas também nas colunas de kWh e na base dos impostos
 
-### Diagnóstico
-A engine `src/lib/energia-rateio.ts` já calcula o rateio de perdas por módulo proporcional ao consumo (`AH/AI/AJ` e `rs_perdas` em `MemoriaLinha`), e `agruparPorCliente` já soma `rs_perdas` por cliente. O problema é apenas na **apresentação da fatura**:
+### O que está errado hoje
+Embutimos as perdas apenas nas colunas R$ de Ponta / Fora Ponta. As colunas **Medido**, **Faturado** e **Consumo Total (kWh)**, e também a **base** de PIS/COFINS e ICMS, continuam mostrando o valor sem o rateio. Isso quebra a coerência visual (kWh × tarifa ≠ R$).
 
-- O `FaturaCard` calcula `total = totalFornecimento + ilum + credito + bandeira` **sem incluir `rs_perdas`**.
-- A linha "Ponta" e "Fora Ponta" mostram `rsPonta`/`rsFora` puros, sem a perda embutida.
-- Resultado: o cliente vê um total menor que o devido, e a perda some.
+### Mudança (somente `FaturaCard` em `src/components/admin/energia/FaturasTab.tsx`)
 
-O cálculo já é auditável (gravado por linha na memória), só falta **embutir o valor no consumo exibido** e somar no total.
+1. **Somar perdas em kWh por cliente** a partir de `MemoriaLinha`:
+   - `perdasPontaKwh = sum('perdas_ponta_kwh')`
+   - `perdasForaKwh = sum('perdas_fora_kwh')`
 
-### O que vai mudar (apenas frontend / apresentação)
+2. **Linhas Ponta / Fora Ponta** — exibir kWh com perdas embutido:
+   - `medido` e `faturado` da linha Ponta = `consumoPonta + perdasPontaKwh`
+   - `medido` e `faturado` da linha Fora Ponta = `consumoFora + perdasForaKwh`
+   - Tarifa exibida continua sendo `rsExibido / kWhExibido` (mantém a identidade kWh × tarifa = valor).
 
-1. **`src/components/admin/energia/FaturasTab.tsx` — função `FaturaCard`**
-   - Somar `rs_perdas_ponta` e `rs_perdas_fora` por cliente (já existem em `MemoriaLinha` como `rs_perdas_te_ponta + rs_perdas_tusd_ponta` e `_fora`).
-   - Distribuir a perda dentro da própria linha de consumo:
-     - `rsPontaExibido = rsPonta + rsPerdasPonta`
-     - `rsForaExibido = rsFora + rsPerdasFora`
-   - Recalcular tarifa exibida (R$/kWh) como `rsPontaExibido / consumoPonta` para manter coerência visual (kWh medido × tarifa exibida = valor exibido).
-   - Incluir as perdas no `totalFornecimento` e portanto no `total` da fatura.
-   - Não criar nenhuma linha "Perdas" no Bloco 2, Bloco 3 ou Bloco 4 — o cliente continua vendo apenas Ponta / Fora Ponta / Bandeira / Tributos / Total.
+3. **Bloco 3 — Consumo Total (kWh)**:
+   - `consumoTotalExibido = (consumoPonta + perdasPontaKwh) + (consumoFora + perdasForaKwh)`
 
-2. **`agruparPorCliente` em `src/lib/energia-rateio.ts`**
-   - Adicionar campos auxiliares `rs_perdas_ponta` e `rs_perdas_fora` em `FaturaCliente` (separados de `rs_perdas`), para o `FaturaCard` distribuir corretamente entre as duas linhas. Mantém `rs_perdas` total para retrocompatibilidade.
+4. **Bloco 4 — Base dos impostos** (PIS/COFINS e ICMS):
+   - Recalcular a partir do novo consumo R$ com perdas: `baseConsumo = rsPontaExibido + rsForaExibido`.
+   - `piscofExibido = baseConsumo × (pis_pct + cofins_pct)` (mais a parcela de demanda que já existe — `piscof_demanda + piscof_demanda_isenta` somadas do bucket).
+   - `icmsExibido = baseConsumo × icms_pct` (mais a parcela de demanda existente).
+   - A base mostrada na coluna "Base" passa a refletir o consumo R$ com perdas.
+   - PIS/COFINS e ICMS continuam informativos (não somam no TOTAL, como já é hoje).
 
-3. **`copiarResumo` e `exportCSV`** (mesmo arquivo) — já somam `rs_consumo_total + rs_perdas`; manter como está, só conferir.
-
-### Auditoria interna (sem mudar UX do cliente)
-
-A engine já entrega a quebra por módulo (`MemoriaLinha.rs_perdas_te_ponta`, `_tusd_ponta`, `_te_fora`, `_tusd_fora`, `perdas_ponta_kwh`, `perdas_fora_kwh`). Essa quebra continua disponível na aba **Memória de Cálculo** e no CSV interno — atende ao requisito de "auditável internamente, invisível ao cliente".
-
-### Persistência no banco (proposta — pedir confirmação antes)
-
-Hoje os lançamentos guardam apenas o input cru (`consumo_ponta_kwh`, `consumo_fora_kwh`, etc.) e o cálculo é determinístico no cliente. Para o requisito do briefing ("gravar `valor_rateio_perdas` por lançamento") existem duas opções:
-
-- **Opção A (recomendada, menor risco):** manter cálculo determinístico no front; nada a gravar. A auditoria já é reproduzível porque tarifas (`energia_competencia_tarifas`) e lançamentos são versionados por competência. Zero migração.
-- **Opção B:** adicionar colunas `valor_consumo_puro_reais`, `valor_rateio_perdas_reais`, `valor_total_reais` em `energia_competencia_lancamentos`, populadas no fechamento da competência (status `fechada`) via trigger ou edge function. Migração + backfill.
-
-**Pergunta para o usuário antes de codar:** seguir só com Opção A (apresentação) ou também aplicar Opção B (persistência)?
+5. **Total** continua: `totalFornecimento + ilum + credito + bandeira` — já correto desde a última alteração.
 
 ### Fora do escopo
-- Geração de PDF do cliente (não existe rota separada; o "PDF" é o `window.print()` do próprio `FaturaCard`, então a mudança no card já cobre o PDF).
-- Mudanças em `FaturaCopelTab` / `MemoriaCalculoTab` — continuam mostrando o detalhamento técnico interno.
+- Nenhuma mudança na engine (`energia-rateio.ts`) ou no banco.
+- Memória de Cálculo segue mostrando a quebra técnica (consumo puro + perdas separados) para auditoria.
