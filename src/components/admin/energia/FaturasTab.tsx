@@ -598,8 +598,8 @@ function FaturaOficial({
               </tr>
             </thead>
             <tbody>
-              <TaxRow label="PIS/COFINS" base={basePiscof} pct={pctPiscof} valor={piscof} />
-              <TaxRow label="ICMS" base={baseIcms} pct={pctIcms} valor={icms} />
+              <TaxRow label="PIS/COFINS" base={basePiscof} pct={pctPiscof} valor={piscofExibido} />
+              <TaxRow label="ICMS" base={baseIcms} pct={pctIcms} valor={icmsExibido} />
               <TaxRow label="Iluminação Pública" valor={ilum} />
               <TaxRow label="Crédito" valor={credito} />
               <TaxRow label="Bandeira Tarifária" valor={bandeira} />
