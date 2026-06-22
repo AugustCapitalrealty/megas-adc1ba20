@@ -202,6 +202,7 @@ export function MemoriaCalculoTab() {
   const [tarifas, setTarifas] = useState<TarifasRow | null>(null);
   const [lancamentos, setLancamentos] = useState<Record<string, LancamentoRow>>({});
   const [contratoPorModulo, setContratoPorModulo] = useState<Record<string, ContratoVigente>>({});
+  const [contratosVigentes, setContratosVigentes] = useState<ContratoGrupo[]>([]);
   const [newAnoMes, setNewAnoMes] = useState(currentYM());
   const [creating, setCreating] = useState(false);
   const [faturaItens, setFaturaItens] = useState<FaturaCopelItens>({ itens: {}, tributos: {} });
