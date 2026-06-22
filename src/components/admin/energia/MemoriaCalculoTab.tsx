@@ -474,12 +474,14 @@ export function MemoriaCalculoTab() {
       copel_valor_iluminacao_publica: v('iluminacao_publica'),
       copel_valor_icms: tributoValor(trib.icms),
       copel_valor_pis_cofins: piscof,
-      // Tarifas unitárias podem alimentar tarifas atuais para o cálculo
-      te_ponta: tarif('te_ponta'),
-      tusd_ponta: tarif('usd_ponta'),
-      te_fora: tarif('te_fora'),
-      tusd_fora: tarif('usd_fora'),
-      demanda_usd: tarif('demanda_usd'),
+      // Tarifas unitárias pós-tributos da Copel (cativo). Vão para campos
+      // dedicados copel_tarifa_* e NÃO sobrescrevem as tarifas do Mercado
+      // Livre (demanda_usd, te_*, tusd_*) usadas pela engine.
+      copel_tarifa_te_ponta: tarif('te_ponta'),
+      copel_tarifa_tusd_ponta: tarif('usd_ponta'),
+      copel_tarifa_te_fora: tarif('te_fora'),
+      copel_tarifa_tusd_fora: tarif('usd_fora'),
+      copel_tarifa_demanda_usd: tarif('demanda_usd'),
       iluminacao_publica: v('iluminacao_publica'),
     };
     const { error } = await supabase
