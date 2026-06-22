@@ -463,6 +463,7 @@ export function MemoriaCalculoTab() {
     const v = (k: CopelItemKey) => parseBR(it[k]?.valor || '');
     const q = (k: CopelItemKey) => parseBR(it[k]?.quant || '');
     const tarif = (k: CopelItemKey) => parseBR(it[k]?.tarifa_unit || '');
+    const preco = (k: CopelItemKey) => parseBR(it[k]?.preco_unit || '');
     const trib = faturaItens.tributos || {};
     const tributoValor = (t?: CopelTributo) => parseBR(t?.valor || '');
     const piscof = tributoValor(trib.pis) + tributoValor(trib.cofins);
@@ -487,6 +488,12 @@ export function MemoriaCalculoTab() {
       copel_tarifa_tusd_fora: tarif('usd_fora'),
       copel_tarifa_demanda_usd: tarif('demanda_usd'),
       iluminacao_publica: v('iluminacao_publica'),
+      // Tarifas usadas pelo engine — preço unitário bruto da Copel da competência
+      demanda_usd: preco('demanda_usd'),
+      te_ponta:    preco('te_ponta'),
+      tusd_ponta:  preco('usd_ponta'),
+      te_fora:     preco('te_fora'),
+      tusd_fora:   preco('usd_fora'),
     };
     const { error } = await supabase
       .from('energia_competencia_tarifas')
