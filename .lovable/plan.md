@@ -1,34 +1,45 @@
-## Problema
+## Diagnóstico
 
-Ao atualizar PIS/COFINS/ICMS em **Cadastros → Parâmetros**, as faturas existentes continuam usando o snapshot antigo gravado em `energia_competencia_tarifas` no momento em que a competência foi criada. Exemplo na fatura do Mercado Livre: aparece PIS/COFINS = 9,25% (antigo 1,65 + 7,60) em vez de 7,06% (novo 1,26 + 5,80).
+As tarifas exibidas na fatura do cliente vêm dos campos de **Mercado Livre** em `energia_competencia_tarifas`:
 
-A decisão do usuário: **enquanto estamos em fase de testes, salvar no cadastro deve sobrescrever todas as competências existentes**. Histórico versionado de tributos/tarifas fica para depois.
+- `demanda_usd`
+- `te_ponta`
+- `tusd_ponta`
+- `te_fora`
+- `tusd_fora`
 
-## Mudança
-
-Atualizar o handler `handleSaveParametros` em `src/components/admin/energia/EnergiaCadastrosTab.tsx` para, após salvar `energia_parametros`, propagar os três percentuais para `energia_competencia_tarifas` de **todas** as competências.
+Hoje esses campos estão com os valores antigos:
 
 ```text
-salvar parametros (cadastro)
-        │
-        ▼
-UPDATE energia_competencia_tarifas
-   SET icms_pct   = <novo>/100,
-       pis_pct    = <novo>/100,
-       cofins_pct = <novo>/100
- WHERE 1=1     -- todas as competências
+Demanda USD: 19,805217
+Ponta:       0,394284 + 1,154727 = 1,549011
+Fora Ponta:  0,245430 + 0,115238 = 0,360668
 ```
 
-Detalhes:
-- Em `energia_parametros` os valores ficam em escala 0–100 (ex.: 19, 5.8, 1.26). Em `energia_competencia_tarifas` ficam em escala 0–1 (ex.: 0.19, 0.058, 0.0126). A propagação divide por 100.
-- Toast de confirmação mostrando "Parâmetros salvos e propagados para N competências".
-- O `useEffect` de auto-cálculo de tributos em `FaturaCopelTab.tsx` e `MemoriaCalculoTab.tsx` (que já lê `aliquotas` do parâmetro) continua igual — apenas vai recalcular corretamente assim que a competência for reaberta, pois a base agora é fresca.
+Esses são exatamente os valores que aparecem na fatura do cliente.
 
-## Fora do escopo (deixar para depois)
+O que foi atualizado na tela **Fatura Copel** fica em campos separados `copel_tarifa_*`, apenas para conferência da conta da concessionária. Eu havia separado esses campos para não sobrescrever as tarifas Mercado Livre automaticamente. Por isso a fatura do cliente continuou mostrando as tarifas antigas.
 
-- Cadastro central de tarifas Mercado Livre (Demanda USD, TE/TUSD Ponta/Fora) com propagação — o usuário confirmou que hoje só as alíquotas mudaram.
-- Versionamento histórico de tributos/tarifas por vigência (planejado para o futuro, quando faturas não puderem mais ser alteradas retroativamente).
+## Correção agora, em fase de testes
+
+Como estamos em fase de aprimoramento e você quer que tudo atualizado valha para trás também, vou ajustar para:
+
+1. **Adicionar um botão/ação em Memória de Cálculo** para sincronizar as tarifas usadas na fatura do cliente com as tarifas corretas da Fatura Copel já digitada nesta competência.
+2. Ao sincronizar, copiar:
+   - `copel_tarifa_demanda_usd` → `demanda_usd`
+   - `copel_tarifa_te_ponta` → `te_ponta`
+   - `copel_tarifa_tusd_ponta` → `tusd_ponta`
+   - `copel_tarifa_te_fora` → `te_fora`
+   - `copel_tarifa_tusd_fora` → `tusd_fora`
+3. Também manter a propagação das alíquotas do cadastro para todas as competências, como já foi feito.
+4. Ajustar a criação/duplicação de competência para sempre aplicar as alíquotas atuais do cadastro, evitando nascer com PIS/COFINS antigos do `DEFAULT_TARIFAS` ou do mês anterior.
+
+## Observação importante
+
+Se a tarifa correta do Mercado Livre não deve ser igual à tarifa líquida da Copel, então precisamos de um cadastro separado de tarifas Mercado Livre. Mas pelo print e pela frase “as tarifas da Copel não está aparecendo na fatura do cliente”, a correção imediata é usar as tarifas da Fatura Copel como fonte para a fatura do cliente durante os testes.
 
 ## Arquivos
 
-- `src/components/admin/energia/EnergiaCadastrosTab.tsx` — adicionar update propagando alíquotas após salvar parâmetros.
+- `src/components/admin/energia/MemoriaCalculoTab.tsx`
+- `src/components/admin/energia/FaturasTab.tsx` se necessário apenas para recarregar/exibir após a sincronização
+- `src/lib/energia-rateio.ts` para remover defaults antigos de PIS/COFINS se necessário
