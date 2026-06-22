@@ -8,7 +8,11 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Plus, Save, Trash2, Zap, Users, LayoutGrid } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Badge } from '@/components/ui/badge';
+import { Loader2, Plus, Save, Trash2, Zap, Users, LayoutGrid, Check, ChevronsUpDown } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -44,6 +48,73 @@ interface EnergiaParametros {
 }
 
 const UNASSIGNED = '__none__';
+
+function ClienteCombobox({
+  value,
+  onChange,
+  clientes,
+  counts,
+}: {
+  value: string | null;
+  onChange: (v: string | null) => void;
+  clientes: EnergiaCliente[];
+  counts: Record<string, number>;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = clientes.find(c => c.id === value);
+  const label = selected ? (selected.nome_fantasia || selected.razao_social || selected.nome) : null;
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between font-normal"
+        >
+          <span className={cn('truncate', !label && 'text-muted-foreground')}>
+            {label ?? '— Vago —'}
+          </span>
+          <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50 ml-2" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[360px] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Buscar cliente..." />
+          <CommandList>
+            <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+            <CommandGroup>
+              <CommandItem
+                value="__vago__"
+                onSelect={() => { onChange(null); setOpen(false); }}
+              >
+                <Check className={cn('mr-2 h-4 w-4', !value ? 'opacity-100' : 'opacity-0')} />
+                <span className="italic text-muted-foreground">— Vago —</span>
+              </CommandItem>
+              {clientes.filter(c => c.ativo).map(c => {
+                const display = c.nome_fantasia || c.razao_social || c.nome;
+                const search = [c.nome, c.razao_social, c.nome_fantasia, c.cidade].filter(Boolean).join(' ');
+                return (
+                  <CommandItem
+                    key={c.id}
+                    value={`${search} ${c.id}`}
+                    onSelect={() => { onChange(c.id); setOpen(false); }}
+                  >
+                    <Check className={cn('mr-2 h-4 w-4', value === c.id ? 'opacity-100' : 'opacity-0')} />
+                    <span className="truncate flex-1">{display}</span>
+                    {counts[c.id] > 0 && (
+                      <Badge variant="secondary" className="ml-2 shrink-0">{counts[c.id]}</Badge>
+                    )}
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 export function EnergiaCadastrosTab() {
   const { user } = useAuth();
@@ -264,6 +335,10 @@ export function EnergiaCadastrosTab() {
   }
 
   const totalArea = modulos.reduce((s, m) => s + Number(m.area_m2 || 0), 0);
+  const clienteCounts = modulos.reduce<Record<string, number>>((acc, m) => {
+    if (m.cliente_id) acc[m.cliente_id] = (acc[m.cliente_id] ?? 0) + 1;
+    return acc;
+  }, {});
 
   return (
     <div className="space-y-6">
@@ -464,18 +539,12 @@ export function EnergiaCadastrosTab() {
                       />
                     </TableCell>
                     <TableCell>
-                      <Select
-                        value={m.cliente_id ?? UNASSIGNED}
-                        onValueChange={v => handleUpdateModulo(m.id, { cliente_id: v === UNASSIGNED ? null : v })}
-                      >
-                        <SelectTrigger><SelectValue placeholder="Selecionar..." /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={UNASSIGNED}>— Vago —</SelectItem>
-                          {clientes.filter(c => c.ativo).map(c => (
-                            <SelectItem key={c.id} value={c.id}>{c.razao_social || c.nome}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <ClienteCombobox
+                        value={m.cliente_id}
+                        onChange={v => handleUpdateModulo(m.id, { cliente_id: v })}
+                        clientes={clientes}
+                        counts={clienteCounts}
+                      />
                     </TableCell>
                     <TableCell className="text-center">
                       <Switch checked={m.ativo} onCheckedChange={v => handleUpdateModulo(m.id, { ativo: v })} />
