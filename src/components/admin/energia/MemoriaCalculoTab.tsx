@@ -265,7 +265,7 @@ export function MemoriaCalculoTab() {
     const refFim = `${anoMes}-${String(new Date(yy, mm, 0).getDate()).padStart(2, '0')}`;
     const { data: vinculos, error: vErr } = await supabase
       .from('energia_contrato_modulos' as any)
-      .select('modulo_id, vigencia_inicio, vigencia_fim, contrato:energia_contratos!inner(id, numero_contrato, demanda_contratada_kw, ativo)')
+      .select('modulo_id, vigencia_inicio, vigencia_fim, contrato:energia_contratos!inner(id, numero_contrato, demanda_contratada_kw, ativo, cliente_id)')
       .lte('vigencia_inicio', refFim);
     const cMap: Record<string, ContratoVigente> = {};
     if (!vErr && vinculos) {
@@ -286,6 +286,45 @@ export function MemoriaCalculoTab() {
       }
     }
     setContratoPorModulo(cMap);
+
+    // Constrói grupos por contrato vigente (um cliente com 2 contratos = 2 grupos)
+    const modulosById = new Map<string, Modulo>();
+    {
+      const { data: mAll } = await supabase
+        .from('energia_modulos')
+        .select('*')
+        .eq('ativo', true);
+      ((mAll as any[]) || []).forEach((m) => modulosById.set(m.id, m as Modulo));
+    }
+    const grupos = new Map<string, ContratoGrupo>();
+    if (!vErr && vinculos) {
+      // Determina, por módulo, qual contrato é o vigente "vencedor" (mesma regra do cMap)
+      const winner: Record<string, string> = {};
+      for (const mid of Object.keys(cMap)) {
+        winner[mid] = cMap[mid].numero_contrato;
+      }
+      for (const v of vinculos as any[]) {
+        const fim = v.vigencia_fim ? v.vigencia_fim : null;
+        if (fim && fim < refInicio) continue;
+        if (!v.contrato?.ativo) continue;
+        // só inclui se for o contrato vencedor do módulo
+        if (winner[v.modulo_id] !== v.contrato.numero_contrato) continue;
+        const cid = v.contrato.id;
+        if (!grupos.has(cid)) {
+          grupos.set(cid, {
+            contrato_id: cid,
+            numero_contrato: v.contrato.numero_contrato,
+            cliente_id: v.contrato.cliente_id || null,
+            cliente_nome: '',
+            demanda_contratada_kw: Number(v.contrato.demanda_contratada_kw) || 0,
+            modulos: [],
+          });
+        }
+        const mod = modulosById.get(v.modulo_id);
+        if (mod) grupos.get(cid)!.modulos.push(mod);
+      }
+    }
+    setContratosVigentes(Array.from(grupos.values()));
   }, []);
 
   useEffect(() => {
