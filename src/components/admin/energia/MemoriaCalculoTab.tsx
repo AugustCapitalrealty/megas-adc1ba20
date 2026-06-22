@@ -432,10 +432,14 @@ export function MemoriaCalculoTab() {
     const baseTributavel = COPEL_ITEM_DEFS
       .filter((d) => d.hasPisCofins)
       .reduce((s, d) => s + parseBR(it[d.key]?.valor || ''), 0);
+    // PIS/COFINS incidem sobre a base já líquida do ICMS ("cálculo por
+    // dentro"): basePisCofins = baseICMS − valorICMS.
+    const valorIcms = baseTributavel * aliquotas.icms / 100;
+    const basePisCofins = baseTributavel - valorIcms;
     const next = {
-      icms: { base: fmtBR(baseTributavel, 2), aliquota: fmtBR(aliquotas.icms, 2), valor: fmtBR(baseTributavel * aliquotas.icms / 100, 2) },
-      cofins: { base: fmtBR(baseTributavel, 2), aliquota: fmtBR(aliquotas.cofins, 2), valor: fmtBR(baseTributavel * aliquotas.cofins / 100, 2) },
-      pis: { base: fmtBR(baseTributavel, 2), aliquota: fmtBR(aliquotas.pis, 2), valor: fmtBR(baseTributavel * aliquotas.pis / 100, 2) },
+      icms: { base: fmtBR(baseTributavel, 2), aliquota: fmtBR(aliquotas.icms, 2), valor: fmtBR(valorIcms, 2) },
+      cofins: { base: fmtBR(basePisCofins, 2), aliquota: fmtBR(aliquotas.cofins, 2), valor: fmtBR(basePisCofins * aliquotas.cofins / 100, 2) },
+      pis: { base: fmtBR(basePisCofins, 2), aliquota: fmtBR(aliquotas.pis, 2), valor: fmtBR(basePisCofins * aliquotas.pis / 100, 2) },
     };
     setFaturaItens((prev) => {
       const trib = prev.tributos || {};
