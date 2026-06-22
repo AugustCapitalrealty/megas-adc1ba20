@@ -306,7 +306,11 @@ function ContratoModal({
 
   const filteredModulos = useMemo(() => {
     const term = moduloSearch.trim().toLowerCase();
-    const list = term ? modulos.filter((m) => m.identificador.toLowerCase().includes(term)) : modulos;
+    const usedByOthers = new Set(
+      allVinculos.filter((v) => v.contrato_id !== contrato?.id).map((v) => v.modulo_id),
+    );
+    const base = modulos.filter((m) => !usedByOthers.has(m.id));
+    const list = term ? base.filter((m) => m.identificador.toLowerCase().includes(term)) : base;
     // selecionados primeiro
     return [...list].sort((a, b) => {
       const sa = draftByModulo.has(a.id) ? 0 : 1;
@@ -314,7 +318,7 @@ function ContratoModal({
       if (sa !== sb) return sa - sb;
       return a.identificador.localeCompare(b.identificador, undefined, { numeric: true });
     });
-  }, [modulos, moduloSearch, draftByModulo]);
+  }, [modulos, moduloSearch, draftByModulo, allVinculos, contrato?.id]);
 
   const selectAllVisible = () => {
     filteredModulos.forEach((m) => {
