@@ -288,6 +288,9 @@ export function FaturasTab() {
               <ul className="space-y-1">
                 {faturasFiltradas.map((f) => {
                   const active = f.cliente_key === selecionado;
+                  const idx = f.cliente_key.indexOf('::');
+                  const cli = idx >= 0 ? f.cliente_key.slice(0, idx) : '';
+                  const showContrato = !!cli && (contratosPorCliente.get(cli) || 0) > 1 && f.contrato_numero;
                   return (
                     <li key={f.cliente_key}>
                       <button
@@ -300,6 +303,11 @@ export function FaturasTab() {
                             <Badge variant={active ? 'secondary' : 'outline'} className="text-[10px]">comum</Badge>
                           )}
                         </div>
+                        {showContrato && (
+                          <div className={`text-[11px] mt-0.5 ${active ? 'text-primary-foreground/90' : 'text-foreground/70'}`}>
+                            Contrato {f.contrato_numero}
+                          </div>
+                        )}
                         <div className={`text-xs mt-0.5 ${active ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
                           {f.modulos.length} mód · {brl(f.total_fatura_energy)}
                         </div>
@@ -321,28 +329,10 @@ export function FaturasTab() {
               competencia={currentComp?.ano_mes ?? ''}
               tarifas={tarifas as EnergiaTarifas}
               demandaContrato={(() => {
-                // Soma das demandas contratadas dos contratos ÚNICOS vinculados
-                // aos módulos do cliente — evita inflar 7×120=840 quando um
-                // mesmo contrato (120 kW) está em 7 módulos.
-                const modIds = modulos
-                  .filter((m) => {
-                    if (faturaSelecionada.cliente_key === 'AREA_COMUM') {
-                      return m.identificador.toUpperCase().includes('AREA COMUM') || m.identificador.toUpperCase().includes('ÁREA COMUM');
-                    }
-                    if (faturaSelecionada.cliente_key.startsWith('VAGO:')) {
-                      return m.id === faturaSelecionada.cliente_key.slice(5);
-                    }
-                    return m.cliente_id === faturaSelecionada.cliente_key;
-                  })
-                  .map((m) => m.id);
-                const contratoIds = new Set<string>();
-                for (const mid of modIds) {
-                  const cid = contratoIdPorModulo[mid];
-                  if (cid) contratoIds.add(cid);
-                }
-                let contratada = 0;
-                for (const cid of contratoIds) contratada += contratoDemandaPorId[cid] || 0;
-                return contratada;
+                // Demanda contratada = demanda do contrato desta fatura (uma por fatura).
+                const cid = faturaSelecionada.contrato_id;
+                if (!cid) return 0;
+                return contratoDemandaPorId[cid] || 0;
               })()}
               linhas={memoriaLinhas.filter((l) => {
                 const m = modulos.find((mm) => mm.id === l.modulo_id);
@@ -353,7 +343,12 @@ export function FaturasTab() {
                 if (faturaSelecionada.cliente_key.startsWith('VAGO:')) {
                   return l.modulo_id === faturaSelecionada.cliente_key.slice(5);
                 }
-                return m.cliente_id === faturaSelecionada.cliente_key;
+                const idx = faturaSelecionada.cliente_key.indexOf('::');
+                const cli = idx >= 0 ? faturaSelecionada.cliente_key.slice(0, idx) : faturaSelecionada.cliente_key;
+                const contrato = idx >= 0 ? faturaSelecionada.cliente_key.slice(idx + 2) : null;
+                if (m.cliente_id !== cli) return false;
+                const mCid = contratoIdPorModulo[m.id] ?? 'SEM';
+                return mCid === contrato;
               })}
               onCopy={copiarResumo}
             />
