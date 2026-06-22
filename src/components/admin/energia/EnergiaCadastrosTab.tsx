@@ -371,10 +371,11 @@ export function EnergiaCadastrosTab({ onOpenContrato }: { onOpenContrato?: (cont
   }
 
   const totalArea = modulos.reduce((s, m) => s + Number(m.area_m2 || 0), 0);
-  const clienteCounts = modulos.reduce<Record<string, number>>((acc, m) => {
-    if (m.cliente_id) acc[m.cliente_id] = (acc[m.cliente_id] ?? 0) + 1;
-    return acc;
-  }, {});
+  const clienteLabel = (id: string | null) => {
+    if (!id) return null;
+    const c = clientes.find((x) => x.id === id);
+    return c ? (c.nome_fantasia || c.razao_social || c.nome) : null;
+  };
 
   return (
     <div className="space-y-6">
