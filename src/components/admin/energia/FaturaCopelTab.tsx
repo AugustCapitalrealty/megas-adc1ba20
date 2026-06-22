@@ -199,6 +199,7 @@ export function FaturaCopelTab() {
     const v = (k: CopelItemKey) => parseBR(it[k]?.valor || '');
     const q = (k: CopelItemKey) => parseBR(it[k]?.quant || '');
     const tarif = (k: CopelItemKey) => parseBR(it[k]?.tarifa_unit || '');
+    const preco = (k: CopelItemKey) => parseBR(it[k]?.preco_unit || '');
     const trib = faturaItens.tributos || {};
     const tval = (t?: CopelTributo) => parseBR(t?.valor || '');
     const piscof = tval(trib.pis) + tval(trib.cofins);
@@ -225,11 +226,13 @@ export function FaturaCopelTab() {
       copel_tarifa_demanda_usd: tarif('demanda_usd'),
       iluminacao_publica: v('iluminacao_publica'),
       // Tarifas usadas pelo engine de rateio — cada competência usa as suas
-      demanda_usd: tarif('demanda_usd'),
-      te_ponta:    tarif('te_ponta'),
-      tusd_ponta:  tarif('usd_ponta'),
-      te_fora:     tarif('te_fora'),
-      tusd_fora:   tarif('usd_fora'),
+      // Usar o PREÇO UNITÁRIO digitado (bruto da Copel), não a tarifa "limpa"
+      // pós-tributos, para que a fatura do cliente reflita o que foi lançado.
+      demanda_usd: preco('demanda_usd'),
+      te_ponta:    preco('te_ponta'),
+      tusd_ponta:  preco('usd_ponta'),
+      te_fora:     preco('te_fora'),
+      tusd_fora:   preco('usd_fora'),
     };
     const { error } = await supabase
       .from('energia_competencia_tarifas')
