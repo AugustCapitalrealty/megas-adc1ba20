@@ -33,6 +33,8 @@ export function FaturasTab() {
   const [tarifas, setTarifas] = useState<any>(null);
   const [lancamentos, setLancamentos] = useState<Record<string, any>>({});
   const [contratoPorModulo, setContratoPorModulo] = useState<Record<string, { demanda_contratada_kw: number }>>({});
+  const [contratoIdPorModulo, setContratoIdPorModulo] = useState<Record<string, string>>({});
+  const [contratoDemandaPorId, setContratoDemandaPorId] = useState<Record<string, number>>({});
   const [busca, setBusca] = useState('');
   const [selecionado, setSelecionado] = useState<string | null>(null);
 
@@ -63,9 +65,11 @@ export function FaturasTab() {
     const refFim = `${anoMes}-${String(new Date(yy, mm, 0).getDate()).padStart(2, '0')}`;
     const { data: vinc } = await supabase
       .from('energia_contrato_modulos' as any)
-      .select('modulo_id, vigencia_inicio, vigencia_fim, contrato:energia_contratos!inner(demanda_contratada_kw, ativo)')
+      .select('modulo_id, vigencia_inicio, vigencia_fim, contrato_id, contrato:energia_contratos!inner(id, demanda_contratada_kw, ativo)')
       .lte('vigencia_inicio', refFim);
     const cMap: Record<string, any> = {};
+    const cIdMap: Record<string, string> = {};
+    const cDemMap: Record<string, number> = {};
     if (vinc) {
       for (const v of vinc as any[]) {
         const fim = v.vigencia_fim ?? null;
@@ -74,10 +78,14 @@ export function FaturasTab() {
         const prev = cMap[v.modulo_id];
         if (!prev || v.vigencia_inicio > prev.__inicio) {
           cMap[v.modulo_id] = { demanda_contratada_kw: Number(v.contrato.demanda_contratada_kw) || 0, __inicio: v.vigencia_inicio };
+          cIdMap[v.modulo_id] = v.contrato.id;
+          cDemMap[v.contrato.id] = Number(v.contrato.demanda_contratada_kw) || 0;
         }
       }
     }
     setContratoPorModulo(cMap);
+    setContratoIdPorModulo(cIdMap);
+    setContratoDemandaPorId(cDemMap);
   }, []);
 
   useEffect(() => { (async () => { setLoading(true); await fetchBase(); setLoading(false); })(); }, [fetchBase]);
@@ -283,6 +291,30 @@ export function FaturasTab() {
               fatura={faturaSelecionada}
               competencia={currentComp?.ano_mes ?? ''}
               tarifas={tarifas as EnergiaTarifas}
+              demandaContrato={(() => {
+                // Soma das demandas contratadas dos contratos ÚNICOS vinculados
+                // aos módulos do cliente — evita inflar 7×120=840 quando um
+                // mesmo contrato (120 kW) está em 7 módulos.
+                const modIds = modulos
+                  .filter((m) => {
+                    if (faturaSelecionada.cliente_key === 'AREA_COMUM') {
+                      return m.identificador.toUpperCase().includes('AREA COMUM') || m.identificador.toUpperCase().includes('ÁREA COMUM');
+                    }
+                    if (faturaSelecionada.cliente_key.startsWith('VAGO:')) {
+                      return m.id === faturaSelecionada.cliente_key.slice(5);
+                    }
+                    return m.cliente_id === faturaSelecionada.cliente_key;
+                  })
+                  .map((m) => m.id);
+                const contratoIds = new Set<string>();
+                for (const mid of modIds) {
+                  const cid = contratoIdPorModulo[mid];
+                  if (cid) contratoIds.add(cid);
+                }
+                let contratada = 0;
+                for (const cid of contratoIds) contratada += contratoDemandaPorId[cid] || 0;
+                return contratada;
+              })()}
               linhas={memoriaLinhas.filter((l) => {
                 const m = modulos.find((mm) => mm.id === l.modulo_id);
                 if (!m) return false;
@@ -359,12 +391,14 @@ function FaturaOficial({
   fatura: f,
   competencia,
   tarifas,
+  demandaContrato,
   linhas,
   onCopy,
 }: {
   fatura: FaturaCliente;
   competencia: string;
   tarifas: EnergiaTarifas;
+  demandaContrato: number;
   linhas: MemoriaLinha[];
   onCopy: () => void;
 }) {
@@ -372,12 +406,17 @@ function FaturaOficial({
   const sum = (k: keyof MemoriaLinha) => linhas.reduce((s, l) => s + (Number(l[k] as any) || 0), 0);
 
   const demandaMedida = sum('demanda_usd');           // G
-  const demandaContratada = sum('demanda_contratada'); // F
-  const demandaIsenta = sum('demanda_isenta');         // H
-  const ultrapassagem = sum('ultrapassagem');          // I
-  const rsDemandaUsd = sum('rs_demanda_usd');          // J
-  const rsDemandaIsenta = sum('rs_demanda_isenta');    // K
-  const rsUltrapassagem = sum('rs_ultrapassagem');     // L
+  // Demanda contratada é por CLIENTE (contrato único), não soma por módulo.
+  const demandaContratada = demandaContrato;
+  // Demanda Isenta de ICMS: por decisão judicial, a sobra entre contratada e
+  // medida fica isenta. Aplicada uma única vez por cliente, nunca negativa.
+  const demandaIsenta = demandaMedida >= demandaContratada ? 0 : demandaContratada - demandaMedida;
+  const ultrapassagem = demandaMedida > demandaContratada ? demandaMedida - demandaContratada : 0;
+  // Recalcula valores R$ com a tarifa Mercado Livre e a demanda do cliente
+  const faturadoUsd = demandaMedida >= demandaContratada ? demandaContratada : demandaMedida;
+  const rsDemandaUsd = faturadoUsd * (tarifas.demanda_usd || 0);
+  const rsDemandaIsenta = demandaIsenta * (tarifas.demanda_isenta || 0);
+  const rsUltrapassagem = ultrapassagem * (tarifas.ultrapassagem || 0);
 
   const consumoPonta = sum('consumo_ponta');
   const consumoFora = sum('consumo_fora');
@@ -452,7 +491,7 @@ function FaturaOficial({
             </thead>
             <tbody>
               <SectionRow label="DEMANDA (kW)" />
-              <DataRow label="Demanda USD" medido={demandaMedida} contratado={demandaContratada} faturado={demandaMedida} tarifa={tarifas.demanda_usd} valor={rsDemandaUsd} dec={2} />
+              <DataRow label="Demanda USD" medido={demandaMedida} contratado={demandaContratada} faturado={faturadoUsd} tarifa={tarifas.demanda_usd} valor={rsDemandaUsd} dec={2} />
               <DataRow label="Demanda USD Isenta ICMS" medido={demandaIsenta} faturado={demandaIsenta} tarifa={tarifas.demanda_isenta} valor={rsDemandaIsenta} dec={2} />
               <DataRow label="Ultrapassagem" faturado={ultrapassagem} tarifa={tarifas.ultrapassagem} valor={rsUltrapassagem} dec={2} />
 
@@ -468,17 +507,18 @@ function FaturaOficial({
         <div className="overflow-x-auto rounded-md border">
           <table className="w-full text-sm">
             <thead className="bg-muted text-xs uppercase tracking-wide">
-              <tr><th className="px-3 py-2 text-left font-semibold" colSpan={2}>Resumo da Conta</th></tr>
+              <tr>
+                <th className="px-3 py-2 text-left font-semibold w-[28%]">Resumo da Conta</th>
+                <th className="px-3 py-2 text-right font-semibold">Medido</th>
+                <th className="px-3 py-2 text-right font-semibold">Contratado</th>
+                <th className="px-3 py-2 text-right font-semibold">Faturado</th>
+                <th className="px-3 py-2 text-right font-semibold">Tarifa</th>
+                <th className="px-3 py-2 text-right font-semibold">Valores (R$)</th>
+              </tr>
             </thead>
             <tbody>
-              <tr className="border-b">
-                <td className="px-3 py-2">Consumo Total (kWh)</td>
-                <td className="px-3 py-2 text-right tabular-nums font-medium">{num(consumoTotal)}</td>
-              </tr>
-              <tr>
-                <td className="px-3 py-2">Total Fornecimento (R$)</td>
-                <td className="px-3 py-2 text-right tabular-nums font-medium">{brl(totalFornecimento)}</td>
-              </tr>
+              <DataRow label="Consumo Total (kWh)" medido={consumoTotal} dec={2} />
+              <DataRow label="Total Fornecimento (R$)" valor={totalFornecimento} dec={2} />
             </tbody>
           </table>
         </div>
@@ -540,7 +580,7 @@ function SectionRow({ label }: { label: string }) {
 
 function DataRow({
   label, medido, contratado, faturado, tarifa: t, valor, dec = 2,
-}: { label: string; medido?: number; contratado?: number; faturado?: number; tarifa?: number; valor: number; dec?: number }) {
+}: { label: string; medido?: number; contratado?: number; faturado?: number; tarifa?: number; valor?: number; dec?: number }) {
   return (
     <tr className="border-b last:border-0 hover:bg-muted/30">
       <td className="px-3 py-1.5">{label}</td>
@@ -548,7 +588,7 @@ function DataRow({
       <td className="px-3 py-1.5 text-right tabular-nums text-muted-foreground">{contratado !== undefined ? num(contratado, dec) : ''}</td>
       <td className="px-3 py-1.5 text-right tabular-nums">{faturado !== undefined ? num(faturado, dec) : ''}</td>
       <td className="px-3 py-1.5 text-right tabular-nums text-muted-foreground">{t !== undefined ? tarifa(t) : ''}</td>
-      <td className="px-3 py-1.5 text-right tabular-nums font-medium">{brl(valor)}</td>
+      <td className="px-3 py-1.5 text-right tabular-nums font-medium">{valor !== undefined ? brl(valor) : ''}</td>
     </tr>
   );
 }
