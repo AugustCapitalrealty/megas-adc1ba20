@@ -97,25 +97,60 @@ export function EnergiaCadastrosTab() {
       return;
     }
 
-    // Fase de testes: propaga alíquotas para TODAS as competências existentes
-    // (energia_parametros guarda em 0-100; energia_competencia_tarifas em 0-1)
-    const { data: propagated, error: propErr } = await supabase
-      .from('energia_competencia_tarifas' as any)
-      .update({
-        icms_pct: Number(parametros.icms_pct) / 100,
-        pis_pct: Number(parametros.pis_pct) / 100,
-        cofins_pct: Number(parametros.cofins_pct) / 100,
-      } as any)
-      .not('competencia_id', 'is', null)
-      .select('competencia_id');
+    // Fase de testes: propaga alíquotas e RECALCULA tarifas líquidas (Mercado
+    // Livre) para TODAS as competências, usando o preço unitário bruto já
+    // digitado na Fatura Copel de cada mês. A fatura do cliente lê das
+    // colunas demanda_usd/te_*/tusd_*, então é nelas que precisamos espelhar
+    // o novo valor pós-tributos.
+    const pis = Number(parametros.pis_pct) / 100;
+    const cofins = Number(parametros.cofins_pct) / 100;
+    const icms = Number(parametros.icms_pct) / 100;
+    const fator = 1 - pis - cofins - icms;
 
-    setSavingParams(false);
-    if (propErr) {
-      toast.error('Parâmetros salvos, mas falhou ao propagar nas competências');
+    const { data: rows, error: fetchErr } = await supabase
+      .from('energia_competencia_tarifas' as any)
+      .select('id, fatura_copel_itens');
+    if (fetchErr) {
+      setSavingParams(false);
+      toast.error('Parâmetros salvos, mas falhou ao ler competências');
       return;
     }
-    const n = propagated?.length ?? 0;
-    toast.success(`Parâmetros salvos e propagados para ${n} competência${n === 1 ? '' : 's'}`);
+
+    const parseBR = (s: string) => Number(String(s ?? '').replace(/\./g, '').replace(',', '.')) || 0;
+    let atualizadas = 0;
+    for (const r of (rows as any[]) || []) {
+      const itens = r?.fatura_copel_itens?.itens || {};
+      const tarif = (k: string) => {
+        const p = parseBR(itens?.[k]?.preco_unit || '');
+        return p > 0 ? Number((p * fator).toFixed(6)) : 0;
+      };
+      const payload: any = {
+        icms_pct: icms,
+        pis_pct: pis,
+        cofins_pct: cofins,
+      };
+      const dem = tarif('demanda_usd');
+      const tep = tarif('te_ponta');
+      const tusdp = tarif('usd_ponta');
+      const tef = tarif('te_fora');
+      const tusdf = tarif('usd_fora');
+      // Espelha tanto nas colunas Copel (auditoria) quanto nas Mercado Livre
+      // (fatura do cliente). Só sobrescreve se houver preço unitário Copel.
+      if (dem)   { payload.copel_tarifa_demanda_usd = dem;   payload.demanda_usd = dem; }
+      if (tep)   { payload.copel_tarifa_te_ponta = tep;     payload.te_ponta   = tep; }
+      if (tusdp) { payload.copel_tarifa_tusd_ponta = tusdp; payload.tusd_ponta = tusdp; }
+      if (tef)   { payload.copel_tarifa_te_fora = tef;       payload.te_fora    = tef; }
+      if (tusdf) { payload.copel_tarifa_tusd_fora = tusdf;   payload.tusd_fora  = tusdf; }
+
+      const { error: uErr } = await supabase
+        .from('energia_competencia_tarifas' as any)
+        .update(payload)
+        .eq('id', r.id);
+      if (!uErr) atualizadas++;
+    }
+
+    setSavingParams(false);
+    toast.success(`Parâmetros salvos e tarifas recalculadas em ${atualizadas} competência${atualizadas === 1 ? '' : 's'}`);
   };
 
   // ─── Clientes ────────────────────────────────────────
