@@ -517,7 +517,7 @@ function FaturaOficial({
               </tr>
             </thead>
             <tbody>
-              <DataRow label="Consumo Total (kWh)" medido={consumoTotal} valor={0} dec={2} />
+              <DataRow label="Consumo Total (kWh)" medido={consumoTotal} dec={2} />
               <DataRow label="Total Fornecimento (R$)" valor={totalFornecimento} dec={2} />
             </tbody>
           </table>
