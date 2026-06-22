@@ -1545,13 +1545,13 @@ function ConsumoClienteCard({ clientes, modulos, contratosVigentes, consumoCli, 
                 <td className={cell}>{inp(entradaMedidor.cf, (s) => setEntradaMedidor((p) => ({ ...p, cf: s })))}</td>
               </tr>
               <tr className="bg-primary/5 font-semibold">
-                <td className={`${cell} text-right`} colSpan={3}>ENERGY Clientes − ENERGY Medidor</td>
+                <td className={`${cell} text-right`} colSpan={3}>ENERGY Medidor − ENERGY Clientes</td>
                 <td className={`${cell} text-right tabular-nums text-muted-foreground`}>—</td>
-                <td className={`${cell} text-right tabular-nums`}>{diffCell(emCP, sumCP)}</td>
-                <td className={`${cell} text-right tabular-nums`}>{diffCell(emCF, sumCF)}</td>
+                <td className={`${cell} text-right tabular-nums`}>{diffCell(sumCP, emCP)}</td>
+                <td className={`${cell} text-right tabular-nums`}>{diffCell(sumCF, emCF)}</td>
               </tr>
               <tr className="bg-primary/5 font-semibold">
-                <td className={`${cell} text-right`} colSpan={3}>ENERGY Medidor − Copel</td>
+                <td className={`${cell} text-right`} colSpan={3}>COPEL − ENERGY MEDIDOR</td>
                 <td className={`${cell} text-right tabular-nums text-muted-foreground`}>—</td>
                 <td className={`${cell} text-right tabular-nums`}>{diffCell(emCP, copelTotais.cp)}</td>
                 <td className={`${cell} text-right tabular-nums`}>{diffCell(emCF, copelTotais.cf)}</td>
