@@ -391,12 +391,14 @@ function FaturaOficial({
   fatura: f,
   competencia,
   tarifas,
+  demandaContrato,
   linhas,
   onCopy,
 }: {
   fatura: FaturaCliente;
   competencia: string;
   tarifas: EnergiaTarifas;
+  demandaContrato: number;
   linhas: MemoriaLinha[];
   onCopy: () => void;
 }) {
@@ -404,12 +406,17 @@ function FaturaOficial({
   const sum = (k: keyof MemoriaLinha) => linhas.reduce((s, l) => s + (Number(l[k] as any) || 0), 0);
 
   const demandaMedida = sum('demanda_usd');           // G
-  const demandaContratada = sum('demanda_contratada'); // F
-  const demandaIsenta = sum('demanda_isenta');         // H
-  const ultrapassagem = sum('ultrapassagem');          // I
-  const rsDemandaUsd = sum('rs_demanda_usd');          // J
-  const rsDemandaIsenta = sum('rs_demanda_isenta');    // K
-  const rsUltrapassagem = sum('rs_ultrapassagem');     // L
+  // Demanda contratada é por CLIENTE (contrato único), não soma por módulo.
+  const demandaContratada = demandaContrato;
+  // Demanda Isenta de ICMS: por decisão judicial, a sobra entre contratada e
+  // medida fica isenta. Aplicada uma única vez por cliente, nunca negativa.
+  const demandaIsenta = demandaMedida >= demandaContratada ? 0 : demandaContratada - demandaMedida;
+  const ultrapassagem = demandaMedida > demandaContratada ? demandaMedida - demandaContratada : 0;
+  // Recalcula valores R$ com a tarifa Mercado Livre e a demanda do cliente
+  const faturadoUsd = demandaMedida >= demandaContratada ? demandaContratada : demandaMedida;
+  const rsDemandaUsd = faturadoUsd * (tarifas.demanda_usd || 0);
+  const rsDemandaIsenta = demandaIsenta * (tarifas.demanda_isenta || 0);
+  const rsUltrapassagem = ultrapassagem * (tarifas.ultrapassagem || 0);
 
   const consumoPonta = sum('consumo_ponta');
   const consumoFora = sum('consumo_fora');
@@ -484,7 +491,7 @@ function FaturaOficial({
             </thead>
             <tbody>
               <SectionRow label="DEMANDA (kW)" />
-              <DataRow label="Demanda USD" medido={demandaMedida} contratado={demandaContratada} faturado={demandaMedida} tarifa={tarifas.demanda_usd} valor={rsDemandaUsd} dec={2} />
+              <DataRow label="Demanda USD" medido={demandaMedida} contratado={demandaContratada} faturado={faturadoUsd} tarifa={tarifas.demanda_usd} valor={rsDemandaUsd} dec={2} />
               <DataRow label="Demanda USD Isenta ICMS" medido={demandaIsenta} faturado={demandaIsenta} tarifa={tarifas.demanda_isenta} valor={rsDemandaIsenta} dec={2} />
               <DataRow label="Ultrapassagem" faturado={ultrapassagem} tarifa={tarifas.ultrapassagem} valor={rsUltrapassagem} dec={2} />
 
@@ -500,17 +507,18 @@ function FaturaOficial({
         <div className="overflow-x-auto rounded-md border">
           <table className="w-full text-sm">
             <thead className="bg-muted text-xs uppercase tracking-wide">
-              <tr><th className="px-3 py-2 text-left font-semibold" colSpan={2}>Resumo da Conta</th></tr>
+              <tr>
+                <th className="px-3 py-2 text-left font-semibold w-[28%]">Resumo da Conta</th>
+                <th className="px-3 py-2 text-right font-semibold">Medido</th>
+                <th className="px-3 py-2 text-right font-semibold">Contratado</th>
+                <th className="px-3 py-2 text-right font-semibold">Faturado</th>
+                <th className="px-3 py-2 text-right font-semibold">Tarifa</th>
+                <th className="px-3 py-2 text-right font-semibold">Valores (R$)</th>
+              </tr>
             </thead>
             <tbody>
-              <tr className="border-b">
-                <td className="px-3 py-2">Consumo Total (kWh)</td>
-                <td className="px-3 py-2 text-right tabular-nums font-medium">{num(consumoTotal)}</td>
-              </tr>
-              <tr>
-                <td className="px-3 py-2">Total Fornecimento (R$)</td>
-                <td className="px-3 py-2 text-right tabular-nums font-medium">{brl(totalFornecimento)}</td>
-              </tr>
+              <DataRow label="Consumo Total (kWh)" medido={consumoTotal} valor={0} dec={2} />
+              <DataRow label="Total Fornecimento (R$)" valor={totalFornecimento} dec={2} />
             </tbody>
           </table>
         </div>
