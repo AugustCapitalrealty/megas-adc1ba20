@@ -1372,8 +1372,9 @@ interface ConsumoClienteCardProps {
   saving: boolean;
   isLocked: boolean;
   copelTotais: { d: number; cp: number; cf: number };
+  lancamentos: Record<string, LancamentoRow>;
 }
-function ConsumoClienteCard({ clientes, modulos, contratosVigentes, consumoCli, updateConsumoCli, entradaMedidor, setEntradaMedidor, onSave, saving, isLocked, copelTotais }: ConsumoClienteCardProps) {
+function ConsumoClienteCard({ clientes, modulos, contratosVigentes, consumoCli, updateConsumoCli, entradaMedidor, setEntradaMedidor, onSave, saving, isLocked, copelTotais, lancamentos }: ConsumoClienteCardProps) {
   const emCP = parseBR(entradaMedidor.cp || '');
   const emCF = parseBR(entradaMedidor.cf || '');
   const isAreaComum = (m: Modulo) => /(área|area) comum/i.test(m.identificador);
@@ -1441,10 +1442,11 @@ function ConsumoClienteCard({ clientes, modulos, contratosVigentes, consumoCli, 
     });
   }
 
-  // Totais entrados
-  const sumD = grupos.reduce((s, g) => s + parseBR(consumoCli[g.key]?.demanda_kw || ''), 0);
-  const sumCP = grupos.reduce((s, g) => s + parseBR(consumoCli[g.key]?.consumo_ponta_kwh || ''), 0);
-  const sumCF = grupos.reduce((s, g) => s + parseBR(consumoCli[g.key]?.consumo_fora_kwh || ''), 0);
+  // Totais entrados — somados a partir dos LANÇAMENTOS por módulo (fonte da
+  // verdade da fatura). Bate com a soma "Clientes Ponta/Fora" da aba Fatura Copel.
+  const sumD = modulos.reduce((s, m) => s + (Number(lancamentos[m.id]?.demanda_usd_medida_kw) || 0), 0);
+  const sumCP = modulos.reduce((s, m) => s + (Number(lancamentos[m.id]?.consumo_ponta_kwh) || 0), 0);
+  const sumCF = modulos.reduce((s, m) => s + (Number(lancamentos[m.id]?.consumo_fora_kwh) || 0), 0);
   // Resto = módulos vagos (faturado para Mega)
   const restoD = Math.max(0, copelTotais.d - sumD);
   const restoCP = Math.max(0, copelTotais.cp - sumCP);
