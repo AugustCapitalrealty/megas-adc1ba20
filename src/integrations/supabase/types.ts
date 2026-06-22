@@ -385,6 +385,11 @@ export type Database = {
           copel_consumo_ponta_kwh: number
           copel_cred_deb: number
           copel_demanda_kw: number
+          copel_tarifa_demanda_usd: number
+          copel_tarifa_te_fora: number
+          copel_tarifa_te_ponta: number
+          copel_tarifa_tusd_fora: number
+          copel_tarifa_tusd_ponta: number
           copel_valor_bandeira: number
           copel_valor_demanda: number
           copel_valor_icms: number
@@ -436,6 +441,11 @@ export type Database = {
           copel_consumo_ponta_kwh?: number
           copel_cred_deb?: number
           copel_demanda_kw?: number
+          copel_tarifa_demanda_usd?: number
+          copel_tarifa_te_fora?: number
+          copel_tarifa_te_ponta?: number
+          copel_tarifa_tusd_fora?: number
+          copel_tarifa_tusd_ponta?: number
           copel_valor_bandeira?: number
           copel_valor_demanda?: number
           copel_valor_icms?: number
@@ -487,6 +497,11 @@ export type Database = {
           copel_consumo_ponta_kwh?: number
           copel_cred_deb?: number
           copel_demanda_kw?: number
+          copel_tarifa_demanda_usd?: number
+          copel_tarifa_te_fora?: number
+          copel_tarifa_te_ponta?: number
+          copel_tarifa_tusd_fora?: number
+          copel_tarifa_tusd_ponta?: number
           copel_valor_bandeira?: number
           copel_valor_demanda?: number
           copel_valor_icms?: number
