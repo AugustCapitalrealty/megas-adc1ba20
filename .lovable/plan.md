@@ -1,31 +1,34 @@
 ## Problema
-A base do PIS/COFINS está usando a mesma base do ICMS (soma bruta dos itens tributáveis). Conforme a fatura Copel, **PIS/COFINS incidem sobre a base já líquida do ICMS** ("cálculo por dentro"):
 
-```
-baseICMS      = Σ valor dos itens tributáveis        (ex.: 304.452,60)
-valorICMS     = baseICMS × alíquotaICMS              (ex.: 304.452,60 × 19% = 57.845,99)
-basePisCofins = baseICMS − valorICMS                 (ex.: 304.452,60 − 57.845,99 = 246.606,61)
-valorCOFINS   = basePisCofins × alíquotaCOFINS       (ex.: 246.606,61 × 5,80% = 14.303,18)
-valorPIS      = basePisCofins × alíquotaPIS          (ex.: 246.606,61 × 1,65% = 4.069,01)
-```
+Ao atualizar PIS/COFINS/ICMS em **Cadastros → Parâmetros**, as faturas existentes continuam usando o snapshot antigo gravado em `energia_competencia_tarifas` no momento em que a competência foi criada. Exemplo na fatura do Mercado Livre: aparece PIS/COFINS = 9,25% (antigo 1,65 + 7,60) em vez de 7,06% (novo 1,26 + 5,80).
 
-## Correção
-Trocar o `useEffect` de "Auto-tributos" em dois lugares para usar duas bases:
+A decisão do usuário: **enquanto estamos em fase de testes, salvar no cadastro deve sobrescrever todas as competências existentes**. Histórico versionado de tributos/tarifas fica para depois.
 
-- **`src/components/admin/energia/FaturaCopelTab.tsx`** (linhas ~126-140)
-- **`src/components/admin/energia/MemoriaCalculoTab.tsx`** (linhas ~430-446)
+## Mudança
 
-```ts
-const baseIcms = ...soma dos itens com hasPisCofins;
-const valorIcms = baseIcms * (aliquotas.icms / 100);
-const basePisCofins = baseIcms - valorIcms;
-icms   = { base: baseIcms,       aliquota: icms_pct,   valor: valorIcms }
-cofins = { base: basePisCofins,  aliquota: cofins_pct, valor: basePisCofins * cofins_pct/100 }
-pis    = { base: basePisCofins,  aliquota: pis_pct,    valor: basePisCofins * pis_pct/100 }
+Atualizar o handler `handleSaveParametros` em `src/components/admin/energia/EnergiaCadastrosTab.tsx` para, após salvar `energia_parametros`, propagar os três percentuais para `energia_competencia_tarifas` de **todas** as competências.
+
+```text
+salvar parametros (cadastro)
+        │
+        ▼
+UPDATE energia_competencia_tarifas
+   SET icms_pct   = <novo>/100,
+       pis_pct    = <novo>/100,
+       cofins_pct = <novo>/100
+ WHERE 1=1     -- todas as competências
 ```
 
-A engine (`energia-rateio.ts`) já está correta — usa `(W − W*icms_pct) * piscof`. Nada muda lá.
+Detalhes:
+- Em `energia_parametros` os valores ficam em escala 0–100 (ex.: 19, 5.8, 1.26). Em `energia_competencia_tarifas` ficam em escala 0–1 (ex.: 0.19, 0.058, 0.0126). A propagação divide por 100.
+- Toast de confirmação mostrando "Parâmetros salvos e propagados para N competências".
+- O `useEffect` de auto-cálculo de tributos em `FaturaCopelTab.tsx` e `MemoriaCalculoTab.tsx` (que já lê `aliquotas` do parâmetro) continua igual — apenas vai recalcular corretamente assim que a competência for reaberta, pois a base agora é fresca.
 
-## Fora do escopo
-- Não vou alterar a alíquota do PIS (a imagem mostra 1,26% mas o cadastro tem 1,65%; o usuário não pediu mudar).
-- Sem mudanças na engine, FaturasTab ou DB.
+## Fora do escopo (deixar para depois)
+
+- Cadastro central de tarifas Mercado Livre (Demanda USD, TE/TUSD Ponta/Fora) com propagação — o usuário confirmou que hoje só as alíquotas mudaram.
+- Versionamento histórico de tributos/tarifas por vigência (planejado para o futuro, quando faturas não puderem mais ser alteradas retroativamente).
+
+## Arquivos
+
+- `src/components/admin/energia/EnergiaCadastrosTab.tsx` — adicionar update propagando alíquotas após salvar parâmetros.

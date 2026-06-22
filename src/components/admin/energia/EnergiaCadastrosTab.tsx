@@ -91,9 +91,31 @@ export function EnergiaCadastrosTab() {
         updated_by: user?.id,
       } as any)
       .eq('id', parametros.id);
+    if (error) {
+      setSavingParams(false);
+      toast.error('Erro ao salvar parâmetros');
+      return;
+    }
+
+    // Fase de testes: propaga alíquotas para TODAS as competências existentes
+    // (energia_parametros guarda em 0-100; energia_competencia_tarifas em 0-1)
+    const { data: propagated, error: propErr } = await supabase
+      .from('energia_competencia_tarifas' as any)
+      .update({
+        icms_pct: Number(parametros.icms_pct) / 100,
+        pis_pct: Number(parametros.pis_pct) / 100,
+        cofins_pct: Number(parametros.cofins_pct) / 100,
+      } as any)
+      .not('competencia_id', 'is', null)
+      .select('competencia_id');
+
     setSavingParams(false);
-    if (error) toast.error('Erro ao salvar parâmetros');
-    else toast.success('Parâmetros salvos');
+    if (propErr) {
+      toast.error('Parâmetros salvos, mas falhou ao propagar nas competências');
+      return;
+    }
+    const n = propagated?.length ?? 0;
+    toast.success(`Parâmetros salvos e propagados para ${n} competência${n === 1 ? '' : 's'}`);
   };
 
   // ─── Clientes ────────────────────────────────────────
