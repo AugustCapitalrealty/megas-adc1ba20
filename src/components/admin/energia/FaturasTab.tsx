@@ -16,6 +16,7 @@ import {
   type FaturaCliente,
   type MemoriaLinha,
 } from '@/lib/energia-rateio';
+import { useSharedCompetencia } from './CompetenciaContext';
 
 interface Competencia { id: string; ano_mes: string; status: 'rascunho' | 'fechada'; }
 interface Modulo { id: string; identificador: string; area_m2: number; ordem: number; cliente_id: string | null; demanda_contratada_kw: number; }
@@ -27,7 +28,7 @@ const num = (n: number, dec = 2) => (n || 0).toLocaleString('pt-BR', { minimumFr
 export function FaturasTab() {
   const [loading, setLoading] = useState(true);
   const [competencias, setCompetencias] = useState<Competencia[]>([]);
-  const [currentCompId, setCurrentCompId] = useState<string | null>(null);
+  const { currentCompId, setCurrentCompId } = useSharedCompetencia();
   const [modulos, setModulos] = useState<Modulo[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [tarifas, setTarifas] = useState<any>(null);
