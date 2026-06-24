@@ -141,12 +141,15 @@ export function FaturaCopelTab() {
         const pis = aliquotas.pis / 100;
         const cofins = aliquotas.cofins / 100;
         const icms = aliquotas.icms / 100;
+        // PIS/COFINS Copel: calculados sobre a base LÍQUIDA de ICMS
+        // ("cálculo por dentro"), e a tarifa "limpa" exclui também o ICMS.
+        const basePisCofins = valor * (1 - icms);
         next = {
           ...next,
           valor: fmtBR(valor, 2),
-          pis_cofins: fmtBR(valor * (pis + cofins), 2),
+          pis_cofins: fmtBR(basePisCofins * (pis + cofins), 2),
           icms: fmtBR(valor * icms, 2),
-          tarifa_unit: fmtBR(p * (1 - pis - cofins - icms), 6),
+          tarifa_unit: fmtBR(p * (1 - icms) * (1 - pis - cofins), 6),
         };
       }
       return { ...prev, itens: { ...(prev.itens || {}), [key]: next } };
