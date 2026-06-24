@@ -196,7 +196,6 @@ export function MemoriaCalculoTab() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [competencias, setCompetencias] = useState<Competencia[]>([]);
-  const [currentCompId, setCurrentCompId] = useState<string | null>(null);
   const [modulos, setModulos] = useState<Modulo[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [tarifas, setTarifas] = useState<TarifasRow | null>(null);
