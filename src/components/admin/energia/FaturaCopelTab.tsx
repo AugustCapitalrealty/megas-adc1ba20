@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, FileText, Save, CheckCircle2, AlertTriangle, Lock, Calculator, Receipt, Percent, Lightbulb, Gauge } from 'lucide-react';
 import { toast } from 'sonner';
+import { useSharedCompetencia } from './CompetenciaContext';
 
 // ─── Tipos (reaproveita o mesmo JSONB usado na Memória) ─────────────────
 type CopelItemKey = 'te_ponta' | 'usd_ponta' | 'te_fora' | 'usd_fora' | 'demanda_usd' | 'iluminacao_publica';
@@ -66,7 +67,7 @@ export function FaturaCopelTab() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [competencias, setCompetencias] = useState<Competencia[]>([]);
-  const [currentCompId, setCurrentCompId] = useState<string | null>(null);
+  const { currentCompId, setCurrentCompId } = useSharedCompetencia();
   const [tarifas, setTarifas] = useState<TarifasRow | null>(null);
   const [faturaItens, setFaturaItens] = useState<FaturaCopelItens>({ itens: {}, tributos: {}, total_a_pagar: '' });
   const [aliquotas, setAliquotas] = useState({ pis: 0, cofins: 0, icms: 0 });
