@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, FileText, Save, CheckCircle2, AlertTriangle, Lock, Calculator, Receipt, Percent, Lightbulb, Gauge } from 'lucide-react';
 import { toast } from 'sonner';
+import { useSharedCompetencia } from './CompetenciaContext';
 
 // ─── Tipos (reaproveita o mesmo JSONB usado na Memória) ─────────────────
 type CopelItemKey = 'te_ponta' | 'usd_ponta' | 'te_fora' | 'usd_fora' | 'demanda_usd' | 'iluminacao_publica';
@@ -66,7 +67,7 @@ export function FaturaCopelTab() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [competencias, setCompetencias] = useState<Competencia[]>([]);
-  const [currentCompId, setCurrentCompId] = useState<string | null>(null);
+  const { currentCompId, setCurrentCompId } = useSharedCompetencia();
   const [tarifas, setTarifas] = useState<TarifasRow | null>(null);
   const [faturaItens, setFaturaItens] = useState<FaturaCopelItens>({ itens: {}, tributos: {}, total_a_pagar: '' });
   const [aliquotas, setAliquotas] = useState({ pis: 0, cofins: 0, icms: 0 });
@@ -140,12 +141,15 @@ export function FaturaCopelTab() {
         const pis = aliquotas.pis / 100;
         const cofins = aliquotas.cofins / 100;
         const icms = aliquotas.icms / 100;
+        // PIS/COFINS Copel: calculados sobre a base LÍQUIDA de ICMS
+        // ("cálculo por dentro"), e a tarifa "limpa" exclui também o ICMS.
+        const basePisCofins = valor * (1 - icms);
         next = {
           ...next,
           valor: fmtBR(valor, 2),
-          pis_cofins: fmtBR(valor * (pis + cofins), 2),
+          pis_cofins: fmtBR(basePisCofins * (pis + cofins), 2),
           icms: fmtBR(valor * icms, 2),
-          tarifa_unit: fmtBR(p * (1 - pis - cofins - icms), 6),
+          tarifa_unit: fmtBR(p * (1 - icms) * (1 - pis - cofins), 6),
         };
       }
       return { ...prev, itens: { ...(prev.itens || {}), [key]: next } };
@@ -172,6 +176,39 @@ export function FaturaCopelTab() {
       return { ...prev, tributos: next };
     });
   }, [faturaItens.itens, aliquotas]);
+
+  // Recalcula PIS/COFINS e Tarifa unit. por item quando as alíquotas mudam ou
+  // ao carregar uma fatura antiga salva com a fórmula errada (sem deduzir ICMS).
+  useEffect(() => {
+    const pis = aliquotas.pis / 100;
+    const cofins = aliquotas.cofins / 100;
+    const icms = aliquotas.icms / 100;
+    if (!pis && !cofins && !icms) return;
+    setFaturaItens((prev) => {
+      const it = prev.itens || {};
+      let changed = false;
+      const nextIt: typeof it = { ...it };
+      for (const def of COPEL_ITEM_DEFS) {
+        if (!def.hasUnitario) continue;
+        const curr = it[def.key];
+        if (!curr) continue;
+        const q = parseBR(curr.quant);
+        const p = parseBR(curr.preco_unit);
+        if (!q && !p) continue;
+        const valor = q * p;
+        const basePisCofins = valor * (1 - icms);
+        const novoPisCof = fmtBR(basePisCofins * (pis + cofins), 2);
+        const novaTarifa = def.hasTarifa
+          ? fmtBR(p * (1 - icms) * (1 - pis - cofins), 6)
+          : curr.tarifa_unit;
+        if (curr.pis_cofins !== novoPisCof || curr.tarifa_unit !== novaTarifa) {
+          nextIt[def.key] = { ...curr, pis_cofins: novoPisCof, tarifa_unit: novaTarifa };
+          changed = true;
+        }
+      }
+      return changed ? { ...prev, itens: nextIt } : prev;
+    });
+  }, [aliquotas]);
 
   const sumValor = useMemo(() => {
     const it = faturaItens.itens || {};

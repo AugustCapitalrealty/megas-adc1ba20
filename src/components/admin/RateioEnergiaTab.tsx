@@ -6,6 +6,7 @@ import { ContratosTab } from './energia/ContratosTab';
 import { GrandezasContratadasTab } from './energia/GrandezasContratadasTab';
 import { FaturaCopelTab } from './energia/FaturaCopelTab';
 import { FaturasTab } from './energia/FaturasTab';
+import { CompetenciaProvider } from './energia/CompetenciaContext';
 import { Settings, ClipboardList, FileText, FileSignature, Receipt, Users } from 'lucide-react';
 
 export function RateioEnergiaTab() {
@@ -16,6 +17,7 @@ export function RateioEnergiaTab() {
     setTab('contratos');
   };
   return (
+    <CompetenciaProvider>
     <Tabs value={tab} onValueChange={setTab} className="space-y-4">
       <TabsList>
         <TabsTrigger value="fatura" className="gap-2">
@@ -49,5 +51,6 @@ export function RateioEnergiaTab() {
       <TabsContent value="grandezas"><GrandezasContratadasTab /></TabsContent>
       <TabsContent value="cadastros"><EnergiaCadastrosTab onOpenContrato={openContrato} /></TabsContent>
     </Tabs>
+    </CompetenciaProvider>
   );
 }
