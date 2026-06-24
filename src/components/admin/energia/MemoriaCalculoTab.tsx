@@ -19,6 +19,7 @@ import {
   agruparPorCliente,
   type FaturaCliente,
 } from '@/lib/energia-rateio';
+import { useSharedCompetencia } from './CompetenciaContext';
 
 interface Competencia {
   id: string;
@@ -196,6 +197,7 @@ export function MemoriaCalculoTab() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [competencias, setCompetencias] = useState<Competencia[]>([]);
+  const { currentCompId, setCurrentCompId } = useSharedCompetencia();
   const [modulos, setModulos] = useState<Modulo[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [tarifas, setTarifas] = useState<TarifasRow | null>(null);
