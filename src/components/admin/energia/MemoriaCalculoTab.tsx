@@ -867,6 +867,16 @@ export function MemoriaCalculoTab() {
                   const saldoFinal = horario === 'ponta'
                     ? memoria?.fotovoltaico.saldo_final_ponta_kwh ?? 0
                     : memoria?.fotovoltaico.saldo_final_fora_kwh ?? 0;
+                  // Equivalente em R$ usando a tarifa cheia da Copel
+                  // (TE + TUSD) — preço unitário "bruto" que o cliente pagaria
+                  // por aquele kWh se não fosse abatido pelo fotovoltaico.
+                  const tarifaTotal = horario === 'ponta'
+                    ? (Number((tarifas as any).te_ponta) || 0) + (Number((tarifas as any).tusd_ponta) || 0)
+                    : (Number((tarifas as any).te_fora) || 0) + (Number((tarifas as any).tusd_fora) || 0);
+                  const inicialRs = inicial * tarifaTotal;
+                  const geracaoRs = geracao * tarifaTotal;
+                  const consumidoRs = consumido * tarifaTotal;
+                  const saldoFinalRs = saldoFinal * tarifaTotal;
                   return (
                     <div key={horario} className="rounded-md border p-3 space-y-2">
                       <h4 className="font-semibold text-sm">{horario === 'ponta' ? 'Ponta' : 'Fora Ponta'}</h4>
@@ -874,6 +884,7 @@ export function MemoriaCalculoTab() {
                         <div>
                           <Label className="text-xs">Saldo inicial (kWh)</Label>
                           <Input type="number" step="0.01" disabled value={inicial} />
+                          <div className="text-[10px] text-muted-foreground mt-0.5">≈ {brl(inicialRs)}</div>
                         </div>
                         <div>
                           <Label className="text-xs">Geração do mês (kWh)</Label>
@@ -882,20 +893,40 @@ export function MemoriaCalculoTab() {
                             value={geracao}
                             onChange={(e) => setTarifas((t) => (t ? ({ ...t, [geracaoKey]: Number(e.target.value) } as any) : t))}
                           />
+                          <div className="text-[10px] text-muted-foreground mt-0.5">≈ {brl(geracaoRs)}</div>
                         </div>
                         <div>
                           <Label className="text-xs text-muted-foreground">Consumido pela Área Comum</Label>
                           <div className="text-sm font-medium py-2">{num(consumido)} kWh</div>
+                          <div className="text-[10px] text-muted-foreground -mt-1">≈ {brl(consumidoRs)}</div>
                         </div>
                         <div>
                           <Label className="text-xs text-primary">Saldo final → próximo mês</Label>
                           <div className="text-sm font-bold text-primary py-2">{num(saldoFinal)} kWh</div>
+                          <div className="text-[10px] text-primary/80 -mt-1">≈ {brl(saldoFinalRs)}</div>
                         </div>
                       </div>
                     </div>
                   );
                 })}
               </div>
+              {/* Total acumulado (Ponta + Fora) em R$ */}
+              {(() => {
+                const tarifaP = (Number((tarifas as any).te_ponta) || 0) + (Number((tarifas as any).tusd_ponta) || 0);
+                const tarifaF = (Number((tarifas as any).te_fora) || 0) + (Number((tarifas as any).tusd_fora) || 0);
+                const sfP = memoria?.fotovoltaico.saldo_final_ponta_kwh ?? 0;
+                const sfF = memoria?.fotovoltaico.saldo_final_fora_kwh ?? 0;
+                const totalRs = sfP * tarifaP + sfF * tarifaF;
+                const totalKwh = sfP + sfF;
+                return (
+                  <div className="mt-4 flex items-center justify-between rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
+                    <span className="font-medium">Saldo total acumulado</span>
+                    <span className="font-bold text-primary">
+                      {num(totalKwh)} kWh <span className="text-muted-foreground font-normal">·</span> {brl(totalRs)}
+                    </span>
+                  </div>
+                );
+              })()}
               <div className="flex justify-end mt-4 gap-2">
                 <Button variant="outline" disabled={isLocked} onClick={saveTarifas}>Salvar Geração</Button>
                 <Button
