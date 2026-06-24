@@ -177,6 +177,39 @@ export function FaturaCopelTab() {
     });
   }, [faturaItens.itens, aliquotas]);
 
+  // Recalcula PIS/COFINS e Tarifa unit. por item quando as alíquotas mudam ou
+  // ao carregar uma fatura antiga salva com a fórmula errada (sem deduzir ICMS).
+  useEffect(() => {
+    const pis = aliquotas.pis / 100;
+    const cofins = aliquotas.cofins / 100;
+    const icms = aliquotas.icms / 100;
+    if (!pis && !cofins && !icms) return;
+    setFaturaItens((prev) => {
+      const it = prev.itens || {};
+      let changed = false;
+      const nextIt: typeof it = { ...it };
+      for (const def of COPEL_ITEM_DEFS) {
+        if (!def.hasUnitario) continue;
+        const curr = it[def.key];
+        if (!curr) continue;
+        const q = parseBR(curr.quant);
+        const p = parseBR(curr.preco_unit);
+        if (!q && !p) continue;
+        const valor = q * p;
+        const basePisCofins = valor * (1 - icms);
+        const novoPisCof = fmtBR(basePisCofins * (pis + cofins), 2);
+        const novaTarifa = def.hasTarifa
+          ? fmtBR(p * (1 - icms) * (1 - pis - cofins), 6)
+          : curr.tarifa_unit;
+        if (curr.pis_cofins !== novoPisCof || curr.tarifa_unit !== novaTarifa) {
+          nextIt[def.key] = { ...curr, pis_cofins: novoPisCof, tarifa_unit: novaTarifa };
+          changed = true;
+        }
+      }
+      return changed ? { ...prev, itens: nextIt } : prev;
+    });
+  }, [aliquotas]);
+
   const sumValor = useMemo(() => {
     const it = faturaItens.itens || {};
     return COPEL_ITEM_DEFS.reduce((s, d) => s + parseBR(it[d.key]?.valor || ''), 0);
