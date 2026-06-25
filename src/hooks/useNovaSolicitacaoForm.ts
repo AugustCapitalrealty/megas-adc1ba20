@@ -139,9 +139,9 @@ export function useNovaSolicitacaoForm(
   });
 
   // Derived values
-  const valorNumerico = parseFloat(valor.replace(/\D/g, '')) / 100 || 0;
-  const valorServicoNumerico = parseFloat(valorServico.replace(/\D/g, '')) / 100 || 0;
-  const valorMaterialNumerico = parseFloat(valorMaterial.replace(/\D/g, '')) / 100 || 0;
+  const valorNumerico = parseFloat((valor || '').replace(/\D/g, '')) / 100 || 0;
+  const valorServicoNumerico = parseFloat((valorServico || '').replace(/\D/g, '')) / 100 || 0;
+  const valorMaterialNumerico = parseFloat((valorMaterial || '').replace(/\D/g, '')) / 100 || 0;
   const isOC = valorNumerico <= 1000 || (valorNumerico > 1000 && tipoContratacao !== 'servicos');
   const isAC = valorNumerico > 1000 && tipoContratacao === 'servicos';
   const isOCAbove1000 = valorNumerico > 1000 && tipoContratacao !== '' && tipoContratacao !== 'servicos';
@@ -302,7 +302,7 @@ export function useNovaSolicitacaoForm(
       setCurrentStep(draft.currentStep as Step);
       setEmpreendimento(draft.empreendimento as Empreendimento | '');
       setDescricao(draft.descricao);
-      setValor(draft.valor);
+      setValor(draft.valor ?? '');
       setTipoContratacao(draft.tipoContratacao as TipoContratacao | '');
       setNaturezaOrcamentaria(draft.naturezaOrcamentaria as NaturezaOrcamentaria | '');
       setOrigemCusto(draft.origemCusto as OrigemCusto);
@@ -311,8 +311,8 @@ export function useNovaSolicitacaoForm(
       setParcelas(draft.parcelas);
       setContratoMensal(draft.contratoMensal);
       setFaturamentoDireto(draft.faturamentoDireto);
-      setValorServico(draft.valorServico);
-      setValorMaterial(draft.valorMaterial);
+      setValorServico(draft.valorServico ?? '');
+      setValorMaterial(draft.valorMaterial ?? '');
       setRetencao6(draft.retencao6);
       setTipoGarantia(draft.tipoGarantia as TipoGarantia);
       setDiasGarantia(draft.diasGarantia);

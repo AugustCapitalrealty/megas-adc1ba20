@@ -551,9 +551,9 @@ export default function MinhasSolicitacoes() {
 
   const openEditModal = async (sol: Solicitacao) => {
     setEditingSolicitacao(sol);
-    setEditDescricao(sol.descricao);
-    setEditValor(String(Math.round(sol.valor * 100)));
-    setEditNaturezaOrcamentaria(sol.natureza_orcamentaria);
+    setEditDescricao(sol.descricao ?? '');
+    setEditValor(sol.valor != null ? String(Math.round(Number(sol.valor) * 100)) : '');
+    setEditNaturezaOrcamentaria((sol.natureza_orcamentaria ?? '') as any);
     setEditEscopoDetalhado(sol.escopo_detalhado_minuta || '');
     setEditAnexos({});
     setEditOutrosAnexos([]);
@@ -676,7 +676,7 @@ export default function MinhasSolicitacoes() {
     }
     setSubmitting(true);
     try {
-      const valorNumerico = parseFloat(editValor.replace(/\D/g, '')) / 100 || 0;
+      const valorNumerico = parseFloat((editValor || '').replace(/\D/g, '')) / 100 || 0;
       const statusAnterior = editingSolicitacao.status;
       
       if (anexosParaExcluir.length > 0) {

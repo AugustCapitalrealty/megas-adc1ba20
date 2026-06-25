@@ -254,7 +254,7 @@ function EditModal(props: EditModalProps) {
                 <div className="p-3 bg-background rounded-md border">
                   <p className="font-medium text-sm">{fornecedoresInfo.principal.razao_social || 'Sem razão social'}</p>
                   <p className="text-sm text-muted-foreground">
-                    CNPJ: {fornecedoresInfo.principal.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')}
+                    CNPJ: {(fornecedoresInfo.principal.cnpj || '').replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') || '—'}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -494,7 +494,7 @@ function SupplierOption({ selected, onClick, razaoSocial, cnpj, badge, subtitle 
           <p className="font-medium text-sm">{razaoSocial || 'Sem razão social'}</p>
           {cnpj && (
             <p className="text-xs text-muted-foreground">
-              CNPJ: {cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')}
+              CNPJ: {(cnpj || '').replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')}
             </p>
           )}
           {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
