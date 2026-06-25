@@ -430,6 +430,7 @@ function FaturaOficial({
   tarifas,
   demandaContrato,
   linhas,
+  todasLinhas,
   onCopy,
 }: {
   fatura: FaturaCliente;
