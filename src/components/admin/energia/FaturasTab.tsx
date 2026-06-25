@@ -362,6 +362,7 @@ export function FaturasTab() {
                 if (mCliId !== cli) return false;
                 return mCid === contrato;
               })}
+              todasLinhas={memoriaLinhas}
               onCopy={copiarResumo}
             />
           )}
