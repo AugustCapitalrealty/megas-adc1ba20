@@ -15,6 +15,7 @@ import {
   type EnergiaLancamentoInput,
   type FaturaCliente,
   type MemoriaLinha,
+  type ModoRateioPerdas,
 } from '@/lib/energia-rateio';
 import { useSharedCompetencia } from './CompetenciaContext';
 
@@ -40,6 +41,7 @@ export function FaturasTab() {
   const [contratoClientePorId, setContratoClientePorId] = useState<Record<string, string>>({});
   const [busca, setBusca] = useState('');
   const [selecionado, setSelecionado] = useState<string | null>(null);
+  const [modoPerdas, setModoPerdas] = useState<ModoRateioPerdas>('separado');
 
   const fetchBase = useCallback(async () => {
     const [c, m, cli] = await Promise.all([
@@ -131,7 +133,7 @@ export function FaturasTab() {
         is_area_comum: m.identificador.toUpperCase().includes('ÁREA COMUM') || m.identificador.toUpperCase().includes('AREA COMUM'),
       };
     });
-    const memoria = calcularMemoria(tarifas as EnergiaTarifas, inputs);
+    const memoria = calcularMemoria(tarifas as EnergiaTarifas, inputs, modoPerdas);
     const fts = agruparPorCliente(
       memoria.linhas,
       modulosComLanc.map((m) => {
@@ -147,7 +149,7 @@ export function FaturasTab() {
       }),
     );
     return { faturas: fts, memoriaLinhas: memoria.linhas };
-  }, [tarifas, modulos, lancamentos, clientes, contratoPorModulo, contratoIdPorModulo, contratoNumeroPorId, contratoClientePorId]);
+  }, [tarifas, modulos, lancamentos, clientes, contratoPorModulo, contratoIdPorModulo, contratoNumeroPorId, contratoClientePorId, modoPerdas]);
 
   const faturasFiltradas = useMemo(() => {
     const q = busca.trim().toLowerCase();
@@ -364,6 +366,8 @@ export function FaturasTab() {
               })}
               todasLinhas={memoriaLinhas}
               onCopy={copiarResumo}
+              modoPerdas={modoPerdas}
+              onChangeModoPerdas={setModoPerdas}
             />
           )}
         </div>
@@ -432,6 +436,8 @@ function FaturaOficial({
   linhas,
   todasLinhas,
   onCopy,
+  modoPerdas,
+  onChangeModoPerdas,
 }: {
   fatura: FaturaCliente;
   competencia: string;
@@ -440,6 +446,8 @@ function FaturaOficial({
   linhas: MemoriaLinha[];
   todasLinhas: MemoriaLinha[];
   onCopy: () => void;
+  modoPerdas: ModoRateioPerdas;
+  onChangeModoPerdas: (m: ModoRateioPerdas) => void;
 }) {
   // Agregados a partir das linhas da memória (mesmas células que geraram o cálculo)
   const sum = (k: keyof MemoriaLinha) => linhas.reduce((s, l) => s + (Number(l[k] as any) || 0), 0);
@@ -488,6 +496,8 @@ function FaturaOficial({
   const consumoForaTotalGeral = sumAll('consumo_fora');
   const perdasPontaTotalGeral = sumAll('perdas_ponta_kwh');
   const perdasForaTotalGeral = sumAll('perdas_fora_kwh');
+  const consumoTotalGeralCombinado = consumoPontaTotalGeral + consumoForaTotalGeral;
+  const consumoTotalCliente = consumoPonta + consumoFora;
 
   const piscof = sum('piscof_total');
   const icms = sum('icms_total');
@@ -534,6 +544,24 @@ function FaturaOficial({
             </CardDescription>
           </div>
           <div className="flex gap-2 print:hidden">
+            <div className="inline-flex rounded-md border overflow-hidden text-xs" role="group" aria-label="Modo de rateio de perdas">
+              <button
+                type="button"
+                onClick={() => onChangeModoPerdas('separado')}
+                className={`px-2.5 py-1 transition-colors ${modoPerdas === 'separado' ? 'bg-primary text-primary-foreground font-semibold' : 'bg-background hover:bg-muted'}`}
+                title="Rateia perdas Ponta apenas pelo consumo Ponta e Fora apenas pelo Fora. Mais exato."
+              >
+                Exato (por posto)
+              </button>
+              <button
+                type="button"
+                onClick={() => onChangeModoPerdas('combinado')}
+                className={`px-2.5 py-1 border-l transition-colors ${modoPerdas === 'combinado' ? 'bg-primary text-primary-foreground font-semibold' : 'bg-background hover:bg-muted'}`}
+                title="Replica a planilha do Mega Curitiba: ratio único (consumo total / Σ total) aplicado às perdas dos dois postos."
+              >
+                Planilha (combinado)
+              </button>
+            </div>
             <Button variant="outline" size="sm" onClick={onCopy}>Copiar resumo</Button>
             <Button variant="outline" size="sm" onClick={() => window.print()}>
               Imprimir / PDF
@@ -598,7 +626,11 @@ function FaturaOficial({
               rsPerdas={rsPerdasPonta}
               rsExibido={rsPontaExibido}
               tarifaExibida={tarifaPontaExibida}
-              consumoTotalGeral={consumoPontaTotalGeral}
+              modo={modoPerdas}
+              numeradorSeparado={consumoPonta}
+              denomSeparado={consumoPontaTotalGeral}
+              numeradorCombinado={consumoTotalCliente}
+              denomCombinado={consumoTotalGeralCombinado}
               perdasTotalGeral={perdasPontaTotalGeral}
             />
             <ConsumoAuditBlock
@@ -612,7 +644,11 @@ function FaturaOficial({
               rsPerdas={rsPerdasFora}
               rsExibido={rsForaExibido}
               tarifaExibida={tarifaForaExibida}
-              consumoTotalGeral={consumoForaTotalGeral}
+              modo={modoPerdas}
+              numeradorSeparado={consumoFora}
+              denomSeparado={consumoForaTotalGeral}
+              numeradorCombinado={consumoTotalCliente}
+              denomCombinado={consumoTotalGeralCombinado}
               perdasTotalGeral={perdasForaTotalGeral}
             />
             <div className="rounded border bg-background p-3">
@@ -742,23 +778,30 @@ function AuditRow({ label, valor, strong = false }: { label: string; valor: stri
 function ConsumoAuditBlock({
   titulo, consumoBase, perdasKwh, consumoExibido,
   tarifaTE, tarifaTUSD, rsBase, rsPerdas, rsExibido, tarifaExibida,
-  consumoTotalGeral, perdasTotalGeral,
+  modo, numeradorSeparado, denomSeparado, numeradorCombinado, denomCombinado, perdasTotalGeral,
 }: {
   titulo: string;
   consumoBase: number; perdasKwh: number; consumoExibido: number;
   tarifaTE: number; tarifaTUSD: number;
   rsBase: number; rsPerdas: number; rsExibido: number;
   tarifaExibida: number;
-  consumoTotalGeral: number; perdasTotalGeral: number;
+  modo: ModoRateioPerdas;
+  numeradorSeparado: number; denomSeparado: number;
+  numeradorCombinado: number; denomCombinado: number;
+  perdasTotalGeral: number;
 }) {
   const tarifaBase = (tarifaTE || 0) + (tarifaTUSD || 0);
   const fmtTar = (v: number) => `R$ ${(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 6, maximumFractionDigits: 6 })}`;
-  const ratio = consumoTotalGeral > 0 ? consumoBase / consumoTotalGeral : 0;
+  const num1 = modo === 'combinado' ? numeradorCombinado : numeradorSeparado;
+  const den1 = modo === 'combinado' ? denomCombinado : denomSeparado;
+  const ratio = den1 > 0 ? num1 / den1 : 0;
+  const modoLabel = modo === 'combinado' ? 'combinado (planilha)' : 'separado por posto (exato)';
   return (
     <div className="rounded border bg-background p-3">
       <div className="font-semibold text-sm mb-2 text-primary">{titulo}</div>
       <div className="text-[11px] text-muted-foreground mb-2 italic">
-        Rateio de perdas {titulo}: {num(consumoBase, 2)} ÷ {num(consumoTotalGeral, 2)} = {(ratio * 100).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}% × {num(perdasTotalGeral, 2)} kWh = <strong>{num(ratio * perdasTotalGeral, 2)} kWh</strong>
+        Modo: <strong>{modoLabel}</strong><br />
+        Rateio de perdas {titulo}: {num(num1, 2)} ÷ {num(den1, 2)} = {(ratio * 100).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}% × {num(perdasTotalGeral, 2)} kWh = <strong>{num(ratio * perdasTotalGeral, 2)} kWh</strong>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
