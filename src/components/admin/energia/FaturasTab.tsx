@@ -436,6 +436,8 @@ function FaturaOficial({
   linhas,
   todasLinhas,
   onCopy,
+  modoPerdas,
+  onChangeModoPerdas,
 }: {
   fatura: FaturaCliente;
   competencia: string;
@@ -444,6 +446,8 @@ function FaturaOficial({
   linhas: MemoriaLinha[];
   todasLinhas: MemoriaLinha[];
   onCopy: () => void;
+  modoPerdas: ModoRateioPerdas;
+  onChangeModoPerdas: (m: ModoRateioPerdas) => void;
 }) {
   // Agregados a partir das linhas da memória (mesmas células que geraram o cálculo)
   const sum = (k: keyof MemoriaLinha) => linhas.reduce((s, l) => s + (Number(l[k] as any) || 0), 0);
@@ -538,6 +542,24 @@ function FaturaOficial({
             </CardDescription>
           </div>
           <div className="flex gap-2 print:hidden">
+            <div className="inline-flex rounded-md border overflow-hidden text-xs" role="group" aria-label="Modo de rateio de perdas">
+              <button
+                type="button"
+                onClick={() => onChangeModoPerdas('separado')}
+                className={`px-2.5 py-1 transition-colors ${modoPerdas === 'separado' ? 'bg-primary text-primary-foreground font-semibold' : 'bg-background hover:bg-muted'}`}
+                title="Rateia perdas Ponta apenas pelo consumo Ponta e Fora apenas pelo Fora. Mais exato."
+              >
+                Exato (por posto)
+              </button>
+              <button
+                type="button"
+                onClick={() => onChangeModoPerdas('combinado')}
+                className={`px-2.5 py-1 border-l transition-colors ${modoPerdas === 'combinado' ? 'bg-primary text-primary-foreground font-semibold' : 'bg-background hover:bg-muted'}`}
+                title="Replica a planilha do Mega Curitiba: ratio único (consumo total / Σ total) aplicado às perdas dos dois postos."
+              >
+                Planilha (combinado)
+              </button>
+            </div>
             <Button variant="outline" size="sm" onClick={onCopy}>Copiar resumo</Button>
             <Button variant="outline" size="sm" onClick={() => window.print()}>
               Imprimir / PDF
