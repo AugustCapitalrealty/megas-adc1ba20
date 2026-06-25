@@ -482,6 +482,13 @@ function FaturaOficial({
   const tarifaPontaExibida = consumoPontaExibido > 0 ? rsPontaExibido / consumoPontaExibido : (tarifas.te_ponta + tarifas.tusd_ponta);
   const tarifaForaExibida = consumoForaExibido > 0 ? rsForaExibido / consumoForaExibido : (tarifas.te_fora + tarifas.tusd_fora);
 
+  // Denominadores globais para auditoria do rateio de perdas por posto tarifário.
+  const sumAll = (k: keyof MemoriaLinha) => todasLinhas.reduce((s, l) => s + (Number(l[k] as any) || 0), 0);
+  const consumoPontaTotalGeral = sumAll('consumo_ponta');
+  const consumoForaTotalGeral = sumAll('consumo_fora');
+  const perdasPontaTotalGeral = sumAll('perdas_ponta_kwh');
+  const perdasForaTotalGeral = sumAll('perdas_fora_kwh');
+
   const piscof = sum('piscof_total');
   const icms = sum('icms_total');
   const ilum = sum('iluminacao_publica');
