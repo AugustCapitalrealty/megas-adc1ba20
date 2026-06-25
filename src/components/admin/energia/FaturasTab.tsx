@@ -15,6 +15,7 @@ import {
   type EnergiaLancamentoInput,
   type FaturaCliente,
   type MemoriaLinha,
+  type ModoRateioPerdas,
 } from '@/lib/energia-rateio';
 import { useSharedCompetencia } from './CompetenciaContext';
 
@@ -40,6 +41,7 @@ export function FaturasTab() {
   const [contratoClientePorId, setContratoClientePorId] = useState<Record<string, string>>({});
   const [busca, setBusca] = useState('');
   const [selecionado, setSelecionado] = useState<string | null>(null);
+  const [modoPerdas, setModoPerdas] = useState<ModoRateioPerdas>('separado');
 
   const fetchBase = useCallback(async () => {
     const [c, m, cli] = await Promise.all([
@@ -131,7 +133,7 @@ export function FaturasTab() {
         is_area_comum: m.identificador.toUpperCase().includes('ÁREA COMUM') || m.identificador.toUpperCase().includes('AREA COMUM'),
       };
     });
-    const memoria = calcularMemoria(tarifas as EnergiaTarifas, inputs);
+    const memoria = calcularMemoria(tarifas as EnergiaTarifas, inputs, modoPerdas);
     const fts = agruparPorCliente(
       memoria.linhas,
       modulosComLanc.map((m) => {
@@ -147,7 +149,7 @@ export function FaturasTab() {
       }),
     );
     return { faturas: fts, memoriaLinhas: memoria.linhas };
-  }, [tarifas, modulos, lancamentos, clientes, contratoPorModulo, contratoIdPorModulo, contratoNumeroPorId, contratoClientePorId]);
+  }, [tarifas, modulos, lancamentos, clientes, contratoPorModulo, contratoIdPorModulo, contratoNumeroPorId, contratoClientePorId, modoPerdas]);
 
   const faturasFiltradas = useMemo(() => {
     const q = busca.trim().toLowerCase();
@@ -364,6 +366,8 @@ export function FaturasTab() {
               })}
               todasLinhas={memoriaLinhas}
               onCopy={copiarResumo}
+              modoPerdas={modoPerdas}
+              onChangeModoPerdas={setModoPerdas}
             />
           )}
         </div>
