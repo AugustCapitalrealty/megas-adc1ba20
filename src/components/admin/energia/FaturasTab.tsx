@@ -742,18 +742,24 @@ function AuditRow({ label, valor, strong = false }: { label: string; valor: stri
 function ConsumoAuditBlock({
   titulo, consumoBase, perdasKwh, consumoExibido,
   tarifaTE, tarifaTUSD, rsBase, rsPerdas, rsExibido, tarifaExibida,
+  consumoTotalGeral, perdasTotalGeral,
 }: {
   titulo: string;
   consumoBase: number; perdasKwh: number; consumoExibido: number;
   tarifaTE: number; tarifaTUSD: number;
   rsBase: number; rsPerdas: number; rsExibido: number;
   tarifaExibida: number;
+  consumoTotalGeral: number; perdasTotalGeral: number;
 }) {
   const tarifaBase = (tarifaTE || 0) + (tarifaTUSD || 0);
   const fmtTar = (v: number) => `R$ ${(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 6, maximumFractionDigits: 6 })}`;
+  const ratio = consumoTotalGeral > 0 ? consumoBase / consumoTotalGeral : 0;
   return (
     <div className="rounded border bg-background p-3">
       <div className="font-semibold text-sm mb-2 text-primary">{titulo}</div>
+      <div className="text-[11px] text-muted-foreground mb-2 italic">
+        Rateio de perdas {titulo}: {num(consumoBase, 2)} ÷ {num(consumoTotalGeral, 2)} = {(ratio * 100).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}% × {num(perdasTotalGeral, 2)} kWh = <strong>{num(ratio * perdasTotalGeral, 2)} kWh</strong>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">kWh</div>
