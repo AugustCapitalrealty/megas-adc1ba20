@@ -437,6 +437,7 @@ function FaturaOficial({
   tarifas: EnergiaTarifas;
   demandaContrato: number;
   linhas: MemoriaLinha[];
+  todasLinhas: MemoriaLinha[];
   onCopy: () => void;
 }) {
   // Agregados a partir das linhas da memória (mesmas células que geraram o cálculo)
