@@ -133,11 +133,14 @@ export function calcularMemoria(
   tarifas: EnergiaTarifas,
   lancamentos: EnergiaLancamentoInput[],
 ): MemoriaResultado {
-  // Passo 1: consumo total geral (denominador para rateios)
-  const consumoTotalGeral = lancamentos.reduce(
-    (s, l) => s + z(l.consumo_ponta_kwh) + z(l.consumo_fora_kwh),
-    0,
-  );
+  // Passo 1: denominadores de rateio
+  // - consumoTotalGeral: usado para itens sem posto tarifário (iluminação pública, créd/déb)
+  // - consumoPontaTotal / consumoForaTotal: usados no rateio de PERDAS por posto
+  //   (perdas ponta rateadas só pelo consumo ponta; idem fora). Sem isso, clientes
+  //   com perfil ponta/fora diferente da média assumiam perdas distorcidas.
+  const consumoPontaTotal = lancamentos.reduce((s, l) => s + z(l.consumo_ponta_kwh), 0);
+  const consumoForaTotal = lancamentos.reduce((s, l) => s + z(l.consumo_fora_kwh), 0);
+  const consumoTotalGeral = consumoPontaTotal + consumoForaTotal;
 
   const perdasPontaTotal = z(tarifas.perdas_copel_ponta_kwh) + z(tarifas.perdas_energy_ponta_kwh);
   const perdasForaTotal = z(tarifas.perdas_copel_fora_kwh) + z(tarifas.perdas_energy_fora_kwh);
@@ -183,9 +186,11 @@ export function calcularMemoria(
     const AD = U > 0 ? AC / U : 0;
     const AF = AC + M;
 
-    const ratio = consumoTotalGeral > 0 ? U / consumoTotalGeral : 0;
-    const AH = ratio * perdasPontaTotal;
-    const AI = ratio * perdasForaTotal;
+    // Rateio de perdas SEPARADO por posto tarifário.
+    const ratioPonta = consumoPontaTotal > 0 ? Q / consumoPontaTotal : 0;
+    const ratioFora = consumoForaTotal > 0 ? T / consumoForaTotal : 0;
+    const AH = ratioPonta * perdasPontaTotal;
+    const AI = ratioFora * perdasForaTotal;
     const AJ = AH + AI;
     const AL = AH * tarifas.te_ponta;
     const AM = AH * tarifas.tusd_ponta;
