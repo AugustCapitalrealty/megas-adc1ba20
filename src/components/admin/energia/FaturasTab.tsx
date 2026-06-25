@@ -715,3 +715,52 @@ function TaxRow({ label, base, pct, valor }: { label: string; base?: number; pct
     </tr>
   );
 }
+
+function AuditRow({ label, valor, strong = false }: { label: string; valor: string; strong?: boolean }) {
+  return (
+    <div className={`flex justify-between gap-4 py-0.5 ${strong ? 'font-semibold border-t mt-1 pt-1' : ''}`}>
+      <span className="text-muted-foreground">{label}</span>
+      <span className="tabular-nums">{valor}</span>
+    </div>
+  );
+}
+
+function ConsumoAuditBlock({
+  titulo, consumoBase, perdasKwh, consumoExibido,
+  tarifaTE, tarifaTUSD, rsBase, rsPerdas, rsExibido, tarifaExibida,
+}: {
+  titulo: string;
+  consumoBase: number; perdasKwh: number; consumoExibido: number;
+  tarifaTE: number; tarifaTUSD: number;
+  rsBase: number; rsPerdas: number; rsExibido: number;
+  tarifaExibida: number;
+}) {
+  const tarifaBase = (tarifaTE || 0) + (tarifaTUSD || 0);
+  const fmtTar = (v: number) => `R$ ${(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 6, maximumFractionDigits: 6 })}`;
+  return (
+    <div className="rounded border bg-background p-3">
+      <div className="font-semibold text-sm mb-2 text-primary">{titulo}</div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">kWh</div>
+          <AuditRow label="Consumo medido (Σ módulos)" valor={`${num(consumoBase, 2)} kWh`} />
+          <AuditRow label="(+) Perdas rateadas" valor={`${num(perdasKwh, 2)} kWh`} />
+          <AuditRow label="(=) Consumo exibido" valor={`${num(consumoExibido, 2)} kWh`} strong />
+        </div>
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Tarifa base (Copel)</div>
+          <AuditRow label="TE" valor={fmtTar(tarifaTE)} />
+          <AuditRow label="(+) TUSD" valor={fmtTar(tarifaTUSD)} />
+          <AuditRow label="(=) Tarifa base" valor={fmtTar(tarifaBase)} strong />
+        </div>
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">R$</div>
+          <AuditRow label="Σ R$ consumo (base)" valor={brl(rsBase)} />
+          <AuditRow label="(+) R$ perdas (te+tusd)" valor={brl(rsPerdas)} />
+          <AuditRow label="(=) R$ exibido" valor={brl(rsExibido)} strong />
+          <AuditRow label="Tarifa efetiva = R$ ÷ kWh" valor={fmtTar(tarifaExibida)} />
+        </div>
+      </div>
+    </div>
+  );
+}
