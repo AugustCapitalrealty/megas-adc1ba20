@@ -1,23 +1,49 @@
-## Bug
+## Objetivo
 
-Na fatura Copel a "DEMANDA USD ISENTA ICMS" tem preço unitário (ex.: R$ 22,903134), mas no rateio por cliente a tarifa aparece como **R$ 0,000000**. Resultado: clientes com demanda isenta não recebem o valor correto.
+Adicionar um **detalhamento de auditoria** dentro da "Fatura Cliente" (aba Faturas → cartão por cliente) explicando passo-a-passo como cada valor de **CONSUMO (Ponta / Fora Ponta / Bandeira)** foi calculado. Esse bloco fica visível **somente no admin** (escondido em `print:hidden`) — quando a fatura for entregue ao cliente final (PDF/impressão), ele não aparece.
 
-## Causa
+Motivo: o usuário desconfia que a tarifa exibida (ex.: Ponta `R$ 2,210998`) pode estar inconsistente porque ela é **derivada** (`R$ exibido ÷ kWh exibido`) e embute perdas — não é a tarifa pura da Copel. Mostrar a decomposição permite validar rapidamente.
 
-`FaturaCopelTab.handleSave` propaga os preços unitários dos itens core (`demanda_usd`, `te_ponta`, `tusd_ponta`, `te_fora`, `tusd_fora`, `ultrapassagem`) para as colunas da tarifa usadas pelo engine (`energia_competencia_tarifas.demanda_usd/te_*/tusd_*/ultrapassagem`), mas **esquece de propagar** o preço do item `demanda_isenta_icms` para a coluna `demanda_isenta`. Como o engine (`energia-rateio.ts`) calcula `K = H * tarifas.demanda_isenta`, e essa coluna fica em 0, a parcela isenta zera.
+## O que aparece no bloco
 
-## Correção
+Card colapsável (`<details>`), título "🔍 Memória do cálculo de consumo (visível só no admin)", colocado **logo abaixo da tabela DEMANDA + CONSUMO** com classe `print:hidden`. Para cada linha de consumo:
 
-Em `src/components/admin/energia/FaturaCopelTab.tsx`, no objeto `mirror` do `handleSave`, adicionar:
+**Ponta**
+```text
+Consumo medido (Σ módulos)  : 500,00 kWh
+(+) Perdas rateadas         :  10,81 kWh
+(=) Consumo exibido         : 510,81 kWh
 
-```ts
-demanda_isenta: preco('demanda_isenta_icms'),
+Tarifa TE Ponta (Copel)     : R$ 1,xxxxxx
+(+) Tarifa TUSD Ponta       : R$ 0,xxxxxx
+(=) Tarifa base             : R$ 2,xxxxxx
+
+R$ consumo base (Σ rs_ponta)         : R$ 1.xxx,xx
+(+) R$ perdas (te+tusd ponta)        : R$    xx,xx
+(=) R$ exibido                       : R$ 1.129,39
+
+Tarifa efetiva exibida = R$ exibido / kWh exibido = R$ 2,210998
 ```
 
-junto com as outras tarifas que já são espelhadas. Após salvar a fatura, a memória de cálculo passa a usar a tarifa correta para clientes com demanda isenta.
+Mesma estrutura para **Fora Ponta**.
 
-## Verificação
+**Bandeira**: apenas `Σ bandeira_total` por módulo (já vem cru, sem derivação) — útil para confirmar de onde vêm os R$ 0,00.
 
-1. Abrir competência atual, na aba "Fatura Copel" garantir que o item DEMANDA USD ISENTA ICMS está preenchido (3,51 kW × R$ 22,903134).
-2. Clicar Salvar.
-3. Ir na aba "Memória de Cálculo" → Grandezas Contratadas do cliente que tem demanda isenta: a linha "Demanda USD Isenta ICMS" deve mostrar tarifa R$ 22,903134 e valor > 0.
+**Aviso final** dentro do bloco: "A tarifa exibida na fatura do cliente é *derivada* (R$/kWh com perdas embutidas). Diferenças mínimas vs. a tarifa Copel pura são esperadas — vêm do rateio de perdas técnicas."
+
+## Onde editar
+
+`src/components/admin/energia/FaturasTab.tsx` — função `FaturaClienteCard` (linhas ~440–570). Todas as variáveis necessárias (`consumoPonta`, `perdasPontaKwh`, `rsPonta`, `rsPerdasPonta`, `tarifaPontaExibida`, `tarifas.te_ponta`, `tarifas.tusd_ponta`, etc.) **já existem no escopo**. É só renderizar.
+
+## Detalhes técnicos
+
+- Usar `<details className="print:hidden ...">` com `<summary>` estilizado (sem JS extra).
+- Layout: tabela 2 colunas (label/valor) com `tabular-nums`, agrupada por linha de consumo.
+- Não altera nenhum cálculo nem persistência — puramente visual/diagnóstico.
+- Não toca em `FaturaCopelTab`, engine `energia-rateio.ts` nem banco.
+
+## Fora de escopo
+
+- Não muda a fatura impressa do cliente.
+- Não muda fórmulas.
+- Não adiciona nova aba/rota.

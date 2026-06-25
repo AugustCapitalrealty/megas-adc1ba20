@@ -571,6 +571,50 @@ function FaturaOficial({
           </table>
         </div>
 
+        {/* Memória de auditoria — admin only, não imprime na fatura do cliente */}
+        <details className="print:hidden rounded-md border bg-muted/30 group">
+          <summary className="cursor-pointer select-none px-3 py-2 text-sm font-semibold text-primary hover:bg-muted/60 transition">
+            🔍 Memória do cálculo de consumo (visível só no admin)
+          </summary>
+          <div className="p-4 space-y-4 text-xs">
+            <ConsumoAuditBlock
+              titulo="Ponta"
+              consumoBase={consumoPonta}
+              perdasKwh={perdasPontaKwh}
+              consumoExibido={consumoPontaExibido}
+              tarifaTE={tarifas.te_ponta}
+              tarifaTUSD={tarifas.tusd_ponta}
+              rsBase={rsPonta}
+              rsPerdas={rsPerdasPonta}
+              rsExibido={rsPontaExibido}
+              tarifaExibida={tarifaPontaExibida}
+            />
+            <ConsumoAuditBlock
+              titulo="Fora Ponta"
+              consumoBase={consumoFora}
+              perdasKwh={perdasForaKwh}
+              consumoExibido={consumoForaExibido}
+              tarifaTE={tarifas.te_fora}
+              tarifaTUSD={tarifas.tusd_fora}
+              rsBase={rsFora}
+              rsPerdas={rsPerdasFora}
+              rsExibido={rsForaExibido}
+              tarifaExibida={tarifaForaExibida}
+            />
+            <div className="rounded border bg-background p-3">
+              <div className="font-semibold mb-1">Bandeira</div>
+              <AuditRow label="Σ bandeira_total (todos os módulos)" valor={brl(bandeira)} />
+              <div className="text-muted-foreground mt-1">
+                Vem cru do lançamento — sem derivação. Se está R$ 0,00, nenhum módulo teve bandeira lançada nesta competência.
+              </div>
+            </div>
+            <div className="text-muted-foreground italic border-l-2 border-primary/50 pl-3">
+              A tarifa exibida na fatura do cliente é <strong>derivada</strong> (R$ exibido ÷ kWh exibido, com perdas técnicas embutidas).
+              Pequenas diferenças vs. a tarifa Copel pura são esperadas — vêm do rateio de perdas.
+            </div>
+          </div>
+        </details>
+
         {/* Bloco 3 — Resumo */}
         <div className="overflow-x-auto rounded-md border">
           <table className="w-full text-sm">
@@ -669,5 +713,54 @@ function TaxRow({ label, base, pct, valor }: { label: string; base?: number; pct
       <td className="px-3 py-1.5 text-right tabular-nums text-muted-foreground">{pct !== undefined ? `${pct.toFixed(2)}%` : ''}</td>
       <td className="px-3 py-1.5 text-right tabular-nums font-medium">{brl(valor)}</td>
     </tr>
+  );
+}
+
+function AuditRow({ label, valor, strong = false }: { label: string; valor: string; strong?: boolean }) {
+  return (
+    <div className={`flex justify-between gap-4 py-0.5 ${strong ? 'font-semibold border-t mt-1 pt-1' : ''}`}>
+      <span className="text-muted-foreground">{label}</span>
+      <span className="tabular-nums">{valor}</span>
+    </div>
+  );
+}
+
+function ConsumoAuditBlock({
+  titulo, consumoBase, perdasKwh, consumoExibido,
+  tarifaTE, tarifaTUSD, rsBase, rsPerdas, rsExibido, tarifaExibida,
+}: {
+  titulo: string;
+  consumoBase: number; perdasKwh: number; consumoExibido: number;
+  tarifaTE: number; tarifaTUSD: number;
+  rsBase: number; rsPerdas: number; rsExibido: number;
+  tarifaExibida: number;
+}) {
+  const tarifaBase = (tarifaTE || 0) + (tarifaTUSD || 0);
+  const fmtTar = (v: number) => `R$ ${(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 6, maximumFractionDigits: 6 })}`;
+  return (
+    <div className="rounded border bg-background p-3">
+      <div className="font-semibold text-sm mb-2 text-primary">{titulo}</div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">kWh</div>
+          <AuditRow label="Consumo medido (Σ módulos)" valor={`${num(consumoBase, 2)} kWh`} />
+          <AuditRow label="(+) Perdas rateadas" valor={`${num(perdasKwh, 2)} kWh`} />
+          <AuditRow label="(=) Consumo exibido" valor={`${num(consumoExibido, 2)} kWh`} strong />
+        </div>
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Tarifa base (Copel)</div>
+          <AuditRow label="TE" valor={fmtTar(tarifaTE)} />
+          <AuditRow label="(+) TUSD" valor={fmtTar(tarifaTUSD)} />
+          <AuditRow label="(=) Tarifa base" valor={fmtTar(tarifaBase)} strong />
+        </div>
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">R$</div>
+          <AuditRow label="Σ R$ consumo (base)" valor={brl(rsBase)} />
+          <AuditRow label="(+) R$ perdas (te+tusd)" valor={brl(rsPerdas)} />
+          <AuditRow label="(=) R$ exibido" valor={brl(rsExibido)} strong />
+          <AuditRow label="Tarifa efetiva = R$ ÷ kWh" valor={fmtTar(tarifaExibida)} />
+        </div>
+      </div>
+    </div>
   );
 }
