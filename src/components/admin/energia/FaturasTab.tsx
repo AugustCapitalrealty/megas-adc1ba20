@@ -571,6 +571,50 @@ function FaturaOficial({
           </table>
         </div>
 
+        {/* Memória de auditoria — admin only, não imprime na fatura do cliente */}
+        <details className="print:hidden rounded-md border bg-muted/30 group">
+          <summary className="cursor-pointer select-none px-3 py-2 text-sm font-semibold text-primary hover:bg-muted/60 transition">
+            🔍 Memória do cálculo de consumo (visível só no admin)
+          </summary>
+          <div className="p-4 space-y-4 text-xs">
+            <ConsumoAuditBlock
+              titulo="Ponta"
+              consumoBase={consumoPonta}
+              perdasKwh={perdasPontaKwh}
+              consumoExibido={consumoPontaExibido}
+              tarifaTE={tarifas.te_ponta}
+              tarifaTUSD={tarifas.tusd_ponta}
+              rsBase={rsPonta}
+              rsPerdas={rsPerdasPonta}
+              rsExibido={rsPontaExibido}
+              tarifaExibida={tarifaPontaExibida}
+            />
+            <ConsumoAuditBlock
+              titulo="Fora Ponta"
+              consumoBase={consumoFora}
+              perdasKwh={perdasForaKwh}
+              consumoExibido={consumoForaExibido}
+              tarifaTE={tarifas.te_fora}
+              tarifaTUSD={tarifas.tusd_fora}
+              rsBase={rsFora}
+              rsPerdas={rsPerdasFora}
+              rsExibido={rsForaExibido}
+              tarifaExibida={tarifaForaExibida}
+            />
+            <div className="rounded border bg-background p-3">
+              <div className="font-semibold mb-1">Bandeira</div>
+              <AuditRow label="Σ bandeira_total (todos os módulos)" valor={brl(bandeira)} />
+              <div className="text-muted-foreground mt-1">
+                Vem cru do lançamento — sem derivação. Se está R$ 0,00, nenhum módulo teve bandeira lançada nesta competência.
+              </div>
+            </div>
+            <div className="text-muted-foreground italic border-l-2 border-primary/50 pl-3">
+              A tarifa exibida na fatura do cliente é <strong>derivada</strong> (R$ exibido ÷ kWh exibido, com perdas técnicas embutidas).
+              Pequenas diferenças vs. a tarifa Copel pura são esperadas — vêm do rateio de perdas.
+            </div>
+          </div>
+        </details>
+
         {/* Bloco 3 — Resumo */}
         <div className="overflow-x-auto rounded-md border">
           <table className="w-full text-sm">
