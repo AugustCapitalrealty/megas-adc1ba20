@@ -402,6 +402,7 @@ export function FaturaCopelTab() {
       te_fora:     preco('te_fora'),
       tusd_fora:   preco('usd_fora'),
       ultrapassagem: preco('demanda_ultrapassagem'),
+      demanda_isenta: preco('demanda_isenta_icms'),
     };
     const { error } = await supabase
       .from('energia_competencia_tarifas')
