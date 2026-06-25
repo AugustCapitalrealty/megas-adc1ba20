@@ -1,41 +1,92 @@
-## Bug 1 — Erro "Cannot read properties of null (reading 'replace')" ao corrigir solicitação
 
-**Causa:** No modal "Corrigir e Reenviar" (`SolicitanteModals.tsx`), as linhas 257 e 497 chamam `fornecedor.cnpj.replace(...)` direto. Se o fornecedor associado tiver `cnpj` nulo (ou se outros campos opcionais chegarem nulos do banco), a renderização quebra.
+## Contexto — o que mudou entre as 3 faturas
 
-Outros pontos vulneráveis correlatos: `editValor.replace(...)` no handler de reenvio (linha 679 de `MinhasSolicitacoes.tsx`) e leitura de rascunho/duplicação em `useNovaSolicitacaoForm.ts` (linhas 142–144, 305, 314–315), que assumem string.
+Comparando os blocos "Itens de fatura":
 
-**Correção:**
-- Em `SolicitanteModals.tsx` (linhas 257 e 497): formatar CNPJ com helper seguro — usar `formatCnpj(cnpj)` que retorna `'—'` quando nulo/vazio, evitando `.replace` em null.
-- Em `MinhasSolicitacoes.tsx`:
-  - `openEditModal` (linha 555): `setEditValor(sol.valor != null ? String(Math.round(sol.valor * 100)) : '')`.
-  - `setEditDescricao(sol.descricao ?? '')` e `setEditNaturezaOrcamentaria(sol.natureza_orcamentaria ?? '' as any)`.
-  - `handleResubmit` (linha 679): `(editValor || '').replace(...)`.
-- Em `useNovaSolicitacaoForm.ts`: usar `(valor || '').replace`, `(valorServico || '').replace`, `(valorMaterial || '').replace`; nos `setValor(draft.valor ?? '')`, `setValorServico(draft.valorServico ?? '')`, `setValorMaterial(draft.valorMaterial ?? '')`.
+| Item                              | Fat 01/2026 | Fat 02/2026 | Fat 03/2026 |
+|-----------------------------------|:-----------:|:-----------:|:-----------:|
+| ENERGIA TE PONTA                  | ✔           | ✔           | ✔           |
+| ENERGIA USD PONTA                 | ✔           | ✔           | ✔           |
+| ENERGIA TE F PONTA                | ✔           | ✔           | ✔           |
+| ENERGIA USD F PONTA               | ✔           | ✔           | ✔           |
+| DEMANDA USD                       | ✔           | ✔           | ✔           |
+| DEMANDA USD ULTRAP                | —           | ✔ (48,33 kW)| —           |
+| DEMANDA USD ISENTA ICMS           | —           | —           | ✔ (3,51 kW) |
+| CONT ILUMIN PUBLICA MUNICIPIO     | ✔           | ✔           | ✔ (98,17)   |
+| Devolução SCEE (geração FV)       | ✔ (28 PT / 135 FP) | —    | —           |
+| Bandeira tarifária (Amarela/Vermelha) | Amarela 12/25 | Verde   | Verde       |
+| Energia reativa excedente         | —           | —           | —           |
+| Juros / Multa / Atual. monetária  | —           | —           | —           |
 
-## Bug 2 — Múltiplas solicitações criadas ao clicar várias vezes em "Enviar"
+Ou seja, há um **núcleo fixo** (4 energias + Demanda USD) e um conjunto de **itens opcionais** que aparecem dependendo de eventos: ultrapassagem, isenção ICMS por geração FV, devolução SCEE, bandeira amarela/vermelha, reativo excedente, juros, CIP em alguns casos.
 
-**Causa real:** O `handleSubmit` em `NovaSolicitacao.tsx` já tem trava (`isSubmittingRef` + `submitting`). O problema é que, depois do `insert` da solicitação ter sucesso (linha 781–787), passos posteriores podem lançar exceção sem `try/catch`:
+## Solução proposta
 
-- `supabase.from('historico_solicitacoes').insert(...)` (linha 824) — sem proteção.
-- `supabase.from('profiles').select(...)` (linha 831) — sem proteção.
+Substituir a lista fixa de campos no `FaturaCopelTab` por um **catálogo de itens de fatura** com itens "core" (sempre presentes) + "opcionais" (toggle por fatura).
 
-Se qualquer um falhar (RLS, rede), cai no `catch` geral. O usuário vê "Erro ao criar solicitação", o draft NÃO é limpo, e ao tentar de novo gera uma nova solicitação. Por isso aparecem #2026000620/621/622/623/625 todos iguais.
+### 1. Catálogo de itens (constante em `src/lib/energia-itens-fatura.ts`)
 
-**Correção em `NovaSolicitacao.tsx` (handleSubmit):**
-1. Marcar "ponto de não retorno" logo após o insert da solicitação bem-sucedido: a partir daí, qualquer erro em historico/profiles/notificações é apenas logado (try/catch individual) e a função segue para `clearDraft()` + toast de sucesso + navegação.
-2. Envolver o insert em `historico_solicitacoes` (linha 824) em `try/catch` que apenas loga.
-3. Envolver o `select` em `profiles` em `try/catch` (já tolerar `userProfile` undefined no envio das notificações).
-4. Reforço opcional: desabilitar o botão de envio em `FormNavigation` quando `submitting` for true (verificar se já está).
+Cada item tem: `codigo`, `descricao`, `unidade` (kWh/kW/—), `categoria` (energia | demanda | bandeira | scee | encargo | ajuste), `tributacao` (full | isento_icms | isento_pis_cofins | sem_tributo), `sinal` (+1 / –1 para devoluções/créditos), `obrigatorio` (boolean).
 
-Resultado: ao clicar várias vezes, mesmo se uma etapa periférica falhar, a solicitação não será duplicada — o draft é limpo na primeira resposta de sucesso do insert principal.
+Catálogo inicial:
+- **Obrigatórios:** ENERGIA TE PONTA, ENERGIA USD PONTA, ENERGIA TE F PONTA, ENERGIA USD F PONTA, DEMANDA USD
+- **Opcionais:**
+  - DEMANDA USD ULTRAP (kW, full)
+  - DEMANDA USD ISENTA ICMS (kW, isento_icms) — usa preço sem ICMS
+  - CONT ILUMIN PUBLICA MUNICIPIO (—, sem_tributo) — valor fixo
+  - ADICIONAL BANDEIRA AMARELA / VERMELHA P1 / VERMELHA P2 (kWh, full)
+  - ENERGIA REATIVA EXCEDENTE PONTA / F PONTA (kVArh, full)
+  - DEVOLUÇÃO SCEE PONTA / F PONTA (kWh, sinal –1, isento_icms_pis_cofins conforme regra)
+  - JUROS DE MORA, MULTA, ATUALIZAÇÃO MONETÁRIA (—, sem_tributo)
+  - OUTROS (campo livre)
 
-## Arquivos a alterar
-- `src/components/solicitante/SolicitanteModals.tsx`
-- `src/pages/MinhasSolicitacoes.tsx`
-- `src/hooks/useNovaSolicitacaoForm.ts`
-- `src/pages/NovaSolicitacao.tsx`
+### 2. Banco — campo JSONB `itens_extras` em `energia_competencia_tarifas` (ou tabela própria)
 
-## Validação
-- Typecheck (`tsgo`).
-- Reabrir a solicitação afetada (#2026000627) para corrigir — modal não deve quebrar mesmo se fornecedor tiver CNPJ nulo.
-- Clicar "Enviar" várias vezes rapidamente em uma nova solicitação — apenas 1 protocolo criado.
+Adicionar coluna `itens_extras jsonb default '[]'` na tabela de tarifas/lançamentos Copel onde hoje moram os campos fixos. Cada elemento:
+```json
+{ "codigo": "DEMANDA_USD_ULTRAP", "quantidade": 48.33, "preco_unit": 56.538175,
+  "valor": 2732.49, "pis_cofins": 204.73, "icms": 519.17, "tarifa_unit": 41.56 }
+```
+Migration única adicionando a coluna (com GRANTs revistos só se necessário — coluna não muda policies).
+
+### 3. UI — `FaturaCopelTab.tsx`
+
+- Os 5 itens obrigatórios continuam renderizados como hoje.
+- Abaixo, nova seção **"Itens adicionais da fatura"** com:
+  - Botão **"+ Adicionar item"** abrindo dropdown com o catálogo de opcionais.
+  - Cada item adicionado vira uma linha editável (descrição read-only, quantidade, preço unit, valor — com o mesmo cálculo PIS/COFINS/ICMS já corrigido, respeitando `tributacao` do catálogo) e botão de remover.
+- Totalizador soma todos os itens (obrigatórios + extras), respeitando `sinal` para devoluções.
+
+### 4. Regras de cálculo por `tributacao`
+
+- `full`: PIS/COFINS sobre (valor × (1−ICMS)); ICMS sobre valor. Já é o cálculo atual.
+- `isento_icms`: ICMS = 0; PIS/COFINS sobre valor cheio.
+- `isento_pis_cofins`: PIS/COFINS = 0.
+- `sem_tributo`: zero tributos (CIP, juros, multa).
+- Sinal –1 (devolução SCEE) subtrai do total e dos tributos.
+
+### 5. Memória de cálculo e rateio
+
+`src/lib/energia-rateio.ts` hoje consome os campos fixos. Atualizar `EnergiaLancamentoInput` para receber `itens_extras` e somar no cálculo do módulo (rateando pelo mesmo critério já usado para Demanda/Energia conforme `categoria`):
+- `energia` → rateia por consumo kWh do módulo
+- `demanda` → rateia por demanda contratada do módulo
+- `bandeira` → rateia por kWh
+- `scee` → rateia por kWh (com sinal negativo)
+- `encargo`/`ajuste` (CIP, juros, multa) → rateia por valor total ou por módulo conforme parâmetro global (default: proporcional ao valor)
+
+## Detalhes técnicos
+
+- Arquivos a criar: `src/lib/energia-itens-fatura.ts` (catálogo + helpers de cálculo por tributação).
+- Arquivos a alterar: `FaturaCopelTab.tsx` (UI + load/save de `itens_extras`), `MemoriaCalculoTab.tsx` e `energia-rateio.ts` (somar extras no cálculo por módulo), `useEffect` de recálculo já existente passa a iterar também sobre `itens_extras`.
+- Migration: `ALTER TABLE energia_competencia_tarifas ADD COLUMN itens_extras jsonb NOT NULL DEFAULT '[]'::jsonb;` (sem mudança de RLS).
+- Faturas antigas: `itens_extras` default `[]` mantém comportamento atual; usuário adiciona itens manualmente quando necessário.
+- Sem mudança no Lovable Cloud auth/RLS.
+
+## Pergunta que ainda preciso confirmar antes de codar
+
+Os **itens opcionais** devem ser:
+(a) **manuais** — usuário adiciona via "+ Adicionar item" quando ler a fatura, ou
+(b) **sempre visíveis como linhas zeradas** com toggle on/off, ou
+(c) **híbrido** — alguns mais frequentes (CIP, Ultrapassagem, Bandeira) sempre visíveis, e o resto via botão "+"?
+
+Minha recomendação é **(c)**, mas confirme antes de eu implementar.
