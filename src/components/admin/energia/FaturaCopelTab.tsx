@@ -530,8 +530,13 @@ export function FaturaCopelTab() {
                       </tr>
                     </thead>
                     <tbody>
-                      {COPEL_ITEM_DEFS.map((d) => {
+                      {visibleDefs.map((d) => {
                         const v = faturaItens.itens?.[d.key] || emptyItem();
+                        const hasPisCofins = d.tributacao !== 'sem_tributo';
+                        const hasIcms = d.tributacao === 'full';
+                        const hasTarifa = !!d.hasTarifa;
+                        const isOpcional = d.grupo === 'opcional';
+                        const isOutros = d.key.startsWith('outros:');
                         const calcInp = (val: string, on: (s: string) => void) => (
                           <Input type="text" inputMode="decimal" disabled={isLocked}
                             className="h-7 text-[11px] px-1 text-right bg-muted/30"
@@ -543,21 +548,74 @@ export function FaturaCopelTab() {
                             value={val} onChange={(e) => on(e.target.value)} />
                         );
                         return (
-                          <tr key={d.key} className={d.key === 'iluminacao_publica' ? 'bg-blue-50/30 dark:bg-blue-950/20' : ''}>
+                          <tr key={d.key} className={
+                            d.key === 'iluminacao_publica' ? 'bg-blue-50/30 dark:bg-blue-950/20'
+                            : isOpcional ? 'bg-violet-50/30 dark:bg-violet-950/20'
+                            : ''
+                          }>
                             <td className="border px-2 py-1 whitespace-nowrap">
-                              {d.key === 'iluminacao_publica' && <Lightbulb className="inline h-3 w-3 mr-1 text-blue-500" />}
-                              {d.label}
+                              <div className="flex items-center gap-1">
+                                {d.key === 'iluminacao_publica' && <Lightbulb className="inline h-3 w-3 text-blue-500" />}
+                                {d.sinal === -1 && <span className="text-emerald-600 font-bold">−</span>}
+                                {isOutros ? (
+                                  <Input
+                                    type="text" disabled={isLocked}
+                                    className="h-6 text-[11px] px-1 w-44 inline-block"
+                                    value={(faturaItens.extras_labels || {})[d.key] || ''}
+                                    onChange={(e) => renameOutros(d.key, e.target.value)}
+                                    placeholder="Descreva o item..." />
+                                ) : (
+                                  <span>{d.label}</span>
+                                )}
+                                {isOpcional && !isLocked && (
+                                  <button
+                                    type="button"
+                                    title="Remover item"
+                                    onClick={() => removeExtra(d.key)}
+                                    className="ml-auto text-muted-foreground hover:text-red-600">
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                )}
+                              </div>
                             </td>
                             <td className="border px-2 py-1 text-center text-muted-foreground">{d.unidade}</td>
                             <td className="border px-1 py-1">{d.hasUnitario ? editInp(v.quant, (s) => updateItem(d.key, 'quant', s)) : <span className="text-muted-foreground text-center block">—</span>}</td>
                             <td className="border px-1 py-1">{d.hasUnitario ? editInp(v.preco_unit, (s) => updateItem(d.key, 'preco_unit', s)) : <span className="text-muted-foreground text-center block">—</span>}</td>
                             <td className="border px-1 py-1">{calcInp(v.valor, (s) => updateItem(d.key, 'valor', s))}</td>
-                            <td className="border px-1 py-1">{d.hasPisCofins ? calcInp(v.pis_cofins, (s) => updateItem(d.key, 'pis_cofins', s)) : <span className="text-muted-foreground text-center block">—</span>}</td>
-                            <td className="border px-1 py-1">{d.hasIcms ? calcInp(v.icms, (s) => updateItem(d.key, 'icms', s)) : <span className="text-muted-foreground text-center block">—</span>}</td>
-                            <td className="border px-1 py-1">{d.hasTarifa ? calcInp(v.tarifa_unit, (s) => updateItem(d.key, 'tarifa_unit', s)) : <span className="text-muted-foreground text-center block">—</span>}</td>
+                            <td className="border px-1 py-1">{hasPisCofins ? calcInp(v.pis_cofins, (s) => updateItem(d.key, 'pis_cofins', s)) : <span className="text-muted-foreground text-center block">—</span>}</td>
+                            <td className="border px-1 py-1">{hasIcms ? calcInp(v.icms, (s) => updateItem(d.key, 'icms', s)) : <span className="text-muted-foreground text-center block">—</span>}</td>
+                            <td className="border px-1 py-1">{hasTarifa ? calcInp(v.tarifa_unit, (s) => updateItem(d.key, 'tarifa_unit', s)) : <span className="text-muted-foreground text-center block">—</span>}</td>
                           </tr>
                         );
                       })}
+                      {/* Linha "+ Adicionar item" */}
+                      {!isLocked && (
+                        <tr>
+                          <td className="border bg-muted/20 px-2 py-1.5" colSpan={8}>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" disabled={opcionaisDisponiveis.length === 0}>
+                                  <Plus className="h-3.5 w-3.5" /> Adicionar item da fatura
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="start" className="w-72 max-h-96 overflow-y-auto">
+                                <DropdownMenuLabel>Itens opcionais</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                {opcionaisDisponiveis.map((d) => (
+                                  <DropdownMenuItem key={d.key} onClick={() => addExtra(d.key)} className="flex flex-col items-start gap-0.5">
+                                    <span className="text-xs font-medium">
+                                      {d.sinal === -1 ? '− ' : ''}{d.label}
+                                    </span>
+                                    <span className="text-[10px] text-muted-foreground">
+                                      {d.unidade} · {d.tributacao === 'full' ? 'tributação cheia' : d.tributacao === 'isento_icms' ? 'isento ICMS' : 'sem tributos'}
+                                    </span>
+                                  </DropdownMenuItem>
+                                ))}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </td>
+                        </tr>
+                      )}
                       <tr className="bg-primary/5 font-bold">
                         <td className="border px-2 py-1.5 text-right" colSpan={4}>TOTAL</td>
                         <td className="border px-2 py-1.5 text-right tabular-nums text-primary">{brl(sumValor)}</td>
