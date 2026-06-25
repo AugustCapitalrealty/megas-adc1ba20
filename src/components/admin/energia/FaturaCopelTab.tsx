@@ -7,12 +7,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, FileText, Save, CheckCircle2, AlertTriangle, Lock, Calculator, Receipt, Percent, Lightbulb, Gauge } from 'lucide-react';
+import { Loader2, FileText, Save, CheckCircle2, AlertTriangle, Lock, Calculator, Receipt, Percent, Lightbulb, Gauge, Plus, X } from 'lucide-react';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenuLabel, DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import { useSharedCompetencia } from './CompetenciaContext';
 
 // ─── Tipos (reaproveita o mesmo JSONB usado na Memória) ─────────────────
-type CopelItemKey = 'te_ponta' | 'usd_ponta' | 'te_fora' | 'usd_fora' | 'demanda_usd' | 'iluminacao_publica';
+// Catálogo extensível: chaves fixas (core) + chaves opcionais (do catálogo extra).
+type CopelItemKey = string;
 interface CopelItem {
   quant: string;
   preco_unit: string;
@@ -26,6 +31,10 @@ interface FaturaCopelItens {
   itens?: Partial<Record<CopelItemKey, CopelItem>>;
   tributos?: { icms?: CopelTributo; cofins?: CopelTributo; pis?: CopelTributo };
   total_a_pagar?: string;
+  // chaves opcionais adicionadas manualmente pelo usuário (do catálogo extra)
+  extras_keys?: string[];
+  // descrição/rótulo livre para item "OUTROS" (key = `outros:<uuid>`)
+  extras_labels?: Record<string, string>;
 }
 interface Competencia {
   id: string;
@@ -40,14 +49,51 @@ interface TarifasRow {
   perdas_energy_fora_kwh?: number | null;
 }
 
-const COPEL_ITEM_DEFS: { key: CopelItemKey; label: string; unidade: string; hasUnitario: boolean; hasPisCofins: boolean; hasIcms: boolean; hasTarifa: boolean }[] = [
-  { key: 'te_ponta',           label: 'ENERGIA ELÉTRICA TE PONTA',     unidade: 'kWh', hasUnitario: true, hasPisCofins: true, hasIcms: true, hasTarifa: true },
-  { key: 'usd_ponta',          label: 'ENERGIA ELÉTRICA USD PONTA',    unidade: 'kWh', hasUnitario: true, hasPisCofins: true, hasIcms: true, hasTarifa: true },
-  { key: 'te_fora',            label: 'ENERGIA ELÉTRICA TE F PONTA',   unidade: 'kWh', hasUnitario: true, hasPisCofins: true, hasIcms: true, hasTarifa: true },
-  { key: 'usd_fora',           label: 'ENERGIA ELÉTRICA USD F PONTA',  unidade: 'kWh', hasUnitario: true, hasPisCofins: true, hasIcms: true, hasTarifa: true },
-  { key: 'demanda_usd',        label: 'DEMANDA USD',                   unidade: 'kW',  hasUnitario: true, hasPisCofins: true, hasIcms: true, hasTarifa: true },
-  { key: 'iluminacao_publica', label: 'CONT ILUMIN PÚBLICA MUNICÍPIO', unidade: '—',   hasUnitario: false, hasPisCofins: false, hasIcms: false, hasTarifa: false },
+// ─── Catálogo de itens da fatura ────────────────────────────────────────
+// `tributacao`:
+//   - 'full'        → PIS/COFINS sobre (valor × (1−ICMS)); ICMS sobre valor.
+//   - 'isento_icms' → ICMS = 0; PIS/COFINS sobre valor cheio.
+//   - 'sem_tributo' → zero tributos (CIP, juros, multa, atualização).
+// `sinal`: +1 padrão; -1 para devoluções/créditos (SCEE) — subtrai do total.
+// `grupo`: 'core' (sempre, obrigatório) | 'frequente' (sempre visível, pode ficar zerado) |
+//          'opcional' (aparece via "+ Adicionar item").
+type Tributacao = 'full' | 'isento_icms' | 'sem_tributo';
+type Grupo = 'core' | 'frequente' | 'opcional';
+interface CopelItemDef {
+  key: string;
+  label: string;
+  unidade: string;
+  hasUnitario: boolean;
+  tributacao: Tributacao;
+  sinal: 1 | -1;
+  grupo: Grupo;
+  hasTarifa?: boolean;
+}
+const COPEL_ITEM_DEFS: CopelItemDef[] = [
+  // CORE — sempre presentes, obrigatórios
+  { key: 'te_ponta',    label: 'ENERGIA ELÉTRICA TE PONTA',    unidade: 'kWh', hasUnitario: true, tributacao: 'full', sinal: 1, grupo: 'core', hasTarifa: true },
+  { key: 'usd_ponta',   label: 'ENERGIA ELÉTRICA USD PONTA',   unidade: 'kWh', hasUnitario: true, tributacao: 'full', sinal: 1, grupo: 'core', hasTarifa: true },
+  { key: 'te_fora',     label: 'ENERGIA ELÉTRICA TE F PONTA',  unidade: 'kWh', hasUnitario: true, tributacao: 'full', sinal: 1, grupo: 'core', hasTarifa: true },
+  { key: 'usd_fora',    label: 'ENERGIA ELÉTRICA USD F PONTA', unidade: 'kWh', hasUnitario: true, tributacao: 'full', sinal: 1, grupo: 'core', hasTarifa: true },
+  { key: 'demanda_usd', label: 'DEMANDA USD',                  unidade: 'kW',  hasUnitario: true, tributacao: 'full', sinal: 1, grupo: 'core', hasTarifa: true },
+  // FREQUENTES — sempre visíveis (zerados quando não há)
+  { key: 'demanda_ultrapassagem',  label: 'DEMANDA USD ULTRAP',           unidade: 'kW',  hasUnitario: true, tributacao: 'full',        sinal: 1, grupo: 'frequente', hasTarifa: true },
+  { key: 'demanda_isenta_icms',    label: 'DEMANDA USD ISENTA ICMS',      unidade: 'kW',  hasUnitario: true, tributacao: 'isento_icms', sinal: 1, grupo: 'frequente', hasTarifa: true },
+  { key: 'iluminacao_publica',     label: 'CONT ILUMIN PÚBLICA MUNICÍPIO', unidade: '—',  hasUnitario: false, tributacao: 'sem_tributo', sinal: 1, grupo: 'frequente' },
+  // OPCIONAIS — adicionados via "+ Adicionar item"
+  { key: 'bandeira_amarela',       label: 'ADICIONAL BANDEIRA AMARELA',          unidade: 'kWh', hasUnitario: true, tributacao: 'full', sinal: 1, grupo: 'opcional', hasTarifa: true },
+  { key: 'bandeira_vermelha_1',    label: 'ADICIONAL BANDEIRA VERMELHA P1',      unidade: 'kWh', hasUnitario: true, tributacao: 'full', sinal: 1, grupo: 'opcional', hasTarifa: true },
+  { key: 'bandeira_vermelha_2',    label: 'ADICIONAL BANDEIRA VERMELHA P2',      unidade: 'kWh', hasUnitario: true, tributacao: 'full', sinal: 1, grupo: 'opcional', hasTarifa: true },
+  { key: 'reativo_ponta',          label: 'ENERGIA REATIVA EXCEDENTE PONTA',     unidade: 'kVArh', hasUnitario: true, tributacao: 'full', sinal: 1, grupo: 'opcional', hasTarifa: true },
+  { key: 'reativo_fora',           label: 'ENERGIA REATIVA EXCEDENTE F PONTA',   unidade: 'kVArh', hasUnitario: true, tributacao: 'full', sinal: 1, grupo: 'opcional', hasTarifa: true },
+  { key: 'scee_devol_ponta',       label: 'DEVOLUÇÃO SCEE PONTA (geração FV)',   unidade: 'kWh', hasUnitario: true, tributacao: 'sem_tributo', sinal: -1, grupo: 'opcional' },
+  { key: 'scee_devol_fora',        label: 'DEVOLUÇÃO SCEE F PONTA (geração FV)', unidade: 'kWh', hasUnitario: true, tributacao: 'sem_tributo', sinal: -1, grupo: 'opcional' },
+  { key: 'juros_mora',             label: 'JUROS DE MORA',                       unidade: '—',   hasUnitario: false, tributacao: 'sem_tributo', sinal: 1, grupo: 'opcional' },
+  { key: 'multa',                  label: 'MULTA',                               unidade: '—',   hasUnitario: false, tributacao: 'sem_tributo', sinal: 1, grupo: 'opcional' },
+  { key: 'atualizacao_monetaria',  label: 'ATUALIZAÇÃO MONETÁRIA',               unidade: '—',   hasUnitario: false, tributacao: 'sem_tributo', sinal: 1, grupo: 'opcional' },
+  { key: 'outros',                 label: 'OUTROS (descreva)',                   unidade: '—',   hasUnitario: false, tributacao: 'sem_tributo', sinal: 1, grupo: 'opcional' },
 ];
+const DEF_BY_KEY = new Map(COPEL_ITEM_DEFS.map((d) => [d.key, d]));
 const emptyItem = (): CopelItem => ({ quant: '', preco_unit: '', valor: '', pis_cofins: '', icms: '', tarifa_unit: '' });
 const emptyTrib = (): CopelTributo => ({ base: '', aliquota: '', valor: '' });
 
@@ -63,13 +109,42 @@ const fmtBR = (n: number, dec = 2) =>
   !n || !isFinite(n) ? '' : n.toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 });
 
+// Calcula campos derivados (valor, pis_cofins, icms, tarifa_unit) para um item
+// respeitando a regra de tributação do catálogo.
+function recalcItem(def: CopelItemDef, curr: CopelItem, aliq: { pis: number; cofins: number; icms: number }): CopelItem {
+  if (!def.hasUnitario) return curr;
+  const q = parseBR(curr.quant);
+  const p = parseBR(curr.preco_unit);
+  const valor = q * p;
+  const pis = aliq.pis / 100, cofins = aliq.cofins / 100, icms = aliq.icms / 100;
+  let vIcms = 0, vPisCof = 0, tarifa = '';
+  if (def.tributacao === 'full') {
+    vIcms = valor * icms;
+    vPisCof = valor * (1 - icms) * (pis + cofins);
+    tarifa = def.hasTarifa ? fmtBR(p * (1 - icms) * (1 - pis - cofins), 6) : '';
+  } else if (def.tributacao === 'isento_icms') {
+    vIcms = 0;
+    vPisCof = valor * (pis + cofins);
+    tarifa = def.hasTarifa ? fmtBR(p * (1 - pis - cofins), 6) : '';
+  } else {
+    vIcms = 0; vPisCof = 0; tarifa = '';
+  }
+  return {
+    ...curr,
+    valor: fmtBR(valor, 2),
+    pis_cofins: fmtBR(vPisCof, 2),
+    icms: fmtBR(vIcms, 2),
+    tarifa_unit: tarifa,
+  };
+}
+
 export function FaturaCopelTab() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [competencias, setCompetencias] = useState<Competencia[]>([]);
   const { currentCompId, setCurrentCompId } = useSharedCompetencia();
   const [tarifas, setTarifas] = useState<TarifasRow | null>(null);
-  const [faturaItens, setFaturaItens] = useState<FaturaCopelItens>({ itens: {}, tributos: {}, total_a_pagar: '' });
+  const [faturaItens, setFaturaItens] = useState<FaturaCopelItens>({ itens: {}, tributos: {}, total_a_pagar: '', extras_keys: [], extras_labels: {} });
   const [aliquotas, setAliquotas] = useState({ pis: 0, cofins: 0, icms: 0 });
   const [saving, setSaving] = useState(false);
   const [energyPonta, setEnergyPonta] = useState('');
@@ -113,7 +188,13 @@ export function FaturaCopelTab() {
     if (t.error) toast.error('Erro ao carregar fatura');
     setTarifas((t.data as any) || null);
     const fc = (t.data as any)?.fatura_copel_itens || {};
-    setFaturaItens({ itens: fc.itens || {}, tributos: fc.tributos || {}, total_a_pagar: fc.total_a_pagar || '' });
+    setFaturaItens({
+      itens: fc.itens || {},
+      tributos: fc.tributos || {},
+      total_a_pagar: fc.total_a_pagar || '',
+      extras_keys: Array.isArray(fc.extras_keys) ? fc.extras_keys : [],
+      extras_labels: fc.extras_labels || {},
+    });
     const ep = Number((t.data as any)?.perdas_energy_ponta_kwh) || 0;
     const ef = Number((t.data as any)?.perdas_energy_fora_kwh) || 0;
     setEnergyPonta(ep ? fmtBR(ep, 2) : '');
@@ -133,37 +214,33 @@ export function FaturaCopelTab() {
     setFaturaItens((prev) => {
       const curr = prev.itens?.[key] || emptyItem();
       let next: CopelItem = { ...curr, [field]: value };
-      const def = COPEL_ITEM_DEFS.find((d) => d.key === key);
+      // Resolve def — para items extras dinâmicos "outros:<id>" usa o def base 'outros'.
+      const baseKey = key.startsWith('outros:') ? 'outros' : key;
+      const def = DEF_BY_KEY.get(baseKey);
       if (def?.hasUnitario && (field === 'quant' || field === 'preco_unit')) {
-        const q = parseBR(next.quant);
-        const p = parseBR(next.preco_unit);
-        const valor = q * p;
-        const pis = aliquotas.pis / 100;
-        const cofins = aliquotas.cofins / 100;
-        const icms = aliquotas.icms / 100;
-        // PIS/COFINS Copel: calculados sobre a base LÍQUIDA de ICMS
-        // ("cálculo por dentro"), e a tarifa "limpa" exclui também o ICMS.
-        const basePisCofins = valor * (1 - icms);
-        next = {
-          ...next,
-          valor: fmtBR(valor, 2),
-          pis_cofins: fmtBR(basePisCofins * (pis + cofins), 2),
-          icms: fmtBR(valor * icms, 2),
-          tarifa_unit: fmtBR(p * (1 - icms) * (1 - pis - cofins), 6),
-        };
+        next = recalcItem(def, next, aliquotas);
       }
       return { ...prev, itens: { ...(prev.itens || {}), [key]: next } };
     });
   };
 
-  // Auto-tributos
+  // Auto-tributos: ICMS sobre itens 'full' (com sinal). PIS/COFINS sobre
+  // base líquida ICMS desses + base cheia dos itens 'isento_icms'.
   useEffect(() => {
     const it = faturaItens.itens || {};
-    // Base ICMS = soma dos itens tributáveis (bruto). PIS/COFINS incidem
-    // sobre a base já líquida do ICMS ("cálculo por dentro" da Copel).
-    const baseIcms = COPEL_ITEM_DEFS.filter((d) => d.hasPisCofins).reduce((s, d) => s + parseBR(it[d.key]?.valor || ''), 0);
+    const allKeys = Object.keys(it);
+    let baseIcms = 0;
+    let basePisCofinsIsento = 0;
+    for (const k of allKeys) {
+      const baseKey = k.startsWith('outros:') ? 'outros' : k;
+      const def = DEF_BY_KEY.get(baseKey);
+      if (!def) continue;
+      const v = parseBR(it[k]?.valor || '') * def.sinal;
+      if (def.tributacao === 'full') baseIcms += v;
+      else if (def.tributacao === 'isento_icms') basePisCofinsIsento += v;
+    }
     const valorIcms = baseIcms * aliquotas.icms / 100;
-    const basePisCofins = baseIcms - valorIcms;
+    const basePisCofins = (baseIcms - valorIcms) + basePisCofinsIsento;
     const next = {
       icms: { base: fmtBR(baseIcms, 2), aliquota: fmtBR(aliquotas.icms, 2), valor: fmtBR(valorIcms, 2) },
       cofins: { base: fmtBR(basePisCofins, 2), aliquota: fmtBR(aliquotas.cofins, 2), valor: fmtBR(basePisCofins * aliquotas.cofins / 100, 2) },
@@ -188,21 +265,18 @@ export function FaturaCopelTab() {
       const it = prev.itens || {};
       let changed = false;
       const nextIt: typeof it = { ...it };
-      for (const def of COPEL_ITEM_DEFS) {
-        if (!def.hasUnitario) continue;
-        const curr = it[def.key];
+      for (const key of Object.keys(it)) {
+        const baseKey = key.startsWith('outros:') ? 'outros' : key;
+        const def = DEF_BY_KEY.get(baseKey);
+        if (!def || !def.hasUnitario) continue;
+        const curr = it[key];
         if (!curr) continue;
         const q = parseBR(curr.quant);
         const p = parseBR(curr.preco_unit);
         if (!q && !p) continue;
-        const valor = q * p;
-        const basePisCofins = valor * (1 - icms);
-        const novoPisCof = fmtBR(basePisCofins * (pis + cofins), 2);
-        const novaTarifa = def.hasTarifa
-          ? fmtBR(p * (1 - icms) * (1 - pis - cofins), 6)
-          : curr.tarifa_unit;
-        if (curr.pis_cofins !== novoPisCof || curr.tarifa_unit !== novaTarifa) {
-          nextIt[def.key] = { ...curr, pis_cofins: novoPisCof, tarifa_unit: novaTarifa };
+        const recalc = recalcItem(def, curr, aliquotas);
+        if (recalc.pis_cofins !== curr.pis_cofins || recalc.tarifa_unit !== curr.tarifa_unit || recalc.icms !== curr.icms || recalc.valor !== curr.valor) {
+          nextIt[key] = recalc;
           changed = true;
         }
       }
@@ -210,10 +284,58 @@ export function FaturaCopelTab() {
     });
   }, [aliquotas]);
 
+  // Linhas visíveis na UI: core + frequente sempre; opcional só se em extras_keys.
+  const visibleDefs = useMemo<CopelItemDef[]>(() => {
+    const extras = faturaItens.extras_keys || [];
+    const base = COPEL_ITEM_DEFS.filter((d) => d.grupo !== 'opcional');
+    const opcionais: CopelItemDef[] = [];
+    for (const k of extras) {
+      if (k.startsWith('outros:')) {
+        const baseDef = DEF_BY_KEY.get('outros')!;
+        const label = (faturaItens.extras_labels || {})[k] || baseDef.label;
+        opcionais.push({ ...baseDef, key: k, label });
+      } else {
+        const d = DEF_BY_KEY.get(k);
+        if (d) opcionais.push(d);
+      }
+    }
+    return [...base, ...opcionais];
+  }, [faturaItens.extras_keys, faturaItens.extras_labels]);
+
   const sumValor = useMemo(() => {
     const it = faturaItens.itens || {};
-    return COPEL_ITEM_DEFS.reduce((s, d) => s + parseBR(it[d.key]?.valor || ''), 0);
-  }, [faturaItens.itens]);
+    return visibleDefs.reduce((s, d) => s + parseBR(it[d.key]?.valor || '') * d.sinal, 0);
+  }, [faturaItens.itens, visibleDefs]);
+
+  const addExtra = (key: string) => {
+    setFaturaItens((prev) => {
+      const list = prev.extras_keys || [];
+      let newKey = key;
+      let labels = prev.extras_labels || {};
+      if (key === 'outros') {
+        newKey = `outros:${Date.now().toString(36)}`;
+        labels = { ...labels, [newKey]: 'OUTROS' };
+      } else if (list.includes(key)) {
+        return prev; // já existe
+      }
+      return { ...prev, extras_keys: [...list, newKey], extras_labels: labels };
+    });
+  };
+  const removeExtra = (key: string) => {
+    setFaturaItens((prev) => {
+      const list = (prev.extras_keys || []).filter((k) => k !== key);
+      const { [key]: _omit, ...nextItens } = (prev.itens || {}) as Record<string, CopelItem>;
+      const labels = { ...(prev.extras_labels || {}) };
+      delete labels[key];
+      return { ...prev, extras_keys: list, itens: nextItens, extras_labels: labels };
+    });
+  };
+  const renameOutros = (key: string, label: string) => {
+    setFaturaItens((prev) => ({ ...prev, extras_labels: { ...(prev.extras_labels || {}), [key]: label } }));
+  };
+  const opcionaisDisponiveis = COPEL_ITEM_DEFS.filter(
+    (d) => d.grupo === 'opcional' && (d.key === 'outros' || !(faturaItens.extras_keys || []).includes(d.key))
+  );
   const totalAPagar = parseBR(faturaItens.total_a_pagar || '');
   const diff = totalAPagar > 0 ? sumValor - totalAPagar : 0;
   const bateOk = totalAPagar > 0 && Math.abs(diff) < 0.01;
@@ -247,6 +369,7 @@ export function FaturaCopelTab() {
     const trib = faturaItens.tributos || {};
     const tval = (t?: CopelTributo) => parseBR(t?.valor || '');
     const piscof = tval(trib.pis) + tval(trib.cofins);
+    const ultrap = v('demanda_ultrapassagem');
     const mirror = {
       copel_consumo_ponta_kwh: q('te_ponta') || q('usd_ponta'),
       copel_consumo_fora_kwh: q('te_fora') || q('usd_fora'),
@@ -255,7 +378,8 @@ export function FaturaCopelTab() {
       copel_valor_tusd_ponta: v('usd_ponta'),
       copel_valor_te_fora: v('te_fora'),
       copel_valor_tusd_fora: v('usd_fora'),
-      copel_valor_demanda: v('demanda_usd'),
+      copel_valor_demanda: v('demanda_usd') + v('demanda_isenta_icms'),
+      copel_valor_ultrapassagem: ultrap,
       copel_valor_iluminacao_publica: v('iluminacao_publica'),
       copel_valor_icms: tval(trib.icms),
       copel_valor_pis_cofins: piscof,
@@ -277,6 +401,7 @@ export function FaturaCopelTab() {
       tusd_ponta:  preco('usd_ponta'),
       te_fora:     preco('te_fora'),
       tusd_fora:   preco('usd_fora'),
+      ultrapassagem: preco('demanda_ultrapassagem'),
     };
     const { error } = await supabase
       .from('energia_competencia_tarifas')
