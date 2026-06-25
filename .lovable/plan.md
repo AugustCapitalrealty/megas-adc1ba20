@@ -1,51 +1,41 @@
-## Plano de Ajustes — Rateio de Energia
+## Bug 1 — Erro "Cannot read properties of null (reading 'replace')" ao corrigir solicitação
 
-### 1. PIS/COFINS por item na Fatura Copel (cálculo "por dentro")
+**Causa:** No modal "Corrigir e Reenviar" (`SolicitanteModals.tsx`), as linhas 257 e 497 chamam `fornecedor.cnpj.replace(...)` direto. Se o fornecedor associado tiver `cnpj` nulo (ou se outros campos opcionais chegarem nulos do banco), a renderização quebra.
 
-**Problema:** Na aba *Fatura Copel*, as colunas "PIS/COFINS" e "Tarifa unit." de cada linha aplicam as alíquotas direto sobre o valor bruto. A Copel calcula PIS/COFINS sobre a base **líquida de ICMS** — por isso aparece 1.694,98 no sistema vs 1.372,93 na fatura real.
+Outros pontos vulneráveis correlatos: `editValor.replace(...)` no handler de reenvio (linha 679 de `MinhasSolicitacoes.tsx`) e leitura de rascunho/duplicação em `useNovaSolicitacaoForm.ts` (linhas 142–144, 305, 314–315), que assumem string.
 
-A tabela inferior "Tributos calculados" já está correta (usa `baseIcms - valorIcms`), mas as linhas individuais não.
+**Correção:**
+- Em `SolicitanteModals.tsx` (linhas 257 e 497): formatar CNPJ com helper seguro — usar `formatCnpj(cnpj)` que retorna `'—'` quando nulo/vazio, evitando `.replace` em null.
+- Em `MinhasSolicitacoes.tsx`:
+  - `openEditModal` (linha 555): `setEditValor(sol.valor != null ? String(Math.round(sol.valor * 100)) : '')`.
+  - `setEditDescricao(sol.descricao ?? '')` e `setEditNaturezaOrcamentaria(sol.natureza_orcamentaria ?? '' as any)`.
+  - `handleResubmit` (linha 679): `(editValor || '').replace(...)`.
+- Em `useNovaSolicitacaoForm.ts`: usar `(valor || '').replace`, `(valorServico || '').replace`, `(valorMaterial || '').replace`; nos `setValor(draft.valor ?? '')`, `setValorServico(draft.valorServico ?? '')`, `setValorMaterial(draft.valorMaterial ?? '')`.
 
-**Correção em `FaturaCopelTab.tsx` (`updateItem`, linhas ~140-149):**
+## Bug 2 — Múltiplas solicitações criadas ao clicar várias vezes em "Enviar"
 
-```text
-pis_cofins = valor × (1 − icms_pct) × (pis_pct + cofins_pct)
-tarifa_unit = preco_unit × (1 − icms_pct) × (1 − pis_pct − cofins_pct)
-```
+**Causa real:** O `handleSubmit` em `NovaSolicitacao.tsx` já tem trava (`isSubmittingRef` + `submitting`). O problema é que, depois do `insert` da solicitação ter sucesso (linha 781–787), passos posteriores podem lançar exceção sem `try/catch`:
 
-Recalcular `pis_cofins` e `tarifa_unit` de todas as linhas existentes quando as alíquotas/itens carregam (efeito de sincronização), para que faturas antigas reabertas exibam os números corretos sem precisar redigitar.
+- `supabase.from('historico_solicitacoes').insert(...)` (linha 824) — sem proteção.
+- `supabase.from('profiles').select(...)` (linha 831) — sem proteção.
 
-Resultado esperado para "ENERGIA ELÉTRICA TE PONTA" (Valor 24.008,18, ICMS 19%, PIS+COFINS 7,06%): `24.008,18 × 0,81 × 0,0706 ≈ 1.372,82` ✅
+Se qualquer um falhar (RLS, rede), cai no `catch` geral. O usuário vê "Erro ao criar solicitação", o draft NÃO é limpo, e ao tentar de novo gera uma nova solicitação. Por isso aparecem #2026000620/621/622/623/625 todos iguais.
 
-Sem mudanças no engine `energia-rateio.ts` (já está correto) nem na `FaturasTab`.
+**Correção em `NovaSolicitacao.tsx` (handleSubmit):**
+1. Marcar "ponto de não retorno" logo após o insert da solicitação bem-sucedido: a partir daí, qualquer erro em historico/profiles/notificações é apenas logado (try/catch individual) e a função segue para `clearDraft()` + toast de sucesso + navegação.
+2. Envolver o insert em `historico_solicitacoes` (linha 824) em `try/catch` que apenas loga.
+3. Envolver o `select` em `profiles` em `try/catch` (já tolerar `userProfile` undefined no envio das notificações).
+4. Reforço opcional: desabilitar o botão de envio em `FormNavigation` quando `submitting` for true (verificar se já está).
 
-### 2. Travar competência selecionada entre as abas
+Resultado: ao clicar várias vezes, mesmo se uma etapa periférica falhar, a solicitação não será duplicada — o draft é limpo na primeira resposta de sucesso do insert principal.
 
-**Problema:** Cada aba (`FaturaCopelTab`, `MemoriaCalculoTab`, `FaturasTab`) tem seu próprio `useState` de competência. Dá pra ficar editando Copel de 06/2026 e Lançamentos de 05/2026 sem perceber.
+## Arquivos a alterar
+- `src/components/solicitante/SolicitanteModals.tsx`
+- `src/pages/MinhasSolicitacoes.tsx`
+- `src/hooks/useNovaSolicitacaoForm.ts`
+- `src/pages/NovaSolicitacao.tsx`
 
-**Correção em `RateioEnergiaTab.tsx`:**
-- Levantar `currentCompId` para o componente pai (já existe estado de aba ativa).
-- Carregar lista de competências uma vez no pai e passar `competencias`, `currentCompId`, `setCurrentCompId` via props para as três abas que usam competência.
-- Cada aba deixa de gerenciar o próprio estado e passa a refletir a seleção global. O seletor continua visível em cada aba (UX inalterada), mas mudar em uma muda em todas.
-
-### 3. Saldo fotovoltaico em R$ além do kWh
-
-**Problema:** Hoje o card de Fotovoltaico (`MemoriaCalculoTab`, linhas ~852-905) mostra saldo inicial, geração, consumido e saldo final apenas em kWh. Usuário quer ver também o equivalente em reais.
-
-**Correção em `MemoriaCalculoTab.tsx` (card Fotovoltaico):**
-- Para cada horário (Ponta / Fora), calcular o valor em R$ do saldo final usando a tarifa cheia da competência:
-  - `tarifa_ponta_total = te_ponta + tusd_ponta` (já com tributos embutidos como a Copel cobra)
-  - `tarifa_fora_total = te_fora + tusd_fora`
-  - `saldo_final_rs = saldo_final_kwh × tarifa_total`
-- Mesmo cálculo para geração e consumido, exibidos como linha secundária menor (cinza) abaixo do valor em kWh: `≈ R$ X,XX`.
-- Adicionar uma linha de "Saldo total acumulado (R$)" no rodapé do card somando Ponta + Fora.
-- Apenas exibição — não muda a persistência (`fotovoltaico_saldo_final_*_kwh` continua sendo o que carrega para o mês seguinte).
-
-### Arquivos alterados
-
-- `src/components/admin/energia/FaturaCopelTab.tsx` — recálculo PIS/COFINS por item + props de competência.
-- `src/components/admin/energia/MemoriaCalculoTab.tsx` — props de competência + saldo fotovoltaico em R$.
-- `src/components/admin/energia/FaturasTab.tsx` — props de competência.
-- `src/components/admin/RateioEnergiaTab.tsx` — estado compartilhado de competência.
-
-Sem migrations, sem mudanças em `energia-rateio.ts`.
+## Validação
+- Typecheck (`tsgo`).
+- Reabrir a solicitação afetada (#2026000627) para corrigir — modal não deve quebrar mesmo se fornecedor tiver CNPJ nulo.
+- Clicar "Enviar" várias vezes rapidamente em uma nova solicitação — apenas 1 protocolo criado.
