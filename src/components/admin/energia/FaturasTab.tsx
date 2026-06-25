@@ -598,6 +598,8 @@ function FaturaOficial({
               rsPerdas={rsPerdasPonta}
               rsExibido={rsPontaExibido}
               tarifaExibida={tarifaPontaExibida}
+              consumoTotalGeral={consumoPontaTotalGeral}
+              perdasTotalGeral={perdasPontaTotalGeral}
             />
             <ConsumoAuditBlock
               titulo="Fora Ponta"
@@ -610,6 +612,8 @@ function FaturaOficial({
               rsPerdas={rsPerdasFora}
               rsExibido={rsForaExibido}
               tarifaExibida={tarifaForaExibida}
+              consumoTotalGeral={consumoForaTotalGeral}
+              perdasTotalGeral={perdasForaTotalGeral}
             />
             <div className="rounded border bg-background p-3">
               <div className="font-semibold mb-1">Bandeira</div>
