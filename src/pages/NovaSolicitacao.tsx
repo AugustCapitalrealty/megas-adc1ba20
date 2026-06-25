@@ -821,14 +821,28 @@ export default function NovaSolicitacao() {
         }
       }
 
-      await supabase.from('historico_solicitacoes').insert({
-        solicitacao_id: data.id,
-        user_id: user.id, // historico is who actually performed the action
-        acao: 'criacao',
-        status_novo: 'recebido',
-      });
+      // A solicitação foi criada com sucesso. A partir daqui, qualquer erro
+      // em etapas auxiliares (histórico, perfil, notificações) NÃO deve
+      // disparar o catch geral — caso contrário o draft não é limpo e o
+      // usuário pode reenviar criando solicitações duplicadas.
+      try {
+        await supabase.from('historico_solicitacoes').insert({
+          solicitacao_id: data.id,
+          user_id: user.id, // historico is who actually performed the action
+          acao: 'criacao',
+          status_novo: 'recebido',
+        });
+      } catch (histError) {
+        console.error('[SUBMIT] Falha ao registrar histórico (solicitação já criada):', histError);
+      }
 
-      const { data: userProfile } = await supabase.from('profiles').select('full_name, email').eq('id', user.id).single();
+      let userProfile: { full_name?: string | null; email?: string | null } | null = null;
+      try {
+        const { data: profileData } = await supabase.from('profiles').select('full_name, email').eq('id', user.id).single();
+        userProfile = profileData ?? null;
+      } catch (profileError) {
+        console.error('[SUBMIT] Falha ao carregar perfil (solicitação já criada):', profileError);
+      }
 
       try {
         await notifyBackofficeNewSolicitacao({
