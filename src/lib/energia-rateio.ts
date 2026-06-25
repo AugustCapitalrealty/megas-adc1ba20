@@ -129,9 +129,21 @@ export interface MemoriaResultado {
 
 const z = (n: number) => (Number.isFinite(n) ? n : 0);
 
+/**
+ * Modo de rateio de perdas técnicas entre os clientes.
+ * - `separado` (default): rateia perdas Ponta apenas pelo consumo Ponta de
+ *   cada cliente, e perdas Fora Ponta apenas pelo consumo Fora Ponta.
+ *   Tecnicamente mais preciso para clientes com perfil de carga atípico.
+ * - `combinado`: usa um único ratio = consumo_total_cliente / consumo_total_geral
+ *   aplicado às perdas de ambos os postos. Replica exatamente a planilha
+ *   "MEMÓRIA DE CÁLCULO" do Mega Curitiba.
+ */
+export type ModoRateioPerdas = 'separado' | 'combinado';
+
 export function calcularMemoria(
   tarifas: EnergiaTarifas,
   lancamentos: EnergiaLancamentoInput[],
+  modoPerdas: ModoRateioPerdas = 'separado',
 ): MemoriaResultado {
   // Passo 1: denominadores de rateio
   // - consumoTotalGeral: usado para itens sem posto tarifário (iluminação pública, créd/déb)
@@ -186,11 +198,21 @@ export function calcularMemoria(
     const AD = U > 0 ? AC / U : 0;
     const AF = AC + M;
 
-    // Rateio de perdas SEPARADO por posto tarifário.
-    const ratioPonta = consumoPontaTotal > 0 ? Q / consumoPontaTotal : 0;
-    const ratioFora = consumoForaTotal > 0 ? T / consumoForaTotal : 0;
-    const AH = ratioPonta * perdasPontaTotal;
-    const AI = ratioFora * perdasForaTotal;
+    // Rateio de perdas — modo configurável.
+    let AH: number;
+    let AI: number;
+    if (modoPerdas === 'combinado') {
+      // Replica a planilha: um único ratio (U/ΣU) aplicado às perdas dos dois postos.
+      const ratio = consumoTotalGeral > 0 ? U / consumoTotalGeral : 0;
+      AH = ratio * perdasPontaTotal;
+      AI = ratio * perdasForaTotal;
+    } else {
+      // Separado por posto — mais preciso para perfis atípicos.
+      const ratioPonta = consumoPontaTotal > 0 ? Q / consumoPontaTotal : 0;
+      const ratioFora = consumoForaTotal > 0 ? T / consumoForaTotal : 0;
+      AH = ratioPonta * perdasPontaTotal;
+      AI = ratioFora * perdasForaTotal;
+    }
     const AJ = AH + AI;
     const AL = AH * tarifas.te_ponta;
     const AM = AH * tarifas.tusd_ponta;
