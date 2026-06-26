@@ -894,6 +894,37 @@ function FaturaOficial({
           PIS/COFINS e ICMS são informativos — já estão embutidos nas tarifas brutas da Copel. Clique no <span className="inline-flex items-center"><Info className="h-3 w-3" /></span> ao lado do tributo para ver o detalhamento.
         </p>
 
+        {/* Detalhamento dos tributos — composição clara para o cliente,
+            sem citar "perdas" (que é jargão interno). */}
+        <div className="rounded-md border bg-muted/30 p-3">
+          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+            Detalhamento dos tributos (informativo)
+          </div>
+          <div className="grid gap-2 sm:grid-cols-3 text-sm">
+            <div className="rounded border bg-background p-2">
+              <div className="text-[11px] text-muted-foreground">Imposto de consumo</div>
+              <div className="font-semibold tabular-nums">{brl(piscofConsumo + icmsConsumo)}</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">
+                PIS/COFINS {brl(piscofConsumo)} + ICMS {brl(icmsConsumo)}
+              </div>
+            </div>
+            <div className="rounded border bg-background p-2">
+              <div className="text-[11px] text-muted-foreground">Imposto da demanda usada</div>
+              <div className="font-semibold tabular-nums">{brl(piscofDemandaUsd + icmsDemandaCalc)}</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">
+                PIS/COFINS {brl(piscofDemandaUsd)} + ICMS {brl(icmsDemandaCalc)}
+              </div>
+            </div>
+            <div className="rounded border bg-background p-2">
+              <div className="text-[11px] text-muted-foreground">Demanda isenta de ICMS</div>
+              <div className="font-semibold tabular-nums">{brl(piscofDemandaIsenta)}</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">
+                Apenas PIS/COFINS — ICMS não foi deduzido (parcela isenta por decisão judicial).
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div className="flex flex-wrap gap-1.5 print:hidden">
           <span className="text-xs text-muted-foreground mr-2 self-center">Módulos:</span>
           {f.modulos.map((mod) => (
