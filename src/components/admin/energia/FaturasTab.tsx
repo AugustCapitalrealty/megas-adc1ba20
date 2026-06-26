@@ -178,9 +178,46 @@ export function FaturasTab() {
     if (!selecionado && faturas.length > 0) setSelecionado(faturas[0].cliente_key);
   }, [faturas, selecionado]);
 
-  const totalGeral = faturas.reduce((s, f) => s + f.total_fatura_energy, 0);
+  // Recalcula totais por cliente usando a MESMA lógica da Fatura Oficial,
+  // para que os KPIs e o sidebar batam com o valor que cada cliente realmente paga.
+  const linhasPorFatura = useCallback((f: FaturaCliente): MemoriaLinha[] => {
+    return memoriaLinhas.filter((l) => {
+      const m = modulos.find((mm) => mm.id === l.modulo_id);
+      if (!m) return false;
+      if (f.cliente_key === 'AREA_COMUM') {
+        return (l.identificador || '').toUpperCase().includes('AREA COMUM')
+          || (l.identificador || '').toUpperCase().includes('ÁREA COMUM');
+      }
+      if (f.cliente_key.startsWith('VAGO:')) {
+        return l.modulo_id === f.cliente_key.slice(5);
+      }
+      const idx = f.cliente_key.indexOf('::');
+      const cli = idx >= 0 ? f.cliente_key.slice(0, idx) : f.cliente_key;
+      const contrato = idx >= 0 ? f.cliente_key.slice(idx + 2) : null;
+      const mCid = contratoIdPorModulo[m.id] ?? 'SEM';
+      const mCliId = mCid !== 'SEM' ? (contratoClientePorId[mCid] ?? null) : null;
+      if (mCliId !== cli) return false;
+      return mCid === contrato;
+    });
+  }, [memoriaLinhas, modulos, contratoIdPorModulo, contratoClientePorId]);
+
+  const totaisPorFatura = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof calcularTotalCliente>>();
+    if (!tarifas) return map;
+    for (const f of faturas) {
+      const linhasF = linhasPorFatura(f);
+      const demContrato = f.contrato_id ? (contratoDemandaPorId[f.contrato_id] || 0) : 0;
+      map.set(f.cliente_key, calcularTotalCliente(linhasF, tarifas as EnergiaTarifas, demContrato));
+    }
+    return map;
+  }, [faturas, tarifas, linhasPorFatura, contratoDemandaPorId]);
+
+  const totalGeral = Array.from(totaisPorFatura.values()).reduce((s, t) => s + t.total, 0);
+  const totalUltrapassagem = Array.from(totaisPorFatura.values()).reduce((s, t) => s + t.rsUltrapassagem, 0);
+  const totalCredito = Array.from(totaisPorFatura.values()).reduce((s, t) => s + t.credito, 0);
   const totalCopel = Number(tarifas?.copel_valor_total) || 0;
   const diferenca = totalGeral - totalCopel;
+  const diferencaResidual = diferenca - totalUltrapassagem - totalCredito;
 
   const faturaSelecionada = faturas.find((f) => f.cliente_key === selecionado) || null;
 
@@ -199,6 +236,7 @@ export function FaturasTab() {
   const copiarResumo = () => {
     if (!faturaSelecionada || !currentComp) return;
     const f = faturaSelecionada;
+    const tot = totaisPorFatura.get(f.cliente_key)?.total ?? f.total_fatura_energy;
     const txt = [
       `Fatura ${f.cliente_nome}${f.contrato_numero ? ` — Contrato ${f.contrato_numero}` : ''} — ${currentComp.ano_mes}`,
       `Módulos: ${f.modulos.join(', ')}`,
@@ -209,7 +247,7 @@ export function FaturasTab() {
       `Consumo R$: ${brl(f.rs_consumo_total + f.rs_perdas)}`,
       `Tributos R$: ${brl(f.icms_total + f.piscof_total + f.iluminacao_publica + f.bandeira_total)}`,
       `Fotovoltaico R$: ${brl(f.fotovoltaico)}`,
-      `TOTAL: ${brl(f.total_fatura_energy)}`,
+      `TOTAL: ${brl(tot)}`,
     ].join('\n');
     navigator.clipboard.writeText(txt);
     toast.success('Resumo copiado');
@@ -231,7 +269,7 @@ export function FaturasTab() {
       (f.rs_consumo_total + f.rs_perdas).toFixed(2),
       (f.icms_total + f.piscof_total + f.iluminacao_publica + f.bandeira_total).toFixed(2),
       f.fotovoltaico.toFixed(2),
-      f.total_fatura_energy.toFixed(2),
+      (totaisPorFatura.get(f.cliente_key)?.total ?? f.total_fatura_energy).toFixed(2),
     ]);
     const csv = [headers, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(';')).join('\n');
     const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
@@ -289,6 +327,54 @@ export function FaturasTab() {
               suffix={diferenca >= 0 ? 'a maior' : 'a menor'}
             />
           </div>
+
+          {/* Diferenças — Copel × Faturado */}
+          {faturas.length > 0 && (
+            <details className="rounded-md border bg-muted/30 group" open={Math.abs(diferencaResidual) >= 1}>
+              <summary className="cursor-pointer select-none px-3 py-2 text-sm font-semibold hover:bg-muted/60 transition flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-primary" />
+                Diferenças Copel × Faturado
+                <span className={`ml-auto text-xs font-normal ${Math.abs(diferencaResidual) < 1 ? 'text-green-600' : Math.abs(diferencaResidual) < 50 ? 'text-amber-600' : 'text-red-600'}`}>
+                  residual: {brl(diferencaResidual)}
+                </span>
+              </summary>
+              <div className="p-4 space-y-3">
+                <table className="w-full text-sm">
+                  <tbody>
+                    <tr className="border-b">
+                      <td className="py-1.5">Total Fatura Copel</td>
+                      <td className="py-1.5 text-right tabular-nums">{brl(totalCopel)}</td>
+                    </tr>
+                    <tr className="border-b">
+                      <td className="py-1.5">Σ Faturas dos clientes</td>
+                      <td className="py-1.5 text-right tabular-nums">{brl(totalGeral)}</td>
+                    </tr>
+                    <tr className="border-b font-semibold">
+                      <td className="py-1.5">Diferença bruta</td>
+                      <td className="py-1.5 text-right tabular-nums">{brl(diferenca)}</td>
+                    </tr>
+                    <tr className="text-muted-foreground">
+                      <td className="py-1.5 pl-4">(−) Ultrapassagem faturada <span className="text-[11px]">esperado (multa)</span></td>
+                      <td className="py-1.5 text-right tabular-nums">{brl(totalUltrapassagem)}</td>
+                    </tr>
+                    <tr className="text-muted-foreground border-b">
+                      <td className="py-1.5 pl-4">(−) Crédito/Débito repassado <span className="text-[11px]">esperado</span></td>
+                      <td className="py-1.5 text-right tabular-nums">{brl(totalCredito)}</td>
+                    </tr>
+                    <tr className="border-t-2 border-primary">
+                      <td className="py-1.5 font-bold">Diferença residual <span className="text-[11px] font-normal text-muted-foreground">(deve ser ~ R$ 0)</span></td>
+                      <td className={`py-1.5 text-right tabular-nums font-bold ${Math.abs(diferencaResidual) < 1 ? 'text-green-600' : Math.abs(diferencaResidual) < 50 ? 'text-amber-600' : 'text-red-600'}`}>
+                        {brl(diferencaResidual)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+                <p className="text-xs text-muted-foreground italic">
+                  A diferença saudável vem apenas de <strong>ultrapassagem</strong> (multa por demanda acima do contratado) e do <strong>crédito/débito</strong> da Copel repassado aos clientes. Se o residual for relevante, revisar a Fatura Copel, os lançamentos ou a demanda contratada dos contratos.
+                </p>
+              </div>
+            </details>
+          )}
         </CardContent>
       </Card>
 
@@ -336,7 +422,7 @@ export function FaturasTab() {
                           </div>
                         )}
                         <div className={`text-xs mt-0.5 ${active ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
-                          {f.modulos.length} mód · {brl(f.total_fatura_energy)}
+                          {f.modulos.length} mód · {brl(totaisPorFatura.get(f.cliente_key)?.total ?? 0)}
                         </div>
                       </button>
                     </li>
@@ -412,6 +498,40 @@ function KpiCard({ label, value, icon: Icon, tone, suffix }: { label: string; va
 // Fatura Oficial — replica o layout da planilha "FATURA DE ENERGIA"
 // que o cliente já recebe hoje (PDF Mega Centro Logístico).
 // ───────────────────────────────────────────────────────────
+
+// Recalcula o total da fatura POR CLIENTE com a mesma lógica de FaturaOficial:
+// usa a demanda CONTRATADA do contrato (não a soma por módulo), reaplica
+// ultrapassagem 2× e demanda isenta, embute perdas no consumo e ignora
+// PIS/COFINS e ICMS no total (são informativos). Retorna também as parcelas
+// "esperadas" da diferença Copel × Faturado: ultrapassagem e crédito/débito.
+export function calcularTotalCliente(
+  linhas: MemoriaLinha[],
+  tarifas: EnergiaTarifas,
+  demandaContrato: number,
+) {
+  const sum = (k: keyof MemoriaLinha) =>
+    linhas.reduce((s, l) => s + (Number(l[k] as any) || 0), 0);
+
+  const demandaMedida = sum('demanda_usd');
+  const demandaIsenta = demandaMedida >= demandaContrato ? 0 : demandaContrato - demandaMedida;
+  const ultrapassagem = demandaMedida > demandaContrato ? demandaMedida - demandaContrato : 0;
+  const faturadoUsd = demandaMedida >= demandaContrato ? demandaContrato : demandaMedida;
+  const rsDemandaUsd = faturadoUsd * (tarifas.demanda_usd || 0);
+  const rsDemandaIsenta = demandaIsenta * (tarifas.demanda_isenta || 0);
+  const tarifaUltrapassagem = (tarifas.demanda_usd || 0) * 2;
+  const rsUltrapassagem = ultrapassagem * tarifaUltrapassagem;
+
+  const rsPonta = sum('rs_ponta') + sum('rs_perdas_te_ponta') + sum('rs_perdas_tusd_ponta');
+  const rsFora = sum('rs_fora') + sum('rs_perdas_te_fora') + sum('rs_perdas_tusd_fora');
+  const ilum = sum('iluminacao_publica');
+  const bandeira = sum('bandeira_total');
+  const credito = sum('cred_deb_rateado') + sum('fotovoltaico') + sum('ajuste_manual');
+
+  const totalFornecimento = rsDemandaUsd + rsDemandaIsenta + rsUltrapassagem + rsPonta + rsFora;
+  const total = totalFornecimento + ilum + credito + bandeira;
+
+  return { total, rsUltrapassagem, credito, rsDemandaUsd, rsDemandaIsenta };
+}
 
 function compactarModulos(ids: string[]): string {
   // Extrai número do identificador (ex. "MÓDULO 48" → 48). Se contíguo, exibe faixa.
@@ -530,13 +650,21 @@ function FaturaOficial({
   // Base dos impostos com perdas embutidas (mantém coerência com o consumo exibido).
   // PIS/COFINS e ICMS continuam informativos (já embutidos nas tarifas brutas).
   const baseConsumoComPerdas = rsPontaExibido + rsForaExibido;
-  const piscofDemandaSum = sum('piscof_demanda') + sum('piscof_demanda_isenta');
-  const icmsDemandaSum = sum('icms_demanda');
   const piscofPct = tarifas.pis_pct + tarifas.cofins_pct;
-  // PIS/COFINS incide sobre o consumo LÍQUIDO de ICMS.
-  const basePiscofConsumo = baseConsumoComPerdas * (1 - tarifas.icms_pct);
-  const piscofExibido = basePiscofConsumo * piscofPct + piscofDemandaSum;
-  const icmsExibido = baseConsumoComPerdas * tarifas.icms_pct + icmsDemandaSum;
+  // PIS/COFINS e ICMS da DEMANDA precisam ser recalculados a partir dos
+  // valores POR CLIENTE (rsDemandaUsd / rsDemandaIsenta) — não dá para somar
+  // piscof_demanda das linhas porque essas usaram a demanda por MÓDULO, e o
+  // contrato é por cliente. Isso causava PIS/COFINS errado quando a demanda
+  // do contrato ≠ Σ módulos.
+  const piscofConsumo = baseConsumoComPerdas * (1 - tarifas.icms_pct) * piscofPct;
+  const piscofDemandaUsd = rsDemandaUsd * (1 - tarifas.icms_pct) * piscofPct;
+  const piscofDemandaIsenta = rsDemandaIsenta * piscofPct; // sem ICMS para deduzir
+  const piscofExibido = piscofConsumo + piscofDemandaUsd + piscofDemandaIsenta;
+
+  const icmsConsumo = baseConsumoComPerdas * tarifas.icms_pct;
+  const icmsDemandaCalc = rsDemandaUsd * tarifas.icms_pct; // isenta NÃO entra
+  const icmsExibido = icmsConsumo + icmsDemandaCalc;
+
   const basePiscof = piscofPct > 0 ? piscofExibido / piscofPct : 0;
   const pctPiscof = piscofPct * 100;
   const baseIcms = tarifas.icms_pct > 0 ? icmsExibido / tarifas.icms_pct : 0;
@@ -722,8 +850,8 @@ function FaturaOficial({
                     intro={`Alíquota total ${pctPiscof.toFixed(2)}% (PIS ${(tarifas.pis_pct*100).toFixed(2)}% + COFINS ${(tarifas.cofins_pct*100).toFixed(2)}%). Incide sobre cada parcela do fornecimento, com a base LÍQUIDA de ICMS quando a parcela é tributada.`}
                     linhas={[
                       { label: 'Consumo (c/ perdas)', formula: `${brl(baseConsumoComPerdas)} × (1 − ${(tarifas.icms_pct*100).toFixed(0)}%) × ${pctPiscof.toFixed(2)}%`, valor: baseConsumoComPerdas * (1 - tarifas.icms_pct) * piscofPct },
-                      { label: 'Demanda USD', formula: `${brl(rsDemandaUsd)} × (1 − ${(tarifas.icms_pct*100).toFixed(0)}%) × ${pctPiscof.toFixed(2)}%`, valor: piscofDemandaSum - sum('piscof_demanda_isenta') },
-                      { label: 'Demanda Isenta ICMS', formula: `${brl(rsDemandaIsenta)} × ${pctPiscof.toFixed(2)}% (sem ICMS para deduzir)`, valor: sum('piscof_demanda_isenta') },
+                      { label: 'Demanda USD', formula: `${brl(rsDemandaUsd)} × (1 − ${(tarifas.icms_pct*100).toFixed(0)}%) × ${pctPiscof.toFixed(2)}%`, valor: piscofDemandaUsd },
+                      { label: 'Demanda Isenta ICMS', formula: `${brl(rsDemandaIsenta)} × ${pctPiscof.toFixed(2)}% (sem ICMS para deduzir)`, valor: piscofDemandaIsenta },
                     ]}
                     totalLabel="Total PIS/COFINS"
                     total={piscofExibido}
@@ -743,7 +871,7 @@ function FaturaOficial({
                     intro={`Alíquota ${pctIcms.toFixed(2)}%. Incide sobre as parcelas tributadas do fornecimento. A Demanda Isenta de ICMS é, por definição, excluída da base.`}
                     linhas={[
                       { label: 'Consumo (c/ perdas)', formula: `${brl(baseConsumoComPerdas)} × ${pctIcms.toFixed(2)}%`, valor: baseConsumoComPerdas * tarifas.icms_pct },
-                      { label: 'Demanda USD', formula: `${brl(rsDemandaUsd)} × ${pctIcms.toFixed(2)}%`, valor: icmsDemandaSum },
+                      { label: 'Demanda USD', formula: `${brl(rsDemandaUsd)} × ${pctIcms.toFixed(2)}%`, valor: icmsDemandaCalc },
                       { label: 'Demanda Isenta ICMS', formula: `${brl(rsDemandaIsenta)} — isenta, não tributa`, valor: 0 },
                     ]}
                     totalLabel="Total ICMS"
@@ -766,6 +894,37 @@ function FaturaOficial({
         <p className="text-[11px] italic text-muted-foreground -mt-2">
           PIS/COFINS e ICMS são informativos — já estão embutidos nas tarifas brutas da Copel. Clique no <span className="inline-flex items-center"><Info className="h-3 w-3" /></span> ao lado do tributo para ver o detalhamento.
         </p>
+
+        {/* Detalhamento dos tributos — composição clara para o cliente,
+            sem citar "perdas" (que é jargão interno). */}
+        <div className="rounded-md border bg-muted/30 p-3">
+          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+            Detalhamento dos tributos (informativo)
+          </div>
+          <div className="grid gap-2 sm:grid-cols-3 text-sm">
+            <div className="rounded border bg-background p-2">
+              <div className="text-[11px] text-muted-foreground">Imposto de consumo</div>
+              <div className="font-semibold tabular-nums">{brl(piscofConsumo + icmsConsumo)}</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">
+                PIS/COFINS {brl(piscofConsumo)} + ICMS {brl(icmsConsumo)}
+              </div>
+            </div>
+            <div className="rounded border bg-background p-2">
+              <div className="text-[11px] text-muted-foreground">Imposto da demanda usada</div>
+              <div className="font-semibold tabular-nums">{brl(piscofDemandaUsd + icmsDemandaCalc)}</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">
+                PIS/COFINS {brl(piscofDemandaUsd)} + ICMS {brl(icmsDemandaCalc)}
+              </div>
+            </div>
+            <div className="rounded border bg-background p-2">
+              <div className="text-[11px] text-muted-foreground">Demanda isenta de ICMS</div>
+              <div className="font-semibold tabular-nums">{brl(piscofDemandaIsenta)}</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">
+                Apenas PIS/COFINS — ICMS não foi deduzido (parcela isenta por decisão judicial).
+              </div>
+            </div>
+          </div>
+        </div>
 
         <div className="flex flex-wrap gap-1.5 print:hidden">
           <span className="text-xs text-muted-foreground mr-2 self-center">Módulos:</span>
