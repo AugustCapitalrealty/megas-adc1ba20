@@ -178,9 +178,46 @@ export function FaturasTab() {
     if (!selecionado && faturas.length > 0) setSelecionado(faturas[0].cliente_key);
   }, [faturas, selecionado]);
 
-  const totalGeral = faturas.reduce((s, f) => s + f.total_fatura_energy, 0);
+  // Recalcula totais por cliente usando a MESMA lógica da Fatura Oficial,
+  // para que os KPIs e o sidebar batam com o valor que cada cliente realmente paga.
+  const linhasPorFatura = useCallback((f: FaturaCliente): MemoriaLinha[] => {
+    return memoriaLinhas.filter((l) => {
+      const m = modulos.find((mm) => mm.id === l.modulo_id);
+      if (!m) return false;
+      if (f.cliente_key === 'AREA_COMUM') {
+        return (l.identificador || '').toUpperCase().includes('AREA COMUM')
+          || (l.identificador || '').toUpperCase().includes('ÁREA COMUM');
+      }
+      if (f.cliente_key.startsWith('VAGO:')) {
+        return l.modulo_id === f.cliente_key.slice(5);
+      }
+      const idx = f.cliente_key.indexOf('::');
+      const cli = idx >= 0 ? f.cliente_key.slice(0, idx) : f.cliente_key;
+      const contrato = idx >= 0 ? f.cliente_key.slice(idx + 2) : null;
+      const mCid = contratoIdPorModulo[m.id] ?? 'SEM';
+      const mCliId = mCid !== 'SEM' ? (contratoClientePorId[mCid] ?? null) : null;
+      if (mCliId !== cli) return false;
+      return mCid === contrato;
+    });
+  }, [memoriaLinhas, modulos, contratoIdPorModulo, contratoClientePorId]);
+
+  const totaisPorFatura = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof calcularTotalCliente>>();
+    if (!tarifas) return map;
+    for (const f of faturas) {
+      const linhasF = linhasPorFatura(f);
+      const demContrato = f.contrato_id ? (contratoDemandaPorId[f.contrato_id] || 0) : 0;
+      map.set(f.cliente_key, calcularTotalCliente(linhasF, tarifas as EnergiaTarifas, demContrato));
+    }
+    return map;
+  }, [faturas, tarifas, linhasPorFatura, contratoDemandaPorId]);
+
+  const totalGeral = Array.from(totaisPorFatura.values()).reduce((s, t) => s + t.total, 0);
+  const totalUltrapassagem = Array.from(totaisPorFatura.values()).reduce((s, t) => s + t.rsUltrapassagem, 0);
+  const totalCredito = Array.from(totaisPorFatura.values()).reduce((s, t) => s + t.credito, 0);
   const totalCopel = Number(tarifas?.copel_valor_total) || 0;
   const diferenca = totalGeral - totalCopel;
+  const diferencaResidual = diferenca - totalUltrapassagem - totalCredito;
 
   const faturaSelecionada = faturas.find((f) => f.cliente_key === selecionado) || null;
 
