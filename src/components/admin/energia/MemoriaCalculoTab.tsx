@@ -746,7 +746,17 @@ export function MemoriaCalculoTab() {
         is_area_comum: m.identificador.toUpperCase().includes('ÁREA COMUM') || m.identificador.toUpperCase().includes('AREA COMUM'),
       };
     });
-    return calcularMemoria(tarifas, inputs);
+    // Deriva perdas Copel em tempo de cálculo (vide FaturasTab).
+    const somaPontaLanc = inputs.reduce((s, i) => s + (i.consumo_ponta_kwh || 0), 0);
+    const somaForaLanc = inputs.reduce((s, i) => s + (i.consumo_fora_kwh || 0), 0);
+    const copelPontaKwh = Number((tarifas as any).copel_consumo_ponta_kwh) || 0;
+    const copelForaKwh = Number((tarifas as any).copel_consumo_fora_kwh) || 0;
+    const tarifasComPerdas: EnergiaTarifas = {
+      ...tarifas,
+      perdas_copel_ponta_kwh: copelPontaKwh - somaPontaLanc,
+      perdas_copel_fora_kwh: copelForaKwh - somaForaLanc,
+    };
+    return calcularMemoria(tarifasComPerdas, inputs);
   }, [tarifas, lancamentos, modulos, clientes, contratoPorModulo]);
 
   const exportCSV = () => {
