@@ -411,8 +411,11 @@ export function FaturaCopelTab() {
         ...mirror,
         perdas_energy_ponta_kwh: energyPontaNum,
         perdas_energy_fora_kwh: energyForaNum,
-        perdas_copel_ponta_kwh: Math.max(0, difCopelPonta),
-        perdas_copel_fora_kwh: Math.max(0, difCopelFora),
+        // Não clampar: diferenças negativas (Copel mediu menos que a soma
+        // dos clientes) também precisam compor as perdas totais para o rateio
+        // bater com a planilha do Mega Curitiba.
+        perdas_copel_ponta_kwh: difCopelPonta,
+        perdas_copel_fora_kwh: difCopelFora,
         updated_by: user?.id,
       } as any)
       .eq('id', tarifas.id);
