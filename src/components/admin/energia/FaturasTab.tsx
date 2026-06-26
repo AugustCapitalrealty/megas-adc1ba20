@@ -649,13 +649,21 @@ function FaturaOficial({
   // Base dos impostos com perdas embutidas (mantém coerência com o consumo exibido).
   // PIS/COFINS e ICMS continuam informativos (já embutidos nas tarifas brutas).
   const baseConsumoComPerdas = rsPontaExibido + rsForaExibido;
-  const piscofDemandaSum = sum('piscof_demanda') + sum('piscof_demanda_isenta');
-  const icmsDemandaSum = sum('icms_demanda');
   const piscofPct = tarifas.pis_pct + tarifas.cofins_pct;
-  // PIS/COFINS incide sobre o consumo LÍQUIDO de ICMS.
-  const basePiscofConsumo = baseConsumoComPerdas * (1 - tarifas.icms_pct);
-  const piscofExibido = basePiscofConsumo * piscofPct + piscofDemandaSum;
-  const icmsExibido = baseConsumoComPerdas * tarifas.icms_pct + icmsDemandaSum;
+  // PIS/COFINS e ICMS da DEMANDA precisam ser recalculados a partir dos
+  // valores POR CLIENTE (rsDemandaUsd / rsDemandaIsenta) — não dá para somar
+  // piscof_demanda das linhas porque essas usaram a demanda por MÓDULO, e o
+  // contrato é por cliente. Isso causava PIS/COFINS errado quando a demanda
+  // do contrato ≠ Σ módulos.
+  const piscofConsumo = baseConsumoComPerdas * (1 - tarifas.icms_pct) * piscofPct;
+  const piscofDemandaUsd = rsDemandaUsd * (1 - tarifas.icms_pct) * piscofPct;
+  const piscofDemandaIsenta = rsDemandaIsenta * piscofPct; // sem ICMS para deduzir
+  const piscofExibido = piscofConsumo + piscofDemandaUsd + piscofDemandaIsenta;
+
+  const icmsConsumo = baseConsumoComPerdas * tarifas.icms_pct;
+  const icmsDemandaCalc = rsDemandaUsd * tarifas.icms_pct; // isenta NÃO entra
+  const icmsExibido = icmsConsumo + icmsDemandaCalc;
+
   const basePiscof = piscofPct > 0 ? piscofExibido / piscofPct : 0;
   const pctPiscof = piscofPct * 100;
   const baseIcms = tarifas.icms_pct > 0 ? icmsExibido / tarifas.icms_pct : 0;
