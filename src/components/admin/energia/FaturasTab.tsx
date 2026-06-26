@@ -236,6 +236,7 @@ export function FaturasTab() {
   const copiarResumo = () => {
     if (!faturaSelecionada || !currentComp) return;
     const f = faturaSelecionada;
+    const tot = totaisPorFatura.get(f.cliente_key)?.total ?? f.total_fatura_energy;
     const txt = [
       `Fatura ${f.cliente_nome}${f.contrato_numero ? ` — Contrato ${f.contrato_numero}` : ''} — ${currentComp.ano_mes}`,
       `Módulos: ${f.modulos.join(', ')}`,
@@ -246,7 +247,7 @@ export function FaturasTab() {
       `Consumo R$: ${brl(f.rs_consumo_total + f.rs_perdas)}`,
       `Tributos R$: ${brl(f.icms_total + f.piscof_total + f.iluminacao_publica + f.bandeira_total)}`,
       `Fotovoltaico R$: ${brl(f.fotovoltaico)}`,
-      `TOTAL: ${brl(f.total_fatura_energy)}`,
+      `TOTAL: ${brl(tot)}`,
     ].join('\n');
     navigator.clipboard.writeText(txt);
     toast.success('Resumo copiado');
@@ -268,7 +269,7 @@ export function FaturasTab() {
       (f.rs_consumo_total + f.rs_perdas).toFixed(2),
       (f.icms_total + f.piscof_total + f.iluminacao_publica + f.bandeira_total).toFixed(2),
       f.fotovoltaico.toFixed(2),
-      f.total_fatura_energy.toFixed(2),
+      (totaisPorFatura.get(f.cliente_key)?.total ?? f.total_fatura_energy).toFixed(2),
     ]);
     const csv = [headers, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(';')).join('\n');
     const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
