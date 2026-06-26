@@ -2200,12 +2200,12 @@ export type Database = {
           onboarding_completed_at: string | null
           receber_notificacoes_email: boolean | null
           updated_at: string
-        }
+        }[]
         SetofOptions: {
           from: "*"
           to: "profiles"
-          isOneToOne: true
-          isSetofReturn: false
+          isOneToOne: false
+          isSetofReturn: true
         }
       }
       get_retrabalho_eficiencia: {
