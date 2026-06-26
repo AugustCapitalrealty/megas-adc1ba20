@@ -1,42 +1,68 @@
-## Problema
+## Diagnóstico
 
-No modo **Planilha (combinado)** o cálculo de perdas Fora Ponta está divergente porque a diferença Copel negativa não está sendo persistida.
+A correção anterior (remover `Math.max(0, …)`) está no código, mas o **banco ainda tem o valor antigo zerado** — confirmei via SQL:
 
-Em `src/components/admin/energia/FaturaCopelTab.tsx` (linhas 414–415), ao salvar a fatura Copel:
-
-```ts
-perdas_copel_ponta_kwh: Math.max(0, difCopelPonta),
-perdas_copel_fora_kwh:  Math.max(0, difCopelFora),
+```
+perdas_copel_fora_kwh = 0           ← deveria ser -4.751,71
+perdas_copel_ponta_kwh = 1102,02
+perdas_energy_fora_kwh = -11.002,40
+perdas_energy_ponta_kwh = 0
 ```
 
-O `Math.max(0, …)` zera qualquer diferença Copel negativa. No caso da competência atual, `difCopelFora = -4.751,71` é gravado como `0`, e o engine soma apenas as perdas Energy (`-11.002,40`) — exatamente o sintoma descrito.
+Por isso a fatura mostra apenas `-11.002,40` no rateio Fora Ponta. O usuário precisaria reabrir Fatura Copel e clicar Salvar — o que é frágil e vai acontecer de novo.
 
-A UI exibe corretamente `difCopelFora = -4.751,71` (linha 785), mas o valor que vai pro banco é truncado.
+## Correção definitiva
 
-## Correção
+Tornar as perdas Copel **derivadas em tempo de cálculo** em vez de persistidas, eliminando o problema na raiz.
 
-**Arquivo:** `src/components/admin/energia/FaturaCopelTab.tsx`
+### 1) `src/components/admin/energia/FaturasTab.tsx` (~linha 136)
 
-Remover o clamp e persistir o valor real (positivo ou negativo):
+Antes de chamar `calcularMemoria`, recomputar `perdas_copel_*_kwh` a partir do consumo medido pela Copel e da soma dos lançamentos da competência:
 
 ```ts
-perdas_copel_ponta_kwh: difCopelPonta,
-perdas_copel_fora_kwh:  difCopelFora,
+const somaPonta = inputs.reduce((s, i) => s + (i.consumo_ponta_kwh || 0), 0);
+const somaFora  = inputs.reduce((s, i) => s + (i.consumo_fora_kwh  || 0), 0);
+const copelPonta = Number((tarifas as any).copel_consumo_ponta_kwh) || 0;
+const copelFora  = Number((tarifas as any).copel_consumo_fora_kwh)  || 0;
+const tarifasComPerdas: EnergiaTarifas = {
+  ...(tarifas as EnergiaTarifas),
+  perdas_copel_ponta_kwh: copelPonta - somaPonta,
+  perdas_copel_fora_kwh:  copelFora  - somaFora,
+};
+const memoria = calcularMemoria(tarifasComPerdas, inputs, modoPerdas);
 ```
 
-O engine de rateio (`energia-rateio.ts`) já trata valores negativos corretamente em ambos os modos — ele apenas soma `copel + energy` em `perdasPontaTotal` / `perdasForaTotal`. Não precisa de mudança.
+Mesma alteração em `src/components/admin/energia/MemoriaCalculoTab.tsx` (linha 749) para manter consistência entre as abas.
 
-## Validação esperada após o fix
+### 2) Backfill imediato da competência atual
 
-Para BOTICARIO módulo 33–34, modo **Planilha (combinado)**:
+Rodar UPDATE para corrigir o valor já persistido:
+
+```sql
+UPDATE energia_competencia_tarifas t
+SET perdas_copel_fora_kwh  = COALESCE(t.copel_consumo_fora_kwh, 0)
+                           - COALESCE((SELECT SUM(l.consumo_fora_kwh)
+                                       FROM energia_competencia_lancamentos l
+                                       WHERE l.competencia_id = t.competencia_id), 0),
+    perdas_copel_ponta_kwh = COALESCE(t.copel_consumo_ponta_kwh, 0)
+                           - COALESCE((SELECT SUM(l.consumo_ponta_kwh)
+                                       FROM energia_competencia_lancamentos l
+                                       WHERE l.competencia_id = t.competencia_id), 0)
+WHERE t.id = '80f1cac2-8abe-4ae8-b568-5304da6dec1f';
+```
+
+(Aplico só na competência ativa para não mexer em históricos antigos sem necessidade.)
+
+### 3) `FaturaCopelTab.tsx` — manter o save sem clamp
+
+Já foi corrigido na rodada anterior. Mantém a gravação como espelho/auditoria, mas a fatura passa a usar o valor derivado, então mesmo se o usuário esquecer de re-salvar, o cálculo fica certo.
+
+## Validação esperada
+
+Após o deploy, para BOTICARIO mod 33–34 em modo **Planilha (combinado)**:
 
 - `perdasForaTotal = -4.751,71 + -11.002,40 = -15.754,11`
-- `ratio = 10.668,43 / 377.462,69 = 2,8263%`
-- `AI = 2,8263% × -15.754,11 ≈ -445,27 kWh`
-- Medido Fora Ponta ≈ `10.188,77 + (-445,27) = 9.743,50 kWh` ✅
+- `AI = (10.668,43 / 377.462,69) × -15.754,11 ≈ -445,27 kWh`
+- **Medido Fora Ponta ≈ 9.743,50 kWh** ✅
 
-E o modo **Exato (separado)** continua usando a mesma base corrigida (`perdasForaTotal = -15.754,11`), só muda o denominador do ratio.
-
-## Passo extra
-
-Após o deploy, o usuário precisa reabrir a aba **Fatura Copel** da competência atual e clicar em **Salvar** para regravar `perdas_copel_fora_kwh = -4.751,71` (o valor antigo `0` está persistido). A fatura do cliente passará a refletir o cálculo correto em ambos os modos.
+E o texto de auditoria passa a exibir `× -15.754,11 kWh` em vez de `× -11.002,40 kWh`.
