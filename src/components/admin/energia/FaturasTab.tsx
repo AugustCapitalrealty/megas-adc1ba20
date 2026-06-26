@@ -219,6 +219,22 @@ export function FaturasTab() {
   const diferenca = totalGeral - totalCopel;
   const diferencaResidual = diferenca - totalUltrapassagem - totalCredito;
 
+  // Lista de clientes que pagaram multa (ultrapassagem) nesta competência.
+  const faturasComMulta = useMemo(() => {
+    return faturas
+      .map((f) => {
+        const t = totaisPorFatura.get(f.cliente_key);
+        const multa = t?.rsUltrapassagem ?? 0;
+        const demandaContratada = f.contrato_id ? (contratoDemandaPorId[f.contrato_id] || 0) : 0;
+        const demandaMedida = f.demanda_usd;
+        const ultrapassagemKw = Math.max(0, demandaMedida - demandaContratada);
+        return { f, multa, demandaContratada, demandaMedida, ultrapassagemKw };
+      })
+      .filter((x) => x.multa > 0.005)
+      .sort((a, b) => b.multa - a.multa);
+  }, [faturas, totaisPorFatura, contratoDemandaPorId]);
+  const totalUltrapassagemKw = faturasComMulta.reduce((s, x) => s + x.ultrapassagemKw, 0);
+
   const faturaSelecionada = faturas.find((f) => f.cliente_key === selecionado) || null;
 
   // Quantos contratos cada cliente tem (para decidir mostrar o nº do contrato no sidebar)
@@ -312,6 +328,27 @@ export function FaturasTab() {
             <Button variant="outline" onClick={exportCSV} disabled={faturas.length === 0}>
               <Download className="h-4 w-4 mr-2" /> Exportar CSV
             </Button>
+            <div className="flex flex-col gap-1">
+              <Label className="text-[11px] text-muted-foreground">Modo de rateio de perdas</Label>
+              <div className="inline-flex rounded-md border overflow-hidden text-xs h-10" role="group" aria-label="Modo de rateio de perdas">
+                <button
+                  type="button"
+                  onClick={() => setModoPerdas('separado')}
+                  className={`px-3 transition-colors ${modoPerdas === 'separado' ? 'bg-primary text-primary-foreground font-semibold' : 'bg-background hover:bg-muted'}`}
+                  title="Rateia perdas Ponta apenas pelo consumo Ponta e Fora apenas pelo Fora. Mais exato."
+                >
+                  Exato (por posto)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModoPerdas('combinado')}
+                  className={`px-3 border-l transition-colors ${modoPerdas === 'combinado' ? 'bg-primary text-primary-foreground font-semibold' : 'bg-background hover:bg-muted'}`}
+                  title="Replica a planilha: ratio único (consumo total / Σ total) aplicado às perdas dos dois postos."
+                >
+                  Planilha (combinado)
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* KPIs */}
@@ -372,6 +409,56 @@ export function FaturasTab() {
                 <p className="text-xs text-muted-foreground italic">
                   A diferença saudável vem apenas de <strong>ultrapassagem</strong> (multa por demanda acima do contratado) e do <strong>crédito/débito</strong> da Copel repassado aos clientes. Se o residual for relevante, revisar a Fatura Copel, os lançamentos ou a demanda contratada dos contratos.
                 </p>
+
+                {/* Clientes que pagaram multa de ultrapassagem */}
+                {faturasComMulta.length > 0 ? (
+                  <details className="rounded-md border bg-background">
+                    <summary className="cursor-pointer select-none px-3 py-2 text-xs font-semibold hover:bg-muted/60 transition flex items-center gap-2">
+                      Ver clientes com multa de ultrapassagem
+                      <span className="ml-auto font-normal text-muted-foreground">
+                        {faturasComMulta.length} cliente(s) · {brl(totalUltrapassagem)}
+                      </span>
+                    </summary>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead className="bg-muted/50 text-[10px] uppercase tracking-wide">
+                          <tr>
+                            <th className="px-3 py-2 text-left font-semibold">Cliente</th>
+                            <th className="px-3 py-2 text-right font-semibold">Dem. contratada (kW)</th>
+                            <th className="px-3 py-2 text-right font-semibold">Dem. medida (kW)</th>
+                            <th className="px-3 py-2 text-right font-semibold">Ultrapassagem (kW)</th>
+                            <th className="px-3 py-2 text-right font-semibold">Multa (R$)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {faturasComMulta.map((x) => (
+                            <tr key={x.f.cliente_key} className="border-t">
+                              <td className="px-3 py-1.5">
+                                {x.f.cliente_nome}
+                                {x.f.contrato_numero && (
+                                  <span className="text-muted-foreground"> — Contrato {x.f.contrato_numero}</span>
+                                )}
+                              </td>
+                              <td className="px-3 py-1.5 text-right tabular-nums">{num(x.demandaContratada, 2)}</td>
+                              <td className="px-3 py-1.5 text-right tabular-nums">{num(x.demandaMedida, 2)}</td>
+                              <td className="px-3 py-1.5 text-right tabular-nums text-amber-600 font-medium">{num(x.ultrapassagemKw, 2)}</td>
+                              <td className="px-3 py-1.5 text-right tabular-nums font-semibold">{brl(x.multa)}</td>
+                            </tr>
+                          ))}
+                          <tr className="border-t-2 border-primary bg-primary/5 font-bold">
+                            <td className="px-3 py-2" colSpan={3}>TOTAL</td>
+                            <td className="px-3 py-2 text-right tabular-nums">{num(totalUltrapassagemKw, 2)}</td>
+                            <td className="px-3 py-2 text-right tabular-nums text-primary">{brl(totalUltrapassagem)}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </details>
+                ) : (
+                  <div className="rounded-md border bg-background px-3 py-2 text-xs text-muted-foreground">
+                    Nenhum cliente com ultrapassagem nesta competência.
+                  </div>
+                )}
               </div>
             </details>
           )}
@@ -686,24 +773,9 @@ function FaturaOficial({
             </CardDescription>
           </div>
           <div className="flex gap-2 print:hidden">
-            <div className="inline-flex rounded-md border overflow-hidden text-xs" role="group" aria-label="Modo de rateio de perdas">
-              <button
-                type="button"
-                onClick={() => onChangeModoPerdas('separado')}
-                className={`px-2.5 py-1 transition-colors ${modoPerdas === 'separado' ? 'bg-primary text-primary-foreground font-semibold' : 'bg-background hover:bg-muted'}`}
-                title="Rateia perdas Ponta apenas pelo consumo Ponta e Fora apenas pelo Fora. Mais exato."
-              >
-                Exato (por posto)
-              </button>
-              <button
-                type="button"
-                onClick={() => onChangeModoPerdas('combinado')}
-                className={`px-2.5 py-1 border-l transition-colors ${modoPerdas === 'combinado' ? 'bg-primary text-primary-foreground font-semibold' : 'bg-background hover:bg-muted'}`}
-                title="Replica a planilha do Mega Curitiba: ratio único (consumo total / Σ total) aplicado às perdas dos dois postos."
-              >
-                Planilha (combinado)
-              </button>
-            </div>
+            <span className="self-center text-[11px] text-muted-foreground rounded border px-2 py-1">
+              Modo: <strong className="text-foreground">{modoPerdas === 'separado' ? 'Exato (por posto)' : 'Planilha (combinado)'}</strong>
+            </span>
             <Button variant="outline" size="sm" onClick={onCopy}>Copiar resumo</Button>
             <Button variant="outline" size="sm" onClick={() => window.print()}>
               Imprimir / PDF
@@ -881,6 +953,34 @@ function FaturaOficial({
                   />
                 )}
               />
+              {/* Sublinhas: racional de como o PIS/COFINS + ICMS foram compostos */}
+              <tr className="bg-muted/20 text-xs">
+                <td className="px-3 py-1 pl-8 text-muted-foreground" colSpan={3}>
+                  ↳ Imposto de consumo
+                  <span className="ml-2 text-[10px]">
+                    PIS/COFINS {brl(piscofConsumo)} + ICMS {brl(icmsConsumo)}
+                  </span>
+                </td>
+                <td className="px-3 py-1 text-right tabular-nums text-muted-foreground">{brl(piscofConsumo + icmsConsumo)}</td>
+              </tr>
+              <tr className="bg-muted/20 text-xs">
+                <td className="px-3 py-1 pl-8 text-muted-foreground" colSpan={3}>
+                  ↳ Imposto da demanda usada
+                  <span className="ml-2 text-[10px]">
+                    PIS/COFINS {brl(piscofDemandaUsd)} + ICMS {brl(icmsDemandaCalc)}
+                  </span>
+                </td>
+                <td className="px-3 py-1 text-right tabular-nums text-muted-foreground">{brl(piscofDemandaUsd + icmsDemandaCalc)}</td>
+              </tr>
+              <tr className="bg-muted/20 text-xs border-b">
+                <td className="px-3 py-1 pl-8 text-muted-foreground" colSpan={3}>
+                  ↳ Demanda isenta de ICMS
+                  <span className="ml-2 text-[10px]">
+                    Apenas PIS/COFINS — ICMS não foi deduzido (parcela isenta por decisão judicial)
+                  </span>
+                </td>
+                <td className="px-3 py-1 text-right tabular-nums text-muted-foreground">{brl(piscofDemandaIsenta)}</td>
+              </tr>
               <TaxRow label="Iluminação Pública" valor={ilum} />
               <TaxRow label="Crédito" valor={credito} />
               <TaxRow label="Bandeira Tarifária" valor={bandeira} />
@@ -894,37 +994,6 @@ function FaturaOficial({
         <p className="text-[11px] italic text-muted-foreground -mt-2">
           PIS/COFINS e ICMS são informativos — já estão embutidos nas tarifas brutas da Copel. Clique no <span className="inline-flex items-center"><Info className="h-3 w-3" /></span> ao lado do tributo para ver o detalhamento.
         </p>
-
-        {/* Detalhamento dos tributos — composição clara para o cliente,
-            sem citar "perdas" (que é jargão interno). */}
-        <div className="rounded-md border bg-muted/30 p-3">
-          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-            Detalhamento dos tributos (informativo)
-          </div>
-          <div className="grid gap-2 sm:grid-cols-3 text-sm">
-            <div className="rounded border bg-background p-2">
-              <div className="text-[11px] text-muted-foreground">Imposto de consumo</div>
-              <div className="font-semibold tabular-nums">{brl(piscofConsumo + icmsConsumo)}</div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">
-                PIS/COFINS {brl(piscofConsumo)} + ICMS {brl(icmsConsumo)}
-              </div>
-            </div>
-            <div className="rounded border bg-background p-2">
-              <div className="text-[11px] text-muted-foreground">Imposto da demanda usada</div>
-              <div className="font-semibold tabular-nums">{brl(piscofDemandaUsd + icmsDemandaCalc)}</div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">
-                PIS/COFINS {brl(piscofDemandaUsd)} + ICMS {brl(icmsDemandaCalc)}
-              </div>
-            </div>
-            <div className="rounded border bg-background p-2">
-              <div className="text-[11px] text-muted-foreground">Demanda isenta de ICMS</div>
-              <div className="font-semibold tabular-nums">{brl(piscofDemandaIsenta)}</div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">
-                Apenas PIS/COFINS — ICMS não foi deduzido (parcela isenta por decisão judicial).
-              </div>
-            </div>
-          </div>
-        </div>
 
         <div className="flex flex-wrap gap-1.5 print:hidden">
           <span className="text-xs text-muted-foreground mr-2 self-center">Módulos:</span>
