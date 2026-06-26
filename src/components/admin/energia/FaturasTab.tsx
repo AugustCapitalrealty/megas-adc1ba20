@@ -133,7 +133,20 @@ export function FaturasTab() {
         is_area_comum: m.identificador.toUpperCase().includes('ÁREA COMUM') || m.identificador.toUpperCase().includes('AREA COMUM'),
       };
     });
-    const memoria = calcularMemoria(tarifas as EnergiaTarifas, inputs, modoPerdas);
+    // Deriva perdas Copel em tempo de cálculo (consumo Copel − Σ lançamentos),
+    // sem depender do valor persistido em energia_competencia_tarifas. Assim
+    // diferenças negativas (Copel mediu menos que clientes) sempre entram no
+    // rateio, mesmo que o usuário não tenha re-salvado a Fatura Copel.
+    const somaPontaLanc = inputs.reduce((s, i) => s + (i.consumo_ponta_kwh || 0), 0);
+    const somaForaLanc = inputs.reduce((s, i) => s + (i.consumo_fora_kwh || 0), 0);
+    const copelPontaKwh = Number((tarifas as any).copel_consumo_ponta_kwh) || 0;
+    const copelForaKwh = Number((tarifas as any).copel_consumo_fora_kwh) || 0;
+    const tarifasComPerdas: EnergiaTarifas = {
+      ...(tarifas as EnergiaTarifas),
+      perdas_copel_ponta_kwh: copelPontaKwh - somaPontaLanc,
+      perdas_copel_fora_kwh: copelForaKwh - somaForaLanc,
+    };
+    const memoria = calcularMemoria(tarifasComPerdas, inputs, modoPerdas);
     const fts = agruparPorCliente(
       memoria.linhas,
       modulosComLanc.map((m) => {
