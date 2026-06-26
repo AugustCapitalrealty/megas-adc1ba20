@@ -409,6 +409,56 @@ export function FaturasTab() {
                 <p className="text-xs text-muted-foreground italic">
                   A diferença saudável vem apenas de <strong>ultrapassagem</strong> (multa por demanda acima do contratado) e do <strong>crédito/débito</strong> da Copel repassado aos clientes. Se o residual for relevante, revisar a Fatura Copel, os lançamentos ou a demanda contratada dos contratos.
                 </p>
+
+                {/* Clientes que pagaram multa de ultrapassagem */}
+                {faturasComMulta.length > 0 ? (
+                  <details className="rounded-md border bg-background">
+                    <summary className="cursor-pointer select-none px-3 py-2 text-xs font-semibold hover:bg-muted/60 transition flex items-center gap-2">
+                      Ver clientes com multa de ultrapassagem
+                      <span className="ml-auto font-normal text-muted-foreground">
+                        {faturasComMulta.length} cliente(s) · {brl(totalUltrapassagem)}
+                      </span>
+                    </summary>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead className="bg-muted/50 text-[10px] uppercase tracking-wide">
+                          <tr>
+                            <th className="px-3 py-2 text-left font-semibold">Cliente</th>
+                            <th className="px-3 py-2 text-right font-semibold">Dem. contratada (kW)</th>
+                            <th className="px-3 py-2 text-right font-semibold">Dem. medida (kW)</th>
+                            <th className="px-3 py-2 text-right font-semibold">Ultrapassagem (kW)</th>
+                            <th className="px-3 py-2 text-right font-semibold">Multa (R$)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {faturasComMulta.map((x) => (
+                            <tr key={x.f.cliente_key} className="border-t">
+                              <td className="px-3 py-1.5">
+                                {x.f.cliente_nome}
+                                {x.f.contrato_numero && (
+                                  <span className="text-muted-foreground"> — Contrato {x.f.contrato_numero}</span>
+                                )}
+                              </td>
+                              <td className="px-3 py-1.5 text-right tabular-nums">{num(x.demandaContratada, 2)}</td>
+                              <td className="px-3 py-1.5 text-right tabular-nums">{num(x.demandaMedida, 2)}</td>
+                              <td className="px-3 py-1.5 text-right tabular-nums text-amber-600 font-medium">{num(x.ultrapassagemKw, 2)}</td>
+                              <td className="px-3 py-1.5 text-right tabular-nums font-semibold">{brl(x.multa)}</td>
+                            </tr>
+                          ))}
+                          <tr className="border-t-2 border-primary bg-primary/5 font-bold">
+                            <td className="px-3 py-2" colSpan={3}>TOTAL</td>
+                            <td className="px-3 py-2 text-right tabular-nums">{num(totalUltrapassagemKw, 2)}</td>
+                            <td className="px-3 py-2 text-right tabular-nums text-primary">{brl(totalUltrapassagem)}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </details>
+                ) : (
+                  <div className="rounded-md border bg-background px-3 py-2 text-xs text-muted-foreground">
+                    Nenhum cliente com ultrapassagem nesta competência.
+                  </div>
+                )}
               </div>
             </details>
           )}
