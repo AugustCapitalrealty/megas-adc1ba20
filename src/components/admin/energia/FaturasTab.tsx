@@ -953,6 +953,34 @@ function FaturaOficial({
                   />
                 )}
               />
+              {/* Sublinhas: racional de como o PIS/COFINS + ICMS foram compostos */}
+              <tr className="bg-muted/20 text-xs">
+                <td className="px-3 py-1 pl-8 text-muted-foreground" colSpan={3}>
+                  ↳ Imposto de consumo
+                  <span className="ml-2 text-[10px]">
+                    PIS/COFINS {brl(piscofConsumo)} + ICMS {brl(icmsConsumo)}
+                  </span>
+                </td>
+                <td className="px-3 py-1 text-right tabular-nums text-muted-foreground">{brl(piscofConsumo + icmsConsumo)}</td>
+              </tr>
+              <tr className="bg-muted/20 text-xs">
+                <td className="px-3 py-1 pl-8 text-muted-foreground" colSpan={3}>
+                  ↳ Imposto da demanda usada
+                  <span className="ml-2 text-[10px]">
+                    PIS/COFINS {brl(piscofDemandaUsd)} + ICMS {brl(icmsDemandaCalc)}
+                  </span>
+                </td>
+                <td className="px-3 py-1 text-right tabular-nums text-muted-foreground">{brl(piscofDemandaUsd + icmsDemandaCalc)}</td>
+              </tr>
+              <tr className="bg-muted/20 text-xs border-b">
+                <td className="px-3 py-1 pl-8 text-muted-foreground" colSpan={3}>
+                  ↳ Demanda isenta de ICMS
+                  <span className="ml-2 text-[10px]">
+                    Apenas PIS/COFINS — ICMS não foi deduzido (parcela isenta por decisão judicial)
+                  </span>
+                </td>
+                <td className="px-3 py-1 text-right tabular-nums text-muted-foreground">{brl(piscofDemandaIsenta)}</td>
+              </tr>
               <TaxRow label="Iluminação Pública" valor={ilum} />
               <TaxRow label="Crédito" valor={credito} />
               <TaxRow label="Bandeira Tarifária" valor={bandeira} />
