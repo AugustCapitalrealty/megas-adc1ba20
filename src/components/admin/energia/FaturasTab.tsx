@@ -6,7 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Users, Search, Download, FileText, Zap, Building2 } from 'lucide-react';
+import { Loader2, Users, Search, Download, FileText, Zap, Building2, Info } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from 'sonner';
 import {
   calcularMemoria,
@@ -710,8 +711,48 @@ function FaturaOficial({
               </tr>
             </thead>
             <tbody>
-              <TaxRow label="PIS/COFINS" base={basePiscof} pct={pctPiscof} valor={piscofExibido} />
-              <TaxRow label="ICMS" base={baseIcms} pct={pctIcms} valor={icmsExibido} />
+              <TaxRow
+                label="PIS/COFINS"
+                base={basePiscof}
+                pct={pctPiscof}
+                valor={piscofExibido}
+                rationale={(
+                  <RationaleContent
+                    titulo="Como o PIS/COFINS foi calculado"
+                    intro={`Alíquota total ${pctPiscof.toFixed(2)}% (PIS ${(tarifas.pis_pct*100).toFixed(2)}% + COFINS ${(tarifas.cofins_pct*100).toFixed(2)}%). Incide sobre cada parcela do fornecimento, com a base LÍQUIDA de ICMS quando a parcela é tributada.`}
+                    linhas={[
+                      { label: 'Consumo (c/ perdas)', formula: `${brl(baseConsumoComPerdas)} × (1 − ${(tarifas.icms_pct*100).toFixed(0)}%) × ${pctPiscof.toFixed(2)}%`, valor: baseConsumoComPerdas * (1 - tarifas.icms_pct) * piscofPct },
+                      { label: 'Demanda USD', formula: `${brl(rsDemandaUsd)} × (1 − ${(tarifas.icms_pct*100).toFixed(0)}%) × ${pctPiscof.toFixed(2)}%`, valor: piscofDemandaSum - sum('piscof_demanda_isenta') },
+                      { label: 'Demanda Isenta ICMS', formula: `${brl(rsDemandaIsenta)} × ${pctPiscof.toFixed(2)}% (sem ICMS para deduzir)`, valor: sum('piscof_demanda_isenta') },
+                    ]}
+                    totalLabel="Total PIS/COFINS"
+                    total={piscofExibido}
+                    baseEquivalente={{ valor: basePiscof, formula: `${brl(piscofExibido)} ÷ ${pctPiscof.toFixed(2)}%` }}
+                    rodape="Valor informativo — já está embutido nas tarifas brutas da Copel e NÃO soma no Total da Fatura."
+                  />
+                )}
+              />
+              <TaxRow
+                label="ICMS"
+                base={baseIcms}
+                pct={pctIcms}
+                valor={icmsExibido}
+                rationale={(
+                  <RationaleContent
+                    titulo="Como o ICMS foi calculado"
+                    intro={`Alíquota ${pctIcms.toFixed(2)}%. Incide sobre as parcelas tributadas do fornecimento. A Demanda Isenta de ICMS é, por definição, excluída da base.`}
+                    linhas={[
+                      { label: 'Consumo (c/ perdas)', formula: `${brl(baseConsumoComPerdas)} × ${pctIcms.toFixed(2)}%`, valor: baseConsumoComPerdas * tarifas.icms_pct },
+                      { label: 'Demanda USD', formula: `${brl(rsDemandaUsd)} × ${pctIcms.toFixed(2)}%`, valor: icmsDemandaSum },
+                      { label: 'Demanda Isenta ICMS', formula: `${brl(rsDemandaIsenta)} — isenta, não tributa`, valor: 0 },
+                    ]}
+                    totalLabel="Total ICMS"
+                    total={icmsExibido}
+                    baseEquivalente={{ valor: baseIcms, formula: `${brl(icmsExibido)} ÷ ${pctIcms.toFixed(2)}%` }}
+                    rodape="Valor informativo — já está embutido nas tarifas brutas da Copel e NÃO soma no Total da Fatura."
+                  />
+                )}
+              />
               <TaxRow label="Iluminação Pública" valor={ilum} />
               <TaxRow label="Crédito" valor={credito} />
               <TaxRow label="Bandeira Tarifária" valor={bandeira} />
@@ -722,6 +763,9 @@ function FaturaOficial({
             </tbody>
           </table>
         </div>
+        <p className="text-[11px] italic text-muted-foreground -mt-2">
+          PIS/COFINS e ICMS são informativos — já estão embutidos nas tarifas brutas da Copel. Clique no <span className="inline-flex items-center"><Info className="h-3 w-3" /></span> ao lado do tributo para ver o detalhamento.
+        </p>
 
         <div className="flex flex-wrap gap-1.5 print:hidden">
           <span className="text-xs text-muted-foreground mr-2 self-center">Módulos:</span>
@@ -768,14 +812,70 @@ function DataRow({
   );
 }
 
-function TaxRow({ label, base, pct, valor }: { label: string; base?: number; pct?: number; valor: number }) {
+function TaxRow({ label, base, pct, valor, rationale }: { label: string; base?: number; pct?: number; valor: number; rationale?: React.ReactNode }) {
   return (
     <tr className="border-b last:border-0">
-      <td className="px-3 py-1.5">{label}</td>
+      <td className="px-3 py-1.5">
+        <span className="inline-flex items-center gap-1.5">
+          {label}
+          {rationale && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button type="button" className="text-muted-foreground hover:text-primary transition-colors" aria-label={`Como ${label} foi calculado`}>
+                  <Info className="h-3.5 w-3.5" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent side="right" align="start" className="w-[420px] max-w-[90vw] text-xs">
+                {rationale}
+              </PopoverContent>
+            </Popover>
+          )}
+        </span>
+      </td>
       <td className="px-3 py-1.5 text-right tabular-nums text-muted-foreground">{base !== undefined ? brl(base) : ''}</td>
       <td className="px-3 py-1.5 text-right tabular-nums text-muted-foreground">{pct !== undefined ? `${pct.toFixed(2)}%` : ''}</td>
       <td className="px-3 py-1.5 text-right tabular-nums font-medium">{brl(valor)}</td>
     </tr>
+  );
+}
+
+function RationaleContent({
+  titulo, intro, linhas, totalLabel, total, baseEquivalente, rodape,
+}: {
+  titulo: string;
+  intro: string;
+  linhas: Array<{ label: string; formula: string; valor: number }>;
+  totalLabel: string;
+  total: number;
+  baseEquivalente: { valor: number; formula: string };
+  rodape: string;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="font-semibold text-sm">{titulo}</div>
+      <p className="text-muted-foreground leading-relaxed">{intro}</p>
+      <div className="rounded border bg-muted/30 divide-y">
+        {linhas.map((l) => (
+          <div key={l.label} className="px-2 py-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-medium">{l.label}</span>
+              <span className="tabular-nums font-medium">{brl(l.valor)}</span>
+            </div>
+            <div className="text-[10px] text-muted-foreground font-mono">{l.formula}</div>
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center justify-between border-t pt-1.5 font-semibold">
+        <span>{totalLabel}</span>
+        <span className="tabular-nums">{brl(total)}</span>
+      </div>
+      <div className="text-[10px] text-muted-foreground">
+        Base equivalente exibida: <span className="font-mono">{baseEquivalente.formula}</span> = <strong>{brl(baseEquivalente.valor)}</strong>
+      </div>
+      <div className="text-[11px] italic text-muted-foreground border-l-2 border-primary/50 pl-2">
+        {rodape}
+      </div>
+    </div>
   );
 }
 
