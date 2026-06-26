@@ -849,8 +849,8 @@ function FaturaOficial({
                     intro={`Alíquota total ${pctPiscof.toFixed(2)}% (PIS ${(tarifas.pis_pct*100).toFixed(2)}% + COFINS ${(tarifas.cofins_pct*100).toFixed(2)}%). Incide sobre cada parcela do fornecimento, com a base LÍQUIDA de ICMS quando a parcela é tributada.`}
                     linhas={[
                       { label: 'Consumo (c/ perdas)', formula: `${brl(baseConsumoComPerdas)} × (1 − ${(tarifas.icms_pct*100).toFixed(0)}%) × ${pctPiscof.toFixed(2)}%`, valor: baseConsumoComPerdas * (1 - tarifas.icms_pct) * piscofPct },
-                      { label: 'Demanda USD', formula: `${brl(rsDemandaUsd)} × (1 − ${(tarifas.icms_pct*100).toFixed(0)}%) × ${pctPiscof.toFixed(2)}%`, valor: piscofDemandaSum - sum('piscof_demanda_isenta') },
-                      { label: 'Demanda Isenta ICMS', formula: `${brl(rsDemandaIsenta)} × ${pctPiscof.toFixed(2)}% (sem ICMS para deduzir)`, valor: sum('piscof_demanda_isenta') },
+                      { label: 'Demanda USD', formula: `${brl(rsDemandaUsd)} × (1 − ${(tarifas.icms_pct*100).toFixed(0)}%) × ${pctPiscof.toFixed(2)}%`, valor: piscofDemandaUsd },
+                      { label: 'Demanda Isenta ICMS', formula: `${brl(rsDemandaIsenta)} × ${pctPiscof.toFixed(2)}% (sem ICMS para deduzir)`, valor: piscofDemandaIsenta },
                     ]}
                     totalLabel="Total PIS/COFINS"
                     total={piscofExibido}
@@ -870,7 +870,7 @@ function FaturaOficial({
                     intro={`Alíquota ${pctIcms.toFixed(2)}%. Incide sobre as parcelas tributadas do fornecimento. A Demanda Isenta de ICMS é, por definição, excluída da base.`}
                     linhas={[
                       { label: 'Consumo (c/ perdas)', formula: `${brl(baseConsumoComPerdas)} × ${pctIcms.toFixed(2)}%`, valor: baseConsumoComPerdas * tarifas.icms_pct },
-                      { label: 'Demanda USD', formula: `${brl(rsDemandaUsd)} × ${pctIcms.toFixed(2)}%`, valor: icmsDemandaSum },
+                      { label: 'Demanda USD', formula: `${brl(rsDemandaUsd)} × ${pctIcms.toFixed(2)}%`, valor: icmsDemandaCalc },
                       { label: 'Demanda Isenta ICMS', formula: `${brl(rsDemandaIsenta)} — isenta, não tributa`, valor: 0 },
                     ]}
                     totalLabel="Total ICMS"
