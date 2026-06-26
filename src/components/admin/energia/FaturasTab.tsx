@@ -373,7 +373,7 @@ export function FaturasTab() {
                           </div>
                         )}
                         <div className={`text-xs mt-0.5 ${active ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
-                          {f.modulos.length} mód · {brl(f.total_fatura_energy)}
+                          {f.modulos.length} mód · {brl(totaisPorFatura.get(f.cliente_key)?.total ?? 0)}
                         </div>
                       </button>
                     </li>
