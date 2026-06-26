@@ -413,6 +413,40 @@ function KpiCard({ label, value, icon: Icon, tone, suffix }: { label: string; va
 // que o cliente já recebe hoje (PDF Mega Centro Logístico).
 // ───────────────────────────────────────────────────────────
 
+// Recalcula o total da fatura POR CLIENTE com a mesma lógica de FaturaOficial:
+// usa a demanda CONTRATADA do contrato (não a soma por módulo), reaplica
+// ultrapassagem 2× e demanda isenta, embute perdas no consumo e ignora
+// PIS/COFINS e ICMS no total (são informativos). Retorna também as parcelas
+// "esperadas" da diferença Copel × Faturado: ultrapassagem e crédito/débito.
+export function calcularTotalCliente(
+  linhas: MemoriaLinha[],
+  tarifas: EnergiaTarifas,
+  demandaContrato: number,
+) {
+  const sum = (k: keyof MemoriaLinha) =>
+    linhas.reduce((s, l) => s + (Number(l[k] as any) || 0), 0);
+
+  const demandaMedida = sum('demanda_usd');
+  const demandaIsenta = demandaMedida >= demandaContrato ? 0 : demandaContrato - demandaMedida;
+  const ultrapassagem = demandaMedida > demandaContrato ? demandaMedida - demandaContrato : 0;
+  const faturadoUsd = demandaMedida >= demandaContrato ? demandaContrato : demandaMedida;
+  const rsDemandaUsd = faturadoUsd * (tarifas.demanda_usd || 0);
+  const rsDemandaIsenta = demandaIsenta * (tarifas.demanda_isenta || 0);
+  const tarifaUltrapassagem = (tarifas.demanda_usd || 0) * 2;
+  const rsUltrapassagem = ultrapassagem * tarifaUltrapassagem;
+
+  const rsPonta = sum('rs_ponta') + sum('rs_perdas_te_ponta') + sum('rs_perdas_tusd_ponta');
+  const rsFora = sum('rs_fora') + sum('rs_perdas_te_fora') + sum('rs_perdas_tusd_fora');
+  const ilum = sum('iluminacao_publica');
+  const bandeira = sum('bandeira_total');
+  const credito = sum('cred_deb_rateado') + sum('fotovoltaico') + sum('ajuste_manual');
+
+  const totalFornecimento = rsDemandaUsd + rsDemandaIsenta + rsUltrapassagem + rsPonta + rsFora;
+  const total = totalFornecimento + ilum + credito + bandeira;
+
+  return { total, rsUltrapassagem, credito, rsDemandaUsd, rsDemandaIsenta };
+}
+
 function compactarModulos(ids: string[]): string {
   // Extrai número do identificador (ex. "MÓDULO 48" → 48). Se contíguo, exibe faixa.
   const nums = ids
