@@ -812,14 +812,70 @@ function DataRow({
   );
 }
 
-function TaxRow({ label, base, pct, valor }: { label: string; base?: number; pct?: number; valor: number }) {
+function TaxRow({ label, base, pct, valor, rationale }: { label: string; base?: number; pct?: number; valor: number; rationale?: React.ReactNode }) {
   return (
     <tr className="border-b last:border-0">
-      <td className="px-3 py-1.5">{label}</td>
+      <td className="px-3 py-1.5">
+        <span className="inline-flex items-center gap-1.5">
+          {label}
+          {rationale && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button type="button" className="text-muted-foreground hover:text-primary transition-colors" aria-label={`Como ${label} foi calculado`}>
+                  <Info className="h-3.5 w-3.5" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent side="right" align="start" className="w-[420px] max-w-[90vw] text-xs">
+                {rationale}
+              </PopoverContent>
+            </Popover>
+          )}
+        </span>
+      </td>
       <td className="px-3 py-1.5 text-right tabular-nums text-muted-foreground">{base !== undefined ? brl(base) : ''}</td>
       <td className="px-3 py-1.5 text-right tabular-nums text-muted-foreground">{pct !== undefined ? `${pct.toFixed(2)}%` : ''}</td>
       <td className="px-3 py-1.5 text-right tabular-nums font-medium">{brl(valor)}</td>
     </tr>
+  );
+}
+
+function RationaleContent({
+  titulo, intro, linhas, totalLabel, total, baseEquivalente, rodape,
+}: {
+  titulo: string;
+  intro: string;
+  linhas: Array<{ label: string; formula: string; valor: number }>;
+  totalLabel: string;
+  total: number;
+  baseEquivalente: { valor: number; formula: string };
+  rodape: string;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="font-semibold text-sm">{titulo}</div>
+      <p className="text-muted-foreground leading-relaxed">{intro}</p>
+      <div className="rounded border bg-muted/30 divide-y">
+        {linhas.map((l) => (
+          <div key={l.label} className="px-2 py-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-medium">{l.label}</span>
+              <span className="tabular-nums font-medium">{brl(l.valor)}</span>
+            </div>
+            <div className="text-[10px] text-muted-foreground font-mono">{l.formula}</div>
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center justify-between border-t pt-1.5 font-semibold">
+        <span>{totalLabel}</span>
+        <span className="tabular-nums">{brl(total)}</span>
+      </div>
+      <div className="text-[10px] text-muted-foreground">
+        Base equivalente exibida: <span className="font-mono">{baseEquivalente.formula}</span> = <strong>{brl(baseEquivalente.valor)}</strong>
+      </div>
+      <div className="text-[11px] italic text-muted-foreground border-l-2 border-primary/50 pl-2">
+        {rodape}
+      </div>
+    </div>
   );
 }
 
