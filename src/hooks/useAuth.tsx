@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       const [profileResult, rolesResult] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
+        supabase.rpc('get_my_profile').maybeSingle(),
         supabase.from('user_roles').select('role').eq('user_id', userId),
       ]);
 
