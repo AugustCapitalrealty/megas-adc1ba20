@@ -414,6 +414,11 @@ function KpiCard({ label, value, icon: Icon, tone, suffix }: { label: string; va
 // ───────────────────────────────────────────────────────────
 
 function compactarModulos(ids: string[]): string {
+  return _compactarModulos(ids);
+}
+
+// Helper interno renomeado para liberar o nome anterior — só para validar patching
+function _compactarModulos(ids: string[]): string {
   // Extrai número do identificador (ex. "MÓDULO 48" → 48). Se contíguo, exibe faixa.
   const nums = ids
     .map((id) => {
