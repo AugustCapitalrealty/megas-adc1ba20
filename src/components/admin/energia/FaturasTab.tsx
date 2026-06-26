@@ -219,6 +219,22 @@ export function FaturasTab() {
   const diferenca = totalGeral - totalCopel;
   const diferencaResidual = diferenca - totalUltrapassagem - totalCredito;
 
+  // Lista de clientes que pagaram multa (ultrapassagem) nesta competência.
+  const faturasComMulta = useMemo(() => {
+    return faturas
+      .map((f) => {
+        const t = totaisPorFatura.get(f.cliente_key);
+        const multa = t?.rsUltrapassagem ?? 0;
+        const demandaContratada = f.contrato_id ? (contratoDemandaPorId[f.contrato_id] || 0) : 0;
+        const demandaMedida = f.demanda_usd;
+        const ultrapassagemKw = Math.max(0, demandaMedida - demandaContratada);
+        return { f, multa, demandaContratada, demandaMedida, ultrapassagemKw };
+      })
+      .filter((x) => x.multa > 0.005)
+      .sort((a, b) => b.multa - a.multa);
+  }, [faturas, totaisPorFatura, contratoDemandaPorId]);
+  const totalUltrapassagemKw = faturasComMulta.reduce((s, x) => s + x.ultrapassagemKw, 0);
+
   const faturaSelecionada = faturas.find((f) => f.cliente_key === selecionado) || null;
 
   // Quantos contratos cada cliente tem (para decidir mostrar o nº do contrato no sidebar)
