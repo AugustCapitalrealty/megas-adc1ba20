@@ -328,6 +328,27 @@ export function FaturasTab() {
             <Button variant="outline" onClick={exportCSV} disabled={faturas.length === 0}>
               <Download className="h-4 w-4 mr-2" /> Exportar CSV
             </Button>
+            <div className="flex flex-col gap-1">
+              <Label className="text-[11px] text-muted-foreground">Modo de rateio de perdas</Label>
+              <div className="inline-flex rounded-md border overflow-hidden text-xs h-10" role="group" aria-label="Modo de rateio de perdas">
+                <button
+                  type="button"
+                  onClick={() => setModoPerdas('separado')}
+                  className={`px-3 transition-colors ${modoPerdas === 'separado' ? 'bg-primary text-primary-foreground font-semibold' : 'bg-background hover:bg-muted'}`}
+                  title="Rateia perdas Ponta apenas pelo consumo Ponta e Fora apenas pelo Fora. Mais exato."
+                >
+                  Exato (por posto)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModoPerdas('combinado')}
+                  className={`px-3 border-l transition-colors ${modoPerdas === 'combinado' ? 'bg-primary text-primary-foreground font-semibold' : 'bg-background hover:bg-muted'}`}
+                  title="Replica a planilha: ratio único (consumo total / Σ total) aplicado às perdas dos dois postos."
+                >
+                  Planilha (combinado)
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* KPIs */}
