@@ -2144,6 +2144,70 @@ export type Database = {
       energia_proximo_ano_mes: { Args: { p_ano_mes: string }; Returns: string }
       generate_protocolo: { Args: never; Returns: string }
       get_fluig_filter_options: { Args: never; Returns: Json }
+      get_fornecedor_full: {
+        Args: { p_id: string }
+        Returns: {
+          bairro: string | null
+          capital_social: number | null
+          cep: string | null
+          cidade: string | null
+          cnae_principal_codigo: number | null
+          cnae_principal_descricao: string | null
+          cnaes_secundarios: Json | null
+          cnpj: string | null
+          complemento: string | null
+          created_at: string
+          data_inicio_atividade: string | null
+          data_situacao_cadastral: string | null
+          email: string | null
+          endereco: string | null
+          id: string
+          identificador_fiscal: string | null
+          is_mei: boolean | null
+          logradouro: string | null
+          moeda_padrao: string | null
+          natureza_juridica: string | null
+          nome_fantasia: string | null
+          numero: string | null
+          pais: string | null
+          porte: string | null
+          razao_social: string | null
+          situacao_cadastral: number | null
+          situacao_cadastral_descricao: string | null
+          telefone: string | null
+          tipo_fornecedor: string
+          tipo_identificador_fiscal: string | null
+          uf: string | null
+          ultima_atualizacao_api: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "fornecedores"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      get_my_profile: {
+        Args: never
+        Returns: {
+          approved: boolean
+          avatar_url: string | null
+          created_at: string
+          email: string
+          full_name: string | null
+          id: string
+          onboarding_completed_at: string | null
+          receber_notificacoes_email: boolean | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "profiles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       get_retrabalho_eficiencia: {
         Args: {
           p_data_fim: string

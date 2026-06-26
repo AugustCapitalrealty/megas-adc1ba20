@@ -838,8 +838,8 @@ export default function NovaSolicitacao() {
 
       let userProfile: { full_name?: string | null; email?: string | null } | null = null;
       try {
-        const { data: profileData } = await supabase.from('profiles').select('full_name, email').eq('id', user.id).single();
-        userProfile = profileData ?? null;
+        const { data: profileData } = await supabase.rpc('get_my_profile').maybeSingle();
+        userProfile = profileData ? { full_name: (profileData as any).full_name, email: (profileData as any).email } : null;
       } catch (profileError) {
         console.error('[SUBMIT] Falha ao carregar perfil (solicitação já criada):', profileError);
       }
