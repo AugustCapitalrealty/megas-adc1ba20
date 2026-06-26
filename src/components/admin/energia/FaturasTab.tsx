@@ -375,37 +375,75 @@ export function FaturasTab() {
                   residual: {brl(diferencaResidual)}
                 </span>
               </summary>
-              <div className="p-4 space-y-3">
-                <table className="w-full text-sm">
-                  <tbody>
-                    <tr className="border-b">
-                      <td className="py-1.5">Total Fatura Copel</td>
-                      <td className="py-1.5 text-right tabular-nums">{brl(totalCopel)}</td>
-                    </tr>
-                    <tr className="border-b">
-                      <td className="py-1.5">Σ Faturas dos clientes</td>
-                      <td className="py-1.5 text-right tabular-nums">{brl(totalGeral)}</td>
-                    </tr>
-                    <tr className="border-b font-semibold">
-                      <td className="py-1.5">Diferença bruta</td>
-                      <td className="py-1.5 text-right tabular-nums">{brl(diferenca)}</td>
-                    </tr>
-                    <tr className="text-muted-foreground">
-                      <td className="py-1.5 pl-4">(−) Ultrapassagem faturada <span className="text-[11px]">esperado (multa)</span></td>
-                      <td className="py-1.5 text-right tabular-nums">{brl(totalUltrapassagem)}</td>
-                    </tr>
-                    <tr className="text-muted-foreground border-b">
-                      <td className="py-1.5 pl-4">(−) Crédito/Débito repassado <span className="text-[11px]">esperado</span></td>
-                      <td className="py-1.5 text-right tabular-nums">{brl(totalCredito)}</td>
-                    </tr>
-                    <tr className="border-t-2 border-primary">
-                      <td className="py-1.5 font-bold">Diferença residual <span className="text-[11px] font-normal text-muted-foreground">(deve ser ~ R$ 0)</span></td>
-                      <td className={`py-1.5 text-right tabular-nums font-bold ${Math.abs(diferencaResidual) < 1 ? 'text-green-600' : Math.abs(diferencaResidual) < 50 ? 'text-amber-600' : 'text-red-600'}`}>
+              <div className="p-4 space-y-4">
+                {/* PASSO 1 — Diferença bruta = Faturado − Copel */}
+                <div className="rounded-lg border bg-background p-3">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                    Passo 1 · Diferença bruta = Σ Faturas dos clientes − Total Fatura Copel
+                  </div>
+                  <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-2">
+                    <div className="rounded-md bg-muted/40 px-3 py-2">
+                      <div className="text-[10px] uppercase text-muted-foreground">Σ Faturas clientes</div>
+                      <div className="text-base font-bold tabular-nums">{brl(totalGeral)}</div>
+                    </div>
+                    <div className="text-xl font-bold text-muted-foreground text-center">−</div>
+                    <div className="rounded-md bg-muted/40 px-3 py-2">
+                      <div className="text-[10px] uppercase text-muted-foreground">Total Fatura Copel</div>
+                      <div className="text-base font-bold tabular-nums">{brl(totalCopel)}</div>
+                    </div>
+                    <div className="text-xl font-bold text-muted-foreground text-center">=</div>
+                    <div className="rounded-md bg-primary/10 border border-primary/30 px-3 py-2">
+                      <div className="text-[10px] uppercase text-primary">Diferença bruta</div>
+                      <div className="text-base font-bold tabular-nums text-primary">{brl(diferenca)}</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* PASSO 2 — Residual = Bruta − Multa − Crédito */}
+                <div className="rounded-lg border bg-background p-3">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                    Passo 2 · Residual = Bruta − Ultrapassagem esperada − Crédito/Débito esperado
+                  </div>
+                  <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr] items-center gap-2">
+                    <div className="rounded-md bg-primary/10 border border-primary/30 px-3 py-2">
+                      <div className="text-[10px] uppercase text-primary">Bruta</div>
+                      <div className="text-sm font-bold tabular-nums text-primary">{brl(diferenca)}</div>
+                    </div>
+                    <div className="text-xl font-bold text-muted-foreground text-center">−</div>
+                    <div className="rounded-md bg-muted/40 px-3 py-2">
+                      <div className="text-[10px] uppercase text-muted-foreground">Multa ultrapassagem</div>
+                      <div className="text-sm font-bold tabular-nums">{brl(totalUltrapassagem)}</div>
+                    </div>
+                    <div className="text-xl font-bold text-muted-foreground text-center">−</div>
+                    <div className="rounded-md bg-muted/40 px-3 py-2">
+                      <div className="text-[10px] uppercase text-muted-foreground">Crédito/Débito</div>
+                      <div className="text-sm font-bold tabular-nums">{brl(totalCredito)}</div>
+                    </div>
+                    <div className="text-xl font-bold text-muted-foreground text-center">=</div>
+                    <div className={`rounded-md px-3 py-2 border ${Math.abs(diferencaResidual) < 1 ? 'bg-green-500/10 border-green-500/40' : Math.abs(diferencaResidual) < 50 ? 'bg-amber-500/10 border-amber-500/40' : 'bg-red-500/10 border-red-500/40'}`}>
+                      <div className={`text-[10px] uppercase ${Math.abs(diferencaResidual) < 1 ? 'text-green-700 dark:text-green-400' : Math.abs(diferencaResidual) < 50 ? 'text-amber-700 dark:text-amber-400' : 'text-red-700 dark:text-red-400'}`}>Residual</div>
+                      <div className={`text-sm font-bold tabular-nums ${Math.abs(diferencaResidual) < 1 ? 'text-green-700 dark:text-green-400' : Math.abs(diferencaResidual) < 50 ? 'text-amber-700 dark:text-amber-400' : 'text-red-700 dark:text-red-400'}`}>
                         {brl(diferencaResidual)}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-2 text-[11px] text-muted-foreground italic">
+                    Observação: subtrair um crédito negativo ({brl(totalCredito)}) tem o mesmo efeito de somá-lo em módulo. Por isso o residual pode ficar maior que a bruta quando o crédito é negativo.
+                  </div>
+                </div>
+
+                {/* Conta inline com os números reais */}
+                <div className="rounded-md border-l-4 border-primary bg-muted/30 px-4 py-3 font-mono text-sm tabular-nums overflow-x-auto">
+                  <div className="text-[11px] font-sans font-semibold uppercase text-muted-foreground mb-1">Conta final</div>
+                  <div>
+                    {brl(totalGeral)} <span className="text-muted-foreground">(faturado)</span>
+                    {' − '}{brl(totalCopel)} <span className="text-muted-foreground">(Copel)</span>
+                    {' − '}{brl(totalUltrapassagem)} <span className="text-muted-foreground">(multa)</span>
+                    {' − ('}{brl(totalCredito)}<span className="text-muted-foreground">)</span> <span className="text-muted-foreground">(créd/déb)</span>
+                    {' = '}<span className="font-bold text-primary">{brl(diferencaResidual)}</span>
+                  </div>
+                </div>
+
                 <p className="text-xs text-muted-foreground italic">
                   A diferença saudável vem apenas de <strong>ultrapassagem</strong> (multa por demanda acima do contratado) e do <strong>crédito/débito</strong> da Copel repassado aos clientes. Se o residual for relevante, revisar a Fatura Copel, os lançamentos ou a demanda contratada dos contratos.
                 </p>
