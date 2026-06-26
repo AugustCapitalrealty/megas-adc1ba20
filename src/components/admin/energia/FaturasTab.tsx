@@ -326,6 +326,54 @@ export function FaturasTab() {
               suffix={diferenca >= 0 ? 'a maior' : 'a menor'}
             />
           </div>
+
+          {/* Diferenças — Copel × Faturado */}
+          {faturas.length > 0 && (
+            <details className="rounded-md border bg-muted/30 group" open={Math.abs(diferencaResidual) >= 1}>
+              <summary className="cursor-pointer select-none px-3 py-2 text-sm font-semibold hover:bg-muted/60 transition flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-primary" />
+                Diferenças Copel × Faturado
+                <span className={`ml-auto text-xs font-normal ${Math.abs(diferencaResidual) < 1 ? 'text-green-600' : Math.abs(diferencaResidual) < 50 ? 'text-amber-600' : 'text-red-600'}`}>
+                  residual: {brl(diferencaResidual)}
+                </span>
+              </summary>
+              <div className="p-4 space-y-3">
+                <table className="w-full text-sm">
+                  <tbody>
+                    <tr className="border-b">
+                      <td className="py-1.5">Total Fatura Copel</td>
+                      <td className="py-1.5 text-right tabular-nums">{brl(totalCopel)}</td>
+                    </tr>
+                    <tr className="border-b">
+                      <td className="py-1.5">Σ Faturas dos clientes</td>
+                      <td className="py-1.5 text-right tabular-nums">{brl(totalGeral)}</td>
+                    </tr>
+                    <tr className="border-b font-semibold">
+                      <td className="py-1.5">Diferença bruta</td>
+                      <td className="py-1.5 text-right tabular-nums">{brl(diferenca)}</td>
+                    </tr>
+                    <tr className="text-muted-foreground">
+                      <td className="py-1.5 pl-4">(−) Ultrapassagem faturada <span className="text-[11px]">esperado (multa)</span></td>
+                      <td className="py-1.5 text-right tabular-nums">{brl(totalUltrapassagem)}</td>
+                    </tr>
+                    <tr className="text-muted-foreground border-b">
+                      <td className="py-1.5 pl-4">(−) Crédito/Débito repassado <span className="text-[11px]">esperado</span></td>
+                      <td className="py-1.5 text-right tabular-nums">{brl(totalCredito)}</td>
+                    </tr>
+                    <tr className="border-t-2 border-primary">
+                      <td className="py-1.5 font-bold">Diferença residual <span className="text-[11px] font-normal text-muted-foreground">(deve ser ~ R$ 0)</span></td>
+                      <td className={`py-1.5 text-right tabular-nums font-bold ${Math.abs(diferencaResidual) < 1 ? 'text-green-600' : Math.abs(diferencaResidual) < 50 ? 'text-amber-600' : 'text-red-600'}`}>
+                        {brl(diferencaResidual)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+                <p className="text-xs text-muted-foreground italic">
+                  A diferença saudável vem apenas de <strong>ultrapassagem</strong> (multa por demanda acima do contratado) e do <strong>crédito/débito</strong> da Copel repassado aos clientes. Se o residual for relevante, revisar a Fatura Copel, os lançamentos ou a demanda contratada dos contratos.
+                </p>
+              </div>
+            </details>
+          )}
         </CardContent>
       </Card>
 
