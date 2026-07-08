@@ -1,70 +1,91 @@
-## Ajustes em `FaturasTab.tsx`
 
-### 1) Detalhamento dos tributos como sublinhas (não card separado)
+## Parte 1 — Bandeira Amarela (e Vermelha) por Posto
 
-Hoje o detalhamento ficou num card cinza abaixo do bloco. Vou remover esse card e transformar o conteúdo em **sublinhas indentadas dentro da própria tabela de Impostos**, posicionadas logo abaixo das linhas PIS/COFINS e ICMS — antes de Iluminação Pública, Crédito, Bandeira e TOTAL DA FATURA.
+A fatura Copel emite a bandeira **duas vezes**: uma sobre o consumo Ponta e outra sobre Fora Ponta (visível na imagem: `ADICIONAL BAND. AMARELA` com 38.370 kWh e 390.603 kWh, cada um com PIS/COFINS e ICMS próprios). Hoje o catálogo em `FaturaCopelTab.tsx` tem uma única linha `bandeira_amarela` (idem `bandeira_vermelha_1/2`).
 
-Estrutura final do bloco de impostos:
+### Mudança no catálogo de itens (`FaturaCopelTab.tsx`)
 
-```text
-PIS/COFINS                        base 9,25%   R$ 2.052,42
-ICMS                              base 19,00%  R$ 5.190,90
-  ↳ Imposto de consumo                          R$ ...     ← sublinha
-  ↳ Imposto da demanda usada                    R$ ...     ← sublinha
-  ↳ Demanda isenta de ICMS (não deduzido)       R$ ...     ← sublinha
-Iluminação Pública                              R$ 9,44
-Crédito                                         R$ 0,00
-Bandeira Tarifária                              R$ 0,00
-TOTAL DA FATURA                                 R$ 27.388,62
-```
-
-Cada sublinha:
-- Recuo (`pl-8`), tipografia menor, texto mudo
-- Mostra PIS/COFINS + ICMS componentes em legenda discreta (igual hoje, só que inline)
-- Sem mexer em cálculo — usa as variáveis `piscofConsumo`, `icmsConsumo`, `piscofDemandaUsd`, `icmsDemandaCalc`, `piscofDemandaIsenta` que já existem
-
-### 2) Botão Exato/Planilha sobe para a tela "Faturas por Cliente"
-
-Hoje o toggle de `modoPerdas` (Exato vs Planilha combinado) está dentro de `FaturaOficial`, então só aparece depois que o usuário clica num cliente — e o KPI "Total faturado" fica ambíguo (não dá pra saber se foi calculado num modo ou no outro globalmente).
-
-Mudança:
-- Mover o toggle para o header de **Faturas por Cliente**, ao lado do "Exportar CSV"
-- Compacto, com label "Modo de rateio de perdas": `[ Exato (por posto) ] [ Planilha (combinado) ]`
-- O `FaturaOficial` continua recebendo `modoPerdas` por prop (sem o controle interno; remove o seletor lá pra evitar duplicação)
-- Como `useMemo` da memória já depende de `modoPerdas`, KPIs, Diferenças e Fatura Oficial recalculam juntos — Total faturado passa a refletir o modo escolhido de forma explícita
-
-### 3) Lista de clientes que pagaram multa (ultrapassagem)
-
-No bloco **Diferenças Copel × Faturado**, abaixo da linha "(−) Ultrapassagem faturada", abrir uma sub-tabelinha colapsável "Ver clientes com multa" mostrando:
+Substituir as chaves atuais por pares Ponta/Fora Ponta:
 
 ```text
-Cliente                              Demanda contratada  Demanda medida  Ultrapassagem (kW)  Multa (R$)
-─────────────────────────────────────────────────────────────────────────────────────────────────────
-Cliente A — Contrato 123                  500                620                120          R$ ...
-Cliente B — Contrato 456                  300                350                 50          R$ ...
-─────────────────────────────────────────────────────────────────────────────────────────────────────
-TOTAL                                                                            170          R$ totalUltrapassagem
+bandeira_amarela_ponta         ADICIONAL BAND. AMARELA — PONTA         kWh
+bandeira_amarela_fora          ADICIONAL BAND. AMARELA — FORA PONTA    kWh
+bandeira_vermelha_1_ponta      ADICIONAL BAND. VERMELHA P1 — PONTA     kWh
+bandeira_vermelha_1_fora       ADICIONAL BAND. VERMELHA P1 — FORA      kWh
+bandeira_vermelha_2_ponta      ADICIONAL BAND. VERMELHA P2 — PONTA     kWh
+bandeira_vermelha_2_fora       ADICIONAL BAND. VERMELHA P2 — FORA      kWh
 ```
 
-Detalhes:
-- Lista somente faturas com `rsUltrapassagem > 0`
-- Ordenada por multa desc
-- Demanda contratada vem de `contratoDemandaPorId`
-- Demanda medida = `f.demanda_usd`
-- Ultrapassagem kW = `max(0, medida − contratada)` por fatura
-- Multa R$ = `totaisPorFatura.get(key).rsUltrapassagem`
-- Total fecha com o `totalUltrapassagem` já exibido na linha pai
-- Se nenhum cliente tem multa, esconde o "Ver clientes" e mostra "Nenhum cliente com ultrapassagem nesta competência"
+Ambos permanecem opcionais (aparecem via "+ Adicionar item"), `tributacao: 'full'`, `sinal: 1`, `hasUnitario: true`, `hasTarifa: true`.
+
+### Compatibilidade com dados antigos
+
+- Ao carregar `fatura_copel_itens`, se existir chave legada `bandeira_amarela`/`bandeira_vermelha_1`/`bandeira_vermelha_2`, mapear automaticamente para o sufixo `_fora` (assume-se que histórico foi lançado agregado; o usuário pode desdobrar em Ponta manualmente se quiser). Migração de banco: **nenhuma** — o JSONB é livre.
+- Rótulos legados também aparecem no dropdown "+ Adicionar item" só se ainda estiverem populados na fatura carregada, para permitir edição sem perder dado.
+
+### Impacto downstream
+
+Em `src/lib/energia-rateio.ts` a bandeira é consumida como `bandeira_valor` (R$/100kWh) global vinda de `tarifas`, não item-a-item — então o **rateio não muda**. A fatura oficial exibida em `FaturasTab.tsx` mostra `bandeira_total` agregado (soma de todos os módulos) — segue igual, só que agora a **entrada** aceita as duas linhas separadas fielmente à fatura Copel.
+
+## Parte 2 — Reorganização UX das abas do Rateio de Energia
+
+Hoje: 6 abas planas (`Fatura Copel`, `Lançamentos`, `Faturas por Cliente`, `Contratos`, `Grandezas`, `Cadastros`) sem hierarquia entre "o que faço no mês" e "o que cadastro uma vez".
+
+### Nova estrutura (2 camadas)
+
+```text
+Rateio de Energia
+├─ Painel (novo — landing)
+├─ Operação Mensal
+│   ├─ 1. Fatura Copel
+│   ├─ 2. Lançamentos
+│   └─ 3. Faturas por Cliente
+└─ Cadastros Base
+    ├─ Contratos
+    ├─ Grandezas Contratadas
+    └─ Clientes / Módulos / Tarifas   (o atual EnergiaCadastrosTab)
+```
+
+Implementação: `Tabs` de nível 1 com 3 valores (`painel`, `operacao`, `cadastros`). Cada aba renderiza um sub-`Tabs` interno com seus filhos. Numeração `1./2./3.` na Operação Mensal deixa o fluxo explícito. `CompetenciaProvider` continua envolvendo tudo.
+
+### Painel (novo componente `EnergiaPainelTab.tsx`)
+
+Landing da tela — responde "o que preciso fazer neste mês?". Cards:
+
+- **Compet. selecionada** com seletor grande + status: `Fatura Copel: ✓ lançada / ✗ pendente`, `Lançamentos: N/M módulos`, `Faturas por Cliente: gerado / pendente`
+- **KPIs da competência** — Total Copel, Total Faturado (modo escolhido), Diferença, Ultrapassagem (multa)
+- **Pendências** — lista curta de itens que travam o fechamento: "Contrato X vencido", "Módulo Y sem lançamento", "PIS/COFINS não bate"
+- **Atalhos** — botões que navegam para as sub-abas certas (`Ir para Fatura Copel`, `Ir para Lançamentos`, `Gerar Faturas`)
+
+Sem novas queries pesadas — reaproveita hooks já existentes (`useMemo` já usados nas abas atuais). Se algum dado exige nova query, fica como TODO com placeholder discreto e não bloqueia o merge.
+
+### Reordenação e rótulos
+
+- "Fatura Copel" ganha subtítulo "Entrada de dados da concessionária"
+- "Lançamentos" vira "Lançamentos por Módulo" no rótulo interno
+- "Faturas por Cliente" mantém, ganha o toggle Exato/Planilha já existente no header
+- Ícones ficam consistentes: `LayoutDashboard` (Painel), `Workflow` (Operação Mensal), `Database` (Cadastros Base)
+
+### Roteamento
+
+Rota continua `/admin/rateio-energia`. Estado da sub-aba fica em `useState` local (não em query string) — mesmo padrão de hoje. Se o usuário clicar num atalho do Painel, `setTab('operacao')` + estado interno da sub-aba muda pra alvo desejado.
+
+## Arquivos afetados
+
+- `src/components/admin/energia/FaturaCopelTab.tsx` — desdobra bandeira em Ponta/Fora + compat legado
+- `src/components/admin/energia/RateioEnergiaTab.tsx` (arquivo `src/components/admin/RateioEnergiaTab.tsx`) — nova estrutura 2-camadas
+- `src/components/admin/energia/EnergiaPainelTab.tsx` — **novo**, landing/painel
 
 ## Fora de escopo
 
-- Engine `calcularMemoria` em `src/lib/energia-rateio.ts` — sem mudanças
-- Banco / migrations — nenhuma
-- PDF / Print — mantém o layout atual (pode ser feito numa próxima rodada)
-- `RateioEnergiaTab` — sem mudanças
+- Migração de banco (JSONB `fatura_copel_itens` acomoda novas chaves sem DDL)
+- Motor `calcularMemoria` (não muda)
+- Faturas por Cliente / detalhamento de tributos (já entregue nas rodadas anteriores)
+- PDF/print
 
 ## Validação esperada
 
-- Bloco de impostos termina em "TOTAL DA FATURA" sem card extra abaixo; sublinhas indentadas logo após ICMS
-- Trocar Exato ↔ Planilha no topo recalcula o KPI "Total faturado", "Diferença" e a Fatura Oficial selecionada
-- "Ver clientes com multa" lista cada cliente com ultrapassagem > 0 e a soma bate com `totalUltrapassagem`
+- Em Fatura Copel, "+ Adicionar item" lista Bandeira Amarela **Ponta** e **Fora Ponta** separadas; ambas podem coexistir e cada uma calcula PIS/COFINS e ICMS próprios
+- Fatura antiga com `bandeira_amarela` continua abrindo sem perder valor (aparece como `_fora`)
+- Tela do Rateio abre em "Painel" com status da competência atual, com atalhos que levam pra sub-aba correta
+- Cadastros (Contratos, Grandezas, Clientes/Módulos/Tarifas) ficam agrupados em "Cadastros Base", separados do fluxo mensal
