@@ -81,9 +81,12 @@ const COPEL_ITEM_DEFS: CopelItemDef[] = [
   { key: 'demanda_isenta_icms',    label: 'DEMANDA USD ISENTA ICMS',      unidade: 'kW',  hasUnitario: true, tributacao: 'isento_icms', sinal: 1, grupo: 'frequente', hasTarifa: true },
   { key: 'iluminacao_publica',     label: 'CONT ILUMIN PÚBLICA MUNICÍPIO', unidade: '—',  hasUnitario: false, tributacao: 'sem_tributo', sinal: 1, grupo: 'frequente' },
   // OPCIONAIS — adicionados via "+ Adicionar item"
-  { key: 'bandeira_amarela',       label: 'ADICIONAL BANDEIRA AMARELA',          unidade: 'kWh', hasUnitario: true, tributacao: 'full', sinal: 1, grupo: 'opcional', hasTarifa: true },
-  { key: 'bandeira_vermelha_1',    label: 'ADICIONAL BANDEIRA VERMELHA P1',      unidade: 'kWh', hasUnitario: true, tributacao: 'full', sinal: 1, grupo: 'opcional', hasTarifa: true },
-  { key: 'bandeira_vermelha_2',    label: 'ADICIONAL BANDEIRA VERMELHA P2',      unidade: 'kWh', hasUnitario: true, tributacao: 'full', sinal: 1, grupo: 'opcional', hasTarifa: true },
+  { key: 'bandeira_amarela_ponta',    label: 'ADICIONAL BAND. AMARELA — PONTA',      unidade: 'kWh', hasUnitario: true, tributacao: 'full', sinal: 1, grupo: 'opcional', hasTarifa: true },
+  { key: 'bandeira_amarela_fora',     label: 'ADICIONAL BAND. AMARELA — FORA PONTA', unidade: 'kWh', hasUnitario: true, tributacao: 'full', sinal: 1, grupo: 'opcional', hasTarifa: true },
+  { key: 'bandeira_vermelha_1_ponta', label: 'ADICIONAL BAND. VERMELHA P1 — PONTA',      unidade: 'kWh', hasUnitario: true, tributacao: 'full', sinal: 1, grupo: 'opcional', hasTarifa: true },
+  { key: 'bandeira_vermelha_1_fora',  label: 'ADICIONAL BAND. VERMELHA P1 — FORA PONTA', unidade: 'kWh', hasUnitario: true, tributacao: 'full', sinal: 1, grupo: 'opcional', hasTarifa: true },
+  { key: 'bandeira_vermelha_2_ponta', label: 'ADICIONAL BAND. VERMELHA P2 — PONTA',      unidade: 'kWh', hasUnitario: true, tributacao: 'full', sinal: 1, grupo: 'opcional', hasTarifa: true },
+  { key: 'bandeira_vermelha_2_fora',  label: 'ADICIONAL BAND. VERMELHA P2 — FORA PONTA', unidade: 'kWh', hasUnitario: true, tributacao: 'full', sinal: 1, grupo: 'opcional', hasTarifa: true },
   { key: 'reativo_ponta',          label: 'ENERGIA REATIVA EXCEDENTE PONTA',     unidade: 'kVArh', hasUnitario: true, tributacao: 'full', sinal: 1, grupo: 'opcional', hasTarifa: true },
   { key: 'reativo_fora',           label: 'ENERGIA REATIVA EXCEDENTE F PONTA',   unidade: 'kVArh', hasUnitario: true, tributacao: 'full', sinal: 1, grupo: 'opcional', hasTarifa: true },
   { key: 'scee_devol_ponta',       label: 'DEVOLUÇÃO SCEE PONTA (geração FV)',   unidade: 'kWh', hasUnitario: true, tributacao: 'sem_tributo', sinal: -1, grupo: 'opcional' },
@@ -188,11 +191,29 @@ export function FaturaCopelTab() {
     if (t.error) toast.error('Erro ao carregar fatura');
     setTarifas((t.data as any) || null);
     const fc = (t.data as any)?.fatura_copel_itens || {};
+    // Compat legado: mapeia chaves antigas (bandeira_amarela, bandeira_vermelha_1/2)
+    // para o sufixo _fora, preservando os valores lançados.
+    const rawItens: Record<string, any> = { ...(fc.itens || {}) };
+    const rawExtras: string[] = Array.isArray(fc.extras_keys) ? [...fc.extras_keys] : [];
+    const LEGACY_MAP: Record<string, string> = {
+      bandeira_amarela: 'bandeira_amarela_fora',
+      bandeira_vermelha_1: 'bandeira_vermelha_1_fora',
+      bandeira_vermelha_2: 'bandeira_vermelha_2_fora',
+    };
+    for (const [oldKey, newKey] of Object.entries(LEGACY_MAP)) {
+      if (rawItens[oldKey] && !rawItens[newKey]) {
+        rawItens[newKey] = rawItens[oldKey];
+      }
+      delete rawItens[oldKey];
+      const idx = rawExtras.indexOf(oldKey);
+      if (idx >= 0) rawExtras.splice(idx, 1);
+      if (!rawExtras.includes(newKey) && rawItens[newKey]) rawExtras.push(newKey);
+    }
     setFaturaItens({
-      itens: fc.itens || {},
+      itens: rawItens,
       tributos: fc.tributos || {},
       total_a_pagar: fc.total_a_pagar || '',
-      extras_keys: Array.isArray(fc.extras_keys) ? fc.extras_keys : [],
+      extras_keys: rawExtras,
       extras_labels: fc.extras_labels || {},
     });
     const ep = Number((t.data as any)?.perdas_energy_ponta_kwh) || 0;
