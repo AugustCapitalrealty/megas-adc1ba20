@@ -60,6 +60,7 @@ function cnaesToJson(cnaes: CNAESecundario[]): Json {
 export function useCNPJ() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [apiStatus, setApiStatus] = useState<'ok' | 'not_found' | 'unavailable' | 'network' | null>(null);
 
   const formatCNPJ = (value: string) => {
     const digits = value.replace(/\D/g, '').slice(0, 14);
@@ -105,15 +106,19 @@ export function useCNPJ() {
     return parseInt(digits[13]) === digit2;
   };
 
-  const fetchCNPJFromAPI = async (cnpj: string): Promise<CNPJData | null> => {
+  const fetchCNPJFromAPI = async (cnpj: string): Promise<{ data: CNPJData | null; reason: 'ok' | 'not_found' | 'unavailable' | 'network' }> => {
     const digits = unformatCNPJ(cnpj);
     try {
       const response = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${digits}`);
-      
+
       if (!response.ok) {
-        throw new Error('CNPJ não encontrado');
+        // 404 = CNPJ realmente não existe; demais códigos = API indisponível
+        if (response.status === 404) {
+          return { data: null, reason: 'not_found' };
+        }
+        return { data: null, reason: 'unavailable' };
       }
-      
+
       const data = await response.json();
       
       // Extrair endereço formatado
@@ -154,7 +159,7 @@ export function useCNPJ() {
         }
       }
 
-      return {
+      return { data: {
         cnpj: digits,
         razao_social: data.razao_social || '',
         nome_fantasia: data.nome_fantasia || '',
@@ -180,10 +185,10 @@ export function useCNPJ() {
         numero: data.numero || null,
         complemento: data.complemento || null,
         logradouro: data.logradouro || null,
-      };
+      }, reason: 'ok' };
     } catch (err) {
       console.error('Error fetching CNPJ:', err);
-      return null;
+      return { data: null, reason: 'network' };
     }
   };
 
@@ -223,10 +228,15 @@ export function useCNPJ() {
       }
 
       // Buscar dados da API
-      const cnpjData = await fetchCNPJFromAPI(digits);
-      
+      const { data: cnpjData, reason } = await fetchCNPJFromAPI(digits);
+      setApiStatus(reason);
+
       if (!cnpjData) {
-        setError('Não foi possível consultar o CNPJ');
+        if (reason === 'not_found') {
+          setError('CNPJ não encontrado na Receita Federal');
+        } else {
+          setError('Serviço da Receita Federal indisponível no momento');
+        }
         setLoading(false);
         // Se já existe no banco, retorna os dados existentes mesmo sem atualização
         if (existingFornecedor) {
@@ -317,10 +327,11 @@ export function useCNPJ() {
   return {
     loading,
     error,
+    apiStatus,
     formatCNPJ,
     unformatCNPJ,
     validateCNPJ,
     lookupCNPJ,
-    clearError: () => setError(null),
+    clearError: () => { setError(null); setApiStatus(null); },
   };
 }
