@@ -10,6 +10,8 @@ import { cn } from '@/lib/utils';
 import { FornecedorCard } from './FornecedorCard';
 import { useToast } from '@/hooks/use-toast';
 import { InternationalSupplierForm } from './InternationalSupplierForm';
+import { ManualSupplierForm } from './ManualSupplierForm';
+import { AlertTriangle } from 'lucide-react';
 
 interface SupplierSearchProps {
   label: string;
@@ -26,7 +28,10 @@ export function SupplierSearch({ label, required = false, value, onChange, compa
   const [searchLoading, setSearchLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [showIntlForm, setShowIntlForm] = useState(false);
-  const { formatCNPJ, lookupCNPJ, loading: cnpjLoading, error } = useCNPJ();
+  const [showManualForm, setShowManualForm] = useState(false);
+  const [manualPrefill, setManualPrefill] = useState('');
+  const [apiUnavailable, setApiUnavailable] = useState(false);
+  const { formatCNPJ, lookupCNPJ, loading: cnpjLoading, error, apiStatus, clearError } = useCNPJ();
   const { toast } = useToast();
 
   // Debounced search for suggestions
@@ -72,7 +77,8 @@ export function SupplierSearch({ label, required = false, value, onChange, compa
   const handleSearch = async () => {
     const cleanCNPJ = searchTerm.replace(/\D/g, '');
     if (cleanCNPJ.length !== 14) return;
-    
+
+    setApiUnavailable(false);
     const result = await lookupCNPJ(searchTerm);
     if (result) {
       onChange(result);
@@ -89,7 +95,22 @@ export function SupplierSearch({ label, required = false, value, onChange, compa
           variant: 'destructive',
         });
       }
+    } else if (apiStatus === 'unavailable' || apiStatus === 'network') {
+      setApiUnavailable(true);
+      toast({
+        title: 'Receita Federal indisponível',
+        description: 'Você pode cadastrar este CNPJ manualmente e atualizar os dados depois.',
+        variant: 'destructive',
+      });
     }
+  };
+
+  const openManual = (prefill: string) => {
+    setManualPrefill(prefill);
+    setShowManualForm(true);
+    setApiUnavailable(false);
+    clearError();
+    setShowSuggestions(false);
   };
 
   const handleRefresh = async () => {
@@ -214,6 +235,12 @@ export function SupplierSearch({ label, required = false, value, onChange, compa
           onCreated={(f) => { setShowIntlForm(false); onChange(f); }}
           onCancel={() => setShowIntlForm(false)}
         />
+      ) : showManualForm ? (
+        <ManualSupplierForm
+          initialCNPJ={manualPrefill}
+          onCreated={(f) => { setShowManualForm(false); setSearchTerm(''); onChange(f); }}
+          onCancel={() => setShowManualForm(false)}
+        />
       ) : (
         <div className="relative">
           <div className="flex gap-2">
@@ -317,22 +344,68 @@ export function SupplierSearch({ label, required = false, value, onChange, compa
                   ? 'CNPJ não encontrado. Clique no botão de busca para consultar na Receita Federal.'
                   : 'Nenhum fornecedor encontrado. Digite um CNPJ completo para cadastrar.'}
               </p>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onMouseDown={(e) => { e.preventDefault(); setShowIntlForm(true); setShowSuggestions(false); }}
-              >
-                <Globe className="h-4 w-4 mr-1" />
-                Cadastrar fornecedor internacional
-              </Button>
+              <div className="flex flex-col gap-2">
+                {isCNPJComplete && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onMouseDown={(e) => { e.preventDefault(); openManual(searchTerm.replace(/\D/g, '')); }}
+                  >
+                    <Building2 className="h-4 w-4 mr-1" />
+                    Cadastrar manualmente (sem consultar Receita)
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onMouseDown={(e) => { e.preventDefault(); setShowIntlForm(true); setShowSuggestions(false); }}
+                >
+                  <Globe className="h-4 w-4 mr-1" />
+                  Cadastrar fornecedor internacional
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* API indisponível → oferecer cadastro manual */}
+          {apiUnavailable && (
+            <div className="mt-2 p-3 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800">
+              <div className="flex items-start gap-2 text-sm text-amber-900 dark:text-amber-200">
+                <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="font-medium">Receita Federal (BrasilAPI) indisponível para este CNPJ.</p>
+                  <p className="text-xs mt-0.5">Você pode cadastrar manualmente agora e atualizar os dados quando a API voltar.</p>
+                </div>
+              </div>
+              <div className="flex gap-2 mt-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => openManual(searchTerm.replace(/\D/g, ''))}
+                >
+                  <Building2 className="h-4 w-4 mr-1" />
+                  Cadastrar manualmente
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleSearch}
+                  disabled={cnpjLoading}
+                >
+                  Tentar novamente
+                </Button>
+              </div>
             </div>
           )}
         </div>
       )}
       
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && !apiUnavailable && <p className="text-sm text-destructive">{error}</p>}
     </div>
   );
 }
