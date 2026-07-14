@@ -1,91 +1,49 @@
+## Problema
 
-## Parte 1 — Bandeira Amarela (e Vermelha) por Posto
+O CNPJ 43708379000100 não retorna porque a BrasilAPI está devolvendo **HTTP 503** (indisponível) para esse cadastro específico. Confirmado via chamada direta:
 
-A fatura Copel emite a bandeira **duas vezes**: uma sobre o consumo Ponta e outra sobre Fora Ponta (visível na imagem: `ADICIONAL BAND. AMARELA` com 38.370 kWh e 390.603 kWh, cada um com PIS/COFINS e ICMS próprios). Hoje o catálogo em `FaturaCopelTab.tsx` tem uma única linha `bandeira_amarela` (idem `bandeira_vermelha_1/2`).
-
-### Mudança no catálogo de itens (`FaturaCopelTab.tsx`)
-
-Substituir as chaves atuais por pares Ponta/Fora Ponta:
-
-```text
-bandeira_amarela_ponta         ADICIONAL BAND. AMARELA — PONTA         kWh
-bandeira_amarela_fora          ADICIONAL BAND. AMARELA — FORA PONTA    kWh
-bandeira_vermelha_1_ponta      ADICIONAL BAND. VERMELHA P1 — PONTA     kWh
-bandeira_vermelha_1_fora       ADICIONAL BAND. VERMELHA P1 — FORA      kWh
-bandeira_vermelha_2_ponta      ADICIONAL BAND. VERMELHA P2 — PONTA     kWh
-bandeira_vermelha_2_fora       ADICIONAL BAND. VERMELHA P2 — FORA      kWh
+```
+curl https://brasilapi.com.br/api/cnpj/v1/43708379000100
+→ 500 "Request failed with status code 503"
 ```
 
-Ambos permanecem opcionais (aparecem via "+ Adicionar item"), `tributacao: 'full'`, `sinal: 1`, `hasUnitario: true`, `hasTarifa: true`.
+Hoje, quando a API falha, `useCNPJ.lookupCNPJ` retorna `null` e o usuário só vê "Erro ao consultar CNPJ", sem alternativa. Não existe caminho para cadastrar um CNPJ nacional manualmente — o formulário `InternationalSupplierForm` só serve para fornecedores estrangeiros.
 
-### Compatibilidade com dados antigos
+## O que vou fazer
 
-- Ao carregar `fatura_copel_itens`, se existir chave legada `bandeira_amarela`/`bandeira_vermelha_1`/`bandeira_vermelha_2`, mapear automaticamente para o sufixo `_fora` (assume-se que histórico foi lançado agregado; o usuário pode desdobrar em Ponta manualmente se quiser). Migração de banco: **nenhuma** — o JSONB é livre.
-- Rótulos legados também aparecem no dropdown "+ Adicionar item" só se ainda estiverem populados na fatura carregada, para permitir edição sem perder dado.
+### 1. Melhorar diagnóstico da falha na API (`src/hooks/useCNPJ.ts`)
+- `fetchCNPJFromAPI` passa a retornar um objeto de status (`{ data | null, reason: 'not_found' | 'unavailable' | 'network' }`) em vez de só `null`, para distinguir "CNPJ não existe" de "API fora do ar".
+- `lookupCNPJ` expõe esse motivo (`apiStatus`) para o componente decidir se oferece o modo manual.
 
-### Impacto downstream
+### 2. Novo formulário de contingência (`src/components/ManualSupplierForm.tsx`)
+Componente novo, espelhado no `InternationalSupplierForm`, mas para CNPJ nacional. Campos:
+- **CNPJ** (pré-preenchido com o que o usuário digitou, validação de dígito)
+- **Razão social** * / Nome fantasia
+- **E-mail** / Telefone
+- **CEP, Logradouro, Número, Complemento, Bairro, Cidade, UF** (com máscara)
+- **CNAE principal** (código + descrição, opcional)
+- **MEI?** (checkbox)
+- Aviso visível: "Cadastro manual — dados não validados pela Receita Federal. Preencha com cuidado."
 
-Em `src/lib/energia-rateio.ts` a bandeira é consumida como `bandeira_valor` (R$/100kWh) global vinda de `tarifas`, não item-a-item — então o **rateio não muda**. A fatura oficial exibida em `FaturasTab.tsx` mostra `bandeira_total` agregado (soma de todos os módulos) — segue igual, só que agora a **entrada** aceita as duas linhas separadas fielmente à fatura Copel.
+Ao salvar: `insert` na tabela `fornecedores` com `tipo_fornecedor='nacional'` e **sem** `ultima_atualizacao_api` (para que o próximo `RefreshCw` tente enriquecer automaticamente quando a BrasilAPI voltar). Retorna o `Fornecedor` para o `onChange`.
 
-## Parte 2 — Reorganização UX das abas do Rateio de Energia
+### 3. Integrar o fallback no `SupplierSearch.tsx`
+- Ao clicar em "Buscar" e receber `apiStatus === 'unavailable'` ou `'network'`, mostrar um bloco de alerta abaixo do input:
+  > "A Receita Federal (BrasilAPI) está indisponível no momento para este CNPJ. Você pode **cadastrar manualmente** e atualizar os dados depois."
+  > `[Cadastrar manualmente]`
+- Botão abre o `ManualSupplierForm` no lugar do input (mesmo padrão do `showIntlForm`).
+- Também adiciono um botão discreto "Cadastrar manualmente" no dropdown "CNPJ não encontrado" para o caso de `not_found` — útil se o usuário precisar seguir mesmo sem retorno.
+- Toast informativo quando cai no modo manual, para deixar claro o motivo.
 
-Hoje: 6 abas planas (`Fatura Copel`, `Lançamentos`, `Faturas por Cliente`, `Contratos`, `Grandezas`, `Cadastros`) sem hierarquia entre "o que faço no mês" e "o que cadastro uma vez".
-
-### Nova estrutura (2 camadas)
-
-```text
-Rateio de Energia
-├─ Painel (novo — landing)
-├─ Operação Mensal
-│   ├─ 1. Fatura Copel
-│   ├─ 2. Lançamentos
-│   └─ 3. Faturas por Cliente
-└─ Cadastros Base
-    ├─ Contratos
-    ├─ Grandezas Contratadas
-    └─ Clientes / Módulos / Tarifas   (o atual EnergiaCadastrosTab)
-```
-
-Implementação: `Tabs` de nível 1 com 3 valores (`painel`, `operacao`, `cadastros`). Cada aba renderiza um sub-`Tabs` interno com seus filhos. Numeração `1./2./3.` na Operação Mensal deixa o fluxo explícito. `CompetenciaProvider` continua envolvendo tudo.
-
-### Painel (novo componente `EnergiaPainelTab.tsx`)
-
-Landing da tela — responde "o que preciso fazer neste mês?". Cards:
-
-- **Compet. selecionada** com seletor grande + status: `Fatura Copel: ✓ lançada / ✗ pendente`, `Lançamentos: N/M módulos`, `Faturas por Cliente: gerado / pendente`
-- **KPIs da competência** — Total Copel, Total Faturado (modo escolhido), Diferença, Ultrapassagem (multa)
-- **Pendências** — lista curta de itens que travam o fechamento: "Contrato X vencido", "Módulo Y sem lançamento", "PIS/COFINS não bate"
-- **Atalhos** — botões que navegam para as sub-abas certas (`Ir para Fatura Copel`, `Ir para Lançamentos`, `Gerar Faturas`)
-
-Sem novas queries pesadas — reaproveita hooks já existentes (`useMemo` já usados nas abas atuais). Se algum dado exige nova query, fica como TODO com placeholder discreto e não bloqueia o merge.
-
-### Reordenação e rótulos
-
-- "Fatura Copel" ganha subtítulo "Entrada de dados da concessionária"
-- "Lançamentos" vira "Lançamentos por Módulo" no rótulo interno
-- "Faturas por Cliente" mantém, ganha o toggle Exato/Planilha já existente no header
-- Ícones ficam consistentes: `LayoutDashboard` (Painel), `Workflow` (Operação Mensal), `Database` (Cadastros Base)
-
-### Roteamento
-
-Rota continua `/admin/rateio-energia`. Estado da sub-aba fica em `useState` local (não em query string) — mesmo padrão de hoje. Se o usuário clicar num atalho do Painel, `setTab('operacao')` + estado interno da sub-aba muda pra alvo desejado.
-
-## Arquivos afetados
-
-- `src/components/admin/energia/FaturaCopelTab.tsx` — desdobra bandeira em Ponta/Fora + compat legado
-- `src/components/admin/energia/RateioEnergiaTab.tsx` (arquivo `src/components/admin/RateioEnergiaTab.tsx`) — nova estrutura 2-camadas
-- `src/components/admin/energia/EnergiaPainelTab.tsx` — **novo**, landing/painel
+### 4. Botão "Atualizar dados da Receita Federal" (já existe)
+Nenhuma mudança de lógica: como o cadastro manual grava `ultima_atualizacao_api = null`, o botão continuará funcionando para enriquecer os dados quando a API estiver disponível novamente.
 
 ## Fora de escopo
+- Retry automático / proxy alternativo para BrasilAPI.
+- Migração de banco (todos os campos usados já existem em `fornecedores`).
+- Alterar o fluxo de fornecedor internacional.
 
-- Migração de banco (JSONB `fatura_copel_itens` acomoda novas chaves sem DDL)
-- Motor `calcularMemoria` (não muda)
-- Faturas por Cliente / detalhamento de tributos (já entregue nas rodadas anteriores)
-- PDF/print
-
-## Validação esperada
-
-- Em Fatura Copel, "+ Adicionar item" lista Bandeira Amarela **Ponta** e **Fora Ponta** separadas; ambas podem coexistir e cada uma calcula PIS/COFINS e ICMS próprios
-- Fatura antiga com `bandeira_amarela` continua abrindo sem perder valor (aparece como `_fora`)
-- Tela do Rateio abre em "Painel" com status da competência atual, com atalhos que levam pra sub-aba correta
-- Cadastros (Contratos, Grandezas, Clientes/Módulos/Tarifas) ficam agrupados em "Cadastros Base", separados do fluxo mensal
+## Arquivos afetados
+- `src/hooks/useCNPJ.ts` (retornar motivo do erro)
+- `src/components/ManualSupplierForm.tsx` (novo)
+- `src/components/SupplierSearch.tsx` (integrar fallback)
