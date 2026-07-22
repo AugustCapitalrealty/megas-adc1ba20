@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, FileText, Save, CheckCircle2, AlertTriangle, Lock, Calculator, Receipt, Percent, Lightbulb, Gauge, Plus, X } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
   DropdownMenuLabel, DropdownMenuSeparator,
@@ -359,7 +360,61 @@ export function FaturaCopelTab() {
   );
   const totalAPagar = parseBR(faturaItens.total_a_pagar || '');
   const diff = totalAPagar > 0 ? sumValor - totalAPagar : 0;
-  const bateOk = totalAPagar > 0 && Math.abs(diff) < 0.01;
+  const diffAbs = Math.abs(diff);
+  const bateOk = totalAPagar > 0 && diffAbs < 0.01;
+  // Tolerância de arredondamento: a Copel arredonda cada linha antes de somar,
+  // então uma diferença de alguns centavos é esperada. Trate ≤ R$ 1,00 como OK.
+  const bateArredondamento = totalAPagar > 0 && !bateOk && diffAbs <= 1.0;
+  const diffAceitavel = totalAPagar > 0 && !bateOk && !bateArredondamento && diffAbs <= 10.0;
+
+  // ─── Detecção de bandeira somada em uma linha só (Ponta + Fora) ─────
+  // Bug histórico: faturas antigas migradas para o novo esquema Ponta/Fora ficam
+  // com todo o kWh no bucket "_fora". Sinal disso: quant do _fora ≈ Ponta+Fora
+  // (consumo dos itens te_ponta/te_fora ou dos lançamentos de clientes).
+  const bandeirasFundidas = useMemo(() => {
+    const it = faturaItens.itens || {};
+    const totalPonta = parseBR(it.te_ponta?.quant || '') || copelPontaKwh;
+    const totalFora  = parseBR(it.te_fora?.quant  || '') || copelForaKwh;
+    if (totalPonta <= 0 || totalFora <= 0) return [] as Array<{ key: string; label: string; pair: string; qtdFora: number; totalPonta: number; totalFora: number; preco: number }>;
+    const pairs = [
+      { fora: 'bandeira_amarela_fora',     ponta: 'bandeira_amarela_ponta',     label: 'Bandeira Amarela' },
+      { fora: 'bandeira_vermelha_1_fora',  ponta: 'bandeira_vermelha_1_ponta',  label: 'Bandeira Vermelha P1' },
+      { fora: 'bandeira_vermelha_2_fora',  ponta: 'bandeira_vermelha_2_ponta',  label: 'Bandeira Vermelha P2' },
+    ];
+    const out: Array<{ key: string; label: string; pair: string; qtdFora: number; totalPonta: number; totalFora: number; preco: number }> = [];
+    for (const p of pairs) {
+      const qFora = parseBR(it[p.fora]?.quant || '');
+      const qPonta = parseBR(it[p.ponta]?.quant || '');
+      if (qFora <= 0 || qPonta > 0) continue;
+      // ~= totalPonta+totalFora (tolerância 1%). E claramente > totalFora (> 1.5x).
+      const expectedCombined = totalPonta + totalFora;
+      if (Math.abs(qFora - expectedCombined) / expectedCombined <= 0.01 && qFora >= totalFora * 1.5) {
+        out.push({
+          key: p.fora, label: p.label, pair: p.ponta,
+          qtdFora: qFora, totalPonta, totalFora,
+          preco: parseBR(it[p.fora]?.preco_unit || ''),
+        });
+      }
+    }
+    return out;
+  }, [faturaItens.itens, copelPontaKwh, copelForaKwh]);
+
+  const splitBandeira = (foraKey: string, pontaKey: string, totalPonta: number, totalFora: number, preco: number) => {
+    const def = DEF_BY_KEY.get(pontaKey);
+    const forDef = DEF_BY_KEY.get(foraKey);
+    if (!def || !forDef) return;
+    setFaturaItens((prev) => {
+      const nextIt = { ...(prev.itens || {}) } as Record<string, CopelItem>;
+      const pontaItem = recalcItem(def, { ...emptyItem(), quant: fmtBR(totalPonta, 0), preco_unit: fmtBR(preco, 6) }, aliquotas);
+      const foraItem  = recalcItem(forDef, { ...emptyItem(), quant: fmtBR(totalFora,  0), preco_unit: fmtBR(preco, 6) }, aliquotas);
+      nextIt[pontaKey] = pontaItem;
+      nextIt[foraKey]  = foraItem;
+      const extras = prev.extras_keys || [];
+      const nextExtras = extras.includes(pontaKey) ? extras : [...extras, pontaKey];
+      return { ...prev, itens: nextIt, extras_keys: nextExtras };
+    });
+    toast.success('Bandeira separada em Ponta / Fora Ponta.');
+  };
 
   // ─── Medidor (Energy) & Diferença Copel ──────────────────────────
   const copelPontaKwh = useMemo(() => {
@@ -381,6 +436,18 @@ export function FaturaCopelTab() {
 
   const save = async () => {
     if (!tarifas) return;
+    // Guarda-corpo: se alguma bandeira "_fora" está com quant absurdamente maior
+    // que o consumo fora (indício de linhas Ponta+Fora fundidas), bloquear.
+    const it0 = faturaItens.itens || {};
+    const forasSuspeitas: string[] = [];
+    for (const kFora of ['bandeira_amarela_fora','bandeira_vermelha_1_fora','bandeira_vermelha_2_fora']) {
+      const qFora = parseBR(it0[kFora]?.quant || '');
+      if (qFora > 0 && copelForaKwh > 0 && qFora >= copelForaKwh * 1.5) forasSuspeitas.push(kFora);
+    }
+    if (forasSuspeitas.length > 0) {
+      toast.error('Revise a Bandeira: a quantidade em "Fora Ponta" parece incluir o consumo Ponta. Use o botão "Separar Ponta/Fora" no topo da tabela.');
+      return;
+    }
     setSaving(true);
     const it = faturaItens.itens || {};
     const v = (k: CopelItemKey) => parseBR(it[k]?.valor || '');
