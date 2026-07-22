@@ -195,8 +195,9 @@ export function useMonitoramentoOC(opts: {
   hasAllAccess: boolean;
   enabled: boolean;
 }) {
-  const { userEmpreendimentos, hasAllAccess, enabled } = opts;
+  const { enabled } = opts;
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [groups, setGroups] = useState<OCGroupRow[]>([]);
   const [historicalKpis, setHistoricalKpis] = useState<{ prev: OcKpis | null }>({ prev: null });
   const [diaCorte, setDiaCorte] = useState<number>(DEFAULT_DIA_CORTE_JUSTIFICATIVA);
@@ -238,12 +239,14 @@ export function useMonitoramentoOC(opts: {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    setFetchError(null);
     try {
-      const { data: docs } = await supabase
+      const { data: docs, error: docsError } = await supabase
         .from('documentos_emitidos')
         .select('id, solicitacao_id, numero_documento, created_at, tipo_documento')
         .eq('tipo_documento', 'OC')
         .order('created_at', { ascending: false });
+      if (docsError) throw docsError;
 
       if (!docs || docs.length === 0) {
         setGroups([]);
@@ -262,7 +265,7 @@ export function useMonitoramentoOC(opts: {
 
       const solIds = [...new Set(uniqueDocs.map(d => d.solicitacao_id))];
 
-      const [{ data: sols }, { data: fiscais }, { data: acompanhamentos }] = await Promise.all([
+      const [solicitacoesRes, fiscaisRes, acompanhamentosRes] = await Promise.all([
         supabase
           .from('solicitacoes')
           .select('id, protocolo, valor, empreendimento, status, cancelamento_pendente, fornecedor_id, natureza_orcamentaria, user_id')
@@ -278,9 +281,16 @@ export function useMonitoramentoOC(opts: {
           .in('solicitacao_id', solIds)
           .order('created_at', { ascending: false }),
       ]);
+      if (solicitacoesRes.error) throw solicitacoesRes.error;
+      if (fiscaisRes.error) throw fiscaisRes.error;
+      if (acompanhamentosRes.error) throw acompanhamentosRes.error;
 
-      const fornecedorIds = [...new Set((sols || []).map(s => (s as any).fornecedor_id).filter(Boolean))];
-      const userIds = [...new Set((sols || []).map(s => s.user_id).filter(Boolean))];
+      const sols = solicitacoesRes.data || [];
+      const fiscais = fiscaisRes.data || [];
+      const acompanhamentos = acompanhamentosRes.data || [];
+
+      const fornecedorIds = [...new Set(sols.map(s => (s as any).fornecedor_id).filter(Boolean))];
+      const userIds = [...new Set(sols.map(s => s.user_id).filter(Boolean))];
 
       const [fornecedoresRes, profilesRes] = await Promise.all([
         fornecedorIds.length
@@ -290,6 +300,8 @@ export function useMonitoramentoOC(opts: {
           ? supabase.from('profiles').select('id, full_name').in('id', userIds)
           : Promise.resolve({ data: [] as any[] }),
       ]);
+      if ('error' in fornecedoresRes && fornecedoresRes.error) throw fornecedoresRes.error;
+      if ('error' in profilesRes && profilesRes.error) throw profilesRes.error;
 
       const fornecedorMap: Record<string, string> = Object.fromEntries(
         (fornecedoresRes.data || []).map((f: any) => [f.id, f.nome_fantasia || f.razao_social || ''])
@@ -298,10 +310,10 @@ export function useMonitoramentoOC(opts: {
         (profilesRes.data || []).map((p: any) => [p.id, p.full_name || ''])
       );
 
-      const nfSet = new Set((fiscais || []).map(f => f.solicitacao_id));
+      const nfSet = new Set(fiscais.map(f => f.solicitacao_id));
 
       const latestAcomp: Record<string, any> = {};
-      (acompanhamentos || []).forEach((a: any) => {
+      acompanhamentos.forEach((a: any) => {
         // Normalize unified-history shape into the legacy oc_acompanhamento shape
         // expected by the rest of this hook.
         const normalized = {
@@ -312,7 +324,7 @@ export function useMonitoramentoOC(opts: {
         if (!latestAcomp[a.solicitacao_id]) latestAcomp[a.solicitacao_id] = normalized;
       });
 
-      const solMap = Object.fromEntries((sols || []).map(s => [s.id, s]));
+      const solMap = Object.fromEntries(sols.map(s => [s.id, s]));
 
       // Agrupar OCs por solicitação
       const grouped = new Map<string, OCGroupRow>();
@@ -321,7 +333,6 @@ export function useMonitoramentoOC(opts: {
         if (!sol) return;
         if (sol.natureza_orcamentaria === 'agua' || sol.natureza_orcamentaria === 'energia_eletrica') return;
         if (sol.status === 'concluida') return;
-        if (!hasAllAccess && !userEmpreendimentos.includes(sol.empreendimento)) return;
 
         const acomp = latestAcomp[sol.id];
         const previsaoNfBruta = acomp?.previsao_nf || null;
@@ -379,10 +390,12 @@ export function useMonitoramentoOC(opts: {
       setGroups(result);
     } catch (err) {
       console.error('useMonitoramentoOC fetch error', err);
+      setFetchError(err instanceof Error ? err.message : 'Não foi possível carregar os dados de OC x NF.');
+      setGroups([]);
     } finally {
       setLoading(false);
     }
-  }, [hasAllAccess, userEmpreendimentos]);
+  }, []);
 
   useEffect(() => {
     if (enabled) {
@@ -494,6 +507,7 @@ export function useMonitoramentoOC(opts: {
 
   return {
     loading,
+    fetchError,
     groups,
     kpis,
     distribution,

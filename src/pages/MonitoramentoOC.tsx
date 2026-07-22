@@ -176,6 +176,7 @@ export default function MonitoramentoOC() {
 
   const {
     loading,
+    fetchError,
     groups,
     refetch,
     diaCorte,
@@ -694,6 +695,19 @@ export default function MonitoramentoOC() {
               )}
             </div>
 
+            {fetchError && (
+              <div className="flex items-start gap-3 rounded-md border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <div className="space-y-2">
+                  <p className="font-medium">Não foi possível carregar a lista OC x NF.</p>
+                  <p className="text-destructive/80">{fetchError}</p>
+                  <Button variant="outline" size="sm" onClick={refetch} className="h-8">
+                    Tentar novamente
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* Tabela agrupada — colunas mescladas e ações com label */}
             <Card>
               <ScrollArea className="h-[560px]">
@@ -719,7 +733,9 @@ export default function MonitoramentoOC() {
                             <div className="flex flex-col items-center gap-2 text-muted-foreground">
                               <Inbox className="h-10 w-10 opacity-40" />
                               <p className="text-sm font-medium">
-                                {activeTab === 'pendencia'
+                                {fetchError
+                                  ? 'A lista não carregou por erro de acesso ou conexão'
+                                  : activeTab === 'pendencia'
                                   ? 'Nenhuma OC com pendência de justificativa'
                                   : activeTab === 'justificadas'
                                   ? 'Nenhuma OC justificada neste recorte'

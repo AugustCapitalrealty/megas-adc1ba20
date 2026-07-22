@@ -1,49 +1,22 @@
-## Problema
+Plano para corrigir a tela OC x NF zerada:
 
-O CNPJ 43708379000100 não retorna porque a BrasilAPI está devolvendo **HTTP 503** (indisponível) para esse cadastro específico. Confirmado via chamada direta:
+1. **Remover a dependência frágil do filtro local por empreendimento**
+   - Hoje a tela busca os documentos de OC e depois filtra no front usando `userEmpreendimentos`/`hasAllAccess`.
+   - Como o próprio backend já aplica as regras de acesso por usuário, vou deixar a lista respeitar o que o backend retornou, sem zerar no front por divergência de vínculo/local.
 
-```
-curl https://brasilapi.com.br/api/cnpj/v1/43708379000100
-→ 500 "Request failed with status code 503"
-```
+2. **Tornar a busca mais resiliente**
+   - Se `documentos_emitidos` retornar OCs mas alguma consulta complementar falhar ou vier parcial, a tela não deve aparecer como “0 sol. · 0 OCs” sem explicar.
+   - Vou tratar erros por etapa e exibir um aviso/estado de erro quando a leitura falhar, em vez de silenciosamente mostrar vazio.
 
-Hoje, quando a API falha, `useCNPJ.lookupCNPJ` retorna `null` e o usuário só vê "Erro ao consultar CNPJ", sem alternativa. Não existe caminho para cadastrar um CNPJ nacional manualmente — o formulário `InternationalSupplierForm` só serve para fornecedores estrangeiros.
+3. **Ajustar contadores e filtros da tela**
+   - Garantir que “Todas”, “Pendência de justificativa”, “Justificadas” e “0 sol. · 0 OCs” contem a mesma base de dados carregada.
+   - Manter os filtros de busca, empreendimento e status funcionando, mas sem esconder tudo por erro de sincronização de permissões.
 
-## O que vou fazer
+4. **Validar no navegador**
+   - Testar `/monitoramento-oc` com sessão autenticada.
+   - Confirmar que a tela volta a mostrar as OCs e que não há erro de rede/console relevante.
 
-### 1. Melhorar diagnóstico da falha na API (`src/hooks/useCNPJ.ts`)
-- `fetchCNPJFromAPI` passa a retornar um objeto de status (`{ data | null, reason: 'not_found' | 'unavailable' | 'network' }`) em vez de só `null`, para distinguir "CNPJ não existe" de "API fora do ar".
-- `lookupCNPJ` expõe esse motivo (`apiStatus`) para o componente decidir se oferece o modo manual.
-
-### 2. Novo formulário de contingência (`src/components/ManualSupplierForm.tsx`)
-Componente novo, espelhado no `InternationalSupplierForm`, mas para CNPJ nacional. Campos:
-- **CNPJ** (pré-preenchido com o que o usuário digitou, validação de dígito)
-- **Razão social** * / Nome fantasia
-- **E-mail** / Telefone
-- **CEP, Logradouro, Número, Complemento, Bairro, Cidade, UF** (com máscara)
-- **CNAE principal** (código + descrição, opcional)
-- **MEI?** (checkbox)
-- Aviso visível: "Cadastro manual — dados não validados pela Receita Federal. Preencha com cuidado."
-
-Ao salvar: `insert` na tabela `fornecedores` com `tipo_fornecedor='nacional'` e **sem** `ultima_atualizacao_api` (para que o próximo `RefreshCw` tente enriquecer automaticamente quando a BrasilAPI voltar). Retorna o `Fornecedor` para o `onChange`.
-
-### 3. Integrar o fallback no `SupplierSearch.tsx`
-- Ao clicar em "Buscar" e receber `apiStatus === 'unavailable'` ou `'network'`, mostrar um bloco de alerta abaixo do input:
-  > "A Receita Federal (BrasilAPI) está indisponível no momento para este CNPJ. Você pode **cadastrar manualmente** e atualizar os dados depois."
-  > `[Cadastrar manualmente]`
-- Botão abre o `ManualSupplierForm` no lugar do input (mesmo padrão do `showIntlForm`).
-- Também adiciono um botão discreto "Cadastrar manualmente" no dropdown "CNPJ não encontrado" para o caso de `not_found` — útil se o usuário precisar seguir mesmo sem retorno.
-- Toast informativo quando cai no modo manual, para deixar claro o motivo.
-
-### 4. Botão "Atualizar dados da Receita Federal" (já existe)
-Nenhuma mudança de lógica: como o cadastro manual grava `ultima_atualizacao_api = null`, o botão continuará funcionando para enriquecer os dados quando a API estiver disponível novamente.
-
-## Fora de escopo
-- Retry automático / proxy alternativo para BrasilAPI.
-- Migração de banco (todos os campos usados já existem em `fornecedores`).
-- Alterar o fluxo de fornecedor internacional.
-
-## Arquivos afetados
-- `src/hooks/useCNPJ.ts` (retornar motivo do erro)
-- `src/components/ManualSupplierForm.tsx` (novo)
-- `src/components/SupplierSearch.tsx` (integrar fallback)
+Detalhe técnico confirmado antes do plano:
+- O backend tem dados: `documentos_emitidos` com 640 OCs.
+- As permissões efetivas de leitura das tabelas usadas estão ativas para usuários autenticados.
+- Na sessão de teste autenticada a tela carrega dados, mas o print do usuário mostra o estado zerado; por isso o ponto mais provável é o filtro/estado local eliminando resultados depois da leitura.
