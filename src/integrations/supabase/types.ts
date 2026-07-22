@@ -2337,6 +2337,10 @@ export type Database = {
         Returns: undefined
       }
       is_backoffice_or_admin: { Args: { _user_id: string }; Returns: boolean }
+      solicitacao_missing_anexos: {
+        Args: { sol: Database["public"]["Tables"]["solicitacoes"]["Row"] }
+        Returns: string[]
+      }
       update_numero_projuris: {
         Args: { p_numero_projuris: string; p_solicitacao_id: string }
         Returns: undefined
