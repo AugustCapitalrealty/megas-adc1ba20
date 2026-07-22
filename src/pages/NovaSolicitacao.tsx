@@ -692,6 +692,40 @@ export default function NovaSolicitacao() {
         return;
       }
 
+      // Telemetria pré-INSERT: sinal para diagnosticar futuros envios sem anexos.
+      const requiredTipos = requiredAttachments.filter(a => a.required).map(a => a.tipo);
+      const presentTipos = [
+        ...Object.keys(formState.anexos).filter(k => !!formState.anexos[k]),
+        ...Array.from(existingAnexoTipos),
+      ];
+      const anexosMapVazio =
+        Object.values(formState.anexos).every((f) => !f) && existingAnexoTipos.size === 0;
+      track('submit_attempt', {
+        tipo: derived.isAC ? 'AC' : 'OC',
+        natureza: formState.naturezaOrcamentaria,
+        semMemorial: formState.semMemorial,
+        excecao: formState.excecaoFornecedores,
+        exclusivo: formState.fornecimentoExclusivo,
+        emergencial: formState.emergencial,
+        requiredTipos: requiredTipos.join(','),
+        presentTipos: presentTipos.join(','),
+      }, '/nova-solicitacao');
+      if (requiredTipos.length > 0 && anexosMapVazio) {
+        // Chegou até aqui com validação "ok" mas sem nenhum anexo — sinal de race.
+        captureError(new Error('submit_passed_without_anexos'), {
+          severity: 'warning',
+          source: 'nova-solicitacao/submit',
+          context: {
+            requiredTipos,
+            tipo: derived.isAC ? 'AC' : 'OC',
+            natureza: formState.naturezaOrcamentaria,
+            semMemorial: formState.semMemorial,
+            excecao: formState.excecaoFornecedores,
+            draftId,
+          },
+        });
+      }
+
       const insertData = {
         user_id: effectiveUserId ?? user.id,
         empreendimento: formState.empreendimento as any,
