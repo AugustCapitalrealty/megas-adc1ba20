@@ -64,6 +64,30 @@ const isFutureDate = (iso: string | null): boolean => {
   return iso >= today;
 };
 
+const QUERY_CHUNK_SIZE = 100;
+
+const chunkArray = <T,>(items: T[], size = QUERY_CHUNK_SIZE): T[][] => {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
+};
+
+const fetchInChunks = async <T,>(
+  ids: string[],
+  query: (batchIds: string[]) => PromiseLike<{ data: T[] | null; error: unknown | null }>
+): Promise<T[]> => {
+  const uniqueIds = [...new Set(ids.filter(Boolean))];
+  if (uniqueIds.length === 0) return [];
+
+  const responses = await Promise.all(chunkArray(uniqueIds).map(batchIds => query(batchIds)));
+  const failed = responses.find(response => response.error);
+  if (failed?.error) throw failed.error;
+
+  return responses.flatMap(response => response.data || []);
+};
+
 /**
  * Status visual da OC (computado a partir do estado da solicitação + OC).
  */
@@ -265,49 +289,46 @@ export function useMonitoramentoOC(opts: {
 
       const solIds = [...new Set(uniqueDocs.map(d => d.solicitacao_id))];
 
-      const [solicitacoesRes, fiscaisRes, acompanhamentosRes] = await Promise.all([
-        supabase
-          .from('solicitacoes')
-          .select('id, protocolo, valor, empreendimento, status, cancelamento_pendente, fornecedor_id, natureza_orcamentaria, user_id')
-          .in('id', solIds),
-        supabase
-          .from('documentos_fiscais')
-          .select('solicitacao_id')
-          .in('solicitacao_id', solIds),
-        supabase
-          .from('historico_solicitacoes')
-          .select('solicitacao_id, acao, motivo, mensagem, previsao_execucao, previsao_nf, created_at')
-          .eq('categoria', 'acompanhamento_oc')
-          .in('solicitacao_id', solIds)
-          .order('created_at', { ascending: false }),
+      const [sols, fiscais, acompanhamentos] = await Promise.all([
+        fetchInChunks<any>(solIds, batchIds =>
+          supabase
+            .from('solicitacoes')
+            .select('id, protocolo, valor, empreendimento, status, cancelamento_pendente, fornecedor_id, natureza_orcamentaria, user_id')
+            .in('id', batchIds)
+        ),
+        fetchInChunks<any>(solIds, batchIds =>
+          supabase
+            .from('documentos_fiscais')
+            .select('solicitacao_id')
+            .in('solicitacao_id', batchIds)
+        ),
+        fetchInChunks<any>(solIds, batchIds =>
+          supabase
+            .from('historico_solicitacoes')
+            .select('solicitacao_id, acao, motivo, mensagem, previsao_execucao, previsao_nf, created_at')
+            .eq('categoria', 'acompanhamento_oc')
+            .in('solicitacao_id', batchIds)
+            .order('created_at', { ascending: false })
+        ),
       ]);
-      if (solicitacoesRes.error) throw solicitacoesRes.error;
-      if (fiscaisRes.error) throw fiscaisRes.error;
-      if (acompanhamentosRes.error) throw acompanhamentosRes.error;
-
-      const sols = solicitacoesRes.data || [];
-      const fiscais = fiscaisRes.data || [];
-      const acompanhamentos = acompanhamentosRes.data || [];
 
       const fornecedorIds = [...new Set(sols.map(s => (s as any).fornecedor_id).filter(Boolean))];
       const userIds = [...new Set(sols.map(s => s.user_id).filter(Boolean))];
 
-      const [fornecedoresRes, profilesRes] = await Promise.all([
-        fornecedorIds.length
-          ? supabase.from('fornecedores').select('id, razao_social, nome_fantasia').in('id', fornecedorIds)
-          : Promise.resolve({ data: [] as any[] }),
-        userIds.length
-          ? supabase.from('profiles').select('id, full_name').in('id', userIds)
-          : Promise.resolve({ data: [] as any[] }),
+      const [fornecedores, profiles] = await Promise.all([
+        fetchInChunks<any>(fornecedorIds, batchIds =>
+          supabase.from('fornecedores').select('id, razao_social, nome_fantasia').in('id', batchIds)
+        ),
+        fetchInChunks<any>(userIds, batchIds =>
+          supabase.from('profiles').select('id, full_name').in('id', batchIds)
+        ),
       ]);
-      if ('error' in fornecedoresRes && fornecedoresRes.error) throw fornecedoresRes.error;
-      if ('error' in profilesRes && profilesRes.error) throw profilesRes.error;
 
       const fornecedorMap: Record<string, string> = Object.fromEntries(
-        (fornecedoresRes.data || []).map((f: any) => [f.id, f.nome_fantasia || f.razao_social || ''])
+        fornecedores.map((f: any) => [f.id, f.nome_fantasia || f.razao_social || ''])
       );
       const profileMap: Record<string, string> = Object.fromEntries(
-        (profilesRes.data || []).map((p: any) => [p.id, p.full_name || ''])
+        profiles.map((p: any) => [p.id, p.full_name || ''])
       );
 
       const nfSet = new Set(fiscais.map(f => f.solicitacao_id));
