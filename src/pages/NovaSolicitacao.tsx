@@ -1,4 +1,5 @@
 import { logger } from '@/lib/logger';
+import { captureError } from '@/lib/error-tracker';
 import { useRef, useEffect, useState, useMemo } from 'react';
 import { useTrackEvent } from '@/hooks/useTrackEvent';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -692,6 +693,40 @@ export default function NovaSolicitacao() {
         return;
       }
 
+      // Telemetria pré-INSERT: sinal para diagnosticar futuros envios sem anexos.
+      const requiredTipos = requiredAttachments.filter(a => a.required).map(a => a.tipo);
+      const presentTipos = [
+        ...Object.keys(formState.anexos).filter(k => !!formState.anexos[k]),
+        ...Array.from(existingAnexoTipos),
+      ];
+      const anexosMapVazio =
+        Object.values(formState.anexos).every((f) => !f) && existingAnexoTipos.size === 0;
+      track('submit_attempt', {
+        tipo: derived.isAC ? 'AC' : 'OC',
+        natureza: formState.naturezaOrcamentaria,
+        semMemorial: formState.semMemorial,
+        excecao: formState.excecaoFornecedores,
+        exclusivo: formState.fornecimentoExclusivo,
+        emergencial: formState.emergencial,
+        requiredTipos: requiredTipos.join(','),
+        presentTipos: presentTipos.join(','),
+      }, '/nova-solicitacao');
+      if (requiredTipos.length > 0 && anexosMapVazio) {
+        // Chegou até aqui com validação "ok" mas sem nenhum anexo — sinal de race.
+        captureError(new Error('submit_passed_without_anexos'), {
+          severity: 'warning',
+          source: 'nova-solicitacao/submit',
+          context: {
+            requiredTipos,
+            tipo: derived.isAC ? 'AC' : 'OC',
+            natureza: formState.naturezaOrcamentaria,
+            semMemorial: formState.semMemorial,
+            excecao: formState.excecaoFornecedores,
+            draftId,
+          },
+        });
+      }
+
       const insertData = {
         user_id: effectiveUserId ?? user.id,
         empreendimento: formState.empreendimento as any,
@@ -882,10 +917,28 @@ export default function NovaSolicitacao() {
       const errorMessage = error?.message || 'Erro desconhecido';
       const errorCode = error?.code || 'N/A';
       console.error('[SUBMIT] Erro ao criar solicitação:', { message: errorMessage, code: errorCode });
-      const userMessage = errorCode === '23505' && errorMessage?.includes('protocolo')
-        ? 'Conflito ao gerar número de protocolo. Por favor, tente novamente em alguns segundos.'
-        : errorMessage;
-      toast({ title: 'Erro ao criar solicitação', description: userMessage, variant: 'destructive' });
+      // Trigger de servidor bloqueou por falta de anexos obrigatórios.
+      const hintStr: string = error?.hint || error?.details || '';
+      const missingMatch = /MISSING_ANEXOS:([^\n]+)/.exec(hintStr) || /MISSING_ANEXOS:([^\n]+)/.exec(errorMessage);
+      if (missingMatch) {
+        const tipos = missingMatch[1].split(',').map(t => t.trim()).filter(Boolean);
+        const labels = requiredAttachments
+          .filter(a => tipos.includes(a.tipo))
+          .map(a => a.label);
+        toast({
+          title: 'Envio bloqueado pelo servidor',
+          description: `Faltam anexos obrigatórios: ${(labels.length ? labels : tipos).join(', ')}.`,
+          variant: 'destructive',
+        });
+        setCurrentStep('anexos');
+        setShowErrors(true);
+        track('submit_failed', { reason: 'server_missing_anexos', tipos: tipos.join(',') }, '/nova-solicitacao');
+      } else {
+        const userMessage = errorCode === '23505' && errorMessage?.includes('protocolo')
+          ? 'Conflito ao gerar número de protocolo. Por favor, tente novamente em alguns segundos.'
+          : errorMessage;
+        toast({ title: 'Erro ao criar solicitação', description: userMessage, variant: 'destructive' });
+      }
       errorCooldown = true;
     } finally {
       if (errorCooldown) {
