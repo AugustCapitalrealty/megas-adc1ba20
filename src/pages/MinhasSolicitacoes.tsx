@@ -61,7 +61,18 @@ const ATTACHMENT_TYPES = {
   orcamento_escolhido: 'Orçamento Escolhido',
   orcamento_concorrente_1: 'Orçamento Concorrente 1',
   orcamento_concorrente_2: 'Orçamento Concorrente 2',
+  fatura_agua_energia: 'Fatura de Água/Energia',
+  justificativa_anexo: 'Comprovação da Justificativa',
+  comunicado_cliente: 'Comunicado ao Cliente',
 } as const;
+
+const NATUREZAS_AGUA_ENERGIA: NaturezaOrcamentaria[] = ['agua', 'energia_eletrica'];
+
+const getAttachmentLabel = (tipo: string) => {
+  return ATTACHMENT_TYPES[tipo as keyof typeof ATTACHMENT_TYPES]
+    || ANEXO_LABELS[tipo as keyof typeof ANEXO_LABELS]
+    || tipo;
+};
 
 type FilterTab = 'todas' | 'com_backoffice' | 'pendentes' | 'correcoes' | 'informacoes' | 'oc_emitida' | 'liberadas' | 'enviadas' | 'canceladas' | 'ciencia' | 'concluidas' | 'rascunhos';
 type PendentesSubFilter = 'todos' | 'corrigir' | 'responder';
@@ -522,29 +533,59 @@ export default function MinhasSolicitacoes() {
   const isPostOCStatus = (status: string) => POST_OC_STATUSES.includes(status);
 
   const getRequiredAttachments = (sol: Solicitacao) => {
+    const isAguaEnergia = NATUREZAS_AGUA_ENERGIA.includes(sol.natureza_orcamentaria);
+    const attachments: { tipo: string; label: string; required: boolean }[] = [];
+
     if (sol.tipo === 'OC') {
-      return [
+      attachments.push({
+        tipo: isAguaEnergia ? 'fatura_agua_energia' : 'orcamento_escolhido',
+        label: getAttachmentLabel(isAguaEnergia ? 'fatura_agua_energia' : 'orcamento_escolhido'),
+        required: true,
+      });
+      if (!isAguaEnergia) {
+        attachments.unshift({ tipo: 'chamado_preventiva', label: ATTACHMENT_TYPES.chamado_preventiva, required: false });
+      }
+    } else if (sol.tipo === 'AC' && sol.emergencial) {
+      attachments.push({ tipo: 'orcamento_escolhido', label: ATTACHMENT_TYPES.orcamento_escolhido, required: true });
+      if (isAguaEnergia) attachments.push({ tipo: 'fatura_agua_energia', label: getAttachmentLabel('fatura_agua_energia'), required: true });
+    } else if (sol.tipo === 'AC' && !sol.emergencial) {
+      attachments.push(
         { tipo: 'chamado_preventiva', label: ATTACHMENT_TYPES.chamado_preventiva, required: false },
-        { tipo: 'orcamento_escolhido', label: ATTACHMENT_TYPES.orcamento_escolhido, required: false },
-      ];
+        { tipo: 'escopo_detalhado', label: ATTACHMENT_TYPES.escopo_detalhado, required: !sol.justificativa_sem_memorial?.trim() },
+        { tipo: 'orcamento_escolhido', label: ATTACHMENT_TYPES.orcamento_escolhido, required: true },
+      );
+
+      if (sol.excecao_fornecedores || sol.fornecimento_exclusivo) {
+        attachments.push({ tipo: 'justificativa_anexo', label: getAttachmentLabel('justificativa_anexo'), required: true });
+      } else {
+        attachments.push(
+          { tipo: 'orcamento_concorrente_1', label: ATTACHMENT_TYPES.orcamento_concorrente_1, required: true },
+          { tipo: 'orcamento_concorrente_2', label: ATTACHMENT_TYPES.orcamento_concorrente_2, required: true },
+          { tipo: 'mapa_cotacao', label: ATTACHMENT_TYPES.mapa_cotacao, required: true },
+        );
+      }
+
+      if (isAguaEnergia) attachments.push({ tipo: 'fatura_agua_energia', label: getAttachmentLabel('fatura_agua_energia'), required: true });
     }
-    if (sol.tipo === 'AC' && sol.emergencial) {
-      return [
-        { tipo: 'chamado_preventiva', label: ATTACHMENT_TYPES.chamado_preventiva, required: false },
-        { tipo: 'orcamento_escolhido', label: ATTACHMENT_TYPES.orcamento_escolhido, required: false },
-      ];
+
+    if (sol.origem_custo === 'cliente') {
+      attachments.push({ tipo: 'comunicado_cliente', label: getAttachmentLabel('comunicado_cliente'), required: true });
     }
-    if (sol.tipo === 'AC' && !sol.emergencial) {
-      return [
-        { tipo: 'chamado_preventiva', label: ATTACHMENT_TYPES.chamado_preventiva, required: false },
-        { tipo: 'escopo_detalhado', label: ATTACHMENT_TYPES.escopo_detalhado, required: false },
-        { tipo: 'mapa_cotacao', label: ATTACHMENT_TYPES.mapa_cotacao, required: false },
-        { tipo: 'orcamento_escolhido', label: ATTACHMENT_TYPES.orcamento_escolhido, required: false },
-        { tipo: 'orcamento_concorrente_1', label: ATTACHMENT_TYPES.orcamento_concorrente_1, required: false },
-        { tipo: 'orcamento_concorrente_2', label: ATTACHMENT_TYPES.orcamento_concorrente_2, required: false },
-      ];
-    }
-    return [];
+
+    return attachments;
+  };
+
+  const getMissingRequiredAttachments = (sol: Solicitacao) => {
+    const existingTypes = existingAnexos
+      .filter((anexo) => !anexosParaExcluir.includes(anexo.id))
+      .map((anexo) => anexo.tipo);
+    const newTypes = Object.entries(editAnexos)
+      .filter(([, file]) => file !== null)
+      .map(([tipo]) => tipo);
+    const availableTypes = new Set([...existingTypes, ...newTypes]);
+
+    return getRequiredAttachments(sol)
+      .filter((req) => req.required && !availableTypes.has(req.tipo));
   };
 
   // ==================== Handlers ====================
@@ -678,14 +719,38 @@ export default function MinhasSolicitacoes() {
     try {
       const valorNumerico = parseFloat((editValor || '').replace(/\D/g, '')) / 100 || 0;
       const statusAnterior = editingSolicitacao.status;
-      
-      if (anexosParaExcluir.length > 0) {
-        const storagePaths = existingAnexos.filter(a => anexosParaExcluir.includes(a.id)).map(a => a.storage_path);
-        if (storagePaths.length > 0) await supabase.storage.from('anexos').remove(storagePaths);
-        await supabase.from('anexos').delete().in('id', anexosParaExcluir);
+      const solicitacaoValidada: Solicitacao = {
+        ...editingSolicitacao,
+        valor: valorNumerico,
+        natureza_orcamentaria: editNaturezaOrcamentaria as NaturezaOrcamentaria,
+        escopo_detalhado_minuta: editEscopoDetalhado.trim() || null,
+      };
+      const missingBeforeUpload = getMissingRequiredAttachments(solicitacaoValidada);
+
+      if (missingBeforeUpload.length > 0) {
+        throw new Error(`Anexos obrigatórios ausentes: ${missingBeforeUpload.map((item) => item.label).join(', ')}`);
       }
       
       await uploadNewAnexos(editingSolicitacao.id);
+
+      if (anexosParaExcluir.length > 0) {
+        const storagePaths = existingAnexos.filter(a => anexosParaExcluir.includes(a.id)).map(a => a.storage_path);
+        await supabase.from('anexos').delete().in('id', anexosParaExcluir);
+        if (storagePaths.length > 0) await supabase.storage.from('anexos').remove(storagePaths);
+      }
+
+      const { data: currentAnexos, error: currentAnexosError } = await supabase
+        .from('anexos')
+        .select('tipo')
+        .eq('solicitacao_id', editingSolicitacao.id);
+      if (currentAnexosError) throw new Error(`Erro ao conferir anexos: ${currentAnexosError.message}`);
+
+      const dbTypes = new Set((currentAnexos ?? []).map((anexo) => anexo.tipo));
+      const missingAfterUpload = getRequiredAttachments(solicitacaoValidada)
+        .filter((req) => req.required && !dbTypes.has(req.tipo));
+      if (missingAfterUpload.length > 0) {
+        throw new Error(`Anexos obrigatórios ausentes após upload: ${missingAfterUpload.map((item) => item.label).join(', ')}`);
+      }
       
       const updateData: Record<string, any> = {
         descricao: editDescricao, valor: valorNumerico,
