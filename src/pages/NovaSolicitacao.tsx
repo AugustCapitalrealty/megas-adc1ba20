@@ -1,4 +1,5 @@
 import { logger } from '@/lib/logger';
+import { captureError } from '@/lib/error-tracker';
 import { useRef, useEffect, useState, useMemo } from 'react';
 import { useTrackEvent } from '@/hooks/useTrackEvent';
 import { useNavigate, useSearchParams } from 'react-router-dom';
