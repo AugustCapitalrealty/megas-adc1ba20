@@ -304,7 +304,7 @@ export function FaturaCopelTab() {
       }
       return changed ? { ...prev, itens: nextIt } : prev;
     });
-  }, [aliquotas]);
+  }, [aliquotas, faturaItens.itens]);
 
   // Linhas visíveis na UI: core + frequente sempre; opcional só se em extras_keys.
   const visibleDefs = useMemo<CopelItemDef[]>(() => {
