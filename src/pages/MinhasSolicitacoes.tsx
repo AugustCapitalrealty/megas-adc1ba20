@@ -731,13 +731,13 @@ export default function MinhasSolicitacoes() {
         throw new Error(`Anexos obrigatórios ausentes: ${missingBeforeUpload.map((item) => item.label).join(', ')}`);
       }
       
+      await uploadNewAnexos(editingSolicitacao.id);
+
       if (anexosParaExcluir.length > 0) {
         const storagePaths = existingAnexos.filter(a => anexosParaExcluir.includes(a.id)).map(a => a.storage_path);
-        if (storagePaths.length > 0) await supabase.storage.from('anexos').remove(storagePaths);
         await supabase.from('anexos').delete().in('id', anexosParaExcluir);
+        if (storagePaths.length > 0) await supabase.storage.from('anexos').remove(storagePaths);
       }
-      
-      await uploadNewAnexos(editingSolicitacao.id);
 
       const { data: currentAnexos, error: currentAnexosError } = await supabase
         .from('anexos')
