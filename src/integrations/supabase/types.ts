@@ -2291,6 +2291,20 @@ export type Database = {
           valor: number
         }[]
       }
+      get_solicitacoes_com_anexos_pendentes: {
+        Args: { p_limit?: number; p_offset?: number; p_protocolo?: string }
+        Returns: {
+          created_at: string
+          empreendimento: Database["public"]["Enums"]["empreendimento"]
+          id: string
+          missing_anexos: string[]
+          natureza_orcamentaria: Database["public"]["Enums"]["natureza_orcamentaria"]
+          protocolo: string
+          status: Database["public"]["Enums"]["request_status"]
+          tipo: string
+          user_id: string
+        }[]
+      }
       get_solicitacoes_count_by_status: {
         Args: never
         Returns: {
