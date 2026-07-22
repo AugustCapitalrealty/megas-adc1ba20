@@ -367,38 +367,6 @@ export function FaturaCopelTab() {
   const bateArredondamento = totalAPagar > 0 && !bateOk && diffAbs <= 1.0;
   const diffAceitavel = totalAPagar > 0 && !bateOk && !bateArredondamento && diffAbs <= 10.0;
 
-  // ─── Detecção de bandeira somada em uma linha só (Ponta + Fora) ─────
-  // Bug histórico: faturas antigas migradas para o novo esquema Ponta/Fora ficam
-  // com todo o kWh no bucket "_fora". Sinal disso: quant do _fora ≈ Ponta+Fora
-  // (consumo dos itens te_ponta/te_fora ou dos lançamentos de clientes).
-  const bandeirasFundidas = useMemo(() => {
-    const it = faturaItens.itens || {};
-    const totalPonta = parseBR(it.te_ponta?.quant || '') || copelPontaKwh;
-    const totalFora  = parseBR(it.te_fora?.quant  || '') || copelForaKwh;
-    if (totalPonta <= 0 || totalFora <= 0) return [] as Array<{ key: string; label: string; pair: string; qtdFora: number; totalPonta: number; totalFora: number; preco: number }>;
-    const pairs = [
-      { fora: 'bandeira_amarela_fora',     ponta: 'bandeira_amarela_ponta',     label: 'Bandeira Amarela' },
-      { fora: 'bandeira_vermelha_1_fora',  ponta: 'bandeira_vermelha_1_ponta',  label: 'Bandeira Vermelha P1' },
-      { fora: 'bandeira_vermelha_2_fora',  ponta: 'bandeira_vermelha_2_ponta',  label: 'Bandeira Vermelha P2' },
-    ];
-    const out: Array<{ key: string; label: string; pair: string; qtdFora: number; totalPonta: number; totalFora: number; preco: number }> = [];
-    for (const p of pairs) {
-      const qFora = parseBR(it[p.fora]?.quant || '');
-      const qPonta = parseBR(it[p.ponta]?.quant || '');
-      if (qFora <= 0 || qPonta > 0) continue;
-      // ~= totalPonta+totalFora (tolerância 1%). E claramente > totalFora (> 1.5x).
-      const expectedCombined = totalPonta + totalFora;
-      if (Math.abs(qFora - expectedCombined) / expectedCombined <= 0.01 && qFora >= totalFora * 1.5) {
-        out.push({
-          key: p.fora, label: p.label, pair: p.ponta,
-          qtdFora: qFora, totalPonta, totalFora,
-          preco: parseBR(it[p.fora]?.preco_unit || ''),
-        });
-      }
-    }
-    return out;
-  }, [faturaItens.itens, copelPontaKwh, copelForaKwh]);
-
   const splitBandeira = (foraKey: string, pontaKey: string, totalPonta: number, totalFora: number, preco: number) => {
     const def = DEF_BY_KEY.get(pontaKey);
     const forDef = DEF_BY_KEY.get(foraKey);
@@ -433,6 +401,36 @@ export function FaturaCopelTab() {
   const energyForaNum = parseBR(energyFora);
   const perdasTotaisPonta = energyPontaNum + difCopelPonta;
   const perdasTotaisFora = energyForaNum + difCopelFora;
+
+  // ─── Detecção de bandeira somada em uma linha só (Ponta + Fora) ─────
+  // Bug histórico: faturas antigas migradas para o novo esquema Ponta/Fora ficam
+  // com todo o kWh no bucket "_fora". Sinal disso: quant do _fora ≈ Ponta+Fora.
+  const bandeirasFundidas = useMemo(() => {
+    const it = faturaItens.itens || {};
+    const totalPonta = parseBR(it.te_ponta?.quant || '') || copelPontaKwh;
+    const totalFora  = parseBR(it.te_fora?.quant  || '') || copelForaKwh;
+    if (totalPonta <= 0 || totalFora <= 0) return [] as Array<{ key: string; label: string; pair: string; qtdFora: number; totalPonta: number; totalFora: number; preco: number }>;
+    const pairs = [
+      { fora: 'bandeira_amarela_fora',     ponta: 'bandeira_amarela_ponta',     label: 'Bandeira Amarela' },
+      { fora: 'bandeira_vermelha_1_fora',  ponta: 'bandeira_vermelha_1_ponta',  label: 'Bandeira Vermelha P1' },
+      { fora: 'bandeira_vermelha_2_fora',  ponta: 'bandeira_vermelha_2_ponta',  label: 'Bandeira Vermelha P2' },
+    ];
+    const out: Array<{ key: string; label: string; pair: string; qtdFora: number; totalPonta: number; totalFora: number; preco: number }> = [];
+    for (const p of pairs) {
+      const qFora = parseBR(it[p.fora]?.quant || '');
+      const qPonta = parseBR(it[p.ponta]?.quant || '');
+      if (qFora <= 0 || qPonta > 0) continue;
+      const expectedCombined = totalPonta + totalFora;
+      if (Math.abs(qFora - expectedCombined) / expectedCombined <= 0.01 && qFora >= totalFora * 1.5) {
+        out.push({
+          key: p.fora, label: p.label, pair: p.ponta,
+          qtdFora: qFora, totalPonta, totalFora,
+          preco: parseBR(it[p.fora]?.preco_unit || ''),
+        });
+      }
+    }
+    return out;
+  }, [faturaItens.itens, copelPontaKwh, copelForaKwh]);
 
   const save = async () => {
     if (!tarifas) return;
