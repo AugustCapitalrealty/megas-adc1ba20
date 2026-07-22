@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, FileText, Save, CheckCircle2, AlertTriangle, Lock, Calculator, Receipt, Percent, Lightbulb, Gauge, Plus, X } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
   DropdownMenuLabel, DropdownMenuSeparator,
@@ -359,7 +360,29 @@ export function FaturaCopelTab() {
   );
   const totalAPagar = parseBR(faturaItens.total_a_pagar || '');
   const diff = totalAPagar > 0 ? sumValor - totalAPagar : 0;
-  const bateOk = totalAPagar > 0 && Math.abs(diff) < 0.01;
+  const diffAbs = Math.abs(diff);
+  const bateOk = totalAPagar > 0 && diffAbs < 0.01;
+  // Tolerância de arredondamento: a Copel arredonda cada linha antes de somar,
+  // então uma diferença de alguns centavos é esperada. Trate ≤ R$ 1,00 como OK.
+  const bateArredondamento = totalAPagar > 0 && !bateOk && diffAbs <= 1.0;
+  const diffAceitavel = totalAPagar > 0 && !bateOk && !bateArredondamento && diffAbs <= 10.0;
+
+  const splitBandeira = (foraKey: string, pontaKey: string, totalPonta: number, totalFora: number, preco: number) => {
+    const def = DEF_BY_KEY.get(pontaKey);
+    const forDef = DEF_BY_KEY.get(foraKey);
+    if (!def || !forDef) return;
+    setFaturaItens((prev) => {
+      const nextIt = { ...(prev.itens || {}) } as Record<string, CopelItem>;
+      const pontaItem = recalcItem(def, { ...emptyItem(), quant: fmtBR(totalPonta, 0), preco_unit: fmtBR(preco, 6) }, aliquotas);
+      const foraItem  = recalcItem(forDef, { ...emptyItem(), quant: fmtBR(totalFora,  0), preco_unit: fmtBR(preco, 6) }, aliquotas);
+      nextIt[pontaKey] = pontaItem;
+      nextIt[foraKey]  = foraItem;
+      const extras = prev.extras_keys || [];
+      const nextExtras = extras.includes(pontaKey) ? extras : [...extras, pontaKey];
+      return { ...prev, itens: nextIt, extras_keys: nextExtras };
+    });
+    toast.success('Bandeira separada em Ponta / Fora Ponta.');
+  };
 
   // ─── Medidor (Energy) & Diferença Copel ──────────────────────────
   const copelPontaKwh = useMemo(() => {
@@ -379,8 +402,50 @@ export function FaturaCopelTab() {
   const perdasTotaisPonta = energyPontaNum + difCopelPonta;
   const perdasTotaisFora = energyForaNum + difCopelFora;
 
+  // ─── Detecção de bandeira somada em uma linha só (Ponta + Fora) ─────
+  // Bug histórico: faturas antigas migradas para o novo esquema Ponta/Fora ficam
+  // com todo o kWh no bucket "_fora". Sinal disso: quant do _fora ≈ Ponta+Fora.
+  const bandeirasFundidas = useMemo(() => {
+    const it = faturaItens.itens || {};
+    const totalPonta = parseBR(it.te_ponta?.quant || '') || copelPontaKwh;
+    const totalFora  = parseBR(it.te_fora?.quant  || '') || copelForaKwh;
+    if (totalPonta <= 0 || totalFora <= 0) return [] as Array<{ key: string; label: string; pair: string; qtdFora: number; totalPonta: number; totalFora: number; preco: number }>;
+    const pairs = [
+      { fora: 'bandeira_amarela_fora',     ponta: 'bandeira_amarela_ponta',     label: 'Bandeira Amarela' },
+      { fora: 'bandeira_vermelha_1_fora',  ponta: 'bandeira_vermelha_1_ponta',  label: 'Bandeira Vermelha P1' },
+      { fora: 'bandeira_vermelha_2_fora',  ponta: 'bandeira_vermelha_2_ponta',  label: 'Bandeira Vermelha P2' },
+    ];
+    const out: Array<{ key: string; label: string; pair: string; qtdFora: number; totalPonta: number; totalFora: number; preco: number }> = [];
+    for (const p of pairs) {
+      const qFora = parseBR(it[p.fora]?.quant || '');
+      const qPonta = parseBR(it[p.ponta]?.quant || '');
+      if (qFora <= 0 || qPonta > 0) continue;
+      const expectedCombined = totalPonta + totalFora;
+      if (Math.abs(qFora - expectedCombined) / expectedCombined <= 0.01 && qFora >= totalFora * 1.5) {
+        out.push({
+          key: p.fora, label: p.label, pair: p.ponta,
+          qtdFora: qFora, totalPonta, totalFora,
+          preco: parseBR(it[p.fora]?.preco_unit || ''),
+        });
+      }
+    }
+    return out;
+  }, [faturaItens.itens, copelPontaKwh, copelForaKwh]);
+
   const save = async () => {
     if (!tarifas) return;
+    // Guarda-corpo: se alguma bandeira "_fora" está com quant absurdamente maior
+    // que o consumo fora (indício de linhas Ponta+Fora fundidas), bloquear.
+    const it0 = faturaItens.itens || {};
+    const forasSuspeitas: string[] = [];
+    for (const kFora of ['bandeira_amarela_fora','bandeira_vermelha_1_fora','bandeira_vermelha_2_fora']) {
+      const qFora = parseBR(it0[kFora]?.quant || '');
+      if (qFora > 0 && copelForaKwh > 0 && qFora >= copelForaKwh * 1.5) forasSuspeitas.push(kFora);
+    }
+    if (forasSuspeitas.length > 0) {
+      toast.error('Revise a Bandeira: a quantidade em "Fora Ponta" parece incluir o consumo Ponta. Use o botão "Separar Ponta/Fora" no topo da tabela.');
+      return;
+    }
     setSaving(true);
     const it = faturaItens.itens || {};
     const v = (k: CopelItemKey) => parseBR(it[k]?.valor || '');
@@ -540,6 +605,26 @@ export function FaturaCopelTab() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
+                {bandeirasFundidas.length > 0 && !isLocked && (
+                  <Alert className="mb-3 border-amber-400 bg-amber-50 dark:bg-amber-950/30">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    <AlertTitle className="text-sm">Bandeira lançada em uma linha só</AlertTitle>
+                    <AlertDescription className="text-xs space-y-2">
+                      <div>
+                        Detectamos que <strong>{bandeirasFundidas.map((b) => b.label).join(', ')}</strong> está com o kWh de <em>Ponta + Fora Ponta</em> juntos na linha "Fora Ponta".
+                        A Copel imprime em duas linhas separadas — assim os tributos por posto ficam corretos e o rateio funciona por Ponta/Fora.
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {bandeirasFundidas.map((b) => (
+                          <Button key={b.key} size="sm" variant="outline" className="h-7 text-xs border-amber-500 text-amber-800 dark:text-amber-200"
+                            onClick={() => splitBandeira(b.key, b.pair, b.totalPonta, b.totalFora, b.preco)}>
+                            Separar {b.label}: {fmtBR(b.totalPonta, 0)} P + {fmtBR(b.totalFora, 0)} FP
+                          </Button>
+                        ))}
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                )}
                 <div className="overflow-x-auto">
                   <table className="w-full text-[11px] border-collapse">
                     <thead>
@@ -647,9 +732,15 @@ export function FaturaCopelTab() {
                         <td className="border" colSpan={3}>
                           <div className="flex items-center justify-end gap-2 pr-2">
                             {totalAPagar > 0 && (
-                              bateOk
-                                ? <Badge className="bg-green-600 hover:bg-green-600"><CheckCircle2 className="h-3 w-3 mr-1" /> Bate com fatura</Badge>
-                                : <Badge variant="destructive" className="bg-amber-500 hover:bg-amber-500"><AlertTriangle className="h-3 w-3 mr-1" /> Diferença {brl(diff)}</Badge>
+                              bateOk ? (
+                                <Badge className="bg-green-600 hover:bg-green-600"><CheckCircle2 className="h-3 w-3 mr-1" /> Bate com fatura</Badge>
+                              ) : bateArredondamento ? (
+                                <Badge title="A Copel arredonda cada linha antes de somar; diferenças de centavos são normais." className="bg-green-600/80 hover:bg-green-600/80"><CheckCircle2 className="h-3 w-3 mr-1" /> Bate ({brl(diff)} · arredondamento Copel)</Badge>
+                              ) : diffAceitavel ? (
+                                <Badge className="bg-amber-500 hover:bg-amber-500 text-white"><AlertTriangle className="h-3 w-3 mr-1" /> Diferença {brl(diff)}</Badge>
+                              ) : (
+                                <Badge variant="destructive"><AlertTriangle className="h-3 w-3 mr-1" /> Diferença {brl(diff)}</Badge>
+                              )
                             )}
                           </div>
                         </td>
@@ -833,9 +924,15 @@ export function FaturaCopelTab() {
                 <span className="font-bold text-primary">{brl(sumValor)}</span>
               </div>
               {totalAPagar > 0 && (
-                bateOk
-                  ? <Badge className="bg-green-600 hover:bg-green-600"><CheckCircle2 className="h-3 w-3 mr-1" /> Bate com a fatura</Badge>
-                  : <Badge variant="secondary" className="bg-amber-500 text-white hover:bg-amber-500"><AlertTriangle className="h-3 w-3 mr-1" /> Diferença {brl(diff)}</Badge>
+                bateOk ? (
+                  <Badge className="bg-green-600 hover:bg-green-600"><CheckCircle2 className="h-3 w-3 mr-1" /> Bate com a fatura</Badge>
+                ) : bateArredondamento ? (
+                  <Badge title="A Copel arredonda cada linha antes de somar; diferenças de centavos são normais." className="bg-green-600/80 hover:bg-green-600/80"><CheckCircle2 className="h-3 w-3 mr-1" /> Bate ({brl(diff)} · arredondamento Copel)</Badge>
+                ) : diffAceitavel ? (
+                  <Badge variant="secondary" className="bg-amber-500 text-white hover:bg-amber-500"><AlertTriangle className="h-3 w-3 mr-1" /> Diferença {brl(diff)}</Badge>
+                ) : (
+                  <Badge variant="destructive"><AlertTriangle className="h-3 w-3 mr-1" /> Diferença {brl(diff)}</Badge>
+                )
               )}
             </div>
             <Button onClick={save} disabled={isLocked || saving} size="lg">
