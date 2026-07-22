@@ -154,7 +154,7 @@ const TARIFA_FIELDS: { key: keyof EnergiaTarifas; label: string; group: string; 
   { key: 'pis_pct', label: 'PIS (decimal, ex 0.0165)', group: 'Tributos', step: '0.0001' },
   { key: 'cofins_pct', label: 'COFINS (decimal, ex 0.076)', group: 'Tributos', step: '0.0001' },
   { key: 'icms_pct', label: 'ICMS (decimal, ex 0.19)', group: 'Tributos', step: '0.0001' },
-  { key: 'bandeira_valor', label: 'Bandeira (R$/100 kWh)', group: 'Tributos', step: '0.01' },
+  { key: 'bandeira_valor', label: 'Bandeira (R$/100 kWh) — auto pela Fatura Copel', group: 'Tributos', step: '0.01' },
   { key: 'perdas_copel_ponta_kwh', label: 'Perdas Copel Ponta (kWh)', group: 'Perdas', step: '0.01' },
   { key: 'perdas_copel_fora_kwh', label: 'Perdas Copel Fora (kWh)', group: 'Perdas', step: '0.01' },
   { key: 'perdas_energy_ponta_kwh', label: 'Perdas Energy Ponta (kWh)', group: 'Perdas', step: '0.01' },

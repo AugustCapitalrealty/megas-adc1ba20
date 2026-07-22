@@ -1,34 +1,35 @@
-## Diagnóstico confirmado
+## Problema
 
-- O chamado `2026000721` existe e está em andamento sem nenhum registro na tabela de anexos.
-- Pelas regras atuais, ele é uma `OC` de `material_consumo`; portanto deveria ter `orcamento_escolhido` obrigatório.
-- A proteção atual no banco só valida quando a solicitação sai de `rascunho` para outro status. Esse chamado foi criado em `2026-07-20`, antes da proteção mais recente, então conseguiu avançar sem anexo.
-- Também identifiquei que a função auxiliar `solicitacao_missing_anexos` está sem permissão de execução para a ferramenta de auditoria atual, o que dificulta diagnosticar casos rapidamente.
+A **taxa de Bandeira** não aparece nas faturas por cliente do mês 06 porque o rateio (`src/lib/energia-rateio.ts`) lê o campo `bandeira_valor` (R$/100 kWh) de `energia_competencia_tarifas`, mas esse campo só é preenchido manualmente na aba **Memória de Cálculo**. Quando a bandeira é lançada como itens na **Fatura Copel** (fluxo atual — amarela/vermelha P1/P2 × ponta/fora), esses valores não são propagados para `bandeira_valor`, então o engine rateia com R$/100 kWh = 0.
 
-## Plano de correção urgente
+## Objetivo
 
-1. **Bloqueio no banco para casos legados sem anexo**
-   - Ajustar a função de validação para bloquear qualquer mudança de status em solicitação não-rascunho que esteja sem anexos obrigatórios.
-   - Isso impede que chamados antigos, como `2026000721`, continuem avançando sem corrigir os anexos.
-   - Preservar o fluxo novo: criação em `rascunho` → upload dos anexos → promoção para `recebido`.
+Sincronizar automaticamente `bandeira_valor` a partir dos itens de bandeira lançados na Fatura Copel, mantendo o override manual quando necessário.
 
-2. **Corrigir permissões da auditoria de anexos**
-   - Restaurar permissão segura para a função que calcula anexos obrigatórios ausentes.
-   - Manter bloqueio para anônimos; permitir apenas usuários autenticados e serviço interno.
+## Escopo (frontend/UI apenas)
 
-3. **Criar uma visão/RPC segura de pendências de anexos**
-   - Adicionar uma forma simples de listar solicitações ativas com anexos obrigatórios ausentes.
-   - Acesso limitado por RLS: solicitante vê as próprias, backoffice/admin vê conforme permissões atuais.
+1. **`src/components/admin/energia/FaturaCopelTab.tsx`**
+   - Ao salvar a Fatura Copel, calcular o `bandeira_valor` derivado:
+     - Somar R$ de todos os itens de bandeira lançados (amarela + vermelha P1 + vermelha P2, ponta + fora) = `bandeiraReais`.
+     - Somar kWh total faturado na Copel com perdas = `consumo_ponta + consumo_fora + perdas_ponta + perdas_fora` (mesma base que o engine aplica em `BM/BN = ((Q+AH)/100) * bandeira_valor`).
+     - `bandeira_valor = (bandeiraReais / kWhBase) * 100`, com `0` se a base for `0`.
+   - Persistir esse valor no mesmo update que grava os itens/tarifas de Copel, e também zerar caso todos os itens de bandeira sejam removidos.
+   - Mostrar um indicador leve ("Bandeira sincronizada com Memória: R$ X/100 kWh") no bloco de bandeiras, para o admin confirmar.
 
-4. **Hardening no frontend de correção/reenvio**
-   - Em `Minhas Solicitações`, antes de reenviar uma correção, validar anexos existentes + novos anexos.
-   - Se faltar anexo obrigatório, mostrar erro claro e não permitir mandar de volta para `recebido`.
-   - Isso cobre o caso do print: correção/reenvio não deve passar se o arquivo não ficou registrado.
+2. **`src/components/admin/energia/MemoriaCalculoTab.tsx`**
+   - No campo `bandeira_valor`, marcar como "derivado automaticamente da Fatura Copel"; permitir edição manual (override) mas mostrar um badge quando o valor diverge do derivado.
+   - Adicionar botão pequeno "Recalcular a partir da Fatura Copel" que reexecuta a fórmula acima para a competência atual.
 
-5. **Tratamento melhor do erro do servidor**
-   - Se o banco bloquear com `MISSING_ANEXOS`, mostrar os nomes amigáveis dos anexos faltantes.
-   - Evitar mensagem genérica e direcionar o usuário para anexar o arquivo correto.
+3. **Retroativo para 06**
+   - Sem migração de dados: basta o usuário abrir a Fatura Copel do mês 06 e salvar (ou clicar em "Recalcular" na Memória), que `bandeira_valor` será populado e o rateio por cliente passará a exibir a Bandeira corretamente.
 
-6. **Auditoria do caso `2026000721`**
-   - Após a correção, consultar novamente o chamado para confirmar que ele aparece como pendente de `orcamento_escolhido`.
-   - Não vou inserir anexo manualmente, porque o arquivo correto precisa ser enviado pelo usuário/backoffice.
+## Fora do escopo
+
+- Nenhuma mudança no engine de cálculo (`src/lib/energia-rateio.ts`) — a fórmula BM/BN continua a mesma.
+- Nenhuma migração de schema — o campo `bandeira_valor` já existe.
+- Nenhuma mudança em impostos, perdas, PIS/COFINS ou ICMS.
+
+## Verificação
+
+- Reabrir Fatura Copel do mês 06 → salvar → abrir aba Faturas por cliente → conferir que a linha "Bandeira Tarifária" agora mostra valor > 0 e o total bate com o total de bandeira lançado na Copel (± tolerância de arredondamento).
+- Conferir na Memória de Cálculo que a coluna "Bandeira" das linhas por módulo deixou de ser zero e que a soma bate com `bandeiraReais` da Copel.
