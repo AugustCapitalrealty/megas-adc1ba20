@@ -605,6 +605,26 @@ export function FaturaCopelTab() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
+                {bandeirasFundidas.length > 0 && !isLocked && (
+                  <Alert className="mb-3 border-amber-400 bg-amber-50 dark:bg-amber-950/30">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    <AlertTitle className="text-sm">Bandeira lançada em uma linha só</AlertTitle>
+                    <AlertDescription className="text-xs space-y-2">
+                      <div>
+                        Detectamos que <strong>{bandeirasFundidas.map((b) => b.label).join(', ')}</strong> está com o kWh de <em>Ponta + Fora Ponta</em> juntos na linha "Fora Ponta".
+                        A Copel imprime em duas linhas separadas — assim os tributos por posto ficam corretos e o rateio funciona por Ponta/Fora.
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {bandeirasFundidas.map((b) => (
+                          <Button key={b.key} size="sm" variant="outline" className="h-7 text-xs border-amber-500 text-amber-800 dark:text-amber-200"
+                            onClick={() => splitBandeira(b.key, b.pair, b.totalPonta, b.totalFora, b.preco)}>
+                            Separar {b.label}: {fmtBR(b.totalPonta, 0)} P + {fmtBR(b.totalFora, 0)} FP
+                          </Button>
+                        ))}
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                )}
                 <div className="overflow-x-auto">
                   <table className="w-full text-[11px] border-collapse">
                     <thead>
@@ -712,9 +732,15 @@ export function FaturaCopelTab() {
                         <td className="border" colSpan={3}>
                           <div className="flex items-center justify-end gap-2 pr-2">
                             {totalAPagar > 0 && (
-                              bateOk
-                                ? <Badge className="bg-green-600 hover:bg-green-600"><CheckCircle2 className="h-3 w-3 mr-1" /> Bate com fatura</Badge>
-                                : <Badge variant="destructive" className="bg-amber-500 hover:bg-amber-500"><AlertTriangle className="h-3 w-3 mr-1" /> Diferença {brl(diff)}</Badge>
+                              bateOk ? (
+                                <Badge className="bg-green-600 hover:bg-green-600"><CheckCircle2 className="h-3 w-3 mr-1" /> Bate com fatura</Badge>
+                              ) : bateArredondamento ? (
+                                <Badge title="A Copel arredonda cada linha antes de somar; diferenças de centavos são normais." className="bg-green-600/80 hover:bg-green-600/80"><CheckCircle2 className="h-3 w-3 mr-1" /> Bate ({brl(diff)} · arredondamento Copel)</Badge>
+                              ) : diffAceitavel ? (
+                                <Badge className="bg-amber-500 hover:bg-amber-500 text-white"><AlertTriangle className="h-3 w-3 mr-1" /> Diferença {brl(diff)}</Badge>
+                              ) : (
+                                <Badge variant="destructive"><AlertTriangle className="h-3 w-3 mr-1" /> Diferença {brl(diff)}</Badge>
+                              )
                             )}
                           </div>
                         </td>
@@ -898,9 +924,15 @@ export function FaturaCopelTab() {
                 <span className="font-bold text-primary">{brl(sumValor)}</span>
               </div>
               {totalAPagar > 0 && (
-                bateOk
-                  ? <Badge className="bg-green-600 hover:bg-green-600"><CheckCircle2 className="h-3 w-3 mr-1" /> Bate com a fatura</Badge>
-                  : <Badge variant="secondary" className="bg-amber-500 text-white hover:bg-amber-500"><AlertTriangle className="h-3 w-3 mr-1" /> Diferença {brl(diff)}</Badge>
+                bateOk ? (
+                  <Badge className="bg-green-600 hover:bg-green-600"><CheckCircle2 className="h-3 w-3 mr-1" /> Bate com a fatura</Badge>
+                ) : bateArredondamento ? (
+                  <Badge title="A Copel arredonda cada linha antes de somar; diferenças de centavos são normais." className="bg-green-600/80 hover:bg-green-600/80"><CheckCircle2 className="h-3 w-3 mr-1" /> Bate ({brl(diff)} · arredondamento Copel)</Badge>
+                ) : diffAceitavel ? (
+                  <Badge variant="secondary" className="bg-amber-500 text-white hover:bg-amber-500"><AlertTriangle className="h-3 w-3 mr-1" /> Diferença {brl(diff)}</Badge>
+                ) : (
+                  <Badge variant="destructive"><AlertTriangle className="h-3 w-3 mr-1" /> Diferença {brl(diff)}</Badge>
+                )
               )}
             </div>
             <Button onClick={save} disabled={isLocked || saving} size="lg">
