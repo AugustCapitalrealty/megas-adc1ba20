@@ -1,32 +1,69 @@
-## Diagnóstico
+## Diagnóstico da diferença R$ 2,77 (fatura 06/2026 — Mega Curitiba)
 
-O trigger `trg_enforce_solicitacao_anexos_ins` da migration anterior está bloqueando **todo envio novo**. Motivo: o frontend faz `INSERT` da solicitação com `status='recebido'` **antes** de subir os anexos (os anexos precisam do `id` gerado). Como o trigger `BEFORE INSERT` consulta `public.anexos` naquele instante, sempre encontra vazio e aborta com "Envio bloqueado: anexos obrigatórios ausentes: orcamento_escolhido".
+Comparei a **Fatura Copel** enviada (PDF) com o print da aba "Fatura Copel" (image-288). A divergência **não é da engine de rateio** — é do lançamento da fatura em si.
 
-A prova está no print: OC de Material de Consumo com 2 anexos já selecionados no wizard → erro no INSERT antes dos uploads acontecerem.
+### 1) Bandeira Amarela lançada em uma linha só (principal causa)
 
-## Correção
+Na fatura da Copel a Bandeira Amarela vem em **DUAS linhas**:
 
-### 1. Ajustar o guard no banco (migration)
-- **Remover** o trigger `BEFORE INSERT` (`trg_enforce_solicitacao_anexos_ins`). Não dá para validar anexos no mesmo `INSERT` que cria a solicitação — os arquivos ainda não têm `solicitacao_id` para existir.
-- **Manter** o trigger `BEFORE UPDATE OF status` — esse continua sendo a guarda real: só deixa sair de `rascunho` para qualquer status ativo se os anexos estiverem lá.
-- Função `solicitacao_missing_anexos` e a de enforce continuam iguais.
+| Linha | kWh | Preço unit. | Valor |
+|---|---|---|---|
+| ADICIONAL BAND. AMARELA (PONTA) | 38.370 | 0,025464 | **977,05** |
+| ADICIONAL BAND. AMARELA (F PONTA) | 390.603 | 0,025464 | **9.946,33** |
+| **Soma** | 428.973 | | **10.923,38** |
 
-### 2. Ajustar o fluxo de envio no frontend
-`src/pages/NovaSolicitacao.tsx#handleSubmit` passa a operar em três passos, todos dentro do try/catch já existente:
-1. `INSERT` da solicitação com `status='rascunho'` (não dispara o guard).
-2. `uploadAnexos(solicitacaoId, ...)` como hoje.
-3. `UPDATE solicitacoes SET status='recebido' WHERE id=?` — aqui o trigger valida. Se faltar anexo, exceção → toast atual + volta para a etapa `anexos`; a solicitação fica como rascunho e o usuário completa sem perder nada.
+Na tela foi lançada **uma única linha "FORA PONTA"** com **428.973 kWh** (Ponta + Fora somados). Isso ocorreu porque essa fatura foi salva antes da separação Ponta/Fora existir, e o compat legado mapeia `bandeira_amarela` → `bandeira_amarela_fora` (linhas 199 de `FaturaCopelTab.tsx`). O total em R$ fica correto, mas:
 
-Telemetria (`submit_attempt`, warning em `error_logs` para mapa vazio) permanece igual, só é emitida antes do passo 1.
+- Os tributos ficam distorcidos (PIS/COFINS/ICMS de bandeira Ponta usam base Ponta, não Fora).
+- O rateio por posto tarifário rateia todo o adicional como Fora Ponta.
 
-### 3. Chamado atual (Mega Itajaí / caminhão pipa)
-Nada de dados a mexer — assim que o fix subir, o usuário reenvia normalmente pelo wizard e a solicitação vai criada com anexos.
+**Ação:** ao abrir a fatura, se `bandeira_amarela_fora.quant` = (consumo Ponta + Fora) e não houver linha Ponta, oferecer botão "Separar em Ponta/Fora automaticamente" que divide pelos kWh de cada posto. Também alertar no salvamento quando `quant fora` == `consumo total`.
 
-## Detalhes técnicos
-- Migration nova em `supabase/migrations/` só com `DROP TRIGGER IF EXISTS trg_enforce_solicitacao_anexos_ins ON public.solicitacoes;` (mantém o `_upd`).
-- `NovaSolicitacao.tsx`: alterar payload do `insert` para forçar `status: 'rascunho'` no envio novo (rascunho existente já entra como rascunho), e adicionar `UPDATE ... status='recebido'` depois do `uploadAnexos`. Tratamento do erro `MISSING_ANEXOS:` do trigger já existe — reaproveitar.
-- Ordem das notificações (`notifyBackofficeNewSolicitacao`, etc.) fica **depois** do UPDATE bem-sucedido, para não avisar de solicitação que ficou em rascunho por falha de anexo.
+### 2) Diferença residual de R$ 0,23 = arredondamento Copel
 
-## Fora de escopo
-- Alterar regras de `solicitacao_missing_anexos` (a lógica em si está certa).
-- Refatorar `uploadAnexos` ou UI do wizard além do necessário.
+Somando item a item, o app calcula **R$ 316.407,06** e a Copel imprime **R$ 316.406,83** (Total a Pagar). Diferença **+R$ 0,23**, distribuída assim (Copel arredonda cada linha antes de somar; o app soma em precisão total):
+
+| Item | Copel | App | Δ |
+|---|---|---|---|
+| TE PONTA | 21.442,87 | 21.442,88 | +0,01 |
+| TE F PONTA | 135.877,00 | 135.877,11 | +0,11 |
+| USD F PONTA | 63.799,02 | 63.799,14 | +0,12 |
+| BAND AMARELA | 10.923,38 | 10.923,37 | -0,01 |
+| **Total** | **316.406,83** | **316.407,06** | **+0,23** |
+
+Isto é comportamento esperado (arredondamento bancário linha-a-linha do faturador). Uma diferença ≤ R$ 1,00 não indica erro.
+
+### 3) De onde vem o "-R$ 2,77" que a tela mostra
+
+O badge compara `Total dos itens` × `Total a Pagar` (campo digitado). Como o total real da Copel é **R$ 316.406,83** e o app soma **R$ 316.407,06**, o "-2,77" só aparece se o Total a Pagar foi digitado como **R$ 316.404,29** (ou similar). **Confirmar com o usuário o valor do campo "Total a Pagar" digitado.**
+
+---
+
+## Plano de correção
+
+### A. `src/components/admin/energia/FaturaCopelTab.tsx`
+1. Ao carregar uma fatura, se existir `bandeira_amarela_fora` com `quant` igual à soma `consumo_ponta + consumo_fora` e **sem** `bandeira_amarela_ponta`, exibir banner amarelo: *"Bandeira Amarela parece estar somada em uma linha só. [Separar em Ponta/Fora]"*. O botão preenche as duas linhas usando o consumo de cada posto e o mesmo preço unitário. Mesma lógica para vermelha 1 e 2.
+2. Validação no salvar: se qualquer `bandeira_*_fora.quant` ≥ 1,5× `consumo_fora`, bloquear com toast pedindo revisão.
+3. Ajustar a badge de diferença para:
+   - **Verde** se `|diff| ≤ R$ 1,00` (ruído de arredondamento da Copel).
+   - **Amarelo** se `|diff| ≤ R$ 10,00`.
+   - **Vermelho** acima disso.
+   Tooltip: "A Copel arredonda cada linha antes de somar; diferenças de centavos são normais."
+
+### B. Migração (opcional, one-shot)
+Script SQL de normalização: para faturas onde `itens.bandeira_amarela_fora.quant = consumo_total` e não há `bandeira_amarela_ponta`, dividir automaticamente. Só aplicar após confirmação do usuário.
+
+### C. Sem alteração na engine
+`src/lib/energia-rateio.ts` está correto — a diferença não é da distribuição de perdas nem dos tributos.
+
+---
+
+## Ação imediata sugerida ao usuário
+
+Enquanto o item A não sai, corrigir esta fatura manualmente:
+
+1. Remover a linha atual "ADICIONAL BAND. AMARELA — FORA PONTA" (428.973 kWh).
+2. Adicionar duas linhas:
+   - `ADICIONAL BAND. AMARELA — PONTA`: **38.370** kWh × 0,025464
+   - `ADICIONAL BAND. AMARELA — FORA PONTA`: **390.603** kWh × 0,025464
+3. Confirmar o campo **Total a Pagar** = **R$ 316.406,83** (o app deve ficar com diferença ≤ R$ 0,25).
