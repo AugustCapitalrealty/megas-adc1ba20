@@ -1,22 +1,25 @@
-Plano para corrigir a tela OC x NF zerada:
+## Diagnóstico confirmado
 
-1. **Remover a dependência frágil do filtro local por empreendimento**
-   - Hoje a tela busca os documentos de OC e depois filtra no front usando `userEmpreendimentos`/`hasAllAccess`.
-   - Como o próprio backend já aplica as regras de acesso por usuário, vou deixar a lista respeitar o que o backend retornou, sem zerar no front por divergência de vínculo/local.
+- Os dados existem no backend: há **640 documentos emitidos** e **622 solicitações com OC**.
+- A tela não está zerada por falta de dados nem por filtro de usuário.
+- O erro real é **Bad Request (400)** na chamada que busca `solicitacoes` com um `id=in.(...)` contendo centenas de IDs de uma vez.
+- Isso explica por que “funcionava ontem”: ao crescer a quantidade de OCs, a URL da consulta ficou grande demais/instável para a API, e a tela passou a cair no erro e mostrar zero para todos.
 
-2. **Tornar a busca mais resiliente**
-   - Se `documentos_emitidos` retornar OCs mas alguma consulta complementar falhar ou vier parcial, a tela não deve aparecer como “0 sol. · 0 OCs” sem explicar.
-   - Vou tratar erros por etapa e exibir um aviso/estado de erro quando a leitura falhar, em vez de silenciosamente mostrar vazio.
+## Plano de correção
 
-3. **Ajustar contadores e filtros da tela**
-   - Garantir que “Todas”, “Pendência de justificativa”, “Justificadas” e “0 sol. · 0 OCs” contem a mesma base de dados carregada.
-   - Manter os filtros de busca, empreendimento e status funcionando, mas sem esconder tudo por erro de sincronização de permissões.
+1. **Quebrar consultas grandes em lotes**
+   - Ajustar `useMonitoramentoOC.ts` para buscar `solicitacoes`, `documentos_fiscais` e `historico_solicitacoes` em chunks menores de IDs.
+   - Evitar qualquer `.in('id', ids)` gigante em uma única requisição.
 
-4. **Validar no navegador**
-   - Testar `/monitoramento-oc` com sessão autenticada.
-   - Confirmar que a tela volta a mostrar as OCs e que não há erro de rede/console relevante.
+2. **Aplicar o mesmo padrão nas buscas auxiliares**
+   - Também quebrar em lotes as buscas de `fornecedores` e `profiles`, caso a lista cresça muito.
+   - Manter a mesma lógica atual de permissões: o backend continua filtrando pelo acesso do usuário.
 
-Detalhe técnico confirmado antes do plano:
-- O backend tem dados: `documentos_emitidos` com 640 OCs.
-- As permissões efetivas de leitura das tabelas usadas estão ativas para usuários autenticados.
-- Na sessão de teste autenticada a tela carrega dados, mas o print do usuário mostra o estado zerado; por isso o ponto mais provável é o filtro/estado local eliminando resultados depois da leitura.
+3. **Manter fallback visual útil**
+   - Preservar a mensagem de erro na tela caso alguma chamada falhe.
+   - Melhorar a mensagem para diferenciar “não existe dado” de “falha ao carregar”.
+
+4. **Validar o cenário real**
+   - Abrir `/monitoramento-oc` no navegador local.
+   - Confirmar que não há mais 400 na rede.
+   - Confirmar que os contadores/lista voltam a mostrar as OCs existentes para backoffice/admin e usuários comuns conforme permissão.
