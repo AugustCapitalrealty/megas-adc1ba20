@@ -782,10 +782,10 @@ export default function NovaSolicitacao() {
 
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         if (draftId) {
-          // Promote rascunho → recebido (trigger gera o protocolo)
+          // Atualiza campos mantendo rascunho — a promoção acontece só depois dos anexos.
           const { data: updateResult, error } = await supabase
             .from('solicitacoes')
-            .update({ ...insertData, status: 'recebido' as any })
+            .update({ ...insertData, status: 'rascunho' as any })
             .eq('id', draftId)
             .eq('status', 'rascunho' as any)
             .select('id, protocolo')
@@ -815,7 +815,7 @@ export default function NovaSolicitacao() {
         }
         const { data: insertResult, error } = await supabase
           .from('solicitacoes')
-          .insert(insertData as any)
+          .insert({ ...insertData, status: 'rascunho' as any } as any)
           .select('id, protocolo')
           .single();
 
@@ -854,6 +854,20 @@ export default function NovaSolicitacao() {
           track('submit_failed', { reason: 'upload_failed', protocolo: data.protocolo }, '/nova-solicitacao');
           return;
         }
+      }
+
+      // Anexos no lugar — agora promove rascunho → recebido.
+      // O trigger BEFORE UPDATE OF status valida os anexos obrigatórios aqui.
+      {
+        const { data: promoted, error: promoteError } = await supabase
+          .from('solicitacoes')
+          .update({ status: 'recebido' as any })
+          .eq('id', data.id)
+          .eq('status', 'rascunho' as any)
+          .select('id, protocolo')
+          .maybeSingle();
+        if (promoteError) throw promoteError;
+        if (promoted?.protocolo) data.protocolo = promoted.protocolo;
       }
 
       // A solicitação foi criada com sucesso. A partir daqui, qualquer erro

@@ -1,0 +1,1 @@
+DROP TRIGGER IF EXISTS trg_enforce_solicitacao_anexos_ins ON public.solicitacoes;
