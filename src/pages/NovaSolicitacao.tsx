@@ -917,10 +917,28 @@ export default function NovaSolicitacao() {
       const errorMessage = error?.message || 'Erro desconhecido';
       const errorCode = error?.code || 'N/A';
       console.error('[SUBMIT] Erro ao criar solicitação:', { message: errorMessage, code: errorCode });
-      const userMessage = errorCode === '23505' && errorMessage?.includes('protocolo')
-        ? 'Conflito ao gerar número de protocolo. Por favor, tente novamente em alguns segundos.'
-        : errorMessage;
-      toast({ title: 'Erro ao criar solicitação', description: userMessage, variant: 'destructive' });
+      // Trigger de servidor bloqueou por falta de anexos obrigatórios.
+      const hintStr: string = error?.hint || error?.details || '';
+      const missingMatch = /MISSING_ANEXOS:([^\n]+)/.exec(hintStr) || /MISSING_ANEXOS:([^\n]+)/.exec(errorMessage);
+      if (missingMatch) {
+        const tipos = missingMatch[1].split(',').map(t => t.trim()).filter(Boolean);
+        const labels = requiredAttachments
+          .filter(a => tipos.includes(a.tipo))
+          .map(a => a.label);
+        toast({
+          title: 'Envio bloqueado pelo servidor',
+          description: `Faltam anexos obrigatórios: ${(labels.length ? labels : tipos).join(', ')}.`,
+          variant: 'destructive',
+        });
+        setCurrentStep('anexos');
+        setShowErrors(true);
+        track('submit_failed', { reason: 'server_missing_anexos', tipos: tipos.join(',') }, '/nova-solicitacao');
+      } else {
+        const userMessage = errorCode === '23505' && errorMessage?.includes('protocolo')
+          ? 'Conflito ao gerar número de protocolo. Por favor, tente novamente em alguns segundos.'
+          : errorMessage;
+        toast({ title: 'Erro ao criar solicitação', description: userMessage, variant: 'destructive' });
+      }
       errorCooldown = true;
     } finally {
       if (errorCooldown) {
