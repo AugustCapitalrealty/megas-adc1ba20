@@ -1,36 +1,32 @@
-# Auditoria 2026000731 — correção e blindagem
-
 ## Diagnóstico
-- Solicitação `AC / materiais_informatica / semMemorial / exceção de fornecedores` foi promovida a `recebido` sem nenhum registro em `anexos` nem objeto em `storage`.
-- Nenhum erro em `error_logs`, nenhum evento em `solicitacao_draft_audit`, nenhuma telemetria `submit_failed` — o frontend simplesmente não travou.
-- A regra desse cenário exige **Proposta do Fornecedor** e **Comprovação da Justificativa**. Como o único guard-rail hoje é no cliente, qualquer estado transitório ou race no clique fura a validação. Foi bug.
 
-## O que fazer
+O trigger `trg_enforce_solicitacao_anexos_ins` da migration anterior está bloqueando **todo envio novo**. Motivo: o frontend faz `INSERT` da solicitação com `status='recebido'` **antes** de subir os anexos (os anexos precisam do `id` gerado). Como o trigger `BEFORE INSERT` consulta `public.anexos` naquele instante, sempre encontra vazio e aborta com "Envio bloqueado: anexos obrigatórios ausentes: orcamento_escolhido".
 
-### 1. Guard-rail no servidor (fim do bug para sempre)
-Migration com trigger `AFTER INSERT/UPDATE OF status ON solicitacoes`:
-- Quando `NEW.status` sair de `rascunho` para `recebido` (ou insert direto em `recebido`), rodar `has_required_anexos(NEW)` que replica a regra de `getRequiredAttachments`:
-  - AC não-emergencial → exige `orcamento_escolhido`; exige `escopo_detalhado` se `justificativa_sem_memorial IS NULL`; exige `justificativa_anexo` se `excecao_fornecedores` ou `fornecimento_exclusivo`, senão exige `orcamento_concorrente_1/2` + `mapa_cotacao`.
-  - AC emergencial → exige `orcamento_escolhido`.
-  - OC água/energia → exige `fatura_agua_energia`. OC demais → exige `orcamento_escolhido`.
-  - `origem_custo='cliente'` → exige `comunicado_cliente`.
-- Se faltar, `RAISE EXCEPTION` com mensagem que lista os tipos faltantes. Isso garante que mesmo um POST direto no PostgREST não passa.
+A prova está no print: OC de Material de Consumo com 2 anexos já selecionados no wizard → erro no INSERT antes dos uploads acontecerem.
 
-### 2. Telemetria do envio (para o próximo caso)
-Em `src/pages/NovaSolicitacao.tsx#handleSubmit`:
-- Antes do INSERT, `track('submit_attempt', { tipo, natureza, semMemorial, excecao, requiredTipos, presentTipos })`.
-- Depois do INSERT bem-sucedido e antes do `uploadAnexos`, `track('submit_inserted_no_anexos', …)` **se** `Object.keys(formState.anexos).length === 0 && existingAnexoTipos.size === 0`.
-- Registrar em `error_logs` (severity `warning`) qualquer submit em que a checagem de anexos passou mas o mapa está vazio — sinal claro do race.
+## Correção
 
-### 3. Correção do chamado atual
-Solicitação já está em `aguardando_informacoes` — Mauro pode reenviar os anexos pela tela "Minhas Solicitações". Nada a alterar em dados.
+### 1. Ajustar o guard no banco (migration)
+- **Remover** o trigger `BEFORE INSERT` (`trg_enforce_solicitacao_anexos_ins`). Não dá para validar anexos no mesmo `INSERT` que cria a solicitação — os arquivos ainda não têm `solicitacao_id` para existir.
+- **Manter** o trigger `BEFORE UPDATE OF status` — esse continua sendo a guarda real: só deixa sair de `rascunho` para qualquer status ativo se os anexos estiverem lá.
+- Função `solicitacao_missing_anexos` e a de enforce continuam iguais.
+
+### 2. Ajustar o fluxo de envio no frontend
+`src/pages/NovaSolicitacao.tsx#handleSubmit` passa a operar em três passos, todos dentro do try/catch já existente:
+1. `INSERT` da solicitação com `status='rascunho'` (não dispara o guard).
+2. `uploadAnexos(solicitacaoId, ...)` como hoje.
+3. `UPDATE solicitacoes SET status='recebido' WHERE id=?` — aqui o trigger valida. Se faltar anexo, exceção → toast atual + volta para a etapa `anexos`; a solicitação fica como rascunho e o usuário completa sem perder nada.
+
+Telemetria (`submit_attempt`, warning em `error_logs` para mapa vazio) permanece igual, só é emitida antes do passo 1.
+
+### 3. Chamado atual (Mega Itajaí / caminhão pipa)
+Nada de dados a mexer — assim que o fix subir, o usuário reenvia normalmente pelo wizard e a solicitação vai criada com anexos.
 
 ## Detalhes técnicos
-- Novo arquivo de migration em `supabase/migrations/` criando função `public.solicitacao_requires_anexos(sol solicitacoes) returns text[]` + trigger `trg_solicitacao_anexos_check`.
-- Reaproveitar enums existentes (`tipo`, `natureza_orcamentaria`).
-- Cobrir migration com um teste manual: tentar `UPDATE solicitacoes SET status='recebido' WHERE id='<rascunho sem anexo>'` e confirmar exceção.
-- No frontend, capturar erro do trigger com toast amigável ("O servidor rejeitou o envio porque faltam anexos: X, Y") e reabrir a etapa `anexos`.
+- Migration nova em `supabase/migrations/` só com `DROP TRIGGER IF EXISTS trg_enforce_solicitacao_anexos_ins ON public.solicitacoes;` (mantém o `_upd`).
+- `NovaSolicitacao.tsx`: alterar payload do `insert` para forçar `status: 'rascunho'` no envio novo (rascunho existente já entra como rascunho), e adicionar `UPDATE ... status='recebido'` depois do `uploadAnexos`. Tratamento do erro `MISSING_ANEXOS:` do trigger já existe — reaproveitar.
+- Ordem das notificações (`notifyBackofficeNewSolicitacao`, etc.) fica **depois** do UPDATE bem-sucedido, para não avisar de solicitação que ficou em rascunho por falha de anexo.
 
 ## Fora de escopo
-- Rever `getRequiredAttachments` (mantido como está — a regra está correta, o problema é falta de guarda no servidor).
-- Alterações de UI da tela de nova solicitação além do toast do erro do trigger.
+- Alterar regras de `solicitacao_missing_anexos` (a lógica em si está certa).
+- Refatorar `uploadAnexos` ou UI do wizard além do necessário.
