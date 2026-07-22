@@ -265,13 +265,6 @@ export default function NovaSolicitacao() {
         .select('id, storage_path')
         .eq('solicitacao_id', solicitacaoId)
         .eq('tipo', tipo);
-      if (existing && existing.length > 0) {
-        const paths = existing.map((a: any) => a.storage_path).filter(Boolean);
-        if (paths.length > 0) {
-          await supabase.storage.from('anexos').remove(paths);
-        }
-        await supabase.from('anexos').delete().in('id', existing.map((a: any) => a.id));
-      }
       const { file } = uploadedFile;
       const fileExt = file.name.split('.').pop();
       const filePath = `${solicitacaoId}/${tipo}_${Date.now()}.${fileExt}`;
@@ -282,6 +275,13 @@ export default function NovaSolicitacao() {
         storage_path: filePath, mime_type: file.type, tamanho_bytes: file.size,
       });
       if (dbError) throw dbError;
+      if (existing && existing.length > 0) {
+        await supabase.from('anexos').delete().in('id', existing.map((a: any) => a.id));
+        const paths = existing.map((a: any) => a.storage_path).filter(Boolean);
+        if (paths.length > 0) {
+          await supabase.storage.from('anexos').remove(paths);
+        }
+      }
       uploadedTipos.push(tipo);
     }
 
@@ -550,6 +550,27 @@ export default function NovaSolicitacao() {
     setSubmitting(true);
     try {
       await uploadAnexos(pendingAnexosFor.id);
+      const { data: anexosRows, error: anexosError } = await supabase
+        .from('anexos')
+        .select('tipo')
+        .eq('solicitacao_id', pendingAnexosFor.id);
+      if (anexosError) throw anexosError;
+
+      const tiposEnviados = new Set((anexosRows ?? []).map((anexo) => anexo.tipo));
+      const missing = getRequiredAttachments()
+        .filter((att) => att.required && !tiposEnviados.has(att.tipo))
+        .map((att) => att.label);
+      if (missing.length > 0) {
+        throw new Error(`Ainda faltam anexos obrigatórios: ${missing.join(', ')}`);
+      }
+
+      const { error: promoteError } = await supabase
+        .from('solicitacoes')
+        .update({ status: 'recebido' as any })
+        .eq('id', pendingAnexosFor.id)
+        .eq('status', 'rascunho' as any);
+      if (promoteError) throw promoteError;
+
       toast({ title: 'Anexos enviados!', description: `Protocolo ${pendingAnexosFor.protocolo} concluído.` });
       clearDraft();
       const protocolo = pendingAnexosFor.protocolo;
@@ -854,6 +875,28 @@ export default function NovaSolicitacao() {
           track('submit_failed', { reason: 'upload_failed', protocolo: data.protocolo }, '/nova-solicitacao');
           return;
         }
+      }
+
+      const { data: anexosRows, error: anexosError } = await supabase
+        .from('anexos')
+        .select('tipo')
+        .eq('solicitacao_id', data.id);
+      if (anexosError) throw anexosError;
+
+      const tiposEnviados = new Set((anexosRows ?? []).map((anexo) => anexo.tipo));
+      const missingAfterUpload = requiredAttachments
+        .filter((att) => att.required && !tiposEnviados.has(att.tipo))
+        .map((att) => att.label);
+      if (missingAfterUpload.length > 0) {
+        setPendingAnexosFor({ id: data.id, protocolo: data.protocolo });
+        toast({
+          title: 'Falha ao confirmar anexos',
+          description: `Ainda faltam: ${missingAfterUpload.join(', ')}. Reenvie os anexos antes de concluir.`,
+          variant: 'destructive',
+          duration: 12000,
+        });
+        track('submit_failed', { reason: 'missing_after_upload', protocolo: data.protocolo }, '/nova-solicitacao');
+        return;
       }
 
       // Anexos no lugar — agora promove rascunho → recebido.
