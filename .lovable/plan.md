@@ -1,35 +1,26 @@
-## Problema
+## Diagnóstico confirmado
 
-A **taxa de Bandeira** não aparece nas faturas por cliente do mês 06 porque o rateio (`src/lib/energia-rateio.ts`) lê o campo `bandeira_valor` (R$/100 kWh) de `energia_competencia_tarifas`, mas esse campo só é preenchido manualmente na aba **Memória de Cálculo**. Quando a bandeira é lançada como itens na **Fatura Copel** (fluxo atual — amarela/vermelha P1/P2 × ponta/fora), esses valores não são propagados para `bandeira_valor`, então o engine rateia com R$/100 kWh = 0.
+- O chamado `2026000721` está em `enviado_fornecedor`, tipo `OC`, natureza `material_consumo`, com `numero_chamado_fluig = RM` e sem anexos registrados na tabela `anexos`.
+- A trava criada para impedir envio inicial sem anexos está ativa no gatilho `trg_enforce_solicitacao_anexos_upd`.
+- O problema: a função atual valida qualquer mudança de status legado ativo para outro status ativo. Por isso, ao Backoffice tentar concluir (`enviado_fornecedor` -> `concluida`) e lançar o Fluig de pagamento, ela bloqueia por falta de `orcamento_escolhido`.
+- Essa validação é ampla demais para fluxos posteriores do Backoffice. A regra correta deve proteger a entrada/ativação da solicitação e correções de anexos, sem travar conclusão ou lançamento de números Fluig em solicitações já processadas.
 
-## Objetivo
+## Plano de correção
 
-Sincronizar automaticamente `bandeira_valor` a partir dos itens de bandeira lançados na Fatura Copel, mantendo o override manual quando necessário.
+1. Ajustar a função de validação de anexos no backend:
+   - Manter bloqueio para criação direta já ativa.
+   - Manter bloqueio para promoção de `rascunho` para status ativo.
+   - Remover o bloqueio genérico em mudanças posteriores entre status ativos, como `enviado_fornecedor` -> `concluida`.
+   - Assim, a trava continua protegendo novos envios, mas deixa o Backoffice concluir/lançar Fluig em chamados legados já avançados.
 
-## Escopo (frontend/UI apenas)
+2. Criar uma nova migração com essa correção:
+   - Atualizar apenas `public.enforce_solicitacao_anexos()`.
+   - Não alterar RLS, permissões ou outras regras fora desse bug.
 
-1. **`src/components/admin/energia/FaturaCopelTab.tsx`**
-   - Ao salvar a Fatura Copel, calcular o `bandeira_valor` derivado:
-     - Somar R$ de todos os itens de bandeira lançados (amarela + vermelha P1 + vermelha P2, ponta + fora) = `bandeiraReais`.
-     - Somar kWh total faturado na Copel com perdas = `consumo_ponta + consumo_fora + perdas_ponta + perdas_fora` (mesma base que o engine aplica em `BM/BN = ((Q+AH)/100) * bandeira_valor`).
-     - `bandeira_valor = (bandeiraReais / kWhBase) * 100`, com `0` se a base for `0`.
-   - Persistir esse valor no mesmo update que grava os itens/tarifas de Copel, e também zerar caso todos os itens de bandeira sejam removidos.
-   - Mostrar um indicador leve ("Bandeira sincronizada com Memória: R$ X/100 kWh") no bloco de bandeiras, para o admin confirmar.
+3. Validar no banco após aplicar:
+   - Confirmar que `2026000721` continua identificado como legado com anexo ausente.
+   - Simular/checar que a mudança para `concluida` não será mais bloqueada pela trava de anexos.
+   - Confirmar que promoção de `rascunho` para ativo ainda continua bloqueada quando faltar anexo obrigatório.
 
-2. **`src/components/admin/energia/MemoriaCalculoTab.tsx`**
-   - No campo `bandeira_valor`, marcar como "derivado automaticamente da Fatura Copel"; permitir edição manual (override) mas mostrar um badge quando o valor diverge do derivado.
-   - Adicionar botão pequeno "Recalcular a partir da Fatura Copel" que reexecuta a fórmula acima para a competência atual.
-
-3. **Retroativo para 06**
-   - Sem migração de dados: basta o usuário abrir a Fatura Copel do mês 06 e salvar (ou clicar em "Recalcular" na Memória), que `bandeira_valor` será populado e o rateio por cliente passará a exibir a Bandeira corretamente.
-
-## Fora do escopo
-
-- Nenhuma mudança no engine de cálculo (`src/lib/energia-rateio.ts`) — a fórmula BM/BN continua a mesma.
-- Nenhuma migração de schema — o campo `bandeira_valor` já existe.
-- Nenhuma mudança em impostos, perdas, PIS/COFINS ou ICMS.
-
-## Verificação
-
-- Reabrir Fatura Copel do mês 06 → salvar → abrir aba Faturas por cliente → conferir que a linha "Bandeira Tarifária" agora mostra valor > 0 e o total bate com o total de bandeira lançado na Copel (± tolerância de arredondamento).
-- Conferir na Memória de Cálculo que a coluna "Bandeira" das linhas por módulo deixou de ser zero e que a soma bate com `bandeiraReais` da Copel.
+4. Opcionalmente ajustar a mensagem da UI se necessário:
+   - Se o erro continuar vindo do backend por outro caminho, revisar o fluxo `handleConcluirLiberadaConfirmed` em `src/pages/Backoffice.tsx`, mas a causa confirmada está no gatilho do banco.
