@@ -28,6 +28,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ContextualEmptyState } from '@/components/ui/ContextualEmptyState';
 import { saveAs } from 'file-saver';
 import type { UploadedFile } from '@/components/FileUpload';
+import { MODULO_VAGO_CLIENTE_ID } from '@/lib/solicitacao-rules';
 import { useToast } from '@/hooks/use-toast';
 import { TransferOwnershipModal } from '@/components/TransferOwnershipModal';
 import { exportToExcel } from '@/lib/export-utils';
