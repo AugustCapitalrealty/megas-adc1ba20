@@ -25,6 +25,13 @@ export type InstrumentoJuridico =
   | 'contrato_prestacao'
   | 'contrato_empreitada';
 
+/**
+ * ID canônico do cliente "Módulo Vago" (compartilhado entre todos os
+ * empreendimentos). Como não é um cliente real, solicitações vinculadas a
+ * ele não exigem o anexo `comunicado_cliente`.
+ */
+export const MODULO_VAGO_CLIENTE_ID = '83739dae-d131-41df-8c15-a6fa1cead116';
+
 export interface ClassificacaoInput {
   valor: number;
   tipoContratacao: string; // '' | 'servicos' | 'material_construcao' | ...
