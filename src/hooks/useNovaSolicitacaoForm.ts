@@ -21,6 +21,7 @@ import type { RateioValor } from '@/components/RateioPreview';
 import type { Step, DerivedValues, FormSetters } from '@/components/nova-solicitacao/types';
 import { NATUREZAS_ISENTAS_ANEXOS, NATUREZAS_AGUA_ENERGIA, TIPO_TO_NATUREZA } from '@/components/nova-solicitacao/types';
 import { toCentsString } from '@/lib/valor-monetario';
+import { MODULO_VAGO_CLIENTE_ID } from '@/lib/solicitacao-rules';
 
 interface DuplicateData {
   tipo?: string;
@@ -443,7 +444,8 @@ export function useNovaSolicitacaoForm(
       }
     }
 
-    if (origemCusto === 'cliente') {
+    // Módulo Vago não é cliente real — não exige comunicado.
+    if (origemCusto === 'cliente' && clienteId !== MODULO_VAGO_CLIENTE_ID) {
       attachments.push({ tipo: 'comunicado_cliente', label: ANEXO_LABELS.comunicado_cliente, required: true });
     }
     return attachments;

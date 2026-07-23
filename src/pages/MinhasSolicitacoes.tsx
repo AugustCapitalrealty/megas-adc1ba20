@@ -28,6 +28,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ContextualEmptyState } from '@/components/ui/ContextualEmptyState';
 import { saveAs } from 'file-saver';
 import type { UploadedFile } from '@/components/FileUpload';
+import { MODULO_VAGO_CLIENTE_ID } from '@/lib/solicitacao-rules';
 import { useToast } from '@/hooks/use-toast';
 import { TransferOwnershipModal } from '@/components/TransferOwnershipModal';
 import { exportToExcel } from '@/lib/export-utils';
@@ -568,7 +569,7 @@ export default function MinhasSolicitacoes() {
       if (isAguaEnergia) attachments.push({ tipo: 'fatura_agua_energia', label: getAttachmentLabel('fatura_agua_energia'), required: true });
     }
 
-    if (sol.origem_custo === 'cliente') {
+    if (sol.origem_custo === 'cliente' && sol.cliente_id !== MODULO_VAGO_CLIENTE_ID) {
       attachments.push({ tipo: 'comunicado_cliente', label: getAttachmentLabel('comunicado_cliente'), required: true });
     }
 
