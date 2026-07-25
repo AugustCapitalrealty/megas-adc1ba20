@@ -354,6 +354,27 @@ export function FaturasTab() {
                 </button>
               </div>
             </div>
+            <div className="flex flex-col gap-1">
+              <Label className="text-[11px] text-muted-foreground">Área Comum</Label>
+              <div className="inline-flex rounded-md border overflow-hidden text-xs h-10" role="group" aria-label="Rateio da área comum">
+                <button
+                  type="button"
+                  onClick={() => setRatearAreaComum(true)}
+                  className={`px-3 transition-colors ${ratearAreaComum ? 'bg-primary text-primary-foreground font-semibold' : 'bg-background hover:bg-muted'}`}
+                  title="Replica a planilha (RESUMO): valor líquido da Área Comum é rateado nos clientes por m²."
+                >
+                  Ratear por m²
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRatearAreaComum(false)}
+                  className={`px-3 border-l transition-colors ${!ratearAreaComum ? 'bg-primary text-primary-foreground font-semibold' : 'bg-background hover:bg-muted'}`}
+                  title="Mantém Área Comum como cliente separado."
+                >
+                  Separada
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* KPIs */}
