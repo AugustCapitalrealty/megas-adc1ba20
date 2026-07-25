@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import {
   calcularMemoria,
   agruparPorCliente,
+  redistribuirAreaComumPorArea,
   type EnergiaTarifas,
   type EnergiaLancamentoInput,
   type FaturaCliente,
@@ -42,7 +43,8 @@ export function FaturasTab() {
   const [contratoClientePorId, setContratoClientePorId] = useState<Record<string, string>>({});
   const [busca, setBusca] = useState('');
   const [selecionado, setSelecionado] = useState<string | null>(null);
-  const [modoPerdas, setModoPerdas] = useState<ModoRateioPerdas>('separado');
+  const [modoPerdas, setModoPerdas] = useState<ModoRateioPerdas>('combinado');
+  const [ratearAreaComum, setRatearAreaComum] = useState<boolean>(true);
 
   const fetchBase = useCallback(async () => {
     const [c, m, cli] = await Promise.all([
@@ -148,7 +150,7 @@ export function FaturasTab() {
       perdas_copel_fora_kwh: copelForaKwh - somaForaLanc,
     };
     const memoria = calcularMemoria(tarifasComPerdas, inputs, modoPerdas);
-    const fts = agruparPorCliente(
+    let fts = agruparPorCliente(
       memoria.linhas,
       modulosComLanc.map((m) => {
         const cid = contratoIdPorModulo[m.id] ?? null;
@@ -162,8 +164,11 @@ export function FaturasTab() {
         };
       }),
     );
+    // Replica RESUMO da planilha: valor líquido da Área Comum vai para os
+    // clientes proporcional à área locada (m²).
+    if (ratearAreaComum) fts = redistribuirAreaComumPorArea(fts);
     return { faturas: fts, memoriaLinhas: memoria.linhas };
-  }, [tarifas, modulos, lancamentos, clientes, contratoPorModulo, contratoIdPorModulo, contratoNumeroPorId, contratoClientePorId, modoPerdas]);
+  }, [tarifas, modulos, lancamentos, clientes, contratoPorModulo, contratoIdPorModulo, contratoNumeroPorId, contratoClientePorId, modoPerdas, ratearAreaComum]);
 
   const faturasFiltradas = useMemo(() => {
     const q = busca.trim().toLowerCase();
