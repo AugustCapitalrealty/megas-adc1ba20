@@ -143,7 +143,7 @@ export type ModoRateioPerdas = 'separado' | 'combinado';
 export function calcularMemoria(
   tarifas: EnergiaTarifas,
   lancamentos: EnergiaLancamentoInput[],
-  modoPerdas: ModoRateioPerdas = 'separado',
+  modoPerdas: ModoRateioPerdas = 'combinado',
 ): MemoriaResultado {
   // Passo 1: denominadores de rateio
   // - consumoTotalGeral: usado para itens sem posto tarifário (iluminação pública, créd/déb)
