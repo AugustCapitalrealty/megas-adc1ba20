@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import {
   calcularMemoria,
   agruparPorCliente,
+  redistribuirAreaComumPorArea,
   type EnergiaTarifas,
   type EnergiaLancamentoInput,
   type FaturaCliente,
@@ -42,7 +43,8 @@ export function FaturasTab() {
   const [contratoClientePorId, setContratoClientePorId] = useState<Record<string, string>>({});
   const [busca, setBusca] = useState('');
   const [selecionado, setSelecionado] = useState<string | null>(null);
-  const [modoPerdas, setModoPerdas] = useState<ModoRateioPerdas>('separado');
+  const [modoPerdas, setModoPerdas] = useState<ModoRateioPerdas>('combinado');
+  const [ratearAreaComum, setRatearAreaComum] = useState<boolean>(true);
 
   const fetchBase = useCallback(async () => {
     const [c, m, cli] = await Promise.all([
@@ -148,7 +150,7 @@ export function FaturasTab() {
       perdas_copel_fora_kwh: copelForaKwh - somaForaLanc,
     };
     const memoria = calcularMemoria(tarifasComPerdas, inputs, modoPerdas);
-    const fts = agruparPorCliente(
+    let fts = agruparPorCliente(
       memoria.linhas,
       modulosComLanc.map((m) => {
         const cid = contratoIdPorModulo[m.id] ?? null;
@@ -162,8 +164,11 @@ export function FaturasTab() {
         };
       }),
     );
+    // Replica RESUMO da planilha: valor líquido da Área Comum vai para os
+    // clientes proporcional à área locada (m²).
+    if (ratearAreaComum) fts = redistribuirAreaComumPorArea(fts);
     return { faturas: fts, memoriaLinhas: memoria.linhas };
-  }, [tarifas, modulos, lancamentos, clientes, contratoPorModulo, contratoIdPorModulo, contratoNumeroPorId, contratoClientePorId, modoPerdas]);
+  }, [tarifas, modulos, lancamentos, clientes, contratoPorModulo, contratoIdPorModulo, contratoNumeroPorId, contratoClientePorId, modoPerdas, ratearAreaComum]);
 
   const faturasFiltradas = useMemo(() => {
     const q = busca.trim().toLowerCase();
@@ -346,6 +351,27 @@ export function FaturasTab() {
                   title="Replica a planilha: ratio único (consumo total / Σ total) aplicado às perdas dos dois postos."
                 >
                   Planilha (combinado)
+                </button>
+              </div>
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label className="text-[11px] text-muted-foreground">Área Comum</Label>
+              <div className="inline-flex rounded-md border overflow-hidden text-xs h-10" role="group" aria-label="Rateio da área comum">
+                <button
+                  type="button"
+                  onClick={() => setRatearAreaComum(true)}
+                  className={`px-3 transition-colors ${ratearAreaComum ? 'bg-primary text-primary-foreground font-semibold' : 'bg-background hover:bg-muted'}`}
+                  title="Replica a planilha (RESUMO): valor líquido da Área Comum é rateado nos clientes por m²."
+                >
+                  Ratear por m²
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRatearAreaComum(false)}
+                  className={`px-3 border-l transition-colors ${!ratearAreaComum ? 'bg-primary text-primary-foreground font-semibold' : 'bg-background hover:bg-muted'}`}
+                  title="Mantém Área Comum como cliente separado."
+                >
+                  Separada
                 </button>
               </div>
             </div>
