@@ -437,3 +437,41 @@ export function agruparPorCliente(
     return b.total_fatura_energy - a.total_fatura_energy;
   });
 }
+
+// ── Rateio da Área Comum por m² ──────────────────────────
+// Replica a planilha RESUMO (linhas 38-58): o total líquido da Área Comum
+// (já descontado o abatimento fotovoltaico) é redistribuído a todos os
+// clientes proporcionalmente à área locada (m²). A linha Área Comum é
+// removida da lista de faturas resultantes.
+//
+// Campos rateados (somam ao valor original de cada cliente):
+//   total_fatura_energy, total_fatura_copel, rs_consumo_total, rs_perdas,
+//   icms_total, piscof_total, iluminacao_publica, bandeira_total,
+//   cred_deb_rateado, fotovoltaico (crédito solar em R$).
+//
+// A demanda e o consumo em kWh NÃO são rateados (são grandezas físicas do
+// próprio módulo); apenas o valor financeiro é redistribuído.
+export function redistribuirAreaComumPorArea(
+  faturas: FaturaCliente[],
+): FaturaCliente[] {
+  const areaBucket = faturas.find((f) => f.cliente_key === 'AREA_COMUM');
+  if (!areaBucket) return faturas;
+  const outros = faturas.filter((f) => f.cliente_key !== 'AREA_COMUM');
+  const somaM2 = outros.reduce((s, f) => s + (f.area_m2 || 0), 0);
+  if (somaM2 <= 0) return faturas; // sem áreas cadastradas → mantém bucket
+
+  const camposRateados: Array<keyof FaturaCliente> = [
+    'rs_consumo_total', 'rs_perdas', 'icms_total', 'piscof_total',
+    'iluminacao_publica', 'bandeira_total', 'cred_deb_rateado',
+    'fotovoltaico', 'total_fatura_energy', 'total_fatura_copel',
+  ];
+
+  return outros.map((f) => {
+    const share = (f.area_m2 || 0) / somaM2;
+    const clone: FaturaCliente = { ...f };
+    for (const k of camposRateados) {
+      (clone as any)[k] = (f[k] as number) + (areaBucket[k] as number) * share;
+    }
+    return clone;
+  });
+}
