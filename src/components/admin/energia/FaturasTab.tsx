@@ -106,6 +106,7 @@ export function FaturasTab() {
   useEffect(() => { if (competencias.length && !currentCompId) setCurrentCompId(competencias[0].id); }, [competencias, currentCompId]);
   useEffect(() => {
     if (currentCompId) {
+      setSelecionado(null);
       const comp = competencias.find((c) => c.id === currentCompId);
       if (comp) fetchCompData(currentCompId, comp.ano_mes);
     }
