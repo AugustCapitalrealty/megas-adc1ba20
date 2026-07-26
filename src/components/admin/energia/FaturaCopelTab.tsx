@@ -664,11 +664,15 @@ export function FaturaCopelTab() {
                         const calcInp = (val: string, on: (s: string) => void) => (
                           <Input type="text" inputMode="decimal" disabled={isLocked}
                             className="h-7 text-[11px] px-1 text-right bg-muted/30"
+                            onFocus={(e) => e.currentTarget.select()}
+                            onKeyDown={gridKeyDown}
                             value={val} onChange={(e) => on(e.target.value)} />
                         );
                         const editInp = (val: string, on: (s: string) => void) => (
                           <Input type="text" inputMode="decimal" disabled={isLocked}
                             className="h-7 text-[11px] px-1 text-right bg-yellow-50 dark:bg-yellow-950/30 border-yellow-300/60"
+                            onFocus={(e) => e.currentTarget.select()}
+                            onKeyDown={gridKeyDown}
                             value={val} onChange={(e) => on(e.target.value)} />
                         );
                         return (
