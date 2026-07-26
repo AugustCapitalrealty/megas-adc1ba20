@@ -146,7 +146,7 @@ export function FaturaCopelTab() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [competencias, setCompetencias] = useState<Competencia[]>([]);
-  const { currentCompId, setCurrentCompId } = useSharedCompetencia();
+  const { currentCompId, setCurrentCompId, version } = useSharedCompetencia();
   const [tarifas, setTarifas] = useState<TarifasRow | null>(null);
   const [faturaItens, setFaturaItens] = useState<FaturaCopelItens>({ itens: {}, tributos: {}, total_a_pagar: '', extras_keys: [], extras_labels: {} });
   const [aliquotas, setAliquotas] = useState({ pis: 0, cofins: 0, icms: 0 });

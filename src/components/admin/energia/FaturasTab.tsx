@@ -31,7 +31,7 @@ const num = (n: number, dec = 2) => (n || 0).toLocaleString('pt-BR', { minimumFr
 export function FaturasTab() {
   const [loading, setLoading] = useState(true);
   const [competencias, setCompetencias] = useState<Competencia[]>([]);
-  const { currentCompId, setCurrentCompId } = useSharedCompetencia();
+  const { currentCompId, setCurrentCompId, version } = useSharedCompetencia();
   const [modulos, setModulos] = useState<Modulo[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [tarifas, setTarifas] = useState<any>(null);
