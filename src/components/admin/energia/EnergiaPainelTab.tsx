@@ -233,6 +233,30 @@ export function EnergiaPainelTab({ onGoTo }: Props) {
   );
 }
 
+function ChecklistItem({ done, label, onClick }: { done: boolean; label: string; onClick?: () => void }) {
+  const content = (
+    <div className="flex items-center gap-2 text-sm">
+      {done ? (
+        <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+      ) : (
+        <AlertCircle className="h-4 w-4 text-muted-foreground shrink-0" />
+      )}
+      <span className={done ? 'text-muted-foreground line-through' : ''}>{label}</span>
+      {onClick && !done && <ArrowRight className="h-3.5 w-3.5 ml-auto text-muted-foreground" />}
+    </div>
+  );
+  if (!onClick) return <div className="rounded-md border px-3 py-2">{content}</div>;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full text-left rounded-md border px-3 py-2 hover:bg-muted/60 transition-colors"
+    >
+      {content}
+    </button>
+  );
+}
+
 function StepCard({
   step, title, icon: Icon, done, detail, cta, onClick,
 }: {
