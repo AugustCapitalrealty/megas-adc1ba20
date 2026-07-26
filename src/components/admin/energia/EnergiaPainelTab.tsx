@@ -30,7 +30,7 @@ function formatCompetencia(ano_mes: string) {
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 export function EnergiaPainelTab({ onGoTo }: Props) {
-  const { currentCompId, setCurrentCompId } = useSharedCompetencia();
+  const { currentCompId, setCurrentCompId, version } = useSharedCompetencia();
   const [competencias, setCompetencias] = useState<Competencia[]>([]);
   const [status, setStatus] = useState<Status | null>(null);
   const [loading, setLoading] = useState(true);
@@ -46,7 +46,7 @@ export function EnergiaPainelTab({ onGoTo }: Props) {
       if (!currentCompId && list.length > 0) setCurrentCompId(list[0].id);
       setLoading(false);
     })();
-  }, []);
+  }, [version]);
 
   const loadStatus = useCallback(async (compId: string) => {
     const [t, l, m] = await Promise.all([
@@ -79,7 +79,7 @@ export function EnergiaPainelTab({ onGoTo }: Props) {
       setStatus(null);
       loadStatus(currentCompId);
     }
-  }, [currentCompId, loadStatus]);
+  }, [currentCompId, loadStatus, version]);
 
   const currentComp = useMemo(
     () => competencias.find((c) => c.id === currentCompId) || null,
@@ -167,6 +167,34 @@ export function EnergiaPainelTab({ onGoTo }: Props) {
           </div>
 
           {/* Resumo rápido */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Pendências do fechamento</CardTitle>
+              <CardDescription>Clique para ir direto ao ponto que falta.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <ChecklistItem
+                done={!!status?.copelLancada}
+                label="Fatura Copel lançada e conferida"
+                onClick={() => onGoTo('fatura')}
+              />
+              <ChecklistItem
+                done={!!lancamentosCompleto}
+                label={`Lançamentos de todos os módulos (${status?.lancamentosCount ?? 0}/${status?.modulosAtivos ?? 0})`}
+                onClick={() => onGoTo('lancamentos')}
+              />
+              <ChecklistItem
+                done={!!(status?.copelLancada && lancamentosCompleto)}
+                label="Faturas por cliente conferidas contra a Copel"
+                onClick={() => onGoTo('faturas')}
+              />
+              <ChecklistItem
+                done={currentComp.status === 'fechada'}
+                label="Competência fechada (bloqueia edições)"
+              />
+            </CardContent>
+          </Card>
+
           {status?.copelLancada && (
             <Card>
               <CardHeader className="pb-3">
