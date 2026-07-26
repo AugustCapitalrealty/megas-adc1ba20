@@ -116,6 +116,21 @@ const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', curren
 // Calcula campos derivados (valor, pis_cofins, icms, tarifa_unit) para um item
 // respeitando a regra de tributação do catálogo.
 function recalcItem(def: CopelItemDef, curr: CopelItem, aliq: { pis: number; cofins: number; icms: number }): CopelItem {
+  return recalcItemImpl(def, curr, aliq);
+}
+
+/** Enter (ou Shift+Enter) navega entre os campos da mesma tabela, como numa planilha. */
+function gridKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  const inputs = Array.from(
+    e.currentTarget.closest('table')?.querySelectorAll<HTMLInputElement>('input:not([disabled])') ?? [],
+  );
+  const idx = inputs.indexOf(e.currentTarget);
+  inputs[idx + (e.shiftKey ? -1 : 1)]?.focus();
+}
+
+function recalcItemImpl(def: CopelItemDef, curr: CopelItem, aliq: { pis: number; cofins: number; icms: number }): CopelItem {
   if (!def.hasUnitario) return curr;
   const q = parseBR(curr.quant);
   const p = parseBR(curr.preco_unit);
@@ -146,7 +161,7 @@ export function FaturaCopelTab() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [competencias, setCompetencias] = useState<Competencia[]>([]);
-  const { currentCompId, setCurrentCompId } = useSharedCompetencia();
+  const { currentCompId, setCurrentCompId, version } = useSharedCompetencia();
   const [tarifas, setTarifas] = useState<TarifasRow | null>(null);
   const [faturaItens, setFaturaItens] = useState<FaturaCopelItens>({ itens: {}, tributos: {}, total_a_pagar: '', extras_keys: [], extras_labels: {} });
   const [aliquotas, setAliquotas] = useState({ pis: 0, cofins: 0, icms: 0 });
@@ -228,7 +243,7 @@ export function FaturaCopelTab() {
     setClientesFora(rows.reduce((s, r) => s + (Number(r.consumo_fora_kwh) || 0), 0));
   }, []);
 
-  useEffect(() => { (async () => { setLoading(true); await fetchBase(); setLoading(false); })(); }, [fetchBase]);
+  useEffect(() => { (async () => { setLoading(true); await fetchBase(); setLoading(false); })(); }, [fetchBase, version]);
   useEffect(() => { if (competencias.length && !currentCompId) setCurrentCompId(competencias[0].id); }, [competencias, currentCompId]);
   useEffect(() => { if (currentCompId) fetchComp(currentCompId); }, [currentCompId, fetchComp]);
 
@@ -544,23 +559,18 @@ export function FaturaCopelTab() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="flex-1 min-w-[220px]">
-              <Label>Competência</Label>
-              <Select value={currentCompId ?? ''} onValueChange={setCurrentCompId}>
-                <SelectTrigger><SelectValue placeholder="Selecionar..." /></SelectTrigger>
-                <SelectContent>
-                  {competencias.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.ano_mes} {c.status === 'fechada' ? '🔒' : ''}</SelectItem>
-                  ))}
-                  {competencias.length === 0 && <div className="p-2 text-sm text-muted-foreground">Crie uma competência na aba Memória de Cálculo.</div>}
-                </SelectContent>
-              </Select>
-            </div>
-            {currentComp && (
-              <Badge variant={isLocked ? 'secondary' : 'default'} className="h-9 px-3 text-sm">
-                {isLocked ? <><Lock className="h-3.5 w-3.5 mr-1" /> Fechada</> : '📝 Rascunho'}
-              </Badge>
+          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+            {currentComp ? (
+              <>
+                <span>Competência <strong className="text-foreground">{currentComp.ano_mes}</strong></span>
+                {isLocked && (
+                  <Badge variant="secondary" className="h-7">
+                    <Lock className="h-3.5 w-3.5 mr-1" /> Fechada — somente leitura
+                  </Badge>
+                )}
+              </>
+            ) : (
+              <span>Selecione a competência na barra acima.</span>
             )}
           </div>
         </CardContent>
@@ -669,11 +679,15 @@ export function FaturaCopelTab() {
                         const calcInp = (val: string, on: (s: string) => void) => (
                           <Input type="text" inputMode="decimal" disabled={isLocked}
                             className="h-7 text-[11px] px-1 text-right bg-muted/30"
+                            onFocus={(e) => e.currentTarget.select()}
+                            onKeyDown={gridKeyDown}
                             value={val} onChange={(e) => on(e.target.value)} />
                         );
                         const editInp = (val: string, on: (s: string) => void) => (
                           <Input type="text" inputMode="decimal" disabled={isLocked}
                             className="h-7 text-[11px] px-1 text-right bg-yellow-50 dark:bg-yellow-950/30 border-yellow-300/60"
+                            onFocus={(e) => e.currentTarget.select()}
+                            onKeyDown={gridKeyDown}
                             value={val} onChange={(e) => on(e.target.value)} />
                         );
                         return (

@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Loader2, Plus, Copy, Lock, Unlock, Download, ClipboardList, CheckCircle2, AlertTriangle, Receipt, Users, ArrowRight } from 'lucide-react';
+import { Loader2, Plus, Copy, Download, ClipboardList, CheckCircle2, AlertTriangle, Receipt, Users, ArrowRight, Sun, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   calcularMemoria,
@@ -197,7 +197,7 @@ export function MemoriaCalculoTab() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [competencias, setCompetencias] = useState<Competencia[]>([]);
-  const { currentCompId, setCurrentCompId } = useSharedCompetencia();
+  const { currentCompId, setCurrentCompId, version, bumpCompetencias } = useSharedCompetencia();
   const [modulos, setModulos] = useState<Modulo[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [tarifas, setTarifas] = useState<TarifasRow | null>(null);
@@ -345,7 +345,7 @@ export function MemoriaCalculoTab() {
       await fetchBase();
       setLoading(false);
     })();
-  }, [fetchBase]);
+  }, [fetchBase, version]);
 
   useEffect(() => {
     if (competencias.length && !currentCompId) setCurrentCompId(competencias[0].id);
@@ -406,23 +406,7 @@ export function MemoriaCalculoTab() {
     toast.success('Competência criada');
     await fetchBase();
     setCurrentCompId((comp as any).id);
-  };
-
-  const handleToggleLock = async () => {
-    if (!currentComp) return;
-    const next = currentComp.status === 'fechada' ? 'rascunho' : 'fechada';
-    const { error } = await supabase
-      .from('energia_competencias')
-      .update({
-        status: next,
-        fechada_em: next === 'fechada' ? new Date().toISOString() : null,
-        fechada_por: next === 'fechada' ? user?.id : null,
-        updated_by: user?.id,
-      } as any)
-      .eq('id', currentComp.id);
-    if (error) return toast.error('Erro ao atualizar status');
-    toast.success(next === 'fechada' ? 'Competência fechada' : 'Competência reaberta');
-    fetchBase();
+    bumpCompetencias();
   };
 
   const updateTarifa = (key: keyof EnergiaTarifas, value: number) => {
@@ -798,22 +782,6 @@ export function MemoriaCalculoTab() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-end gap-3">
-            <div className="flex-1 min-w-[220px]">
-              <Label>Competência</Label>
-              <Select value={currentCompId ?? ''} onValueChange={setCurrentCompId}>
-                <SelectTrigger><SelectValue placeholder="Selecionar competência..." /></SelectTrigger>
-                <SelectContent>
-                  {competencias.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.ano_mes} {c.status === 'fechada' ? '🔒' : ''}
-                    </SelectItem>
-                  ))}
-                  {competencias.length === 0 && (
-                    <div className="p-2 text-sm text-muted-foreground">Nenhuma competência ainda</div>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
             <div>
               <Label>Nova competência (AAAA-MM)</Label>
               <Input value={newAnoMes} onChange={(e) => setNewAnoMes(e.target.value)} className="w-32" />
@@ -827,12 +795,8 @@ export function MemoriaCalculoTab() {
             {currentComp && (
               <>
                 <Badge variant={isLocked ? 'secondary' : 'default'} className="h-9 px-3 text-sm">
-                  {isLocked ? '🔒 Fechada' : '📝 Rascunho'}
+                  {isLocked ? 'Fechada — somente leitura' : 'Rascunho'}
                 </Badge>
-                <Button onClick={handleToggleLock} variant="outline">
-                  {isLocked ? <Unlock className="h-4 w-4 mr-2" /> : <Lock className="h-4 w-4 mr-2" />}
-                  {isLocked ? 'Reabrir' : 'Fechar'}
-                </Button>
                 <Button onClick={exportCSV} variant="outline">
                   <Download className="h-4 w-4 mr-2" /> CSV
                 </Button>
@@ -858,7 +822,7 @@ export function MemoriaCalculoTab() {
           {/* Bloco Fotovoltaico (kWh) */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">☀️ Fotovoltaico (kWh)</CardTitle>
+              <CardTitle className="flex items-center gap-2"><Sun className="h-4 w-4 text-primary" /> Fotovoltaico (kWh)</CardTitle>
               <CardDescription>
                 Saldo inicial vem do mês anterior automaticamente ao fechar a competência. Geração + Saldo Inicial abatem o consumo da <strong>Área Comum</strong>. O que sobrar fica como saldo final e segue para o próximo mês.
               </CardDescription>
@@ -957,7 +921,7 @@ export function MemoriaCalculoTab() {
           <Card className="border-primary/30 bg-primary/5">
             <CardContent className="py-3 flex flex-wrap items-center justify-between gap-3 text-sm">
               <div className="flex items-center gap-2">
-                <span>📄</span>
+                <FileText className="h-4 w-4 text-primary" />
                 <span>
                   {(tarifas as any)?.copel_valor_total > 0
                     ? <>Fatura Copel desta competência: <strong className="text-primary">{brl((tarifas as any).copel_valor_total)}</strong>{' '}<span className="text-muted-foreground">(Demanda {num((tarifas as any).copel_demanda_kw || 0)} kW · Ponta {num((tarifas as any).copel_consumo_ponta_kwh || 0)} kWh · Fora {num((tarifas as any).copel_consumo_fora_kwh || 0)} kWh)</span></>
@@ -1043,6 +1007,16 @@ function MatrizModulos({ memoria, modulos, lancamentos, updateLanc, isLocked, nu
         disabled={isLocked}
         className="h-6 text-right w-full min-w-0 px-1 text-[11px]"
         value={val}
+        onFocus={(e) => e.currentTarget.select()}
+        onKeyDown={(e) => {
+          if (e.key !== 'Enter') return;
+          e.preventDefault();
+          const inputs = Array.from(
+            e.currentTarget.closest('table')?.querySelectorAll<HTMLInputElement>('input:not([disabled])') ?? [],
+          );
+          const idx = inputs.indexOf(e.currentTarget);
+          inputs[idx + (e.shiftKey ? -1 : 1)]?.focus();
+        }}
         onChange={(e) => updateLanc(moduloId, { [field]: Number(e.target.value) } as Partial<LancamentoRow>)}
       />
     );
@@ -1316,7 +1290,7 @@ function FaturaCopelCard({ faturaItens, updateItem, updateTributo, onSave, savin
   return (
     <Card>
       <CardHeader>
-        <CardTitle>📄 Itens da Fatura Copel</CardTitle>
+        <CardTitle className="flex items-center gap-2"><FileText className="h-4 w-4 text-primary" /> Itens da Fatura Copel</CardTitle>
         <CardDescription>
           Preencha apenas <strong>Quant.</strong> e <strong>Preço unit (R$)</strong> de cada linha — o Valor, PIS/COFINS, ICMS, Tarifa unit. e a tabela de Tributos são calculados automaticamente a partir das alíquotas do cadastro. Você ainda pode sobrescrever qualquer campo manualmente se a fatura tiver arredondamento diferente.
         </CardDescription>
@@ -1522,7 +1496,7 @@ function ConsumoClienteCard({ clientes, modulos, contratosVigentes, consumoCli, 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>👥 Consumo por Cliente</CardTitle>
+        <CardTitle className="flex items-center gap-2"><Users className="h-4 w-4 text-primary" /> Consumo por Cliente</CardTitle>
         <CardDescription>
           A Copel mede tudo junto. Um cliente recebe <strong>uma fatura</strong> cobrindo todos os seus módulos. Preencha por cliente — o sistema rateia para os módulos por área. <strong>Módulos vagos</strong> recebem o resto e são faturados para a Mega.
         </CardDescription>

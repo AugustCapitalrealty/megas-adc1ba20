@@ -30,7 +30,7 @@ function formatCompetencia(ano_mes: string) {
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 export function EnergiaPainelTab({ onGoTo }: Props) {
-  const { currentCompId, setCurrentCompId } = useSharedCompetencia();
+  const { currentCompId, setCurrentCompId, version } = useSharedCompetencia();
   const [competencias, setCompetencias] = useState<Competencia[]>([]);
   const [status, setStatus] = useState<Status | null>(null);
   const [loading, setLoading] = useState(true);
@@ -46,7 +46,7 @@ export function EnergiaPainelTab({ onGoTo }: Props) {
       if (!currentCompId && list.length > 0) setCurrentCompId(list[0].id);
       setLoading(false);
     })();
-  }, []);
+  }, [version]);
 
   const loadStatus = useCallback(async (compId: string) => {
     const [t, l, m] = await Promise.all([
@@ -79,7 +79,7 @@ export function EnergiaPainelTab({ onGoTo }: Props) {
       setStatus(null);
       loadStatus(currentCompId);
     }
-  }, [currentCompId, loadStatus]);
+  }, [currentCompId, loadStatus, version]);
 
   const currentComp = useMemo(
     () => competencias.find((c) => c.id === currentCompId) || null,
@@ -98,38 +98,16 @@ export function EnergiaPainelTab({ onGoTo }: Props) {
 
   return (
     <div className="space-y-6">
-      {/* Header: competência selector */}
+      {/* Header */}
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex flex-col sm:flex-row sm:items-end gap-3 sm:justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-primary" />
-                Painel da competência
-              </CardTitle>
-              <CardDescription>
-                Acompanhe o fechamento mensal e vá direto ao passo pendente.
-              </CardDescription>
-            </div>
-            <div className="min-w-[200px]">
-              <Select
-                value={currentCompId ?? ''}
-                onValueChange={(v) => setCurrentCompId(v)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione a competência" />
-                </SelectTrigger>
-                <SelectContent>
-                  {competencias.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {formatCompetencia(c.ano_mes)}
-                      {c.status === 'fechada' && ' • fechada'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5 text-primary" />
+            Fechamento de {currentComp ? formatCompetencia(currentComp.ano_mes) : '—'}
+          </CardTitle>
+          <CardDescription>
+            Acompanhe o fechamento mensal e vá direto ao passo pendente. Troque a competência na barra acima.
+          </CardDescription>
         </CardHeader>
       </Card>
 
@@ -189,6 +167,34 @@ export function EnergiaPainelTab({ onGoTo }: Props) {
           </div>
 
           {/* Resumo rápido */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Pendências do fechamento</CardTitle>
+              <CardDescription>Clique para ir direto ao ponto que falta.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <ChecklistItem
+                done={!!status?.copelLancada}
+                label="Fatura Copel lançada e conferida"
+                onClick={() => onGoTo('fatura')}
+              />
+              <ChecklistItem
+                done={!!lancamentosCompleto}
+                label={`Lançamentos de todos os módulos (${status?.lancamentosCount ?? 0}/${status?.modulosAtivos ?? 0})`}
+                onClick={() => onGoTo('lancamentos')}
+              />
+              <ChecklistItem
+                done={!!(status?.copelLancada && lancamentosCompleto)}
+                label="Faturas por cliente conferidas contra a Copel"
+                onClick={() => onGoTo('faturas')}
+              />
+              <ChecklistItem
+                done={currentComp.status === 'fechada'}
+                label="Competência fechada (bloqueia edições)"
+              />
+            </CardContent>
+          </Card>
+
           {status?.copelLancada && (
             <Card>
               <CardHeader className="pb-3">
@@ -224,6 +230,30 @@ export function EnergiaPainelTab({ onGoTo }: Props) {
         </>
       )}
     </div>
+  );
+}
+
+function ChecklistItem({ done, label, onClick }: { done: boolean; label: string; onClick?: () => void }) {
+  const content = (
+    <div className="flex items-center gap-2 text-sm">
+      {done ? (
+        <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+      ) : (
+        <AlertCircle className="h-4 w-4 text-muted-foreground shrink-0" />
+      )}
+      <span className={done ? 'text-muted-foreground line-through' : ''}>{label}</span>
+      {onClick && !done && <ArrowRight className="h-3.5 w-3.5 ml-auto text-muted-foreground" />}
+    </div>
+  );
+  if (!onClick) return <div className="rounded-md border px-3 py-2">{content}</div>;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full text-left rounded-md border px-3 py-2 hover:bg-muted/60 transition-colors"
+    >
+      {content}
+    </button>
   );
 }
 

@@ -31,7 +31,7 @@ const num = (n: number, dec = 2) => (n || 0).toLocaleString('pt-BR', { minimumFr
 export function FaturasTab() {
   const [loading, setLoading] = useState(true);
   const [competencias, setCompetencias] = useState<Competencia[]>([]);
-  const { currentCompId, setCurrentCompId } = useSharedCompetencia();
+  const { currentCompId, setCurrentCompId, version } = useSharedCompetencia();
   const [modulos, setModulos] = useState<Modulo[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [tarifas, setTarifas] = useState<any>(null);
@@ -102,10 +102,11 @@ export function FaturasTab() {
     setContratoClientePorId(cCliMap);
   }, []);
 
-  useEffect(() => { (async () => { setLoading(true); await fetchBase(); setLoading(false); })(); }, [fetchBase]);
+  useEffect(() => { (async () => { setLoading(true); await fetchBase(); setLoading(false); })(); }, [fetchBase, version]);
   useEffect(() => { if (competencias.length && !currentCompId) setCurrentCompId(competencias[0].id); }, [competencias, currentCompId]);
   useEffect(() => {
     if (currentCompId) {
+      setSelecionado(null);
       const comp = competencias.find((c) => c.id === currentCompId);
       if (comp) fetchCompData(currentCompId, comp.ano_mes);
     }
@@ -319,17 +320,6 @@ export function FaturasTab() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-end gap-3">
-            <div className="flex-1 min-w-[220px] max-w-sm">
-              <Label>Competência</Label>
-              <Select value={currentCompId ?? ''} onValueChange={(v) => { setCurrentCompId(v); setSelecionado(null); }}>
-                <SelectTrigger><SelectValue placeholder="Selecionar..." /></SelectTrigger>
-                <SelectContent>
-                  {competencias.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.ano_mes} {c.status === 'fechada' ? '🔒' : ''}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
             <Button variant="outline" onClick={exportCSV} disabled={faturas.length === 0}>
               <Download className="h-4 w-4 mr-2" /> Exportar CSV
             </Button>
