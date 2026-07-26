@@ -116,6 +116,21 @@ const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', curren
 // Calcula campos derivados (valor, pis_cofins, icms, tarifa_unit) para um item
 // respeitando a regra de tributação do catálogo.
 function recalcItem(def: CopelItemDef, curr: CopelItem, aliq: { pis: number; cofins: number; icms: number }): CopelItem {
+  return recalcItemImpl(def, curr, aliq);
+}
+
+/** Enter (ou Shift+Enter) navega entre os campos da mesma tabela, como numa planilha. */
+function gridKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  const inputs = Array.from(
+    e.currentTarget.closest('table')?.querySelectorAll<HTMLInputElement>('input:not([disabled])') ?? [],
+  );
+  const idx = inputs.indexOf(e.currentTarget);
+  inputs[idx + (e.shiftKey ? -1 : 1)]?.focus();
+}
+
+function recalcItemImpl(def: CopelItemDef, curr: CopelItem, aliq: { pis: number; cofins: number; icms: number }): CopelItem {
   if (!def.hasUnitario) return curr;
   const q = parseBR(curr.quant);
   const p = parseBR(curr.preco_unit);
