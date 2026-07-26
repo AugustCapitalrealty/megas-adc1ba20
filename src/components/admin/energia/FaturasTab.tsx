@@ -102,7 +102,7 @@ export function FaturasTab() {
     setContratoClientePorId(cCliMap);
   }, []);
 
-  useEffect(() => { (async () => { setLoading(true); await fetchBase(); setLoading(false); })(); }, [fetchBase]);
+  useEffect(() => { (async () => { setLoading(true); await fetchBase(); setLoading(false); })(); }, [fetchBase, version]);
   useEffect(() => { if (competencias.length && !currentCompId) setCurrentCompId(competencias[0].id); }, [competencias, currentCompId]);
   useEffect(() => {
     if (currentCompId) {

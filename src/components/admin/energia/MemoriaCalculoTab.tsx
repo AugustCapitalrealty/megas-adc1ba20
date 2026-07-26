@@ -345,7 +345,7 @@ export function MemoriaCalculoTab() {
       await fetchBase();
       setLoading(false);
     })();
-  }, [fetchBase]);
+  }, [fetchBase, version]);
 
   useEffect(() => {
     if (competencias.length && !currentCompId) setCurrentCompId(competencias[0].id);

@@ -228,7 +228,7 @@ export function FaturaCopelTab() {
     setClientesFora(rows.reduce((s, r) => s + (Number(r.consumo_fora_kwh) || 0), 0));
   }, []);
 
-  useEffect(() => { (async () => { setLoading(true); await fetchBase(); setLoading(false); })(); }, [fetchBase]);
+  useEffect(() => { (async () => { setLoading(true); await fetchBase(); setLoading(false); })(); }, [fetchBase, version]);
   useEffect(() => { if (competencias.length && !currentCompId) setCurrentCompId(competencias[0].id); }, [competencias, currentCompId]);
   useEffect(() => { if (currentCompId) fetchComp(currentCompId); }, [currentCompId, fetchComp]);
 
