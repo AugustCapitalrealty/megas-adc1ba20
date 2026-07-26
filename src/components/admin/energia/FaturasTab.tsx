@@ -319,17 +319,6 @@ export function FaturasTab() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-end gap-3">
-            <div className="flex-1 min-w-[220px] max-w-sm">
-              <Label>Competência</Label>
-              <Select value={currentCompId ?? ''} onValueChange={(v) => { setCurrentCompId(v); setSelecionado(null); }}>
-                <SelectTrigger><SelectValue placeholder="Selecionar..." /></SelectTrigger>
-                <SelectContent>
-                  {competencias.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.ano_mes} {c.status === 'fechada' ? '🔒' : ''}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
             <Button variant="outline" onClick={exportCSV} disabled={faturas.length === 0}>
               <Download className="h-4 w-4 mr-2" /> Exportar CSV
             </Button>

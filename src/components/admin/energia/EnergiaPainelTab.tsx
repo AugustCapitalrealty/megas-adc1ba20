@@ -98,38 +98,16 @@ export function EnergiaPainelTab({ onGoTo }: Props) {
 
   return (
     <div className="space-y-6">
-      {/* Header: competência selector */}
+      {/* Header */}
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex flex-col sm:flex-row sm:items-end gap-3 sm:justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-primary" />
-                Painel da competência
-              </CardTitle>
-              <CardDescription>
-                Acompanhe o fechamento mensal e vá direto ao passo pendente.
-              </CardDescription>
-            </div>
-            <div className="min-w-[200px]">
-              <Select
-                value={currentCompId ?? ''}
-                onValueChange={(v) => setCurrentCompId(v)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione a competência" />
-                </SelectTrigger>
-                <SelectContent>
-                  {competencias.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {formatCompetencia(c.ano_mes)}
-                      {c.status === 'fechada' && ' • fechada'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5 text-primary" />
+            Fechamento de {currentComp ? formatCompetencia(currentComp.ano_mes) : '—'}
+          </CardTitle>
+          <CardDescription>
+            Acompanhe o fechamento mensal e vá direto ao passo pendente. Troque a competência na barra acima.
+          </CardDescription>
         </CardHeader>
       </Card>
 

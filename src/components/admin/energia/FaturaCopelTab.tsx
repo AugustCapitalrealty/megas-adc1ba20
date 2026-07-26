@@ -544,23 +544,18 @@ export function FaturaCopelTab() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="flex-1 min-w-[220px]">
-              <Label>Competência</Label>
-              <Select value={currentCompId ?? ''} onValueChange={setCurrentCompId}>
-                <SelectTrigger><SelectValue placeholder="Selecionar..." /></SelectTrigger>
-                <SelectContent>
-                  {competencias.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.ano_mes} {c.status === 'fechada' ? '🔒' : ''}</SelectItem>
-                  ))}
-                  {competencias.length === 0 && <div className="p-2 text-sm text-muted-foreground">Crie uma competência na aba Memória de Cálculo.</div>}
-                </SelectContent>
-              </Select>
-            </div>
-            {currentComp && (
-              <Badge variant={isLocked ? 'secondary' : 'default'} className="h-9 px-3 text-sm">
-                {isLocked ? <><Lock className="h-3.5 w-3.5 mr-1" /> Fechada</> : '📝 Rascunho'}
-              </Badge>
+          <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+            {currentComp ? (
+              <>
+                <span>Competência <strong className="text-foreground">{currentComp.ano_mes}</strong></span>
+                {isLocked && (
+                  <Badge variant="secondary" className="h-7">
+                    <Lock className="h-3.5 w-3.5 mr-1" /> Fechada — somente leitura
+                  </Badge>
+                )}
+              </>
+            ) : (
+              <span>Selecione a competência na barra acima.</span>
             )}
           </div>
         </CardContent>
