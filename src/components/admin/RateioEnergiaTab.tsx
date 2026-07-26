@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
 import { EnergiaCadastrosTab } from './energia/EnergiaCadastrosTab';
 import { MemoriaCalculoTab } from './energia/MemoriaCalculoTab';
 import { ContratosTab } from './energia/ContratosTab';
@@ -8,73 +9,47 @@ import { FaturaCopelTab } from './energia/FaturaCopelTab';
 import { FaturasTab } from './energia/FaturasTab';
 import { EnergiaPainelTab } from './energia/EnergiaPainelTab';
 import { CompetenciaProvider } from './energia/CompetenciaContext';
+import { EnergiaCompetenciaBar } from './energia/EnergiaCompetenciaBar';
 import {
   Settings, ClipboardList, FileText, FileSignature, Receipt, Users,
-  LayoutDashboard, Workflow, Database,
+  LayoutDashboard, Database, ChevronLeft,
 } from 'lucide-react';
 
-type MainTab = 'painel' | 'operacao' | 'cadastros';
+type MainTab = 'painel' | 'fatura' | 'lancamentos' | 'faturas';
 type OperacaoSub = 'fatura' | 'lancamentos' | 'faturas';
 type CadastroSub = 'contratos' | 'grandezas' | 'base';
 
+const STEPS: { value: MainTab; step?: number; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { value: 'painel', label: 'Painel', icon: LayoutDashboard },
+  { value: 'fatura', step: 1, label: 'Fatura Copel', icon: Receipt },
+  { value: 'lancamentos', step: 2, label: 'Lançamentos', icon: ClipboardList },
+  { value: 'faturas', step: 3, label: 'Faturas por Cliente', icon: Users },
+];
+
 export function RateioEnergiaTab() {
   const [tab, setTab] = useState<MainTab>('painel');
-  const [opSub, setOpSub] = useState<OperacaoSub>('fatura');
+  const [showCadastros, setShowCadastros] = useState(false);
   const [cadSub, setCadSub] = useState<CadastroSub>('contratos');
   const [focusContratoId, setFocusContratoId] = useState<string | null>(null);
 
   const openContrato = (id: string) => {
     setFocusContratoId(id);
-    setTab('cadastros');
+    setShowCadastros(true);
     setCadSub('contratos');
   };
 
   const goToOperacao = (target: OperacaoSub) => {
-    setOpSub(target);
-    setTab('operacao');
+    setShowCadastros(false);
+    setTab(target);
   };
 
-  return (
-    <CompetenciaProvider>
-      <Tabs value={tab} onValueChange={(v) => setTab(v as MainTab)} className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="painel" className="gap-2">
-            <LayoutDashboard className="h-4 w-4" /> Painel
-          </TabsTrigger>
-          <TabsTrigger value="operacao" className="gap-2">
-            <Workflow className="h-4 w-4" /> Operação Mensal
-          </TabsTrigger>
-          <TabsTrigger value="cadastros" className="gap-2">
-            <Database className="h-4 w-4" /> Cadastros Base
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="painel">
-          <EnergiaPainelTab onGoTo={goToOperacao} />
-        </TabsContent>
-
-        <TabsContent value="operacao" className="space-y-4">
-          <Tabs value={opSub} onValueChange={(v) => setOpSub(v as OperacaoSub)}>
-            <TabsList>
-              <TabsTrigger value="fatura" className="gap-2">
-                <Receipt className="h-4 w-4" /> 1. Fatura Copel
-              </TabsTrigger>
-              <TabsTrigger value="lancamentos" className="gap-2">
-                <ClipboardList className="h-4 w-4" /> 2. Lançamentos
-              </TabsTrigger>
-              <TabsTrigger value="faturas" className="gap-2">
-                <Users className="h-4 w-4" /> 3. Faturas por Cliente
-              </TabsTrigger>
-            </TabsList>
-            <div className="mt-4">
-              <TabsContent value="fatura"><FaturaCopelTab /></TabsContent>
-              <TabsContent value="lancamentos"><MemoriaCalculoTab /></TabsContent>
-              <TabsContent value="faturas"><FaturasTab /></TabsContent>
-            </div>
-          </Tabs>
-        </TabsContent>
-
-        <TabsContent value="cadastros" className="space-y-4">
+  if (showCadastros) {
+    return (
+      <CompetenciaProvider>
+        <div className="space-y-4">
+          <Button variant="ghost" size="sm" className="-ml-2" onClick={() => setShowCadastros(false)}>
+            <ChevronLeft className="h-4 w-4 mr-1" /> Voltar ao fechamento mensal
+          </Button>
           <Tabs value={cadSub} onValueChange={(v) => setCadSub(v as CadastroSub)}>
             <TabsList>
               <TabsTrigger value="contratos" className="gap-2">
@@ -98,8 +73,43 @@ export function RateioEnergiaTab() {
               <TabsContent value="base"><EnergiaCadastrosTab onOpenContrato={openContrato} /></TabsContent>
             </div>
           </Tabs>
-        </TabsContent>
-      </Tabs>
+        </div>
+      </CompetenciaProvider>
+    );
+  }
+
+  return (
+    <CompetenciaProvider>
+      <div className="space-y-4">
+        <EnergiaCompetenciaBar />
+
+        <Tabs value={tab} onValueChange={(v) => setTab(v as MainTab)} className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2 justify-between">
+            <TabsList className="h-auto flex-wrap">
+              {STEPS.map(({ value, step, label, icon: Icon }) => (
+                <TabsTrigger key={value} value={value} className="gap-2">
+                  {step ? (
+                    <span className="h-5 w-5 rounded-full bg-muted text-muted-foreground text-[11px] font-semibold flex items-center justify-center">
+                      {step}
+                    </span>
+                  ) : (
+                    <Icon className="h-4 w-4" />
+                  )}
+                  {label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+            <Button variant="outline" size="sm" onClick={() => setShowCadastros(true)}>
+              <Database className="h-4 w-4 mr-2" /> Cadastros Base
+            </Button>
+          </div>
+
+          <TabsContent value="painel"><EnergiaPainelTab onGoTo={goToOperacao} /></TabsContent>
+          <TabsContent value="fatura"><FaturaCopelTab /></TabsContent>
+          <TabsContent value="lancamentos"><MemoriaCalculoTab /></TabsContent>
+          <TabsContent value="faturas"><FaturasTab /></TabsContent>
+        </Tabs>
+      </div>
     </CompetenciaProvider>
   );
 }
