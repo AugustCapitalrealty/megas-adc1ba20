@@ -1,83 +1,48 @@
+## Diagnóstico UX/UI atual (o que li no código)
 
-## Objetivo
+O módulo hoje tem 3 abas principais (Painel / Operação Mensal / Cadastros Base) com sub-abas, e telas muito densas: `MemoriaCalculoTab` (1.648 linhas), `FaturasTab` (1.233), `FaturaCopelTab` (997). Problemas concretos:
 
-Replicar no app o comportamento exato da planilha `MEMÓRIA DE CÁLCULO` + `RESUMO` + `FATURAS CLIENTES` (Mega Curitiba 06/2026). Hoje o app diverge em várias regras — abaixo estão as mudanças, agrupadas por camada.
+1. **Navegação em dois níveis** (Tabs dentro de Tabs) — o usuário perde o senso de "onde estou" e de progresso do fechamento. O passo atual só aparece no Painel.
+2. **Competência**: seletor existe no Painel e repetido em cada aba; o contexto compartilhado já existe (`CompetenciaContext`), mas não há uma barra fixa mostrando "Competência 06/2026 • Rascunho" em todas as telas.
+3. **Preenchimento da Fatura Copel**: lista de itens longa, sem agrupamento visual (Consumo / Demanda / Bandeiras / Encargos / Créditos), sem foco automático no próximo campo, sem colar de PDF/planilha, e o badge de diferença aparece só no fim.
+4. **Lançamentos por módulo**: tabela editável com 6 sub-abas de colunas ("Demanda", "Consumo", "Tributos", "Completa"…). Não há indicação de quais módulos faltam, nem navegação por teclado tipo planilha (Tab/Enter/colar bloco), nem destaque de linhas incompletas ou fora do esperado.
+5. **Faturas por Cliente**: blocos de auditoria (memória de cálculo, impostos, diferenças, multas) empilhados; muita informação simultânea, sem hierarquia entre "resultado" e "prova do resultado".
+6. **Feedback de erro/validação**: diferenças e inconsistências aparecem como badges soltos, sem uma lista única de pendências acionáveis.
+7. **Emojis nos títulos** (📄, 👥, ☀️) e cores/estilos ad hoc, fora do design system Mega (PageHeader, KpiCard, StatusPill, DataTable, FilterToolbar, StandardModal).
 
-## Divergências confirmadas planilha × app
+## Proposta de redesign
 
-1. **Perdas técnicas**: planilha ratea `perdas = (Copel − soma medidores) + perdas identificadas manualmente`, por consumo **ponta e fora ponta separadamente**. App usa modo "Exato/Planilha" mas não separa os dois componentes (diferença Copel vs. perdas identificadas).
-2. **Bandeira tarifária**: base = `(consumo medido + perdas) / 100 × valor bandeira`, calculada por módulo. App deriva `bandeira_valor` global e aplica sobre kWh — precisa aplicar sobre consumo+perdas, ponta e fora ponta separadamente.
-3. **ICMS e PIS/COFINS**: ordem correta é (a) ICMS sobre valor bruto de cada componente; (b) PIS/COFINS sobre `(bruto − ICMS)` **item a item**. Confirmar que o app segue exatamente essa ordem.
-4. **Demanda**: cobra `min(contratada, medida) × tarifa_demanda`. "Isenta" = `max(0, contratada − medida)`. "Ultrapassagem" = `max(0, medida − contratada) × 2 × tarifa_demanda`. Cada uma sofre ICMS/PIS/COFINS conforme regra própria (isenta = tarifa 0; ICMS não incide sobre isenta).
-5. **Iluminação Pública**: fixo R$98,17 do mês, rateado por consumo (U_modulo / U_total).
-6. **Crédito/Débito Copel**: valor pequeno (ex. R$2,97) rateado por consumo. Item hoje inexistente no app.
-7. **Fotovoltaico**: abate **apenas o consumo da Área Comum** (kWh, ponta e fora ponta). Saldo em R$ é redistribuído a todos os clientes por **m² da área locada**, não por consumo. App atualmente trata saldo por kWh — precisa aceitar rateio por área.
-8. **Área Comum**: rateio final por m² (não por consumo). Precisa de coluna `area_m2` por módulo/cliente e agregação com SUMIFS por cliente.
-9. **Fatura por cliente**: hoje o app agrega por cliente; planilha faz por módulo. Manter agregação por cliente (mais amigável), mas garantir que os totais batam com a soma dos módulos.
-10. **Ultrapassagem separada**: "multa" fica fora do Total Energy e é subtraída ao comparar com Copel. Bloco "Diferenças" deve continuar isolando multas.
+### A. Estrutura e navegação
+- Substituir Tabs aninhadas por um **stepper horizontal persistente** no topo: `1 Fatura Copel → 2 Lançamentos → 3 Conferência → 4 Faturas`, com estado por passo (pendente / com alerta / ok) e navegação por clique.
+- **Barra de competência fixa (sticky)** abaixo do PageHeader em todas as sub-telas: competência selecionada, status (Rascunho/Fechada), total Copel, botão "Fechar competência". Cadastros Base sai do fluxo mensal e vira uma entrada secundária (botão "Cadastros" no header), reduzindo o nível de abas para um só.
+- Painel vira a **home do fechamento**: KPIs (Total Copel, Total faturado, Diferença, Multas), checklist de pendências clicáveis e histórico das últimas competências.
 
-## Mudanças por arquivo
+### B. Preenchimento (data entry)
+- **Fatura Copel**: agrupar itens em seções colapsáveis (Consumo, Demanda, Bandeiras, Perdas/Encargos, Créditos/Débitos, Impostos) com subtotal por seção; barra de conferência **sticky no rodapé** com "Soma dos itens × Total a pagar × Diferença" sempre visível; campos monetários com máscara pt-BR, seleção do conteúdo ao focar, Enter avança para o próximo campo; ação "Colar da fatura" que aceita texto colado e pré-preenche itens reconhecidos, para revisão antes de aplicar.
+- **Lançamentos**: comportamento de planilha — navegação por setas/Tab/Enter, colar bloco de células do Excel direto na tabela, coluna congelada com nome do módulo, linhas incompletas destacadas, chip "faltam N módulos" com filtro "somente pendentes", e indicador de autosave ("salvo às hh:mm") em vez de salvamento silencioso.
+- Substituir as 6 sub-abas de colunas por um **seletor de visão** (Essencial / Completa) + menu de colunas, com preferência lembrada por usuário.
 
-### Banco (nova migração)
-- Adicionar em `energia_competencia_lancamentos` (ou tabela equivalente): coluna `demanda_medida_kw` (se ainda não existe separada de contratada), `area_m2` no módulo/lançamento.
-- Adicionar em `energia_competencias` (ou `energia_parametros`): campos `perdas_identificadas_ponta_kwh`, `perdas_identificadas_fp_kwh`, `credito_debito_copel`, `ip_valor_fixo`.
-- Adicionar em `energia_fotovoltaico_saldo_pendente` (ou nova): permitir "saldo em R$ acumulado" separado do kWh; opção de aplicar por m² à área comum.
-- GRANTs + policies mantidos como hoje (mudanças aditivas).
+### C. Visualizações
+- **Nova aba "Conferência"** (entre Lançamentos e Faturas), reunindo o que hoje está espalhado: Copel × Soma dos módulos (kWh ponta/fora, demanda, R$), perdas técnicas com % e memória, multas de ultrapassagem, créditos fotovoltaicos e a diferença residual — cada divergência com link direto ao campo de origem.
+- **Faturas por Cliente**: cartão de resultado por cliente (total, variação vs. mês anterior, status) com "ver memória de cálculo" em drawer lateral, em vez de blocos empilhados na página. Mantém a tabela de diferenças e multas em abas internas do drawer.
+- Gráficos leves e úteis: composição do valor faturado (consumo / demanda / perdas / bandeira / impostos) e evolução mensal por cliente.
+- Estados vazios e de carregamento consistentes (skeletons em vez de spinner central).
 
-### `src/lib/energia-rateio.ts` (motor)
-- Reestruturar em passos idênticos à ordem 1→16 do relatório:
-  1. Calcular por módulo: demanda (cobrada / isenta / ultrapassagem), consumo bruto R$ ponta e FP.
-  2. Calcular perdas: `perdas_ponta_modulo = (U_modulo/U_total) × (diff_copel_ponta + perdas_ident_ponta)` e idem FP. Converter em R$ com as mesmas tarifas.
-  3. ICMS por item (Ponta TE/TUSD, FP TE/TUSD, Demanda) sobre valor bruto; PIS/COFINS = `(bruto − ICMS) × 8,61%`. Demanda isenta: ICMS=0, PIS/COFINS incide sobre valor (mesmo 0 quando tarifa=0).
-  4. IP = `(IP_fixo / U_total) × U_modulo`.
-  5. Bandeira = `((Q + perdas_ponta)/100) × bandeira + ((T + perdas_fp)/100) × bandeira`.
-  6. Total módulo = consumo+demanda+perdas+IP+bandeira; aplicar rateio de crédito/débito Copel `(U_modulo/U_total) × valor`.
-- Fotovoltaico: aplicar redução em kWh no módulo "Área Comum" (ponta e FP). Saldo residual em R$ = valor da área comum líquido. Ratear esse valor por m² a todos os clientes.
-- Manter função pura, sem side effects, com testes.
+### D. Design system
+- Migrar títulos com emoji para ícones lucide + tokens semânticos; usar PageHeader, KpiCard, StatusPill, DataTable, FilterToolbar e StandardModal em todo o módulo; remover cores hardcoded.
 
-### `src/lib/energia-rateio.test.ts` (novo)
-- Casos-espelho da planilha (módulo VELOZ e cliente SODEXO conforme exemplos §11–§12) com asserts em centavos, incluindo demanda com/sem ultrapassagem, bandeira amarela, perdas separadas.
+## Validação PM/PO
 
-### `src/components/admin/energia/FaturaCopelTab.tsx`
-- Adicionar campos: `perdas_identificadas_ponta`, `perdas_identificadas_fp`, `credito_debito_copel`, `ip_valor_fixo`.
-- Bloco de conferência: mostrar `diferença Copel = consumo_copel − soma_medidores` (ponta e FP separado) e `% perdas totais`.
-
-### `src/components/admin/energia/MemoriaCalculoTab.tsx`
-- Coluna nova por módulo: `area_m2` (input), `demanda_isenta`, `ultrapassagem`, `perdas_ponta`, `perdas_fp`, `IP_rateado`, `bandeira_ponta`, `bandeira_fp`, `credito_debito_rateado`.
-- Retirar campo `bandeira_valor` manual — passa a ser derivado da Fatura Copel (já é hoje) e aplicado item a item.
-- Remover o toggle "Exato/Planilha" — modo único = fórmula da planilha.
-
-### `src/components/admin/energia/FaturasTab.tsx`
-- Agregar por cliente via SUMIFS (soma dos módulos). Área Comum entra como linha adicional rateada por m².
-- Bloco de auditoria: refletir a nova estrutura (ICMS item a item, PIS/COFINS pós-ICMS, bandeira sobre consumo+perdas).
-- Diferenças Copel × Faturado deve continuar isolando ultrapassagem/multas.
-
-### `src/components/admin/energia/EnergiaPainelTab.tsx`
-- Checklist de fechamento: adicionar "perdas identificadas preenchidas", "crédito/débito Copel", "áreas m² preenchidas".
-
-## Detalhes técnicos importantes
-
-- **Ordem tributária** (por item de consumo/demanda):
-  ```
-  ICMS_item = bruto_item × 0.19
-  PIS_COFINS_item = (bruto_item − ICMS_item) × 0.0861
-  ```
-- **Perdas por módulo**:
-  ```
-  perdas_ponta_m = (U_m / ΣU) × (Copel_ponta − Σmedidores_ponta + perdas_ident_ponta)
-  perdas_fp_m    = (T_m / ΣT) × (Copel_fp − Σmedidores_fp + perdas_ident_fp)
-  ```
-  Denominador correto conforme planilha: usa `U = Q+T` (total) por consistência com o rateio geral, mas ponta/FP têm perdas separadas — validar contra planilha usando o exemplo do módulo VELOZ.
-- **Bandeira**: valor em R$/100kWh; multiplicar por `(kWh_medido + perdas_alocadas)/100`.
-- **Fotovoltaico**: geração em kWh abate consumo da Área Comum. Saldo R$ = `(valor_area_comum_ponta/kWh_ac_ponta) × geracao_ponta + idem_fp`. Se sobrar geração (> consumo AC), acumula em saldo_pendente em kWh. Depois o valor líquido da AC é rateado por m² a todos os clientes.
-
-## Fora de escopo
-- Não mexer em regras de solicitação/anexos.
-- Não alterar auth/RLS além de granular colunas novas.
-- Não redesenhar UI — apenas adicionar campos/colunas necessários.
+- **Objetivo**: reduzir o tempo de fechamento mensal e eliminar retrabalho por divergência não detectada.
+- **Critérios de aceite**: (1) qualquer divergência > R$1,00 aparece na aba Conferência com link para a origem; (2) é possível fechar a competência sem trocar de aba mais de 4 vezes; (3) colar dados do Excel preenche os lançamentos sem digitação campo a campo; (4) competência selecionada é única e visível em 100% das telas; (5) nenhum número muda de valor — só a apresentação.
+- **Riscos**: mudança de navegação exige reaprendizado; a colagem de PDF/Excel depende de formato — entra como assistida, com revisão obrigatória antes de aplicar.
+- **Fora de escopo**: nenhuma alteração nas fórmulas de cálculo, no schema do banco ou nas regras de rateio já validadas contra a planilha 06/2026.
 
 ## Sequência de execução
-1. Migração de banco (colunas novas + parâmetros).
-2. Reescrita do motor `energia-rateio.ts` + testes contra a planilha.
-3. Ajustes UI (`FaturaCopelTab`, `MemoriaCalculoTab`, `FaturasTab`, `EnergiaPainelTab`).
-4. Validar visualmente com a planilha 06/2026 (módulos VELOZ e SODEXO devem bater em centavos).
+1. Barra de competência sticky + stepper (RateioEnergiaTab, CompetenciaContext).
+2. Redesign do Painel com KPIs e checklist acionável.
+3. Fatura Copel: seções, rodapé de conferência, máscaras e navegação por teclado.
+4. Lançamentos: modo planilha, colagem em bloco, filtro de pendentes, autosave visível.
+5. Nova aba Conferência (realoca blocos hoje em FaturasTab).
+6. Faturas por Cliente: cartões + drawer de memória de cálculo.
+7. Passe final de design system e estados vazios/skeleton.
