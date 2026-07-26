@@ -838,7 +838,7 @@ export function MemoriaCalculoTab() {
           {/* Bloco Fotovoltaico (kWh) */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">☀️ Fotovoltaico (kWh)</CardTitle>
+              <CardTitle className="flex items-center gap-2"><Sun className="h-4 w-4 text-primary" /> Fotovoltaico (kWh)</CardTitle>
               <CardDescription>
                 Saldo inicial vem do mês anterior automaticamente ao fechar a competência. Geração + Saldo Inicial abatem o consumo da <strong>Área Comum</strong>. O que sobrar fica como saldo final e segue para o próximo mês.
               </CardDescription>
@@ -1296,7 +1296,7 @@ function FaturaCopelCard({ faturaItens, updateItem, updateTributo, onSave, savin
   return (
     <Card>
       <CardHeader>
-        <CardTitle>📄 Itens da Fatura Copel</CardTitle>
+        <CardTitle className="flex items-center gap-2"><FileText className="h-4 w-4 text-primary" /> Itens da Fatura Copel</CardTitle>
         <CardDescription>
           Preencha apenas <strong>Quant.</strong> e <strong>Preço unit (R$)</strong> de cada linha — o Valor, PIS/COFINS, ICMS, Tarifa unit. e a tabela de Tributos são calculados automaticamente a partir das alíquotas do cadastro. Você ainda pode sobrescrever qualquer campo manualmente se a fatura tiver arredondamento diferente.
         </CardDescription>
@@ -1502,7 +1502,7 @@ function ConsumoClienteCard({ clientes, modulos, contratosVigentes, consumoCli, 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>👥 Consumo por Cliente</CardTitle>
+        <CardTitle className="flex items-center gap-2"><Users className="h-4 w-4 text-primary" /> Consumo por Cliente</CardTitle>
         <CardDescription>
           A Copel mede tudo junto. Um cliente recebe <strong>uma fatura</strong> cobrindo todos os seus módulos. Preencha por cliente — o sistema rateia para os módulos por área. <strong>Módulos vagos</strong> recebem o resto e são faturados para a Mega.
         </CardDescription>
