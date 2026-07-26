@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Loader2, Plus, Copy, Lock, Unlock, Download, ClipboardList, CheckCircle2, AlertTriangle, Receipt, Users, ArrowRight } from 'lucide-react';
+import { Loader2, Plus, Copy, Download, ClipboardList, CheckCircle2, AlertTriangle, Receipt, Users, ArrowRight, Sun, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   calcularMemoria,
@@ -197,7 +197,7 @@ export function MemoriaCalculoTab() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [competencias, setCompetencias] = useState<Competencia[]>([]);
-  const { currentCompId, setCurrentCompId } = useSharedCompetencia();
+  const { currentCompId, setCurrentCompId, version, bumpCompetencias } = useSharedCompetencia();
   const [modulos, setModulos] = useState<Modulo[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [tarifas, setTarifas] = useState<TarifasRow | null>(null);
@@ -406,23 +406,7 @@ export function MemoriaCalculoTab() {
     toast.success('Competência criada');
     await fetchBase();
     setCurrentCompId((comp as any).id);
-  };
-
-  const handleToggleLock = async () => {
-    if (!currentComp) return;
-    const next = currentComp.status === 'fechada' ? 'rascunho' : 'fechada';
-    const { error } = await supabase
-      .from('energia_competencias')
-      .update({
-        status: next,
-        fechada_em: next === 'fechada' ? new Date().toISOString() : null,
-        fechada_por: next === 'fechada' ? user?.id : null,
-        updated_by: user?.id,
-      } as any)
-      .eq('id', currentComp.id);
-    if (error) return toast.error('Erro ao atualizar status');
-    toast.success(next === 'fechada' ? 'Competência fechada' : 'Competência reaberta');
-    fetchBase();
+    bumpCompetencias();
   };
 
   const updateTarifa = (key: keyof EnergiaTarifas, value: number) => {
@@ -937,7 +921,7 @@ export function MemoriaCalculoTab() {
           <Card className="border-primary/30 bg-primary/5">
             <CardContent className="py-3 flex flex-wrap items-center justify-between gap-3 text-sm">
               <div className="flex items-center gap-2">
-                <span>📄</span>
+                <FileText className="h-4 w-4 text-primary" />
                 <span>
                   {(tarifas as any)?.copel_valor_total > 0
                     ? <>Fatura Copel desta competência: <strong className="text-primary">{brl((tarifas as any).copel_valor_total)}</strong>{' '}<span className="text-muted-foreground">(Demanda {num((tarifas as any).copel_demanda_kw || 0)} kW · Ponta {num((tarifas as any).copel_consumo_ponta_kwh || 0)} kWh · Fora {num((tarifas as any).copel_consumo_fora_kwh || 0)} kWh)</span></>
