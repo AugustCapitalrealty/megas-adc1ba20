@@ -798,22 +798,6 @@ export function MemoriaCalculoTab() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-end gap-3">
-            <div className="flex-1 min-w-[220px]">
-              <Label>Competência</Label>
-              <Select value={currentCompId ?? ''} onValueChange={setCurrentCompId}>
-                <SelectTrigger><SelectValue placeholder="Selecionar competência..." /></SelectTrigger>
-                <SelectContent>
-                  {competencias.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.ano_mes} {c.status === 'fechada' ? '🔒' : ''}
-                    </SelectItem>
-                  ))}
-                  {competencias.length === 0 && (
-                    <div className="p-2 text-sm text-muted-foreground">Nenhuma competência ainda</div>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
             <div>
               <Label>Nova competência (AAAA-MM)</Label>
               <Input value={newAnoMes} onChange={(e) => setNewAnoMes(e.target.value)} className="w-32" />
@@ -827,12 +811,8 @@ export function MemoriaCalculoTab() {
             {currentComp && (
               <>
                 <Badge variant={isLocked ? 'secondary' : 'default'} className="h-9 px-3 text-sm">
-                  {isLocked ? '🔒 Fechada' : '📝 Rascunho'}
+                  {isLocked ? 'Fechada — somente leitura' : 'Rascunho'}
                 </Badge>
-                <Button onClick={handleToggleLock} variant="outline">
-                  {isLocked ? <Unlock className="h-4 w-4 mr-2" /> : <Lock className="h-4 w-4 mr-2" />}
-                  {isLocked ? 'Reabrir' : 'Fechar'}
-                </Button>
                 <Button onClick={exportCSV} variant="outline">
                   <Download className="h-4 w-4 mr-2" /> CSV
                 </Button>
