@@ -1007,6 +1007,16 @@ function MatrizModulos({ memoria, modulos, lancamentos, updateLanc, isLocked, nu
         disabled={isLocked}
         className="h-6 text-right w-full min-w-0 px-1 text-[11px]"
         value={val}
+        onFocus={(e) => e.currentTarget.select()}
+        onKeyDown={(e) => {
+          if (e.key !== 'Enter') return;
+          e.preventDefault();
+          const inputs = Array.from(
+            e.currentTarget.closest('table')?.querySelectorAll<HTMLInputElement>('input:not([disabled])') ?? [],
+          );
+          const idx = inputs.indexOf(e.currentTarget);
+          inputs[idx + (e.shiftKey ? -1 : 1)]?.focus();
+        }}
         onChange={(e) => updateLanc(moduloId, { [field]: Number(e.target.value) } as Partial<LancamentoRow>)}
       />
     );
