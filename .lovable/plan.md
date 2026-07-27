@@ -1,40 +1,29 @@
-## Diagnóstico
+## Objetivo
 
-Na fatura da Copel a bandeira amarela aparece com dois números:
+Digitar e visualizar a tarifa de bandeira no mesmo formato da fatura da Copel — **R$/kWh** (ex.: `0,018850` sem tributos e `0,025511` com tributos) — em vez de R$/100 kWh (`1,8850` / `2,5511`).
 
-- **Tarifa unit. (R$)** = 0,018850 → 1,8850 R$/100 kWh (**sem** tributos, é a tarifa oficial da ANEEL)
-- **Preço unit com tributos** = 0,025511 → 2,5511 R$/100 kWh (**com** PIS/COFINS e ICMS embutidos)
+## O que muda
 
-No código (`FaturaCopelTab.tsx` → `bandeira_valor`), esse campo é repassado direto ao motor de rateio (`src/lib/energia-rateio.ts`), que faz `bandeira = ((kWh + perdas)/100) × bandeira_valor` e soma esse resultado no total do cliente **sem aplicar imposto nenhum em cima**.
+Em `src/components/admin/energia/FaturaCopelTab.tsx`:
 
-Conclusão: o preenchimento atual (1,885) está **incorreto** — está cobrando ~26% a menos de bandeira. O campo precisa da tarifa **com tributos**. Por isso a tabela interna já traz 2,5464 como padrão para a amarela (valor bruto aproximado); a fatura de junho traz 2,5511 porque o bruto depende das alíquotas do mês.
+1. **Entrada e exibição em R$/kWh, com 6 casas decimais**
+   - Campo "Tarifa ANEEL — sem tributos" → label `R$/kWh`, valor exibido `0,018850`.
+   - Campo "Tarifa COM tributos — usada na cobrança" → label `R$/kWh`, valor `0,025511`.
+   - Cards comparativos ("Tarifa oficial (planilha)" e "Rateio fechado"), o aviso de divergência vs. fatura e o bloco "Como é calculado" passam a mostrar R$/kWh com 6 casas.
 
-## O que fazer
+2. **Conversão nas bordas, cálculo intacto**
+   - A tabela ANEEL (`BANDEIRA_TABELA`, `BANDEIRA_TABELA_LIQUIDA`) passa a ser expressa em R$/kWh (0,025464 / 0,044630 / 0,078770 e 0,018850 / 0,033010 / 0,058270).
+   - `bandeiraInfo` (tarifa líquida, bruta, derivada da fatura e oficial) passa a trabalhar em R$/kWh: a tarifa derivada deixa de ter o `×100`.
+   - Na hora de alimentar o motor de rateio (`bandeira_valor`, que em `src/lib/energia-rateio.ts` é R$/100 kWh), multiplica-se por 100. O engine e as faturas dos clientes não mudam de resultado.
 
-### 1. Trocar o campo por dois, com o cálculo explícito
+3. **Compatibilidade com o que já foi salvo**
+   - Ao carregar uma competência antiga, valores de `bandeira_tarifa_liquida` / `bandeira_tarifa_oficial` gravados em escala de 100 (heurística: valor ≥ 0,5) são convertidos para R$/kWh na exibição, e o registro é regravado na nova escala ao salvar. Assim nenhum mês já fechado muda de valor.
 
-No bloco "Bandeira tarifária — como cobrar do cliente" (modo *Tarifa oficial*):
-
-- **Tarifa ANEEL (sem tributos)** — campo editável, pré-preenchido pela bandeira vigente com o valor oficial líquido (verde 0 / amarela 1,8850 / vermelha P1 e P2 nos valores vigentes).
-- **Tarifa com tributos (usada na cobrança)** — calculada automaticamente a partir das alíquotas da competência (ICMS, PIS, COFINS já cadastradas), na mesma ordem usada no resto do sistema: ICMS sobre o bruto e PIS/COFINS sobre o líquido de ICMS. Exibida em destaque e com opção de sobrescrever manualmente quando a fatura trouxer um valor diferente.
-
-É essa tarifa com tributos que segue para `bandeira_valor`.
-
-### 2. Conferência contra a própria fatura
-
-Abaixo dos campos, uma linha de validação comparando a tarifa com tributos calculada com o **preço unitário com tributos** já digitado nas linhas "ADICIONAL BAND." da fatura Copel (0,025511 × 100). Se divergir mais que ~0,5%, mostra um aviso discreto sugerindo usar o valor da fatura.
-
-### 3. Rótulos e ajuda
-
-- Renomear o campo atual para deixar explícito "com tributos" / "sem tributos".
-- Atualizar o texto do resumo (hoje "Tarifa: 1,8850 R$/100 kWh") para mostrar as duas linhas: oficial e cobrada.
-- Ajustar o "Como é calculado (os dois jeitos)" para incluir o gross-up.
-
-### 4. Compatibilidade
-
-Competências já salvas continuam funcionando: se só existir `bandeira_tarifa_oficial` gravada, ela é lida como a tarifa com tributos (comportamento atual), e o campo líquido é derivado por engenharia reversa das alíquotas.
+4. **Validação de divergência** continua comparando com o preço unitário das linhas de bandeira da fatura, agora na mesma escala (R$/kWh) — o que elimina a confusão atual de precisar multiplicar por 100 mentalmente.
 
 ## Detalhes técnicos
 
-- Alterações concentradas em `src/components/admin/energia/FaturaCopelTab.tsx`: nova constante com as tarifas ANEEL líquidas, novo campo `bandeira_tarifa_liquida` no JSONB `fatura_copel_itens`, cálculo do bruto em `bandeiraInfo`, e `bandeira_valor` passando a usar sempre a tarifa bruta.
-- Nenhuma mudança em `src/lib/energia-rateio.ts` nem no banco (o JSONB já é livre).
+- Novo helper de escala (`toKwh` / `toCem`) usado nos pontos de leitura/gravação de `faturaItens.bandeira_tarifa_*`.
+- `fmtBR(..., 4)` vira `fmtBR(..., 6)` nos campos de bandeira para não perder precisão em 0,025511.
+- `grossUpBandeira` permanece igual (é linear, independe da escala).
+- Nenhuma migração de banco: o campo continua sendo texto dentro do JSONB `fatura_copel_itens`.
