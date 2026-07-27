@@ -330,6 +330,7 @@ function ContratoModal({
   }, [vinculosDraft]);
 
   const toggleModulo = (moduloId: string, checked: boolean) => {
+    const ini = checked ? inicioSugerido(moduloId) : vigInicio;
     setVinculosDraft((p) => {
       const idx = p.findIndex((v) => v.modulo_id === moduloId && !v._delete);
       if (checked) {
@@ -337,9 +338,9 @@ function ContratoModal({
         // se existe um soft-deleted, restaura
         const delIdx = p.findIndex((v) => v.modulo_id === moduloId && v._delete);
         if (delIdx >= 0) {
-          return p.map((v, i) => i === delIdx ? { ...v, _delete: false, vigencia_inicio: vigInicio, vigencia_fim: vigFim || null } : v);
+          return p.map((v, i) => i === delIdx ? { ...v, _delete: false, vigencia_inicio: ini, vigencia_fim: vigFim || null } : v);
         }
-        return [...p, { modulo_id: moduloId, vigencia_inicio: vigInicio, vigencia_fim: vigFim || null }];
+        return [...p, { modulo_id: moduloId, vigencia_inicio: ini, vigencia_fim: vigFim || null }];
       } else {
         if (idx < 0) return p;
         const v = p[idx];
