@@ -1,58 +1,41 @@
-## Quem está "certo"? Depende do objetivo
+## O que está errado (verificado no banco)
 
-Os dois métodos calculam a bandeira tarifária, mas respondem a perguntas diferentes.
+O card mostra **75 de 72 módulos** por dois motivos somados:
 
-### Jeito da PLANILHA — "Tarifa oficial"
-```text
-Bandeira do cliente = ((consumo + perdas rateadas) / 100) × tarifa oficial ANEEL
-tarifa oficial = valor tabelado da bandeira vigente (ex.: amarela = 2,5464 R$/100 kWh)
-```
-- A tarifa é **fixa**, digitada/consultada em tabela (na planilha: `PARÂMETROS COPEL!E24` via VLOOKUP).
-- **Vantagem**: o cliente paga exatamente o preço público da bandeira — auditável contra a ANEEL.
-- **Desvantagem**: como se cobra bandeira também sobre as **perdas técnicas**, a soma cobrada dos clientes fica **maior** que o valor de bandeira que a Copel cobrou do condomínio. Essa sobra fica com o condomínio (ou some no arredondamento).
+1. **Numerador inflado:** a competência 2026-06 tem 75 lançamentos, mas 3 deles são dos módulos **24, 25 e 26**, que estão marcados como inativos (sem cliente). Eles vieram de uma cópia anterior e continuam sendo contados.
+2. **Denominador impreciso:** os 72 "ativos" incluem três unidades que não são módulos locáveis — **Área Comum**, **Restaurante** e **OBRA**. Ou seja, hoje o correto seria "69 módulos + 3 áreas especiais".
 
-### Jeito do APP hoje — "Rateio fechado"
-```text
-tarifa = (R$ total de bandeira da fatura Copel × 100) / (kWh Copel + perdas Energy)
-Bandeira do cliente = ((consumo + perdas rateadas) / 100) × tarifa
-```
-- A tarifa é **derivada**: o total em R$ de bandeira lançado na Fatura Copel é redistribuído entre todos.
-- **Vantagem**: a soma cobrada dos clientes **fecha exatamente** com o que a Copel cobrou — zero sobra e zero furo.
-- **Desvantagem**: o R$/100 kWh que aparece na fatura do cliente não é o número oficial da ANEEL (fica um pouco menor, porque o denominador inclui as perdas). Isso gera questionamento de cliente que confere com a tabela pública.
+## O que será feito
 
-### Qual é mais justo
-- **Mais justo para o cliente / mais transparente**: tarifa oficial (planilha) — ele paga o preço publicado.
-- **Mais justo para o rateio como um todo / sem sobra**: rateio fechado (app atual) — ninguém paga a mais nem a menos que o total real da Copel.
-- **Recomendação**: usar o modo **Tarifa oficial** como padrão (é o que a planilha faz e o que o cliente consegue conferir), com o modo **Rateio fechado** disponível para quando a prioridade for fechar exatamente com a fatura da Copel.
+### 1. Classificar as unidades no cadastro
+Adicionar um campo de **tipo** em `energia_modulos`:
+- `modulo` (padrão) — módulo locável, numerado
+- `area_comum`
+- `restaurante`
+- `obra`
+- `outro`
 
-## O que será implementado
+Na migração, já classificar automaticamente os registros existentes pelo nome (Área Comum, Restaurante, OBRA) e deixar o restante como `modulo`.
 
-**1. Botão de modo da bandeira (2 opções) na aba Fatura Copel**
-- Toggle "Modo da bandeira": `Tarifa oficial (planilha)` | `Rateio fechado (fatura Copel)`.
-- Padrão: **Tarifa oficial**.
+### 2. Ajustar o cadastro (aba Módulos)
+- Seletor de tipo ao criar/editar uma unidade.
+- Etiqueta visual do tipo na lista, com as áreas especiais agrupadas ao final.
 
-**2. Modo Tarifa oficial**
-- Seletor da bandeira vigente: Verde / Amarela / Vermelha P1 / Vermelha P2 (equivalente ao `D24` da planilha).
-- Campo editável **Tarifa (R$/100 kWh)**, pré-preenchido pela tabela de referência (Verde 0,0000 · Amarela 2,5464 · Vermelha P1 4,4630 · Vermelha P2 7,8770) — equivalente ao VLOOKUP.
-- Esse valor é o que vai para `bandeira_valor`.
+### 3. Corrigir o contador do Painel
+- Contar apenas lançamentos de unidades **ativas** (lançamentos órfãos de unidades inativas deixam de entrar no total e nunca mais podem passar do máximo).
+- Quebrar o texto em duas linhas:
+  - `69 de 69 módulos`
+  - `3 de 3 áreas especiais (Área Comum, Restaurante, Obra)`
+- O item do checklist "Lançamentos de todos os módulos" passa a considerar as duas contagens; só fica concluído quando ambas estiverem completas.
+- Alerta discreto quando existirem lançamentos de unidades inativas na competência, com a opção de removê-los.
 
-**3. Modo Rateio fechado**
-- Mantém o cálculo atual (`FaturaCopelTab.tsx:474-489`): soma dos itens de bandeira × 100 ÷ (kWh Copel + perdas Energy).
-
-**4. Painel comparativo (sempre visível)**
-Um bloco pequeno mostrando lado a lado, para o mês selecionado:
-- tarifa oficial vs. tarifa derivada (R$/100 kWh);
-- total de bandeira que será cobrado dos clientes em cada modo;
-- total de bandeira lançado na Fatura Copel;
-- a **sobra/falta** resultante do modo escolhido, com a explicação curta dos dois métodos (o texto acima, resumido, em um popover "Como é calculado").
-
-**5. Sem mudança no motor de cálculo**
-- `src/lib/energia-rateio.ts` fica inalterado — as fórmulas BM/BN/BO já replicam a planilha; só muda a origem de `bandeira_valor`.
+### 4. Aba de Lançamentos
+- Agrupar a grade em duas seções: **Módulos** e **Áreas especiais**, cada uma com seu próprio contador de preenchimento.
+- Lançamentos de unidades inativas aparecem em uma seção "Fora do cadastro atual", sinalizados, para o usuário decidir excluir.
 
 ## Detalhes técnicos
-- Reaproveita a coluna existente `energia_competencia_tarifas.bandeira_valor`; o modo escolhido e a bandeira vigente ficam no JSONB `fatura_copel_itens` (chaves `bandeira_modo`, `bandeira_vigente`) — sem migração de schema.
-- Competências já fechadas mantêm o valor salvo; a mudança vale para o que for recalculado daqui em diante.
-- Rótulo em `MemoriaCalculoTab.tsx:157` passa a refletir o modo ativo.
 
-## Validação
-No modo Tarifa oficial com 2,5464 em 202606, a linha "Bandeira Tarifária" do Restaurante Industrial (SODEXO) deve fechar em **R$ 1.103,75**, igual à planilha.
+- Migração: `ALTER TABLE public.energia_modulos ADD COLUMN tipo text NOT NULL DEFAULT 'modulo'` + `CHECK` com os valores permitidos + `UPDATE` classificando Área Comum / Restaurante / OBRA. Sem novas tabelas, portanto sem novos GRANTs.
+- `EnergiaPainelTab.tsx`: `loadStatus` passa a buscar `id, tipo` de `energia_modulos` (apenas ativos) e a interseccionar os `modulo_id` dos lançamentos com esse conjunto, gerando `{ modulos: x/y, especiais: a/b, orfaos: n }`.
+- `ModulosTab` (cadastro) e a grade de lançamentos recebem o campo `tipo` no formulário e no agrupamento.
+- O motor de rateio (`src/lib/energia-rateio.ts`) **não muda** — o tipo é apenas classificação/visualização; a lógica de área comum continua como está hoje.
