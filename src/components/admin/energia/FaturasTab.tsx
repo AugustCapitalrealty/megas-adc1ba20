@@ -449,6 +449,11 @@ export function FaturasTab() {
               </div>
               <div className="mt-1 text-2xl font-bold tabular-nums text-primary">{brl(totalGeral)}</div>
               <div className="text-[11px] text-muted-foreground">{faturas.length} cliente(s)</div>
+              <div className="mt-2 border-t pt-2">
+                <div className="text-[11px] text-muted-foreground">sem multa de ultrapassagem</div>
+                <div className="text-base font-semibold tabular-nums">{brl(totalGeral - totalUltrapassagem)}</div>
+                <div className="text-[11px] text-muted-foreground">multa embutida: {brl(totalUltrapassagem)}</div>
+              </div>
             </div>
             <div className="hidden md:flex items-center justify-center text-2xl font-bold text-muted-foreground">=</div>
             <div className={`rounded-lg border p-4 ${Math.abs(diferenca) < 1 ? 'border-green-300/50 bg-green-50 dark:bg-green-950/20' : Math.abs(diferenca) < 50 ? 'border-amber-300/50 bg-amber-50 dark:bg-amber-950/20' : 'border-red-300/50 bg-red-50 dark:bg-red-950/20'}`}>
