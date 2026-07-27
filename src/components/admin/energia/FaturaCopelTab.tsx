@@ -894,15 +894,15 @@ export function FaturaCopelTab() {
                   </div>
                   <div>
                     <strong className="text-foreground">Tarifa oficial (planilha):</strong> cada cliente paga
-                    <em> ((consumo + perdas rateadas) ÷ 100) × tarifa tabelada da ANEEL</em>. É o preço público da bandeira,
+                    <em> (consumo + perdas rateadas) × tarifa tabelada da ANEEL (R$/kWh)</em>. É o preço público da bandeira,
                     fácil de o cliente conferir. Como a bandeira também incide sobre as perdas técnicas, a soma cobrada
                     fica um pouco <strong>maior</strong> que o valor de bandeira da fatura da Copel — essa sobra fica com o condomínio.
                   </div>
                   <div>
                     <strong className="text-foreground">Rateio fechado (fatura Copel):</strong> a tarifa é derivada —
-                    <em> (R$ total de bandeira da Copel × 100) ÷ (kWh Copel + perdas)</em> — e depois aplicada da mesma forma.
+                    <em> R$ total de bandeira da Copel ÷ (kWh Copel + perdas)</em> — e depois aplicada da mesma forma.
                     A soma cobrada dos clientes <strong>fecha exatamente</strong> com a Copel (sem sobra nem falta), mas o
-                    R$/100 kWh mostrado não é o número oficial da ANEEL.
+                    R$/kWh mostrado não é o número oficial da ANEEL.
                   </div>
                   <div>
                     <strong className="text-foreground">Qual é mais justo:</strong> a tarifa oficial é mais transparente
