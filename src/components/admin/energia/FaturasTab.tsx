@@ -94,39 +94,14 @@ export function FaturasTab() {
     ((l.data as any[]) || []).forEach((r) => { map[r.modulo_id] = r; });
     setLancamentos(map);
 
-    // Vigência sobrepõe o mês: vigencia_inicio <= último dia E (vigencia_fim IS NULL OR >= 1º dia)
+    // Todas as vigências que tocam o mês (um módulo pode trocar de cliente no meio).
     const [yy, mm] = anoMes.split('-').map(Number);
-    const refInicio = `${anoMes}-01`;
     const refFim = `${anoMes}-${String(new Date(yy, mm, 0).getDate()).padStart(2, '0')}`;
     const { data: vinc } = await supabase
       .from('energia_contrato_modulos' as any)
       .select('modulo_id, vigencia_inicio, vigencia_fim, contrato_id, contrato:energia_contratos!inner(id, numero_contrato, demanda_contratada_kw, cliente_id, ativo)')
       .lte('vigencia_inicio', refFim);
-    const cMap: Record<string, any> = {};
-    const cIdMap: Record<string, string> = {};
-    const cDemMap: Record<string, number> = {};
-    const cNumMap: Record<string, string> = {};
-    const cCliMap: Record<string, string> = {};
-    if (vinc) {
-      for (const v of vinc as any[]) {
-        const fim = v.vigencia_fim ?? null;
-        if (fim && fim < refInicio) continue;
-        if (!v.contrato?.ativo) continue;
-        const prev = cMap[v.modulo_id];
-        if (!prev || v.vigencia_inicio > prev.__inicio) {
-          cMap[v.modulo_id] = { demanda_contratada_kw: Number(v.contrato.demanda_contratada_kw) || 0, __inicio: v.vigencia_inicio };
-          cIdMap[v.modulo_id] = v.contrato.id;
-          cDemMap[v.contrato.id] = Number(v.contrato.demanda_contratada_kw) || 0;
-          cNumMap[v.contrato.id] = v.contrato.numero_contrato || '';
-          if (v.contrato.cliente_id) cCliMap[v.contrato.id] = v.contrato.cliente_id;
-        }
-      }
-    }
-    setContratoPorModulo(cMap);
-    setContratoIdPorModulo(cIdMap);
-    setContratoDemandaPorId(cDemMap);
-    setContratoNumeroPorId(cNumMap);
-    setContratoClientePorId(cCliMap);
+    setVinculos(((vinc as any[]) || []) as VigenciaRaw[]);
   }, []);
 
   useEffect(() => { (async () => { setLoading(true); await fetchBase(); setLoading(false); })(); }, [fetchBase, version]);
