@@ -416,18 +416,31 @@ export function FaturasTab() {
             </div>
           </div>
 
-          {/* KPIs */}
-          <div className="grid gap-3 md:grid-cols-4">
-            <KpiCard label="Total faturado" value={brl(totalGeral)} icon={FileText} tone="primary" />
-            <KpiCard label="Clientes" value={String(faturas.length)} icon={Users} />
-            <KpiCard label="Fatura Copel" value={brl(totalCopel)} icon={Zap} />
-            <KpiCard
-              label="Diferença"
-              value={brl(Math.abs(diferenca))}
-              icon={Building2}
-              tone={Math.abs(diferenca) < 1 ? 'green' : Math.abs(diferenca) < 50 ? 'amber' : 'red'}
-              suffix={diferenca >= 0 ? 'a maior' : 'a menor'}
-            />
+          {/* Faixa principal: Copel → Energy = Diferença */}
+          <div className="grid items-stretch gap-2 md:grid-cols-[1fr_auto_1fr_auto_1fr]">
+            <div className="rounded-lg border p-4">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Zap className="h-3.5 w-3.5" /> Fatura Copel
+              </div>
+              <div className="mt-1 text-2xl font-bold tabular-nums">{brl(totalCopel)}</div>
+              <div className="text-[11px] text-muted-foreground">valor da conta</div>
+            </div>
+            <div className="hidden md:flex items-center justify-center text-2xl font-bold text-muted-foreground">→</div>
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <FileText className="h-3.5 w-3.5" /> Fatura Energy
+              </div>
+              <div className="mt-1 text-2xl font-bold tabular-nums text-primary">{brl(totalGeral)}</div>
+              <div className="text-[11px] text-muted-foreground">{faturas.length} cliente(s)</div>
+            </div>
+            <div className="hidden md:flex items-center justify-center text-2xl font-bold text-muted-foreground">=</div>
+            <div className={`rounded-lg border p-4 ${Math.abs(diferenca) < 1 ? 'border-green-300/50 bg-green-50 dark:bg-green-950/20' : Math.abs(diferenca) < 50 ? 'border-amber-300/50 bg-amber-50 dark:bg-amber-950/20' : 'border-red-300/50 bg-red-50 dark:bg-red-950/20'}`}>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Building2 className="h-3.5 w-3.5" /> Diferença
+              </div>
+              <div className="mt-1 text-2xl font-bold tabular-nums">{brl(Math.abs(diferenca))}</div>
+              <div className="text-[11px] text-muted-foreground">{diferenca >= 0 ? 'a maior' : 'a menor'}</div>
+            </div>
           </div>
 
           {/* Diferenças — Copel × Faturado */}
