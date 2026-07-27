@@ -527,10 +527,11 @@ export function EnergiaCadastrosTab({ onOpenContrato }: { onOpenContrato?: (cont
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <LayoutGrid className="h-5 w-5 text-primary" />
-            Módulos do Mega Curitiba ({modulos.length})
+            Unidades do Mega Curitiba ({modulosCount} módulos + {especiaisCount} áreas especiais)
           </CardTitle>
           <CardDescription>
             Área total: <strong>{totalArea.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} m²</strong>. A demanda contratada agora vive no <em>Contrato</em> vinculado ao módulo.
+            Unidades como Área comum, Restaurante e Obra não contam como módulos locáveis.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -549,6 +550,7 @@ export function EnergiaCadastrosTab({ onOpenContrato }: { onOpenContrato?: (cont
                 <TableRow>
                   <TableHead className="w-20">Ordem</TableHead>
                   <TableHead>Módulo</TableHead>
+                  <TableHead className="w-36">Tipo</TableHead>
                   <TableHead className="text-right">Área (m²)</TableHead>
                   <TableHead>Cliente (vigente)</TableHead>
                   <TableHead className="text-right">Demanda (kW)</TableHead>
@@ -559,9 +561,9 @@ export function EnergiaCadastrosTab({ onOpenContrato }: { onOpenContrato?: (cont
               </TableHeader>
               <TableBody>
                 {modulos.length === 0 && (
-                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-6">Nenhum módulo cadastrado</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-6">Nenhuma unidade cadastrada</TableCell></TableRow>
                 )}
-                {modulos.map(m => {
+                {modulosOrdenados.map(m => {
                   const cv = contratoPorModulo[m.id];
                   const cliNome = cv ? clienteLabel(cv.cliente_id) : null;
                   return (
@@ -581,6 +583,19 @@ export function EnergiaCadastrosTab({ onOpenContrato }: { onOpenContrato?: (cont
                         onChange={e => setModulos(prev => prev.map(x => x.id === m.id ? { ...x, identificador: e.target.value } : x))}
                         onBlur={e => handleUpdateModulo(m.id, { identificador: e.target.value })}
                       />
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={m.tipo || 'modulo'}
+                        onValueChange={(v) => handleUpdateModulo(m.id, { tipo: v as TipoUnidade })}
+                      >
+                        <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {(Object.keys(TIPO_UNIDADE_LABEL) as TipoUnidade[]).map(k => (
+                            <SelectItem key={k} value={k}>{TIPO_UNIDADE_LABEL[k]}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </TableCell>
                     <TableCell>
                       <Input
