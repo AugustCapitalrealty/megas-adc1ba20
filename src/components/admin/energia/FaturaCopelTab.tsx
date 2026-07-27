@@ -793,6 +793,7 @@ export function FaturaCopelTab() {
               </div>
 
               {bandeiraModo === 'oficial' && (
+                <div className="space-y-2">
                 <div className="flex flex-wrap items-end gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs">Bandeira vigente</Label>
@@ -806,15 +807,51 @@ export function FaturaCopelTab() {
                     </Select>
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Tarifa (R$/100 kWh)</Label>
+                    <Label className="text-xs">Tarifa ANEEL — sem tributos (R$/100 kWh)</Label>
                     <Input
                       type="text" inputMode="decimal" disabled={isLocked}
-                      className="h-8 w-[140px] text-xs text-right bg-yellow-50 dark:bg-yellow-950/30 border-yellow-300/60"
+                      className="h-8 w-[170px] text-xs text-right bg-yellow-50 dark:bg-yellow-950/30 border-yellow-300/60"
                       onFocus={(e) => e.currentTarget.select()}
-                      value={faturaItens.bandeira_tarifa_oficial || ''}
-                      onChange={(e) => setFaturaItens((p) => ({ ...p, bandeira_tarifa_oficial: e.target.value }))}
+                      value={faturaItens.bandeira_tarifa_liquida ?? fmtBR(bandeiraInfo.tarifaLiquida, 4)}
+                      onChange={(e) => setFaturaItens((p) => ({ ...p, bandeira_tarifa_liquida: e.target.value, bandeira_tarifa_manual: false }))}
                     />
+                    <div className="text-[10px] text-muted-foreground">Coluna “Tarifa unit. (R$)” × 100 da fatura</div>
                   </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Tarifa COM tributos — usada na cobrança</Label>
+                    <Input
+                      type="text" inputMode="decimal" disabled={isLocked}
+                      className="h-8 w-[190px] text-xs text-right font-semibold bg-primary/5 border-primary/40"
+                      onFocus={(e) => e.currentTarget.select()}
+                      value={faturaItens.bandeira_tarifa_manual
+                        ? (faturaItens.bandeira_tarifa_oficial || '')
+                        : fmtBR(bandeiraInfo.tarifaBrutaCalc, 4)}
+                      onChange={(e) => setFaturaItens((p) => ({ ...p, bandeira_tarifa_oficial: e.target.value, bandeira_tarifa_manual: true }))}
+                    />
+                    <div className="text-[10px] text-muted-foreground">
+                      {faturaItens.bandeira_tarifa_manual ? (
+                        <button type="button" className="underline" onClick={() => setFaturaItens((p) => ({ ...p, bandeira_tarifa_manual: false }))}>
+                          Sobrescrito — voltar ao calculado ({fmtBR(bandeiraInfo.tarifaBrutaCalc, 4)})
+                        </button>
+                      ) : (
+                        <>ICMS {fmtBR(aliquotas.icms, 2)}% + PIS/COFINS {fmtBR(aliquotas.pis + aliquotas.cofins, 2)}% embutidos</>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                {bandeiraInfo.tarifaFatura > 0 && bandeiraInfo.tarifaOficial > 0 &&
+                  Math.abs(bandeiraInfo.tarifaFatura - bandeiraInfo.tarifaOficial) / bandeiraInfo.tarifaFatura > 0.005 && (
+                  <div className="text-[11px] text-amber-600 dark:text-amber-400 flex flex-wrap items-center gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    A fatura traz <strong>{fmtBR(bandeiraInfo.tarifaFatura, 4)}</strong> R$/100 kWh com tributos (preço unit. das linhas de bandeira).
+                    <button
+                      type="button" className="underline" disabled={isLocked}
+                      onClick={() => setFaturaItens((p) => ({ ...p, bandeira_tarifa_oficial: fmtBR(bandeiraInfo.tarifaFatura, 4), bandeira_tarifa_manual: true }))}
+                    >
+                      usar o valor da fatura
+                    </button>
+                  </div>
+                )}
                 </div>
               )}
 
@@ -822,7 +859,8 @@ export function FaturaCopelTab() {
               <div className="grid sm:grid-cols-2 gap-2 text-xs">
                 <div className={`rounded-md border p-3 space-y-1 ${bandeiraModo === 'oficial' ? 'border-primary bg-primary/5' : ''}`}>
                   <div className="font-semibold">Tarifa oficial (planilha)</div>
-                  <div className="text-muted-foreground">Tarifa: <strong className="text-foreground">{fmtBR(bandeiraInfo.tarifaOficial, 4)}</strong> R$/100 kWh</div>
+                  <div className="text-muted-foreground">Tarifa ANEEL (sem tributos): <strong className="text-foreground">{fmtBR(bandeiraInfo.tarifaLiquida, 4)}</strong> R$/100 kWh</div>
+                  <div className="text-muted-foreground">Tarifa cobrada (com tributos): <strong className="text-foreground">{fmtBR(bandeiraInfo.tarifaOficial, 4)}</strong> R$/100 kWh</div>
                   <div className="text-muted-foreground">Total cobrado dos clientes: <strong className="text-foreground">{brl(bandeiraInfo.totalOficial)}</strong></div>
                   <div className="text-muted-foreground">
                     Sobra/falta vs. Copel: <strong className="text-foreground">{brl(bandeiraInfo.totalOficial - bandeiraInfo.copelReais)}</strong>
@@ -843,6 +881,12 @@ export function FaturaCopelTab() {
               <details className="text-[11px] text-muted-foreground">
                 <summary className="cursor-pointer text-foreground font-medium">Como é calculado (os dois jeitos)</summary>
                 <div className="mt-2 space-y-2">
+                  <div>
+                    <strong className="text-foreground">Por que “com tributos”:</strong> o motor de rateio soma a bandeira
+                    direto no total do cliente, sem aplicar imposto depois. Por isso a tarifa usada precisa já conter
+                    ICMS e PIS/COFINS — é o mesmo número da coluna “Preço unit (R$) com tributos” da fatura da Copel.
+                    O app parte da tarifa oficial líquida e embute os tributos: <em>líquida ÷ (1 − ICMS − (1 − ICMS) × PIS/COFINS)</em>.
+                  </div>
                   <div>
                     <strong className="text-foreground">Tarifa oficial (planilha):</strong> cada cliente paga
                     <em> ((consumo + perdas rateadas) ÷ 100) × tarifa tabelada da ANEEL</em>. É o preço público da bandeira,
