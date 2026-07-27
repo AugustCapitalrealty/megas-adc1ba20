@@ -406,25 +406,31 @@ export function FaturasTab() {
             </div>
             <div className="flex flex-col gap-1">
               <Label className="text-[11px] text-muted-foreground">Área Comum</Label>
-              <div className="inline-flex rounded-md border overflow-hidden text-xs h-10" role="group" aria-label="Rateio da área comum">
-                <button
-                  type="button"
-                  onClick={() => setRatearAreaComum(true)}
-                  className={`px-3 transition-colors ${ratearAreaComum ? 'bg-primary text-primary-foreground font-semibold' : 'bg-background hover:bg-muted'}`}
-                  title="Replica a planilha (RESUMO): valor líquido da Área Comum é rateado nos clientes por m²."
-                >
-                  Ratear por m²
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRatearAreaComum(false)}
-                  className={`px-3 border-l transition-colors ${!ratearAreaComum ? 'bg-primary text-primary-foreground font-semibold' : 'bg-background hover:bg-muted'}`}
-                  title="Mantém Área Comum como cliente separado."
-                >
-                  Separada
-                </button>
+              <div className="h-10 inline-flex items-center rounded-md border bg-muted/40 px-3 text-xs text-muted-foreground">
+                sempre rateada por m² nas faturas dos clientes
               </div>
             </div>
+          </div>
+
+          {/* Explicação do modo de rateio de perdas */}
+          <div className="rounded-md border-l-4 border-primary/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+            {modoPerdas === 'separado' ? (
+              <>
+                <strong className="text-foreground">Exato (por posto):</strong> as perdas de Ponta são rateadas apenas pelo consumo Ponta e as de Fora Ponta apenas pelo consumo Fora Ponta.
+                <div className="mt-1 font-mono tabular-nums text-[11px]">
+                  perda_ponta = (consumo_ponta_cliente ÷ {num(perdasResumo.consumoPonta, 2)}) × {num(perdasResumo.ponta, 2)} kWh<br />
+                  perda_fora = (consumo_fora_cliente ÷ {num(perdasResumo.consumoFora, 2)}) × {num(perdasResumo.fora, 2)} kWh
+                </div>
+              </>
+            ) : (
+              <>
+                <strong className="text-foreground">Planilha (combinado):</strong> um único fator de participação (consumo total do cliente ÷ consumo total geral) é aplicado às perdas dos dois postos — replica a planilha Mega Curitiba.
+                <div className="mt-1 font-mono tabular-nums text-[11px]">
+                  fator = consumo_total_cliente ÷ {num(perdasResumo.consumoPonta + perdasResumo.consumoFora, 2)} kWh<br />
+                  perda_ponta = fator × {num(perdasResumo.ponta, 2)} kWh · perda_fora = fator × {num(perdasResumo.fora, 2)} kWh
+                </div>
+              </>
+            )}
           </div>
 
           {/* Faixa principal: Copel → Energy = Diferença */}
