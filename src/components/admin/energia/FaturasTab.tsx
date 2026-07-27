@@ -845,7 +845,7 @@ function FaturaOficial({
   const pctIcms = tarifas.icms_pct * 100;
 
   const modulosFaixa = compactarModulos(f.modulos);
-  const bandeiraTarifa = tarifas.bandeira_valor || 0;
+  const bandeiraTarifa = resolveBandeiraValor(tarifas);
   const bandeiraPonta = (consumoPontaExibido / 100) * bandeiraTarifa;
   const bandeiraFora = (consumoForaExibido / 100) * bandeiraTarifa;
 
