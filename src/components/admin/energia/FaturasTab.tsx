@@ -197,11 +197,19 @@ export function FaturasTab() {
       bandeira_valor: resolveBandeiraValor(tarifas),
     };
     const memoria = calcularMemoria(tarifasComPerdas, inputs, modoPerdas);
-    let fts = agruparPorCliente(memoria.linhas, agrupaModulos);
+    const brutas = agruparPorCliente(memoria.linhas, agrupaModulos);
+    // Bucket da Área Comum ANTES da redistribuição — continua visível na lista
+    // de clientes mesmo quando o valor é rateado por m².
+    const areaBucket = brutas.find((f) => f.cliente_key === 'AREA_COMUM') || null;
     // Replica RESUMO da planilha: valor líquido da Área Comum vai para os
     // clientes proporcional à área locada (m²).
-    if (ratearAreaComum) fts = redistribuirAreaComumPorArea(fts);
-    return { faturas: fts, memoriaLinhas: memoria.linhas, fatias: fatiaMap };
+    const fts = ratearAreaComum ? redistribuirAreaComumPorArea(brutas) : brutas;
+    return {
+      faturas: fts,
+      areaComumInfo: ratearAreaComum ? areaBucket : null,
+      memoriaLinhas: memoria.linhas,
+      fatias: fatiaMap,
+    };
   }, [tarifas, modulos, lancamentos, clientes, periodosPorModulo, modoPerdas, ratearAreaComum]);
 
   const pertenceAFatura = useCallback((l: MemoriaLinha, f: FaturaCliente): boolean => {
