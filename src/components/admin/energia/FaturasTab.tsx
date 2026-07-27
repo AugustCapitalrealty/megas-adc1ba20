@@ -20,6 +20,7 @@ import {
   type ModoRateioPerdas,
 } from '@/lib/energia-rateio';
 import { useSharedCompetencia } from './CompetenciaContext';
+import { resolverPeriodosPorModulo, type PeriodoModulo, type VigenciaRaw } from '@/lib/energia-vigencias';
 
 interface Competencia { id: string; ano_mes: string; status: 'rascunho' | 'fechada'; }
 interface Modulo { id: string; identificador: string; area_m2: number; ordem: number; cliente_id: string | null; demanda_contratada_kw: number; }
@@ -66,11 +67,7 @@ export function FaturasTab() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [tarifas, setTarifas] = useState<any>(null);
   const [lancamentos, setLancamentos] = useState<Record<string, any>>({});
-  const [contratoPorModulo, setContratoPorModulo] = useState<Record<string, { demanda_contratada_kw: number }>>({});
-  const [contratoIdPorModulo, setContratoIdPorModulo] = useState<Record<string, string>>({});
-  const [contratoDemandaPorId, setContratoDemandaPorId] = useState<Record<string, number>>({});
-  const [contratoNumeroPorId, setContratoNumeroPorId] = useState<Record<string, string>>({});
-  const [contratoClientePorId, setContratoClientePorId] = useState<Record<string, string>>({});
+  const [vinculos, setVinculos] = useState<VigenciaRaw[]>([]);
   const [busca, setBusca] = useState('');
   const [selecionado, setSelecionado] = useState<string | null>(null);
   const [modoPerdas, setModoPerdas] = useState<ModoRateioPerdas>('combinado');
