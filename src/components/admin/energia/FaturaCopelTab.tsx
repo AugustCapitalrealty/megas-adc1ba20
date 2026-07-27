@@ -318,9 +318,11 @@ export function FaturaCopelTab() {
       bandeira_modo: (fc.bandeira_modo as BandeiraModo) || 'oficial',
       bandeira_vigente: bandeiraVigente,
       bandeira_tarifa_oficial: fc.bandeira_tarifa_oficial
-        || fmtBR(BANDEIRA_TABELA[bandeiraVigente].valor, 4),
+        ? fmtBR(toRsKwh(parseBR(fc.bandeira_tarifa_oficial)), 6)
+        : fmtBR(BANDEIRA_TABELA[bandeiraVigente].valor, 6),
       bandeira_tarifa_liquida: fc.bandeira_tarifa_liquida
-        || (fc.bandeira_tarifa_oficial ? '' : fmtBR(BANDEIRA_TABELA_LIQUIDA[bandeiraVigente], 4)),
+        ? fmtBR(toRsKwh(parseBR(fc.bandeira_tarifa_liquida)), 6)
+        : (fc.bandeira_tarifa_oficial ? '' : fmtBR(BANDEIRA_TABELA_LIQUIDA[bandeiraVigente], 6)),
       bandeira_tarifa_manual: !!fc.bandeira_tarifa_manual,
     });
     const ep = Number((t.data as any)?.perdas_energy_ponta_kwh) || 0;
