@@ -423,6 +423,18 @@ function ContratoModal({
     if (!vigInicio) return toast.error('Informe a vigência inicial');
     if (demanda <= 0) return toast.error('Demanda deve ser maior que zero');
 
+    // Espelha o gatilho do banco: nenhum módulo pode ter vigência sobreposta em outro contrato.
+    for (const v of vinculosDraft) {
+      if (v._delete || !v.modulo_id) continue;
+      const conf = conflitoDoModulo(v.modulo_id, v.vigencia_inicio, v.vigencia_fim || null);
+      if (conf) {
+        const nome = modulos.find((m) => m.id === v.modulo_id)?.identificador || 'módulo';
+        return toast.error(
+          `Módulo ${nome} já está no contrato ${conf.numero}${conf.fim ? ` até ${br(conf.fim)}` : ' (sem data de fim)'}. Ajuste a vigência para começar depois.`,
+        );
+      }
+    }
+
     setSaving(true);
     try {
       // 1) upload arquivo se houver
