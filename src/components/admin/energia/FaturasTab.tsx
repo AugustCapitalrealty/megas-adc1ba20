@@ -618,23 +618,7 @@ export function FaturasTab() {
                 if (!cid) return 0;
                 return contratoDemandaPorId[cid] || 0;
               })()}
-              linhas={memoriaLinhas.filter((l) => {
-                const m = modulos.find((mm) => mm.id === l.modulo_id);
-                if (!m) return false;
-                if (faturaSelecionada.cliente_key === 'AREA_COMUM') {
-                  return (l.identificador || '').toUpperCase().includes('AREA COMUM') || (l.identificador || '').toUpperCase().includes('ÁREA COMUM');
-                }
-                if (faturaSelecionada.cliente_key.startsWith('VAGO:')) {
-                  return l.modulo_id === faturaSelecionada.cliente_key.slice(5);
-                }
-                const idx = faturaSelecionada.cliente_key.indexOf('::');
-                const cli = idx >= 0 ? faturaSelecionada.cliente_key.slice(0, idx) : faturaSelecionada.cliente_key;
-                const contrato = idx >= 0 ? faturaSelecionada.cliente_key.slice(idx + 2) : null;
-                const mCid = contratoIdPorModulo[m.id] ?? 'SEM';
-                const mCliId = mCid !== 'SEM' ? (contratoClientePorId[mCid] ?? null) : null;
-                if (mCliId !== cli) return false;
-                return mCid === contrato;
-              })}
+              linhas={memoriaLinhas.filter((l) => pertenceAFatura(l, faturaSelecionada))}
               todasLinhas={memoriaLinhas}
               onCopy={copiarResumo}
               modoPerdas={modoPerdas}
