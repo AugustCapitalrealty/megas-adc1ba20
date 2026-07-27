@@ -1535,7 +1535,27 @@ function ConsumoClienteCard({ clientes, modulos, contratosVigentes, consumoCli, 
                 return (
                   <tr key={g.key} className={g.isAreaComum ? 'bg-amber-50/40 dark:bg-amber-950/20' : ''}>
                     <td className={`${cell} font-semibold`}>{g.nome}</td>
-                    <td className={`${cell} text-[11px] text-muted-foreground`}>{g.modulos.map((m) => m.identificador).join(', ')}</td>
+                    <td className={`${cell} text-[11px] text-muted-foreground`}>
+                      {g.modulos.map((m, i) => {
+                        const per = periodosPorModulo[m.id] || [];
+                        const doGrupo = g.contratoId ? per.find((p) => p.contrato_id === g.contratoId) : null;
+                        const label = per.length > 1 && doGrupo ? rotuloPeriodo(doGrupo, mesRef) : '';
+                        return (
+                          <span key={m.id}>
+                            {i > 0 && ', '}
+                            {m.identificador}
+                            {label && (
+                              <span
+                                className="ml-1 text-[10px] text-amber-600 dark:text-amber-500"
+                                title={`Rateio por dias: ${doGrupo!.dias} dia(s) · ${(doGrupo!.fator * 100).toFixed(1)}% do mês`}
+                              >
+                                ({label})
+                              </span>
+                            )}
+                          </span>
+                        );
+                      })}
+                    </td>
                     <td className={`${cell} text-right tabular-nums`}>{fmt(g.demandaContratada)}</td>
                     <td className={cell}>{inp(c.demanda_kw, (s) => updateConsumoCli(g.key, 'demanda_kw', s))}</td>
                     <td className={cell}>{inp(c.consumo_ponta_kwh, (s) => updateConsumoCli(g.key, 'consumo_ponta_kwh', s))}</td>
