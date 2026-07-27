@@ -818,6 +818,7 @@ export type Database = {
           identificador: string
           observacao: string | null
           ordem: number
+          tipo: string
           updated_at: string
           updated_by: string | null
         }
@@ -831,6 +832,7 @@ export type Database = {
           identificador: string
           observacao?: string | null
           ordem?: number
+          tipo?: string
           updated_at?: string
           updated_by?: string | null
         }
@@ -844,6 +846,7 @@ export type Database = {
           identificador?: string
           observacao?: string | null
           ordem?: number
+          tipo?: string
           updated_at?: string
           updated_by?: string | null
         }
