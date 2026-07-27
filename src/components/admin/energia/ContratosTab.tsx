@@ -353,25 +353,54 @@ function ContratoModal({
     setVinculosDraft((p) => p.map((v) => (v.modulo_id === moduloId && !v._delete) ? { ...v, ...patch } : v));
   };
 
+  // Vínculos de OUTROS contratos, por módulo — usados para checar sobreposição de datas.
+  const ocupacaoPorModulo = useMemo(() => {
+    const map = new Map<string, { contrato: Contrato | undefined; inicio: string; fim: string | null }[]>();
+    allVinculos
+      .filter((v) => v.contrato_id !== contrato?.id)
+      .forEach((v) => {
+        const arr = map.get(v.modulo_id) || [];
+        arr.push({ contrato: contratos.find((c) => c.id === v.contrato_id), inicio: v.vigencia_inicio, fim: v.vigencia_fim });
+        map.set(v.modulo_id, arr);
+      });
+    return map;
+  }, [allVinculos, contratos, contrato?.id]);
+
+  /** Conflito real com o período que está sendo cadastrado (ou null se está livre). */
+  const conflitoDoModulo = (moduloId: string, ini = vigInicio, fim: string | null = vigFim || null) => {
+    const ocup = ocupacaoPorModulo.get(moduloId) || [];
+    const conf = ocup.find((o) => overlaps(o.inicio, o.fim, ini, fim));
+    if (!conf) return null;
+    return { numero: conf.contrato?.numero_contrato || 'outro contrato', fim: conf.fim };
+  };
+
+  /** Data em que o módulo fica livre (fim do último vínculo anterior), se houver. */
+  const livreApartirDe = (moduloId: string) => {
+    const ocup = (ocupacaoPorModulo.get(moduloId) || []).filter((o) => o.fim);
+    if (!ocup.length) return null;
+    const maiorFim = ocup.reduce((a, b) => ((b.fim! > a.fim!) ? b : a)).fim!;
+    const d = new Date(`${maiorFim}T00:00:00`);
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().slice(0, 10);
+  };
+
   const filteredModulos = useMemo(() => {
     const term = moduloSearch.trim().toLowerCase();
-    const usedByOthers = new Set(
-      allVinculos.filter((v) => v.contrato_id !== contrato?.id).map((v) => v.modulo_id),
-    );
-    const base = modulos.filter((m) => !usedByOthers.has(m.id));
-    const list = term ? base.filter((m) => m.identificador.toLowerCase().includes(term)) : base;
-    // selecionados primeiro
+    const list = term ? modulos.filter((m) => m.identificador.toLowerCase().includes(term)) : modulos;
+    // selecionados primeiro, bloqueados por último
     return [...list].sort((a, b) => {
-      const sa = draftByModulo.has(a.id) ? 0 : 1;
-      const sb = draftByModulo.has(b.id) ? 0 : 1;
-      if (sa !== sb) return sa - sb;
+      const rank = (m: Modulo) =>
+        draftByModulo.has(m.id) ? 0 : conflitoDoModulo(m.id) ? 2 : 1;
+      const ra = rank(a), rb = rank(b);
+      if (ra !== rb) return ra - rb;
       return a.identificador.localeCompare(b.identificador, undefined, { numeric: true });
     });
-  }, [modulos, moduloSearch, draftByModulo, allVinculos, contrato?.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modulos, moduloSearch, draftByModulo, ocupacaoPorModulo, vigInicio, vigFim]);
 
   const selectAllVisible = () => {
     filteredModulos.forEach((m) => {
-      if (!draftByModulo.has(m.id)) toggleModulo(m.id, true);
+      if (!draftByModulo.has(m.id) && !conflitoDoModulo(m.id)) toggleModulo(m.id, true);
     });
   };
   const clearAllVisible = () => {
