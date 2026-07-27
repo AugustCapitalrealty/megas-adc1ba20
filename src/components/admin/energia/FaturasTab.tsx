@@ -56,7 +56,12 @@ function resolveBandeiraValor(tarifas: any): number {
   const modo = (faturaItens.bandeira_modo as string | undefined) || 'oficial';
   if (modo !== 'oficial') return Number(tarifas?.bandeira_valor) || 0;
   const vigente = (faturaItens.bandeira_vigente as string | undefined) || detectarBandeiraVigente(faturaItens.itens || {});
-  return parseBRNumber(faturaItens.bandeira_tarifa_oficial) || BANDEIRA_TARIFA_OFICIAL[vigente] || Number(tarifas?.bandeira_valor) || 0;
+  // A aba Fatura Copel grava `bandeira_tarifa_oficial` em R$/kWh (ex.: 0,025464),
+  // mas o motor de rateio espera R$/100 kWh (ex.: 2,5464). Normaliza a escala:
+  // valores < 0,5 são R$/kWh → ×100; valores ≥ 0,5 já estão em R$/100 kWh (legado).
+  const salva = parseBRNumber(faturaItens.bandeira_tarifa_oficial);
+  if (salva > 0) return salva < 0.5 ? salva * 100 : salva;
+  return BANDEIRA_TARIFA_OFICIAL[vigente] || Number(tarifas?.bandeira_valor) || 0;
 }
 
 export function FaturasTab() {
@@ -972,7 +977,7 @@ function FaturaOficial({
             />
             <div className="rounded border bg-background p-3">
               <div className="font-semibold mb-1">Bandeira</div>
-              <AuditRow label="Tarifa oficial usada" valor={`R$ ${num(bandeiraTarifa, 4)} / 100 kWh`} />
+              <AuditRow label="Tarifa oficial usada" valor={`R$ ${num(bandeiraTarifa / 100, 6)} / kWh  (=  R$ ${num(bandeiraTarifa, 4)} / 100 kWh)`} />
               <AuditRow label="Ponta: (consumo + perdas) ÷ 100 × tarifa" valor={`${num(consumoPontaExibido, 2)} ÷ 100 × ${num(bandeiraTarifa, 4)} = ${brl(bandeiraPonta)}`} />
               <AuditRow label="Fora Ponta: (consumo + perdas) ÷ 100 × tarifa" valor={`${num(consumoForaExibido, 2)} ÷ 100 × ${num(bandeiraTarifa, 4)} = ${brl(bandeiraFora)}`} />
               <AuditRow label="(=) Bandeira tarifária" valor={brl(bandeira)} strong />

@@ -1,32 +1,29 @@
-## Objetivo
+## Diagnóstico (confirmado)
 
-Voltar ao preenchimento simples: **não digitar tarifa ANEEL**. A tarifa da bandeira é lida do preço unitário das próprias linhas de bandeira da fatura Copel (ex.: `0,025511` R$/kWh, já com tributos), e o cálculo continua no modo **tarifa oficial** — cada cliente paga `(consumo + perdas rateadas) × tarifa`.
+A bandeira do Sodexo/Restaurante saiu **R$ 11,04** quando deveria ser **R$ 1.103,75** — exatamente 100× menor.
 
-## O que muda em `src/components/admin/energia/FaturaCopelTab.tsx`
+O que os dados mostram (competência 2026-06):
+- No banco, a coluna `bandeira_valor` está **correta**: `2.5464` (R$/100 kWh), que é o que o motor de rateio espera (`(kWh + perdas) ÷ 100 × bandeira_valor`).
+- Mas o campo `fatura_copel_itens.bandeira_tarifa_oficial` foi gravado na nova escala **R$/kWh**: `"0,025464"`.
+- Em `src/components/admin/energia/FaturasTab.tsx`, a função `resolveBandeiraValor` prioriza `bandeira_tarifa_oficial` e entrega esse número **direto ao motor**, sem converter de R$/kWh para R$/100 kWh. Daí 43.345 ÷ 100 × 0,025464 = R$ 11,04.
 
-1. **Remover os campos de tarifa do card de bandeira**
-   - Some o campo "Tarifa ANEEL — sem tributos".
-   - Some o campo "Tarifa COM tributos — usada na cobrança" e o modo manual.
-   - Some o aviso "a fatura traz X — usar o valor da fatura" (deixa de existir divergência, porque a fonte passa a ser a fatura).
+Ou seja: quando a UI da Fatura Copel passou a trabalhar em R$/kWh (0,025464), a aba Faturas por Cliente continuou lendo esse valor como se fosse R$/100 kWh.
 
-2. **Fonte única da tarifa**
-   - `bandeiraInfo.tarifaOficial` = preço unitário informado nas linhas de bandeira da fatura (`bandeira_*_ponta` / `bandeira_*_fora`).
-   - Se nenhuma linha de bandeira tiver preço unitário digitado, cai na tabela ANEEL da bandeira vigente (`BANDEIRA_TABELA`, já com tributos) como valor de referência.
-   - O seletor "Bandeira vigente" continua (serve de rótulo e fallback), sem mexer em campos de tarifa.
+## Correção
 
-3. **Cálculo e alimentação do motor de rateio ficam iguais**
-   - Continua `bandeira_valor = tarifa × 100` (o engine em `src/lib/energia-rateio.ts` trabalha em R$/100 kWh) — nenhum resultado de cliente muda quando a tarifa lançada é a mesma.
-   - Os dois modos (`oficial` × `rateio fechado`) permanecem, com "oficial" como padrão.
+Em `src/components/admin/energia/FaturasTab.tsx`:
 
-4. **Cards comparativos e "Como é calculado"**
-   - O card "Tarifa oficial" passa a mostrar uma linha só: tarifa (R$/kWh, da fatura), total cobrado dos clientes e sobra/falta vs. Copel.
-   - Texto explicativo reduzido: a tarifa vem da fatura e é aplicada sobre consumo + perdas.
+1. Normalizar a escala em `resolveBandeiraValor`: ao ler `bandeira_tarifa_oficial`, converter para R$/100 kWh quando o valor estiver em R$/kWh (heurística já usada na aba Copel: valores < 0,5 são R$/kWh → multiplicar por 100; valores ≥ 0,5 já são escala antiga R$/100 kWh).
+2. Manter os fallbacks (`BANDEIRA_TARIFA_OFICIAL` e `tarifas.bandeira_valor`) que já estão na escala R$/100 kWh.
+3. Ajustar os rótulos do bloco de auditoria "Memória do cálculo de consumo" para exibir a tarifa nas duas escalas (R$/kWh e R$/100 kWh), evitando nova confusão.
 
-5. **Compatibilidade**
-   - Competências já salvas continuam abrindo: os campos `bandeira_tarifa_liquida` / `bandeira_tarifa_manual` deixam de ser gravados; `bandeira_tarifa_oficial` continua sendo salvo (agora com a tarifa lida da fatura) para manter o histórico do que foi usado no fechamento.
+## Validação
+
+- Recalcular Sodexo (Restaurante) em 06/2026: bandeira deve fechar em ~R$ 1.103,75 e o Total da Fatura em ~R$ 34.948,9x, alinhado à planilha.
+- Conferir que os demais clientes somam a bandeira total próxima ao lançado na Copel (R$ 977,05 ponta + R$ 9.946,31 fora).
 
 ## Detalhes técnicos
 
-- Remover `BANDEIRA_TABELA_LIQUIDA`, `grossUpBandeira` e o helper de escala usado só por esses campos, se ficarem sem uso.
-- `setBandeiraTipo` volta a apenas setar `bandeira_vigente`.
-- Nenhuma migração de banco.
+- Nenhuma migração de banco; `bandeira_valor` já está correto.
+- Sem alteração em `src/lib/energia-rateio.ts` (contrato R$/100 kWh preservado).
+- Sem alteração no cálculo de impostos.
