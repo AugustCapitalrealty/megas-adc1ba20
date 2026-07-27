@@ -36,6 +36,30 @@ export function diasNoMes(anoMes: string): number {
   return new Date(yy, mm, 0).getDate();
 }
 
+/**
+ * Mês de consumo de uma competência.
+ * A fatura de junho cobre o consumo de maio → '2026-06' ⇒ '2026-05'.
+ * Aritmética pura em string (sem Date) para não sofrer com fuso.
+ */
+export function mesConsumo(anoMes: string): string {
+  const [yy, mm] = String(anoMes || '').split('-').map(Number);
+  if (!yy || !mm) return anoMes;
+  const y = mm === 1 ? yy - 1 : yy;
+  const m = mm === 1 ? 12 : mm - 1;
+  return `${y}-${String(m).padStart(2, '0')}`;
+}
+
+/** Rótulo curto do período de um contrato dentro do mês: 'até 25/05' / 'a partir de 26/05'. */
+export function rotuloPeriodo(p: PeriodoModulo, anoMes: string): string {
+  const { inicio: mesInicio, fim: mesFim } = limitesCompetencia(anoMes);
+  const comecaDepois = p.inicio > mesInicio;
+  const terminaAntes = p.fim < mesFim;
+  if (comecaDepois && terminaAntes) return `${ddmm(p.inicio)}–${ddmm(p.fim)}`;
+  if (comecaDepois) return `a partir de ${ddmm(p.inicio)}`;
+  if (terminaAntes) return `até ${ddmm(p.fim)}`;
+  return '';
+}
+
 export function limitesCompetencia(anoMes: string): { inicio: string; fim: string } {
   const total = diasNoMes(anoMes);
   return { inicio: `${anoMes}-01`, fim: `${anoMes}-${String(total).padStart(2, '0')}` };
