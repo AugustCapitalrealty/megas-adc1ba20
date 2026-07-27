@@ -422,7 +422,11 @@ function ContratoModal({
     });
   };
   const applyDefaultDatesToSelected = () => {
-    setVinculosDraft((p) => p.map((v) => v._delete ? v : ({ ...v, vigencia_inicio: vigInicio, vigencia_fim: vigFim || null })));
+    setVinculosDraft((p) => p.map((v) => v._delete ? v : ({
+      ...v,
+      vigencia_inicio: inicioSugerido(v.modulo_id),
+      vigencia_fim: vigFim || null,
+    })));
     toast.success('Vigência padrão aplicada aos módulos selecionados');
   };
 
@@ -643,28 +647,21 @@ function ContratoModal({
                   const checked = draftIdx !== undefined;
                   const v = checked ? vinculosDraft[draftIdx!] : null;
                   const custom = v ? hasCustomDates(v) : false;
-                  const conflito = !checked ? conflitoDoModulo(m.id) : null;
-                  const livre = !checked && !conflito ? livreApartirDe(m.id) : null;
+                  const livre = !checked ? livreApartirDe(m.id) : null;
                   return (
                     <div
                       key={m.id}
-                      className={`flex items-center gap-3 px-3 py-2 transition-colors ${checked ? 'bg-primary/5' : conflito ? 'opacity-60' : 'hover:bg-muted/30'}`}
+                      className={`flex items-center gap-3 px-3 py-2 transition-colors ${checked ? 'bg-primary/5' : 'hover:bg-muted/30'}`}
                     >
                       <Checkbox
                         checked={checked}
-                        disabled={!!conflito}
                         onCheckedChange={(c) => toggleModulo(m.id, !!c)}
                         id={`mod-${m.id}`}
                       />
-                      <label htmlFor={`mod-${m.id}`} className={`flex-1 text-sm font-medium ${conflito ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                      <label htmlFor={`mod-${m.id}`} className="flex-1 text-sm font-medium cursor-pointer">
                         {m.identificador}
-                        {conflito && (
-                          <span className="block text-[11px] font-normal text-muted-foreground">
-                            ocupado por {conflito.numero}{conflito.fim ? ` até ${br(conflito.fim)}` : ' (sem data de fim)'}
-                          </span>
-                        )}
                         {livre && (
-                          <span className="block text-[11px] font-normal text-muted-foreground">
+                          <span className="block text-[11px] font-normal text-emerald-600 dark:text-emerald-400">
                             livre a partir de {br(livre)}
                           </span>
                         )}
