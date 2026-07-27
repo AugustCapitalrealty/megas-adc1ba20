@@ -167,12 +167,19 @@ export function EnergiaPainelTab({ onGoTo }: Props) {
             />
             <StepCard
               step={2}
-              title="Lançamentos por Módulo"
+              title="Lançamentos por Unidade"
               icon={ClipboardList}
               done={!!lancamentosCompleto}
               detail={
                 status
-                  ? `${status.lancamentosCount} de ${status.modulosAtivos} módulos`
+                  ? (
+                    <span className="block space-y-0.5">
+                      <span className="block">{status.modulosFeitos} de {status.modulosTotal} módulos</span>
+                      {status.especiaisTotal > 0 && (
+                        <span className="block">{status.especiaisFeitos} de {status.especiaisTotal} áreas especiais</span>
+                      )}
+                    </span>
+                  )
                   : '—'
               }
               cta="Abrir Lançamentos"
@@ -207,9 +214,18 @@ export function EnergiaPainelTab({ onGoTo }: Props) {
               />
               <ChecklistItem
                 done={!!lancamentosCompleto}
-                label={`Lançamentos de todos os módulos (${status?.lancamentosCount ?? 0}/${status?.modulosAtivos ?? 0})`}
+                label={`Lançamentos completos — módulos ${status?.modulosFeitos ?? 0}/${status?.modulosTotal ?? 0} · áreas especiais ${status?.especiaisFeitos ?? 0}/${status?.especiaisTotal ?? 0}`}
                 onClick={() => onGoTo('lancamentos')}
               />
+              {!!status?.orfaos && (
+                <div className="flex items-start gap-2 rounded-md border border-amber-300/60 bg-amber-50 dark:bg-amber-950/20 p-3 text-xs">
+                  <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                  <span>
+                    Existem <strong>{status.orfaos}</strong> lançamento(s) de unidades que não estão mais ativas no cadastro.
+                    Eles não entram na contagem nem no rateio. Reative a unidade no cadastro ou remova o lançamento.
+                  </span>
+                </div>
+              )}
               <ChecklistItem
                 done={!!(status?.copelLancada && lancamentosCompleto)}
                 label="Faturas por cliente conferidas contra a Copel"
@@ -234,10 +250,13 @@ export function EnergiaPainelTab({ onGoTo }: Props) {
                     <div className="text-2xl font-semibold font-mono">{brl(status.totalCopel)}</div>
                   </div>
                   <div>
-                    <div className="text-muted-foreground">Módulos lançados</div>
+                    <div className="text-muted-foreground">Unidades lançadas</div>
                     <div className="text-2xl font-semibold font-mono">
-                      {status.lancamentosCount}
-                      <span className="text-base text-muted-foreground font-normal"> / {status.modulosAtivos}</span>
+                      {status.modulosFeitos}
+                      <span className="text-base text-muted-foreground font-normal"> / {status.modulosTotal}</span>
+                      <span className="block text-xs text-muted-foreground font-normal font-sans">
+                        + {status.especiaisFeitos}/{status.especiaisTotal} áreas especiais
+                      </span>
                     </div>
                   </div>
                   <div>
