@@ -42,6 +42,10 @@ interface FaturaCopelItens {
   bandeira_modo?: BandeiraModo;
   bandeira_vigente?: BandeiraTipo;
   bandeira_tarifa_oficial?: string;
+  // Tarifa ANEEL líquida (sem tributos), R$/100 kWh
+  bandeira_tarifa_liquida?: string;
+  // Quando true, o usuário sobrescreveu manualmente a tarifa com tributos
+  bandeira_tarifa_manual?: boolean;
 }
 
 // ─── Bandeira tarifária ─────────────────────────────────────────────────
@@ -54,6 +58,23 @@ const BANDEIRA_TABELA: Record<BandeiraTipo, { label: string; valor: number }> = 
   vermelha_1: { label: 'Vermelha P1',  valor: 4.4630 },
   vermelha_2: { label: 'Vermelha P2',  valor: 7.8770 },
 };
+/** Tarifas oficiais ANEEL SEM tributos (R$/100 kWh) — é o número da coluna
+ *  "Tarifa unit. (R$)" da fatura da Copel. */
+const BANDEIRA_TABELA_LIQUIDA: Record<BandeiraTipo, number> = {
+  verde: 0,
+  amarela: 1.8850,
+  vermelha_1: 3.3010,
+  vermelha_2: 5.8270,
+};
+/** Embute ICMS + PIS/COFINS na tarifa líquida (mesma ordem usada no resto do
+ *  sistema: ICMS sobre o bruto, PIS/COFINS sobre o líquido de ICMS). */
+function grossUpBandeira(liquida: number, aliq: { icms: number; pis: number; cofins: number }): number {
+  const icms = aliq.icms / 100;
+  const piscof = (aliq.pis + aliq.cofins) / 100;
+  const fator = 1 - icms - (1 - icms) * piscof;
+  if (!(fator > 0)) return liquida;
+  return liquida / fator;
+}
 const BANDEIRA_ITEM_KEYS: Record<Exclude<BandeiraTipo, 'verde'>, string[]> = {
   amarela:    ['bandeira_amarela_ponta', 'bandeira_amarela_fora'],
   vermelha_1: ['bandeira_vermelha_1_ponta', 'bandeira_vermelha_1_fora'],
@@ -295,6 +316,9 @@ export function FaturaCopelTab() {
       bandeira_vigente: bandeiraVigente,
       bandeira_tarifa_oficial: fc.bandeira_tarifa_oficial
         || fmtBR(BANDEIRA_TABELA[bandeiraVigente].valor, 4),
+      bandeira_tarifa_liquida: fc.bandeira_tarifa_liquida
+        || (fc.bandeira_tarifa_oficial ? '' : fmtBR(BANDEIRA_TABELA_LIQUIDA[bandeiraVigente], 4)),
+      bandeira_tarifa_manual: !!fc.bandeira_tarifa_manual,
     });
     const ep = Number((t.data as any)?.perdas_energy_ponta_kwh) || 0;
     const ef = Number((t.data as any)?.perdas_energy_fora_kwh) || 0;
@@ -522,21 +546,43 @@ export function FaturaCopelTab() {
       'bandeira_vermelha_2_ponta', 'bandeira_vermelha_2_fora',
     ];
     const copelReais = keys.reduce((s, k) => s + parseBR(it[k]?.valor || ''), 0);
+    // Preço unitário COM tributos digitado na própria fatura (R$/kWh → R$/100 kWh)
+    const precoFatura = keys.map((k) => parseBR(it[k]?.preco_unit || '')).find((v) => v > 0) || 0;
+    const tarifaFatura = precoFatura * 100;
     const baseKwh = copelPontaKwh + copelForaKwh + energyPontaNum + energyForaNum;
     const tarifaDerivada = baseKwh > 0 && copelReais > 0 ? (copelReais * 100) / baseKwh : 0;
-    const tarifaOficial = parseBR(faturaItens.bandeira_tarifa_oficial || '');
+    // Tarifa líquida (sem tributos): campo salvo, ou engenharia reversa do valor
+    // legado gravado em bandeira_tarifa_oficial, ou a tabela ANEEL.
+    const salvaLiquida = parseBR(faturaItens.bandeira_tarifa_liquida || '');
+    const salvaBruta = parseBR(faturaItens.bandeira_tarifa_oficial || '');
+    const fatorGross = grossUpBandeira(1, aliquotas);
+    const tarifaLiquida = salvaLiquida > 0
+      ? salvaLiquida
+      : (salvaBruta > 0 ? salvaBruta / (fatorGross || 1) : BANDEIRA_TABELA_LIQUIDA[bandeiraTipo]);
+    const tarifaBrutaCalc = grossUpBandeira(tarifaLiquida, aliquotas);
+    // Manual: usuário sobrescreveu a tarifa com tributos
+    const tarifaOficial = faturaItens.bandeira_tarifa_manual && salvaBruta > 0 ? salvaBruta : tarifaBrutaCalc;
     const totalOficial = (baseKwh / 100) * tarifaOficial;
     const totalDerivado = (baseKwh / 100) * tarifaDerivada;
     const tarifaAtiva = bandeiraModo === 'oficial' ? tarifaOficial : tarifaDerivada;
     const totalAtivo = bandeiraModo === 'oficial' ? totalOficial : totalDerivado;
-    return { copelReais, baseKwh, tarifaDerivada, tarifaOficial, totalOficial, totalDerivado, tarifaAtiva, totalAtivo };
-  }, [faturaItens.itens, faturaItens.bandeira_tarifa_oficial, bandeiraModo, copelPontaKwh, copelForaKwh, energyPontaNum, energyForaNum]);
+    return {
+      copelReais, baseKwh, tarifaDerivada, tarifaOficial, totalOficial, totalDerivado,
+      tarifaAtiva, totalAtivo, tarifaLiquida, tarifaBrutaCalc, tarifaFatura,
+    };
+  }, [
+    faturaItens.itens, faturaItens.bandeira_tarifa_oficial, faturaItens.bandeira_tarifa_liquida,
+    faturaItens.bandeira_tarifa_manual, bandeiraModo, bandeiraTipo, aliquotas,
+    copelPontaKwh, copelForaKwh, energyPontaNum, energyForaNum,
+  ]);
 
   const setBandeiraTipo = (tipo: BandeiraTipo) => {
     setFaturaItens((p) => ({
       ...p,
       bandeira_vigente: tipo,
-      bandeira_tarifa_oficial: fmtBR(BANDEIRA_TABELA[tipo].valor, 4),
+      bandeira_tarifa_liquida: fmtBR(BANDEIRA_TABELA_LIQUIDA[tipo], 4),
+      bandeira_tarifa_manual: false,
+      bandeira_tarifa_oficial: fmtBR(grossUpBandeira(BANDEIRA_TABELA_LIQUIDA[tipo], aliquotas), 4),
     }));
   };
 
@@ -561,7 +607,9 @@ export function FaturaCopelTab() {
       itens: it,
       bandeira_modo: bandeiraModo,
       bandeira_vigente: bandeiraTipo,
-      bandeira_tarifa_oficial: faturaItens.bandeira_tarifa_oficial || fmtBR(BANDEIRA_TABELA[bandeiraTipo].valor, 4),
+      bandeira_tarifa_liquida: fmtBR(bandeiraInfo.tarifaLiquida, 4),
+      bandeira_tarifa_manual: !!faturaItens.bandeira_tarifa_manual,
+      bandeira_tarifa_oficial: fmtBR(bandeiraInfo.tarifaOficial, 4),
     };
     const v = (k: CopelItemKey) => parseBR(it[k]?.valor || '');
     const q = (k: CopelItemKey) => parseBR(it[k]?.quant || '');
@@ -745,6 +793,7 @@ export function FaturaCopelTab() {
               </div>
 
               {bandeiraModo === 'oficial' && (
+                <div className="space-y-2">
                 <div className="flex flex-wrap items-end gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs">Bandeira vigente</Label>
@@ -758,15 +807,51 @@ export function FaturaCopelTab() {
                     </Select>
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Tarifa (R$/100 kWh)</Label>
+                    <Label className="text-xs">Tarifa ANEEL — sem tributos (R$/100 kWh)</Label>
                     <Input
                       type="text" inputMode="decimal" disabled={isLocked}
-                      className="h-8 w-[140px] text-xs text-right bg-yellow-50 dark:bg-yellow-950/30 border-yellow-300/60"
+                      className="h-8 w-[170px] text-xs text-right bg-yellow-50 dark:bg-yellow-950/30 border-yellow-300/60"
                       onFocus={(e) => e.currentTarget.select()}
-                      value={faturaItens.bandeira_tarifa_oficial || ''}
-                      onChange={(e) => setFaturaItens((p) => ({ ...p, bandeira_tarifa_oficial: e.target.value }))}
+                      value={faturaItens.bandeira_tarifa_liquida ?? fmtBR(bandeiraInfo.tarifaLiquida, 4)}
+                      onChange={(e) => setFaturaItens((p) => ({ ...p, bandeira_tarifa_liquida: e.target.value, bandeira_tarifa_manual: false }))}
                     />
+                    <div className="text-[10px] text-muted-foreground">Coluna “Tarifa unit. (R$)” × 100 da fatura</div>
                   </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Tarifa COM tributos — usada na cobrança</Label>
+                    <Input
+                      type="text" inputMode="decimal" disabled={isLocked}
+                      className="h-8 w-[190px] text-xs text-right font-semibold bg-primary/5 border-primary/40"
+                      onFocus={(e) => e.currentTarget.select()}
+                      value={faturaItens.bandeira_tarifa_manual
+                        ? (faturaItens.bandeira_tarifa_oficial || '')
+                        : fmtBR(bandeiraInfo.tarifaBrutaCalc, 4)}
+                      onChange={(e) => setFaturaItens((p) => ({ ...p, bandeira_tarifa_oficial: e.target.value, bandeira_tarifa_manual: true }))}
+                    />
+                    <div className="text-[10px] text-muted-foreground">
+                      {faturaItens.bandeira_tarifa_manual ? (
+                        <button type="button" className="underline" onClick={() => setFaturaItens((p) => ({ ...p, bandeira_tarifa_manual: false }))}>
+                          Sobrescrito — voltar ao calculado ({fmtBR(bandeiraInfo.tarifaBrutaCalc, 4)})
+                        </button>
+                      ) : (
+                        <>ICMS {fmtBR(aliquotas.icms, 2)}% + PIS/COFINS {fmtBR(aliquotas.pis + aliquotas.cofins, 2)}% embutidos</>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                {bandeiraInfo.tarifaFatura > 0 && bandeiraInfo.tarifaOficial > 0 &&
+                  Math.abs(bandeiraInfo.tarifaFatura - bandeiraInfo.tarifaOficial) / bandeiraInfo.tarifaFatura > 0.005 && (
+                  <div className="text-[11px] text-amber-600 dark:text-amber-400 flex flex-wrap items-center gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    A fatura traz <strong>{fmtBR(bandeiraInfo.tarifaFatura, 4)}</strong> R$/100 kWh com tributos (preço unit. das linhas de bandeira).
+                    <button
+                      type="button" className="underline" disabled={isLocked}
+                      onClick={() => setFaturaItens((p) => ({ ...p, bandeira_tarifa_oficial: fmtBR(bandeiraInfo.tarifaFatura, 4), bandeira_tarifa_manual: true }))}
+                    >
+                      usar o valor da fatura
+                    </button>
+                  </div>
+                )}
                 </div>
               )}
 
@@ -774,7 +859,8 @@ export function FaturaCopelTab() {
               <div className="grid sm:grid-cols-2 gap-2 text-xs">
                 <div className={`rounded-md border p-3 space-y-1 ${bandeiraModo === 'oficial' ? 'border-primary bg-primary/5' : ''}`}>
                   <div className="font-semibold">Tarifa oficial (planilha)</div>
-                  <div className="text-muted-foreground">Tarifa: <strong className="text-foreground">{fmtBR(bandeiraInfo.tarifaOficial, 4)}</strong> R$/100 kWh</div>
+                  <div className="text-muted-foreground">Tarifa ANEEL (sem tributos): <strong className="text-foreground">{fmtBR(bandeiraInfo.tarifaLiquida, 4)}</strong> R$/100 kWh</div>
+                  <div className="text-muted-foreground">Tarifa cobrada (com tributos): <strong className="text-foreground">{fmtBR(bandeiraInfo.tarifaOficial, 4)}</strong> R$/100 kWh</div>
                   <div className="text-muted-foreground">Total cobrado dos clientes: <strong className="text-foreground">{brl(bandeiraInfo.totalOficial)}</strong></div>
                   <div className="text-muted-foreground">
                     Sobra/falta vs. Copel: <strong className="text-foreground">{brl(bandeiraInfo.totalOficial - bandeiraInfo.copelReais)}</strong>
@@ -795,6 +881,12 @@ export function FaturaCopelTab() {
               <details className="text-[11px] text-muted-foreground">
                 <summary className="cursor-pointer text-foreground font-medium">Como é calculado (os dois jeitos)</summary>
                 <div className="mt-2 space-y-2">
+                  <div>
+                    <strong className="text-foreground">Por que “com tributos”:</strong> o motor de rateio soma a bandeira
+                    direto no total do cliente, sem aplicar imposto depois. Por isso a tarifa usada precisa já conter
+                    ICMS e PIS/COFINS — é o mesmo número da coluna “Preço unit (R$) com tributos” da fatura da Copel.
+                    O app parte da tarifa oficial líquida e embute os tributos: <em>líquida ÷ (1 − ICMS − (1 − ICMS) × PIS/COFINS)</em>.
+                  </div>
                   <div>
                     <strong className="text-foreground">Tarifa oficial (planilha):</strong> cada cliente paga
                     <em> ((consumo + perdas rateadas) ÷ 100) × tarifa tabelada da ANEEL</em>. É o preço público da bandeira,

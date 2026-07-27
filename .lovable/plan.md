@@ -1,45 +1,40 @@
-## Objetivo
+## Diagnóstico
 
-Reorganizar a tela **Faturas por Cliente** (`src/components/admin/energia/FaturasTab.tsx`) para ficar direta: três números no topo (Copel, Energy, Diferença), multas logo abaixo, e a Área Comum visível na lista de clientes.
+Na fatura da Copel a bandeira amarela aparece com dois números:
 
-## 1. Topo enxuto — 3 blocos
+- **Tarifa unit. (R$)** = 0,018850 → 1,8850 R$/100 kWh (**sem** tributos, é a tarifa oficial da ANEEL)
+- **Preço unit com tributos** = 0,025511 → 2,5511 R$/100 kWh (**com** PIS/COFINS e ICMS embutidos)
 
-Substituir os 4 KPIs atuais + os blocos "Passo 1 / Passo 2 / Conta final" por uma faixa única:
+No código (`FaturaCopelTab.tsx` → `bandeira_valor`), esse campo é repassado direto ao motor de rateio (`src/lib/energia-rateio.ts`), que faz `bandeira = ((kWh + perdas)/100) × bandeira_valor` e soma esse resultado no total do cliente **sem aplicar imposto nenhum em cima**.
 
-```text
-┌ FATURA COPEL ──┐   ┌ FATURA ENERGY ─┐   ┌ DIFERENÇA ─────┐
-│ R$ 316.407,05  │ → │ R$ 316.801,68  │ = │ R$ 394,63      │
-│ valor da conta │   │ 21 clientes    │   │ a maior        │
-└────────────────┘   └────────────────┘   └────────────────┘
-```
+Conclusão: o preenchimento atual (1,885) está **incorreto** — está cobrando ~26% a menos de bandeira. O campo precisa da tarifa **com tributos**. Por isso a tabela interna já traz 2,5464 como padrão para a amarela (valor bruto aproximado); a fatura de junho traz 2,5511 porque o bruto depende das alíquotas do mês.
 
-- **Fatura Copel**: `copel_valor_total`.
-- **Fatura Energy**: soma das faturas dos clientes (`totalGeral`), com o nº de clientes como subtítulo.
-- **Diferença**: `Energy − Copel`, colorida (verde < R$ 1, âmbar < R$ 50, vermelho acima).
-- Logo abaixo da Diferença, uma linha discreta: `bruta 394,63 − multa 6.296,57 − créd/déb 2,87 = residual −5.904,81`, com um "ver detalhe" que abre o passo a passo atual (mantido, mas fechado por padrão em vez de dominar a tela).
-- Os toggles (modo de perdas, área comum) e o Exportar CSV viram uma barra fina acima dos três blocos.
+## O que fazer
 
-## 2. Abaixo da Fatura Energy: multas e clientes
+### 1. Trocar o campo por dois, com o cálculo explícito
 
-Ordem vertical passa a ser:
+No bloco "Bandeira tarifária — como cobrar do cliente" (modo *Tarifa oficial*):
 
-1. Faixa Copel · Energy · Diferença
-2. **Multas de ultrapassagem** — tabela já existente, agora sempre visível (não mais aninhada dentro do bloco de diferenças), com total de kW e R$; se não houver multa, uma linha curta "Nenhuma ultrapassagem nesta competência".
-3. **Clientes** — sidebar + fatura detalhada, como hoje.
+- **Tarifa ANEEL (sem tributos)** — campo editável, pré-preenchido pela bandeira vigente com o valor oficial líquido (verde 0 / amarela 1,8850 / vermelha P1 e P2 nos valores vigentes).
+- **Tarifa com tributos (usada na cobrança)** — calculada automaticamente a partir das alíquotas da competência (ICMS, PIS, COFINS já cadastradas), na mesma ordem usada no resto do sistema: ICMS sobre o bruto e PIS/COFINS sobre o líquido de ICMS. Exibida em destaque e com opção de sobrescrever manualmente quando a fatura trouxer um valor diferente.
 
-## 3. Área Comum na lista de clientes
+É essa tarifa com tributos que segue para `bandeira_valor`.
 
-Hoje, com "Ratear por m²" ligado, `redistribuirAreaComumPorArea` remove o bucket `AREA_COMUM` e ele desaparece da lista.
+### 2. Conferência contra a própria fatura
 
-Mudança:
+Abaixo dos campos, uma linha de validação comparando a tarifa com tributos calculada com o **preço unitário com tributos** já digitado nas linhas "ADICIONAL BAND." da fatura Copel (0,025511 × 100). Se divergir mais que ~0,5%, mostra um aviso discreto sugerindo usar o valor da fatura.
 
-- Calcular e guardar o bucket da Área Comum **antes** da redistribuição.
-- Exibi-lo sempre na lista de clientes, no fim, com selo **"rateada por m²"** quando o modo de rateio estiver ativo (ou sem selo, como cliente normal, no modo "Separada").
-- No modo rateado, a linha é informativa: mostra o valor bruto da Área Comum e **não** entra no somatório "Fatura Energy" (evita contagem dupla) — indicado por um texto curto "já distribuída nos clientes acima".
-- Ao selecioná-la, abre a fatura detalhada normal da Área Comum (consumo, perdas, impostos, crédito fotovoltaico).
+### 3. Rótulos e ajuda
+
+- Renomear o campo atual para deixar explícito "com tributos" / "sem tributos".
+- Atualizar o texto do resumo (hoje "Tarifa: 1,8850 R$/100 kWh") para mostrar as duas linhas: oficial e cobrada.
+- Ajustar o "Como é calculado (os dois jeitos)" para incluir o gross-up.
+
+### 4. Compatibilidade
+
+Competências já salvas continuam funcionando: se só existir `bandeira_tarifa_oficial` gravada, ela é lida como a tarifa com tributos (comportamento atual), e o campo líquido é derivado por engenharia reversa das alíquotas.
 
 ## Detalhes técnicos
 
-- Alterações concentradas em `FaturasTab.tsx` (apresentação): novo layout do header, extração do bucket `AREA_COMUM` do resultado de `agruparPorCliente` antes de `redistribuirAreaComumPorArea`, e inclusão dele em `faturasFiltradas`/sidebar com flag `informativa`.
-- `totalGeral`, `totalUltrapassagem`, `totalCredito` continuam somando apenas as faturas efetivas (exclui a Área Comum informativa).
-- Nenhuma mudança em `src/lib/energia-rateio.ts` nem no banco.
+- Alterações concentradas em `src/components/admin/energia/FaturaCopelTab.tsx`: nova constante com as tarifas ANEEL líquidas, novo campo `bandeira_tarifa_liquida` no JSONB `fatura_copel_itens`, cálculo do bruto em `bandeiraInfo`, e `bandeira_valor` passando a usar sempre a tarifa bruta.
+- Nenhuma mudança em `src/lib/energia-rateio.ts` nem no banco (o JSONB já é livre).
