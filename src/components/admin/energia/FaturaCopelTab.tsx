@@ -812,31 +812,31 @@ export function FaturaCopelTab() {
                     </Select>
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Tarifa ANEEL — sem tributos (R$/100 kWh)</Label>
+                    <Label className="text-xs">Tarifa ANEEL — sem tributos (R$/kWh)</Label>
                     <Input
                       type="text" inputMode="decimal" disabled={isLocked}
-                      className="h-8 w-[170px] text-xs text-right bg-yellow-50 dark:bg-yellow-950/30 border-yellow-300/60"
+                      className="h-8 w-[180px] text-xs text-right bg-yellow-50 dark:bg-yellow-950/30 border-yellow-300/60"
                       onFocus={(e) => e.currentTarget.select()}
-                      value={faturaItens.bandeira_tarifa_liquida ?? fmtBR(bandeiraInfo.tarifaLiquida, 4)}
+                      value={faturaItens.bandeira_tarifa_liquida ?? fmtBR(bandeiraInfo.tarifaLiquida, 6)}
                       onChange={(e) => setFaturaItens((p) => ({ ...p, bandeira_tarifa_liquida: e.target.value, bandeira_tarifa_manual: false }))}
                     />
-                    <div className="text-[10px] text-muted-foreground">Coluna “Tarifa unit. (R$)” × 100 da fatura</div>
+                    <div className="text-[10px] text-muted-foreground">Igual à coluna “Tarifa unit. (R$)” da fatura (ex.: 0,018850)</div>
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Tarifa COM tributos — usada na cobrança</Label>
+                    <Label className="text-xs">Tarifa COM tributos — usada na cobrança (R$/kWh)</Label>
                     <Input
                       type="text" inputMode="decimal" disabled={isLocked}
                       className="h-8 w-[190px] text-xs text-right font-semibold bg-primary/5 border-primary/40"
                       onFocus={(e) => e.currentTarget.select()}
                       value={faturaItens.bandeira_tarifa_manual
                         ? (faturaItens.bandeira_tarifa_oficial || '')
-                        : fmtBR(bandeiraInfo.tarifaBrutaCalc, 4)}
+                        : fmtBR(bandeiraInfo.tarifaBrutaCalc, 6)}
                       onChange={(e) => setFaturaItens((p) => ({ ...p, bandeira_tarifa_oficial: e.target.value, bandeira_tarifa_manual: true }))}
                     />
                     <div className="text-[10px] text-muted-foreground">
                       {faturaItens.bandeira_tarifa_manual ? (
                         <button type="button" className="underline" onClick={() => setFaturaItens((p) => ({ ...p, bandeira_tarifa_manual: false }))}>
-                          Sobrescrito — voltar ao calculado ({fmtBR(bandeiraInfo.tarifaBrutaCalc, 4)})
+                          Sobrescrito — voltar ao calculado ({fmtBR(bandeiraInfo.tarifaBrutaCalc, 6)})
                         </button>
                       ) : (
                         <>ICMS {fmtBR(aliquotas.icms, 2)}% + PIS/COFINS {fmtBR(aliquotas.pis + aliquotas.cofins, 2)}% embutidos</>
@@ -848,10 +848,10 @@ export function FaturaCopelTab() {
                   Math.abs(bandeiraInfo.tarifaFatura - bandeiraInfo.tarifaOficial) / bandeiraInfo.tarifaFatura > 0.005 && (
                   <div className="text-[11px] text-amber-600 dark:text-amber-400 flex flex-wrap items-center gap-1">
                     <AlertTriangle className="h-3 w-3" />
-                    A fatura traz <strong>{fmtBR(bandeiraInfo.tarifaFatura, 4)}</strong> R$/100 kWh com tributos (preço unit. das linhas de bandeira).
+                    A fatura traz <strong>{fmtBR(bandeiraInfo.tarifaFatura, 6)}</strong> R$/kWh com tributos (preço unit. das linhas de bandeira).
                     <button
                       type="button" className="underline" disabled={isLocked}
-                      onClick={() => setFaturaItens((p) => ({ ...p, bandeira_tarifa_oficial: fmtBR(bandeiraInfo.tarifaFatura, 4), bandeira_tarifa_manual: true }))}
+                      onClick={() => setFaturaItens((p) => ({ ...p, bandeira_tarifa_oficial: fmtBR(bandeiraInfo.tarifaFatura, 6), bandeira_tarifa_manual: true }))}
                     >
                       usar o valor da fatura
                     </button>
@@ -864,8 +864,8 @@ export function FaturaCopelTab() {
               <div className="grid sm:grid-cols-2 gap-2 text-xs">
                 <div className={`rounded-md border p-3 space-y-1 ${bandeiraModo === 'oficial' ? 'border-primary bg-primary/5' : ''}`}>
                   <div className="font-semibold">Tarifa oficial (planilha)</div>
-                  <div className="text-muted-foreground">Tarifa ANEEL (sem tributos): <strong className="text-foreground">{fmtBR(bandeiraInfo.tarifaLiquida, 4)}</strong> R$/100 kWh</div>
-                  <div className="text-muted-foreground">Tarifa cobrada (com tributos): <strong className="text-foreground">{fmtBR(bandeiraInfo.tarifaOficial, 4)}</strong> R$/100 kWh</div>
+                  <div className="text-muted-foreground">Tarifa ANEEL (sem tributos): <strong className="text-foreground">{fmtBR(bandeiraInfo.tarifaLiquida, 6)}</strong> R$/kWh</div>
+                  <div className="text-muted-foreground">Tarifa cobrada (com tributos): <strong className="text-foreground">{fmtBR(bandeiraInfo.tarifaOficial, 6)}</strong> R$/kWh</div>
                   <div className="text-muted-foreground">Total cobrado dos clientes: <strong className="text-foreground">{brl(bandeiraInfo.totalOficial)}</strong></div>
                   <div className="text-muted-foreground">
                     Sobra/falta vs. Copel: <strong className="text-foreground">{brl(bandeiraInfo.totalOficial - bandeiraInfo.copelReais)}</strong>
@@ -873,7 +873,7 @@ export function FaturaCopelTab() {
                 </div>
                 <div className={`rounded-md border p-3 space-y-1 ${bandeiraModo === 'rateio' ? 'border-primary bg-primary/5' : ''}`}>
                   <div className="font-semibold">Rateio fechado (fatura Copel)</div>
-                  <div className="text-muted-foreground">Tarifa: <strong className="text-foreground">{fmtBR(bandeiraInfo.tarifaDerivada, 4)}</strong> R$/100 kWh</div>
+                  <div className="text-muted-foreground">Tarifa: <strong className="text-foreground">{fmtBR(bandeiraInfo.tarifaDerivada, 6)}</strong> R$/kWh</div>
                   <div className="text-muted-foreground">Total cobrado dos clientes: <strong className="text-foreground">{brl(bandeiraInfo.totalDerivado)}</strong></div>
                   <div className="text-muted-foreground">Sobra/falta vs. Copel: <strong className="text-foreground">{brl(0)}</strong></div>
                 </div>
