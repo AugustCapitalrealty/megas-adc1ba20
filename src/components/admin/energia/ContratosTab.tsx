@@ -47,6 +47,28 @@ interface ModuloVinculoDraft {
 
 const BUCKET = 'energia-contratos';
 const todayISO = () => new Date().toISOString().slice(0, 10);
+const br = (iso?: string | null) => (iso ? iso.split('-').reverse().join('/') : '—');
+
+type VigStatus = 'inativo' | 'futuro' | 'encerrado' | 'vigente';
+function vigenciaStatus(c: { ativo: boolean; vigencia_inicio: string; vigencia_fim: string | null }, hoje = todayISO()): VigStatus {
+  if (!c.ativo) return 'inativo';
+  if (c.vigencia_inicio > hoje) return 'futuro';
+  if (c.vigencia_fim && c.vigencia_fim < hoje) return 'encerrado';
+  return 'vigente';
+}
+const STATUS_META: Record<VigStatus, { label: string; variant: 'default' | 'secondary' | 'outline' }> = {
+  vigente: { label: 'Ativo', variant: 'default' },
+  encerrado: { label: 'Encerrado', variant: 'outline' },
+  futuro: { label: 'Futuro', variant: 'outline' },
+  inativo: { label: 'Inativo', variant: 'secondary' },
+};
+
+/** Dois intervalos [ini, fim] (fim nulo = infinito) se sobrepõem? */
+function overlaps(aIni: string, aFim: string | null, bIni: string, bFim: string | null) {
+  const aEnd = aFim || '9999-12-31';
+  const bEnd = bFim || '9999-12-31';
+  return aIni <= bEnd && bIni <= aEnd;
+}
 
 export function ContratosTab({ initialFocusContratoId, onFocusHandled }: { initialFocusContratoId?: string | null; onFocusHandled?: () => void } = {}) {
   const { user } = useAuth();
@@ -102,8 +124,7 @@ export function ContratosTab({ initialFocusContratoId, onFocusHandled }: { initi
   const filtered = useMemo(() => {
     return contratos.filter((c) => {
       if (filterCliente !== '__all__' && c.cliente_id !== filterCliente) return false;
-      if (filterAtivo === 'ativos' && !c.ativo) return false;
-      if (filterAtivo === 'inativos' && c.ativo) return false;
+      if (filterAtivo !== 'todos' && vigenciaStatus(c) !== filterAtivo) return false;
       return true;
     });
   }, [contratos, filterCliente, filterAtivo]);
