@@ -1,48 +1,58 @@
-## Diagnóstico UX/UI atual (o que li no código)
+## Quem está "certo"? Depende do objetivo
 
-O módulo hoje tem 3 abas principais (Painel / Operação Mensal / Cadastros Base) com sub-abas, e telas muito densas: `MemoriaCalculoTab` (1.648 linhas), `FaturasTab` (1.233), `FaturaCopelTab` (997). Problemas concretos:
+Os dois métodos calculam a bandeira tarifária, mas respondem a perguntas diferentes.
 
-1. **Navegação em dois níveis** (Tabs dentro de Tabs) — o usuário perde o senso de "onde estou" e de progresso do fechamento. O passo atual só aparece no Painel.
-2. **Competência**: seletor existe no Painel e repetido em cada aba; o contexto compartilhado já existe (`CompetenciaContext`), mas não há uma barra fixa mostrando "Competência 06/2026 • Rascunho" em todas as telas.
-3. **Preenchimento da Fatura Copel**: lista de itens longa, sem agrupamento visual (Consumo / Demanda / Bandeiras / Encargos / Créditos), sem foco automático no próximo campo, sem colar de PDF/planilha, e o badge de diferença aparece só no fim.
-4. **Lançamentos por módulo**: tabela editável com 6 sub-abas de colunas ("Demanda", "Consumo", "Tributos", "Completa"…). Não há indicação de quais módulos faltam, nem navegação por teclado tipo planilha (Tab/Enter/colar bloco), nem destaque de linhas incompletas ou fora do esperado.
-5. **Faturas por Cliente**: blocos de auditoria (memória de cálculo, impostos, diferenças, multas) empilhados; muita informação simultânea, sem hierarquia entre "resultado" e "prova do resultado".
-6. **Feedback de erro/validação**: diferenças e inconsistências aparecem como badges soltos, sem uma lista única de pendências acionáveis.
-7. **Emojis nos títulos** (📄, 👥, ☀️) e cores/estilos ad hoc, fora do design system Mega (PageHeader, KpiCard, StatusPill, DataTable, FilterToolbar, StandardModal).
+### Jeito da PLANILHA — "Tarifa oficial"
+```text
+Bandeira do cliente = ((consumo + perdas rateadas) / 100) × tarifa oficial ANEEL
+tarifa oficial = valor tabelado da bandeira vigente (ex.: amarela = 2,5464 R$/100 kWh)
+```
+- A tarifa é **fixa**, digitada/consultada em tabela (na planilha: `PARÂMETROS COPEL!E24` via VLOOKUP).
+- **Vantagem**: o cliente paga exatamente o preço público da bandeira — auditável contra a ANEEL.
+- **Desvantagem**: como se cobra bandeira também sobre as **perdas técnicas**, a soma cobrada dos clientes fica **maior** que o valor de bandeira que a Copel cobrou do condomínio. Essa sobra fica com o condomínio (ou some no arredondamento).
 
-## Proposta de redesign
+### Jeito do APP hoje — "Rateio fechado"
+```text
+tarifa = (R$ total de bandeira da fatura Copel × 100) / (kWh Copel + perdas Energy)
+Bandeira do cliente = ((consumo + perdas rateadas) / 100) × tarifa
+```
+- A tarifa é **derivada**: o total em R$ de bandeira lançado na Fatura Copel é redistribuído entre todos.
+- **Vantagem**: a soma cobrada dos clientes **fecha exatamente** com o que a Copel cobrou — zero sobra e zero furo.
+- **Desvantagem**: o R$/100 kWh que aparece na fatura do cliente não é o número oficial da ANEEL (fica um pouco menor, porque o denominador inclui as perdas). Isso gera questionamento de cliente que confere com a tabela pública.
 
-### A. Estrutura e navegação
-- Substituir Tabs aninhadas por um **stepper horizontal persistente** no topo: `1 Fatura Copel → 2 Lançamentos → 3 Conferência → 4 Faturas`, com estado por passo (pendente / com alerta / ok) e navegação por clique.
-- **Barra de competência fixa (sticky)** abaixo do PageHeader em todas as sub-telas: competência selecionada, status (Rascunho/Fechada), total Copel, botão "Fechar competência". Cadastros Base sai do fluxo mensal e vira uma entrada secundária (botão "Cadastros" no header), reduzindo o nível de abas para um só.
-- Painel vira a **home do fechamento**: KPIs (Total Copel, Total faturado, Diferença, Multas), checklist de pendências clicáveis e histórico das últimas competências.
+### Qual é mais justo
+- **Mais justo para o cliente / mais transparente**: tarifa oficial (planilha) — ele paga o preço publicado.
+- **Mais justo para o rateio como um todo / sem sobra**: rateio fechado (app atual) — ninguém paga a mais nem a menos que o total real da Copel.
+- **Recomendação**: usar o modo **Tarifa oficial** como padrão (é o que a planilha faz e o que o cliente consegue conferir), com o modo **Rateio fechado** disponível para quando a prioridade for fechar exatamente com a fatura da Copel.
 
-### B. Preenchimento (data entry)
-- **Fatura Copel**: agrupar itens em seções colapsáveis (Consumo, Demanda, Bandeiras, Perdas/Encargos, Créditos/Débitos, Impostos) com subtotal por seção; barra de conferência **sticky no rodapé** com "Soma dos itens × Total a pagar × Diferença" sempre visível; campos monetários com máscara pt-BR, seleção do conteúdo ao focar, Enter avança para o próximo campo; ação "Colar da fatura" que aceita texto colado e pré-preenche itens reconhecidos, para revisão antes de aplicar.
-- **Lançamentos**: comportamento de planilha — navegação por setas/Tab/Enter, colar bloco de células do Excel direto na tabela, coluna congelada com nome do módulo, linhas incompletas destacadas, chip "faltam N módulos" com filtro "somente pendentes", e indicador de autosave ("salvo às hh:mm") em vez de salvamento silencioso.
-- Substituir as 6 sub-abas de colunas por um **seletor de visão** (Essencial / Completa) + menu de colunas, com preferência lembrada por usuário.
+## O que será implementado
 
-### C. Visualizações
-- **Nova aba "Conferência"** (entre Lançamentos e Faturas), reunindo o que hoje está espalhado: Copel × Soma dos módulos (kWh ponta/fora, demanda, R$), perdas técnicas com % e memória, multas de ultrapassagem, créditos fotovoltaicos e a diferença residual — cada divergência com link direto ao campo de origem.
-- **Faturas por Cliente**: cartão de resultado por cliente (total, variação vs. mês anterior, status) com "ver memória de cálculo" em drawer lateral, em vez de blocos empilhados na página. Mantém a tabela de diferenças e multas em abas internas do drawer.
-- Gráficos leves e úteis: composição do valor faturado (consumo / demanda / perdas / bandeira / impostos) e evolução mensal por cliente.
-- Estados vazios e de carregamento consistentes (skeletons em vez de spinner central).
+**1. Botão de modo da bandeira (2 opções) na aba Fatura Copel**
+- Toggle "Modo da bandeira": `Tarifa oficial (planilha)` | `Rateio fechado (fatura Copel)`.
+- Padrão: **Tarifa oficial**.
 
-### D. Design system
-- Migrar títulos com emoji para ícones lucide + tokens semânticos; usar PageHeader, KpiCard, StatusPill, DataTable, FilterToolbar e StandardModal em todo o módulo; remover cores hardcoded.
+**2. Modo Tarifa oficial**
+- Seletor da bandeira vigente: Verde / Amarela / Vermelha P1 / Vermelha P2 (equivalente ao `D24` da planilha).
+- Campo editável **Tarifa (R$/100 kWh)**, pré-preenchido pela tabela de referência (Verde 0,0000 · Amarela 2,5464 · Vermelha P1 4,4630 · Vermelha P2 7,8770) — equivalente ao VLOOKUP.
+- Esse valor é o que vai para `bandeira_valor`.
 
-## Validação PM/PO
+**3. Modo Rateio fechado**
+- Mantém o cálculo atual (`FaturaCopelTab.tsx:474-489`): soma dos itens de bandeira × 100 ÷ (kWh Copel + perdas Energy).
 
-- **Objetivo**: reduzir o tempo de fechamento mensal e eliminar retrabalho por divergência não detectada.
-- **Critérios de aceite**: (1) qualquer divergência > R$1,00 aparece na aba Conferência com link para a origem; (2) é possível fechar a competência sem trocar de aba mais de 4 vezes; (3) colar dados do Excel preenche os lançamentos sem digitação campo a campo; (4) competência selecionada é única e visível em 100% das telas; (5) nenhum número muda de valor — só a apresentação.
-- **Riscos**: mudança de navegação exige reaprendizado; a colagem de PDF/Excel depende de formato — entra como assistida, com revisão obrigatória antes de aplicar.
-- **Fora de escopo**: nenhuma alteração nas fórmulas de cálculo, no schema do banco ou nas regras de rateio já validadas contra a planilha 06/2026.
+**4. Painel comparativo (sempre visível)**
+Um bloco pequeno mostrando lado a lado, para o mês selecionado:
+- tarifa oficial vs. tarifa derivada (R$/100 kWh);
+- total de bandeira que será cobrado dos clientes em cada modo;
+- total de bandeira lançado na Fatura Copel;
+- a **sobra/falta** resultante do modo escolhido, com a explicação curta dos dois métodos (o texto acima, resumido, em um popover "Como é calculado").
 
-## Sequência de execução
-1. Barra de competência sticky + stepper (RateioEnergiaTab, CompetenciaContext).
-2. Redesign do Painel com KPIs e checklist acionável.
-3. Fatura Copel: seções, rodapé de conferência, máscaras e navegação por teclado.
-4. Lançamentos: modo planilha, colagem em bloco, filtro de pendentes, autosave visível.
-5. Nova aba Conferência (realoca blocos hoje em FaturasTab).
-6. Faturas por Cliente: cartões + drawer de memória de cálculo.
-7. Passe final de design system e estados vazios/skeleton.
+**5. Sem mudança no motor de cálculo**
+- `src/lib/energia-rateio.ts` fica inalterado — as fórmulas BM/BN/BO já replicam a planilha; só muda a origem de `bandeira_valor`.
+
+## Detalhes técnicos
+- Reaproveita a coluna existente `energia_competencia_tarifas.bandeira_valor`; o modo escolhido e a bandeira vigente ficam no JSONB `fatura_copel_itens` (chaves `bandeira_modo`, `bandeira_vigente`) — sem migração de schema.
+- Competências já fechadas mantêm o valor salvo; a mudança vale para o que for recalculado daqui em diante.
+- Rótulo em `MemoriaCalculoTab.tsx:157` passa a refletir o modo ativo.
+
+## Validação
+No modo Tarifa oficial com 2,5464 em 202606, a linha "Bandeira Tarifária" do Restaurante Industrial (SODEXO) deve fechar em **R$ 1.103,75**, igual à planilha.
