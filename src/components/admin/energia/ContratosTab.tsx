@@ -384,13 +384,25 @@ function ContratoModal({
     return d.toISOString().slice(0, 10);
   };
 
+  /** Módulo ocupado por outro contrato SEM data de fim = bloqueio indefinido. */
+  const bloqueioIndefinido = (moduloId: string) =>
+    (ocupacaoPorModulo.get(moduloId) || []).some((o) => !o.fim);
+
+  /** Data inicial sugerida para o módulo: máx entre vigência padrão e liberação. */
+  const inicioSugerido = (moduloId: string) => {
+    const livre = livreApartirDe(moduloId);
+    if (livre && livre > vigInicio) return livre;
+    return vigInicio;
+  };
+
   const filteredModulos = useMemo(() => {
     const term = moduloSearch.trim().toLowerCase();
-    const list = term ? modulos.filter((m) => m.identificador.toLowerCase().includes(term)) : modulos;
-    // selecionados primeiro, bloqueados por último
+    const base = modulos.filter((m) => draftByModulo.has(m.id) || !bloqueioIndefinido(m.id));
+    const list = term ? base.filter((m) => m.identificador.toLowerCase().includes(term)) : base;
+    // selecionados primeiro, depois livres já, depois livres a partir de data futura
     return [...list].sort((a, b) => {
       const rank = (m: Modulo) =>
-        draftByModulo.has(m.id) ? 0 : conflitoDoModulo(m.id) ? 2 : 1;
+        draftByModulo.has(m.id) ? 0 : livreApartirDe(m.id) ? 2 : 1;
       const ra = rank(a), rb = rank(b);
       if (ra !== rb) return ra - rb;
       return a.identificador.localeCompare(b.identificador, undefined, { numeric: true });
@@ -400,7 +412,7 @@ function ContratoModal({
 
   const selectAllVisible = () => {
     filteredModulos.forEach((m) => {
-      if (!draftByModulo.has(m.id) && !conflitoDoModulo(m.id)) toggleModulo(m.id, true);
+      if (!draftByModulo.has(m.id)) toggleModulo(m.id, true);
     });
   };
   const clearAllVisible = () => {
