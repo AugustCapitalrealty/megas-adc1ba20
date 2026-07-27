@@ -7,6 +7,7 @@ import { Calendar, Lock, Unlock, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { useSharedCompetencia } from './CompetenciaContext';
+import { mesConsumo } from '@/lib/energia-vigencias';
 
 interface Competencia { id: string; ano_mes: string; status: 'rascunho' | 'fechada' }
 
@@ -106,6 +107,11 @@ export function EnergiaCompetenciaBar() {
           </SelectContent>
         </Select>
 
+        {currentComp && (
+          <span className="text-[11px] text-muted-foreground hidden md:inline">
+            consumo de {formatCompetencia(mesConsumo(currentComp.ano_mes))}
+          </span>
+        )}
         {currentComp && (
           <Badge variant={isLocked ? 'secondary' : 'default'} className="h-7">
             {isLocked ? 'Fechada' : 'Rascunho'}

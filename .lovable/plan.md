@@ -1,33 +1,36 @@
-## Objetivo
+## Problema
 
-No modal de contrato (Módulos vinculados), a lista deve refletir a realidade das vigências:
-
-1. Módulos cujo contrato anterior já tem data de fim (ex.: 1 e 2, ocupados pela VALIDAR02 até 25/06/2026) devem aparecer **selecionáveis**, com a indicação "livre a partir de 26/06/2026".
-2. Módulos ocupados por contrato **sem data de fim** (ocupação indefinida) **não aparecem na lista** — não há como liberá-los.
+Hoje a competência `2026-06` é usada como se o consumo fosse de junho. Como a fatura de junho cobre o consumo de maio, os contratos avaliados são os do mês errado — por isso o aviso de "troca de cliente no meio do mês" aparece indevidamente.
 
 ## O que muda
 
-**Arquivo:** `src/components/admin/energia/ContratosTab.tsx`
+### 1. Mês de consumo = competência − 1
 
-### 1. Filtro da lista
-- Um módulo é ocultado quando existe vínculo de outro contrato **sem `vigencia_fim`** e que já esteja vigente ou futuro (bloqueio permanente).
-- Exceção: se o módulo já estiver marcado no contrato atual, ele continua aparecendo (para permitir desmarcar).
+Novo helper em `src/lib/energia-vigencias.ts`:
+- `mesConsumo(anoMes)` → `'2026-06'` retorna `'2026-05'`.
+- `limitesCompetencia` continua igual (recebe já o mês de consumo).
 
-### 2. Módulos com fim definido = liberados
-- Deixam de ser tratados como conflito bloqueante. O checkbox fica habilitado e a linha mostra "livre a partir de dd/mm/aaaa" em vez de "ocupado por X até dd/mm/aaaa".
-- Ao marcar um desses módulos, a linha recebe automaticamente `vigencia_inicio` = dia seguinte ao fim da ocupação anterior (26/06/2026 no exemplo), em vez da vigência padrão do topo — evitando sobreposição.
-- Se a vigência padrão já for posterior à liberação, mantém-se a padrão.
+Passa a ser usado onde se resolve contrato/vigência:
+- `MemoriaCalculoTab.tsx` (`fetchCompData`): `refInicio`/`refFim` e `resolverPeriodosPorModulo` usam `mesConsumo(anoMes)`.
+- `FaturasTab.tsx`: `refFim` do fetch de vínculos e `resolverPeriodosPorModulo` usam `mesConsumo(currentComp.ano_mes)`.
 
-### 3. Validação ao salvar
-- A checagem de sobreposição continua ativa: se o usuário editar manualmente a data de uma linha e criar conflito, o save bloqueia nomeando módulo, contrato e datas exatas.
+Não muda: chave da competência no banco, tarifas, lançamentos, fatura Copel — tudo continua gravado sob `ano_mes` da competência.
 
-### 4. Selecionar todos / contadores
-- "Selecionar todos" passa a incluir os módulos liberados (usando a data de liberação por linha).
-- Contador "N selecionado" inalterado.
+### 2. Rótulos
+
+- `periodoCompetencia()` na fatura do cliente passa a exibir o período de consumo real (ex.: `01/05/2026 → 31/05/2026`) com o texto "Período de consumo".
+- Onde a competência é exibida, acrescentar sufixo discreto "(consumo de mai/2026)" na barra de competência e no card de fatura Copel da Memória de Cálculo.
+
+### 3. Aviso de troca — selo discreto
+
+- Remover o card amarelo "Troca de cliente no meio do mês" da Memória de Cálculo (o estado `trocasNoMes` vira um mapa `moduloId → períodos`).
+- Na linha do módulo (matriz de lançamentos e listas por contrato), quando houver mais de um período, mostrar um selo pequeno em texto secundário, ex.:
+  `VALIDAR02 até 25/05 · TORNADO a partir de 26/05`
+  com tooltip mostrando dias e percentual pro-rata de cada período.
+- O módulo aparece nos dois clientes normalmente na aba Faturas (comportamento pro-rata atual mantido).
 
 ## Detalhes técnicos
 
-- `ocupacaoPorModulo` ganha dois derivados: `bloqueioIndefinido(moduloId)` (algum vínculo sem `vigencia_fim`) e `livreApartirDe(moduloId)` (já existe).
-- `conflitoDoModulo` deixa de ser usada para desabilitar o checkbox; passa a ser usada apenas na validação de save e no aviso por linha.
-- `filteredModulos` aplica o filtro de bloqueio indefinido antes da ordenação; a ordenação passa a ser: selecionados → livres imediatamente → livres a partir de data futura.
-- `toggleModulo` recebe a data inicial calculada (`max(vigInicio, livreApartirDe)`).
+- `mesConsumo` faz aritmética de ano/mês pura em string, sem `Date`, evitando fuso.
+- Nenhuma migração de banco: a mudança é só de interpretação/apresentação no frontend.
+- Os cálculos de rateio pro-rata já existentes continuam intactos; apenas a janela de datas de entrada muda.

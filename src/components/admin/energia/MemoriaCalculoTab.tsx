@@ -20,7 +20,7 @@ import {
   type FaturaCliente,
 } from '@/lib/energia-rateio';
 import { useSharedCompetencia } from './CompetenciaContext';
-import { resolverPeriodosPorModulo, type PeriodoModulo } from '@/lib/energia-vigencias';
+import { resolverPeriodosPorModulo, mesConsumo, rotuloPeriodo, type PeriodoModulo } from '@/lib/energia-vigencias';
 
 interface Competencia {
   id: string;
@@ -206,7 +206,8 @@ export function MemoriaCalculoTab() {
   const [lancamentos, setLancamentos] = useState<Record<string, LancamentoRow>>({});
   const [contratoPorModulo, setContratoPorModulo] = useState<Record<string, ContratoVigente>>({});
   const [contratosVigentes, setContratosVigentes] = useState<ContratoGrupo[]>([]);
-  const [trocasNoMes, setTrocasNoMes] = useState<Array<{ modulo: string; periodos: PeriodoModulo[] }>>([]);
+  const [periodosPorModulo, setPeriodosPorModulo] = useState<Record<string, PeriodoModulo[]>>({});
+  const [mesRef, setMesRef] = useState<string>('');
   const [newAnoMes, setNewAnoMes] = useState(currentYM());
   const [creating, setCreating] = useState(false);
   const [faturaItens, setFaturaItens] = useState<FaturaCopelItens>({ itens: {}, tributos: {} });
@@ -275,9 +276,12 @@ export function MemoriaCalculoTab() {
 
     // Resolver contrato vigente por módulo para o mês da competência.
     // Um contrato é vigente no mês se sua vigência se sobrepõe a [primeiro_dia, último_dia].
-    const [yy, mm] = anoMes.split('-').map(Number);
-    const refInicio = `${anoMes}-01`;
-    const refFim = `${anoMes}-${String(new Date(yy, mm, 0).getDate()).padStart(2, '0')}`;
+    // A fatura da competência cobre o consumo do MÊS ANTERIOR.
+    const consumoMes = mesConsumo(anoMes);
+    setMesRef(consumoMes);
+    const [yy, mm] = consumoMes.split('-').map(Number);
+    const refInicio = `${consumoMes}-01`;
+    const refFim = `${consumoMes}-${String(new Date(yy, mm, 0).getDate()).padStart(2, '0')}`;
     const { data: vinculos, error: vErr } = await supabase
       .from('energia_contrato_modulos' as any)
       .select('modulo_id, vigencia_inicio, vigencia_fim, contrato:energia_contratos!inner(id, numero_contrato, demanda_contratada_kw, ativo, cliente_id)')
@@ -313,17 +317,11 @@ export function MemoriaCalculoTab() {
     }
     const grupos = new Map<string, ContratoGrupo>();
     if (!vErr && vinculos) {
-      // Determina, por módulo, qual contrato é o vigente "vencedor" (mesma regra do cMap)
-      const winner: Record<string, string> = {};
-      for (const mid of Object.keys(cMap)) {
-        winner[mid] = cMap[mid].numero_contrato;
-      }
       for (const v of vinculos as any[]) {
         const fim = v.vigencia_fim ? v.vigencia_fim : null;
         if (fim && fim < refInicio) continue;
         if (!v.contrato?.ativo) continue;
-        // só inclui se for o contrato vencedor do módulo
-        if (winner[v.modulo_id] !== v.contrato.numero_contrato) continue;
+        // Um módulo pode aparecer em 2 contratos no mesmo mês (troca no meio do mês).
         const cid = v.contrato.id;
         if (!grupos.has(cid)) {
           grupos.set(cid, {
@@ -341,16 +339,12 @@ export function MemoriaCalculoTab() {
     }
     setContratosVigentes(Array.from(grupos.values()));
 
-    // Detecta módulos que trocaram de cliente no meio do mês (rateio pro-rata na fatura)
+    // Períodos por módulo dentro do mês de consumo (pro-rata quando há troca)
     if (!vErr && vinculos) {
       const ids = Array.from(modulosById.keys());
-      const per = resolverPeriodosPorModulo(anoMes, vinculos as any, ids);
-      const trocas = ids
-        .filter((id) => (per[id]?.length ?? 0) > 1)
-        .map((id) => ({ modulo: modulosById.get(id)?.identificador || id, periodos: per[id] }));
-      setTrocasNoMes(trocas);
+      setPeriodosPorModulo(resolverPeriodosPorModulo(consumoMes, vinculos as any, ids));
     } else {
-      setTrocasNoMes([]);
+      setPeriodosPorModulo({});
     }
   }, []);
 
@@ -948,24 +942,6 @@ export function MemoriaCalculoTab() {
           </Card>
 
           {/* Consumo por Cliente — entrada principal do mês */}
-          {trocasNoMes.length > 0 && (
-            <Card className="border-amber-500/40 bg-amber-50/50 dark:bg-amber-950/20">
-              <CardContent className="py-3 text-xs space-y-1">
-                <div className="flex items-center gap-2 font-semibold">
-                  <AlertTriangle className="h-4 w-4 text-amber-600" />
-                  Troca de cliente no meio do mês — rateio por dias (pro-rata)
-                </div>
-                {trocasNoMes.map((t) => (
-                  <div key={t.modulo} className="text-muted-foreground">
-                    <strong>{t.modulo}</strong>: {t.periodos.map((p) => `${p.label} (${p.dias}d · ${(p.fator * 100).toFixed(1)}%)`).join(' → ')}
-                  </div>
-                ))}
-                <div className="text-muted-foreground">
-                  Lance o consumo do mês inteiro normalmente — a aba <strong>Faturas</strong> divide automaticamente entre os clientes na proporção dos dias.
-                </div>
-              </CardContent>
-            </Card>
-          )}
           <ConsumoClienteCard
             clientes={clientes}
             modulos={modulos}
@@ -983,6 +959,8 @@ export function MemoriaCalculoTab() {
               cf: (tarifas as any).copel_consumo_fora_kwh || 0,
             }}
             lancamentos={lancamentos}
+            periodosPorModulo={periodosPorModulo}
+            mesRef={mesRef}
           />
 
           {/* Matriz Memória de Cálculo */}
@@ -1423,8 +1401,10 @@ interface ConsumoClienteCardProps {
   isLocked: boolean;
   copelTotais: { d: number; cp: number; cf: number };
   lancamentos: Record<string, LancamentoRow>;
+  periodosPorModulo: Record<string, PeriodoModulo[]>;
+  mesRef: string;
 }
-function ConsumoClienteCard({ clientes, modulos, contratosVigentes, consumoCli, updateConsumoCli, entradaMedidor, setEntradaMedidor, onSave, saving, isLocked, copelTotais, lancamentos }: ConsumoClienteCardProps) {
+function ConsumoClienteCard({ clientes, modulos, contratosVigentes, consumoCli, updateConsumoCli, entradaMedidor, setEntradaMedidor, onSave, saving, isLocked, copelTotais, lancamentos, periodosPorModulo, mesRef }: ConsumoClienteCardProps) {
   const emCP = parseBR(entradaMedidor.cp || '');
   const emCF = parseBR(entradaMedidor.cf || '');
   const isAreaComum = (m: Modulo) => (m.tipo ? m.tipo === 'area_comum' : /(área|area) comum/i.test(m.identificador));
@@ -1448,6 +1428,7 @@ function ConsumoClienteCard({ clientes, modulos, contratosVigentes, consumoCli, 
     isVago?: boolean;
     isAreaComum?: boolean;
     demandaContratada: number;
+    contratoId?: string;
   }> = [];
 
   // Conta contratos por cliente para decidir se mostra número do contrato no nome
@@ -1469,6 +1450,7 @@ function ConsumoClienteCard({ clientes, modulos, contratosVigentes, consumoCli, 
       nome,
       modulos: mods,
       demandaContratada: c.demanda_contratada_kw || 0,
+      contratoId: c.contrato_id,
     });
   }
 
@@ -1553,7 +1535,27 @@ function ConsumoClienteCard({ clientes, modulos, contratosVigentes, consumoCli, 
                 return (
                   <tr key={g.key} className={g.isAreaComum ? 'bg-amber-50/40 dark:bg-amber-950/20' : ''}>
                     <td className={`${cell} font-semibold`}>{g.nome}</td>
-                    <td className={`${cell} text-[11px] text-muted-foreground`}>{g.modulos.map((m) => m.identificador).join(', ')}</td>
+                    <td className={`${cell} text-[11px] text-muted-foreground`}>
+                      {g.modulos.map((m, i) => {
+                        const per = periodosPorModulo[m.id] || [];
+                        const doGrupo = g.contratoId ? per.find((p) => p.contrato_id === g.contratoId) : null;
+                        const label = per.length > 1 && doGrupo ? rotuloPeriodo(doGrupo, mesRef) : '';
+                        return (
+                          <span key={m.id}>
+                            {i > 0 && ', '}
+                            {m.identificador}
+                            {label && (
+                              <span
+                                className="ml-1 text-[10px] text-amber-600 dark:text-amber-500"
+                                title={`Rateio por dias: ${doGrupo!.dias} dia(s) · ${(doGrupo!.fator * 100).toFixed(1)}% do mês`}
+                              >
+                                ({label})
+                              </span>
+                            )}
+                          </span>
+                        );
+                      })}
+                    </td>
                     <td className={`${cell} text-right tabular-nums`}>{fmt(g.demandaContratada)}</td>
                     <td className={cell}>{inp(c.demanda_kw, (s) => updateConsumoCli(g.key, 'demanda_kw', s))}</td>
                     <td className={cell}>{inp(c.consumo_ponta_kwh, (s) => updateConsumoCli(g.key, 'consumo_ponta_kwh', s))}</td>
