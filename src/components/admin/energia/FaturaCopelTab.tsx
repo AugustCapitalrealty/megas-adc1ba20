@@ -247,12 +247,26 @@ export function FaturaCopelTab() {
       if (idx >= 0) rawExtras.splice(idx, 1);
       if (!rawExtras.includes(newKey) && rawItens[newKey]) rawExtras.push(newKey);
     }
+    // Bandeira: default = jeito da planilha (tarifa oficial). Para competências
+    // antigas (sem escolha salva) detectamos a bandeira vigente pelos itens
+    // lançados e pré-preenchemos a tarifa tabelada.
+    let bandeiraVigente: BandeiraTipo = (fc.bandeira_vigente as BandeiraTipo) || 'verde';
+    if (!fc.bandeira_vigente) {
+      for (const tipo of ['vermelha_2', 'vermelha_1', 'amarela'] as const) {
+        const tem = BANDEIRA_ITEM_KEYS[tipo].some((k) => parseBR(rawItens[k]?.valor || '') > 0);
+        if (tem) { bandeiraVigente = tipo; break; }
+      }
+    }
     setFaturaItens({
       itens: rawItens,
       tributos: fc.tributos || {},
       total_a_pagar: fc.total_a_pagar || '',
       extras_keys: rawExtras,
       extras_labels: fc.extras_labels || {},
+      bandeira_modo: (fc.bandeira_modo as BandeiraModo) || 'oficial',
+      bandeira_vigente: bandeiraVigente,
+      bandeira_tarifa_oficial: fc.bandeira_tarifa_oficial
+        || fmtBR(BANDEIRA_TABELA[bandeiraVigente].valor, 4),
     });
     const ep = Number((t.data as any)?.perdas_energy_ponta_kwh) || 0;
     const ef = Number((t.data as any)?.perdas_energy_fora_kwh) || 0;
