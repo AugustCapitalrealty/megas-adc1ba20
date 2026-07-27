@@ -51,21 +51,24 @@ interface FaturaCopelItens {
 // ─── Bandeira tarifária ─────────────────────────────────────────────────
 export type BandeiraModo = 'oficial' | 'rateio';
 export type BandeiraTipo = 'verde' | 'amarela' | 'vermelha_1' | 'vermelha_2';
-/** Tabela de referência ANEEL (R$/100 kWh) — equivale ao VLOOKUP da planilha. */
+/** Tabela de referência ANEEL (R$/kWh, COM tributos) — equivale ao VLOOKUP da planilha. */
 const BANDEIRA_TABELA: Record<BandeiraTipo, { label: string; valor: number }> = {
   verde:      { label: 'Verde',        valor: 0 },
-  amarela:    { label: 'Amarela',      valor: 2.5464 },
-  vermelha_1: { label: 'Vermelha P1',  valor: 4.4630 },
-  vermelha_2: { label: 'Vermelha P2',  valor: 7.8770 },
+  amarela:    { label: 'Amarela',      valor: 0.025464 },
+  vermelha_1: { label: 'Vermelha P1',  valor: 0.044630 },
+  vermelha_2: { label: 'Vermelha P2',  valor: 0.078770 },
 };
-/** Tarifas oficiais ANEEL SEM tributos (R$/100 kWh) — é o número da coluna
+/** Tarifas oficiais ANEEL SEM tributos (R$/kWh) — é o número da coluna
  *  "Tarifa unit. (R$)" da fatura da Copel. */
 const BANDEIRA_TABELA_LIQUIDA: Record<BandeiraTipo, number> = {
   verde: 0,
-  amarela: 1.8850,
-  vermelha_1: 3.3010,
-  vermelha_2: 5.8270,
+  amarela: 0.018850,
+  vermelha_1: 0.033010,
+  vermelha_2: 0.058270,
 };
+/** Compat: competências antigas gravaram a tarifa em R$/100 kWh (ex.: 2,5511).
+ *  Como nenhuma bandeira real passa de 0,2 R$/kWh, valores ≥ 0,5 são escala antiga. */
+const toRsKwh = (n: number) => (n >= 0.5 ? n / 100 : n);
 /** Embute ICMS + PIS/COFINS na tarifa líquida (mesma ordem usada no resto do
  *  sistema: ICMS sobre o bruto, PIS/COFINS sobre o líquido de ICMS). */
 function grossUpBandeira(liquida: number, aliq: { icms: number; pis: number; cofins: number }): number {
