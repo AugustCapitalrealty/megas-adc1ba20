@@ -592,7 +592,7 @@ export function MemoriaCalculoTab() {
     const lancMap: Record<string, { d: number; cp: number; cf: number }> = {};
     for (const m of modulos) lancMap[m.id] = { d: 0, cp: 0, cf: 0 };
 
-    const isAreaComum = (m: Modulo) => /(área|area) comum/i.test(m.identificador);
+    const isAreaComum = (m: Modulo) => (m.tipo ? m.tipo === 'area_comum' : /(área|area) comum/i.test(m.identificador));
     const contratoModsById = new Map<string, Modulo[]>();
     for (const c of contratosVigentes) contratoModsById.set(c.contrato_id, c.modulos.filter((m) => !isAreaComum(m)));
     for (const cli of arr) {
@@ -1395,7 +1395,7 @@ interface ConsumoClienteCardProps {
 function ConsumoClienteCard({ clientes, modulos, contratosVigentes, consumoCli, updateConsumoCli, entradaMedidor, setEntradaMedidor, onSave, saving, isLocked, copelTotais, lancamentos }: ConsumoClienteCardProps) {
   const emCP = parseBR(entradaMedidor.cp || '');
   const emCF = parseBR(entradaMedidor.cf || '');
-  const isAreaComum = (m: Modulo) => /(área|area) comum/i.test(m.identificador);
+  const isAreaComum = (m: Modulo) => (m.tipo ? m.tipo === 'area_comum' : /(área|area) comum/i.test(m.identificador));
   const clienteMap = new Map(clientes.map((c) => [c.id, c]));
   // Chave numérica para ordenar identificadores tipo "1", "39A", "39B", "Restaurante"
   const modKey = (id: string): [number, string] => {
