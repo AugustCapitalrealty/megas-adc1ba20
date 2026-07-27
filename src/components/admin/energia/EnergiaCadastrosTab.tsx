@@ -382,6 +382,16 @@ export function EnergiaCadastrosTab({ onOpenContrato }: { onOpenContrato?: (cont
   }
 
   const totalArea = modulos.reduce((s, m) => s + Number(m.area_m2 || 0), 0);
+  const tipoDe = (m: EnergiaModulo): TipoUnidade => (m.tipo || 'modulo');
+  const modulosCount = modulos.filter(m => tipoDe(m) === 'modulo').length;
+  const especiaisCount = modulos.length - modulosCount;
+  // Módulos locáveis primeiro; áreas especiais (comum, restaurante, obra) ao final.
+  const modulosOrdenados = [...modulos].sort((a, b) => {
+    const ea = tipoDe(a) === 'modulo' ? 0 : 1;
+    const eb = tipoDe(b) === 'modulo' ? 0 : 1;
+    if (ea !== eb) return ea - eb;
+    return (a.ordem ?? 0) - (b.ordem ?? 0);
+  });
   const clienteLabel = (id: string | null) => {
     if (!id) return null;
     const c = clientes.find((x) => x.id === id);
