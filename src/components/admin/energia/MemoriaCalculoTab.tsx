@@ -20,6 +20,7 @@ import {
   type FaturaCliente,
 } from '@/lib/energia-rateio';
 import { useSharedCompetencia } from './CompetenciaContext';
+import { resolverPeriodosPorModulo, type PeriodoModulo } from '@/lib/energia-vigencias';
 
 interface Competencia {
   id: string;
@@ -205,6 +206,7 @@ export function MemoriaCalculoTab() {
   const [lancamentos, setLancamentos] = useState<Record<string, LancamentoRow>>({});
   const [contratoPorModulo, setContratoPorModulo] = useState<Record<string, ContratoVigente>>({});
   const [contratosVigentes, setContratosVigentes] = useState<ContratoGrupo[]>([]);
+  const [trocasNoMes, setTrocasNoMes] = useState<Array<{ modulo: string; periodos: PeriodoModulo[] }>>([]);
   const [newAnoMes, setNewAnoMes] = useState(currentYM());
   const [creating, setCreating] = useState(false);
   const [faturaItens, setFaturaItens] = useState<FaturaCopelItens>({ itens: {}, tributos: {} });
@@ -338,6 +340,18 @@ export function MemoriaCalculoTab() {
       }
     }
     setContratosVigentes(Array.from(grupos.values()));
+
+    // Detecta módulos que trocaram de cliente no meio do mês (rateio pro-rata na fatura)
+    if (!vErr && vinculos) {
+      const ids = Array.from(modulosById.keys());
+      const per = resolverPeriodosPorModulo(anoMes, vinculos as any, ids);
+      const trocas = ids
+        .filter((id) => (per[id]?.length ?? 0) > 1)
+        .map((id) => ({ modulo: modulosById.get(id)?.identificador || id, periodos: per[id] }));
+      setTrocasNoMes(trocas);
+    } else {
+      setTrocasNoMes([]);
+    }
   }, []);
 
   useEffect(() => {
@@ -934,6 +948,24 @@ export function MemoriaCalculoTab() {
           </Card>
 
           {/* Consumo por Cliente — entrada principal do mês */}
+          {trocasNoMes.length > 0 && (
+            <Card className="border-amber-500/40 bg-amber-50/50 dark:bg-amber-950/20">
+              <CardContent className="py-3 text-xs space-y-1">
+                <div className="flex items-center gap-2 font-semibold">
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  Troca de cliente no meio do mês — rateio por dias (pro-rata)
+                </div>
+                {trocasNoMes.map((t) => (
+                  <div key={t.modulo} className="text-muted-foreground">
+                    <strong>{t.modulo}</strong>: {t.periodos.map((p) => `${p.label} (${p.dias}d · ${(p.fator * 100).toFixed(1)}%)`).join(' → ')}
+                  </div>
+                ))}
+                <div className="text-muted-foreground">
+                  Lance o consumo do mês inteiro normalmente — a aba <strong>Faturas</strong> divide automaticamente entre os clientes na proporção dos dias.
+                </div>
+              </CardContent>
+            </Card>
+          )}
           <ConsumoClienteCard
             clientes={clientes}
             modulos={modulos}
