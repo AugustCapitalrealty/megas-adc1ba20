@@ -12,8 +12,14 @@ interface Competencia { id: string; ano_mes: string; status: 'rascunho' | 'fecha
 interface Status {
   copelLancada: boolean;
   totalCopel: number;
-  lancamentosCount: number;
-  modulosAtivos: number;
+  /** lançamentos preenchidos / total de módulos locáveis ativos */
+  modulosFeitos: number;
+  modulosTotal: number;
+  /** lançamentos preenchidos / total de áreas especiais (comum, restaurante, obra) */
+  especiaisFeitos: number;
+  especiaisTotal: number;
+  /** lançamentos de unidades que não estão mais ativas no cadastro */
+  orfaos: number;
 }
 
 interface Props {
@@ -59,18 +65,35 @@ export function EnergiaPainelTab({ onGoTo }: Props) {
         .from('energia_competencia_lancamentos')
         .select('modulo_id')
         .eq('competencia_id', compId),
-      supabase.from('energia_modulos').select('id').eq('ativo', true),
+      supabase.from('energia_modulos').select('id, tipo').eq('ativo', true),
     ]);
     const fc: any = (t.data as any)?.fatura_copel_itens || {};
     const totalCopel = Number(
       String(fc.total_a_pagar || '0').replace(/\./g, '').replace(',', '.'),
     ) || 0;
     const copelLancada = totalCopel > 0 || Object.keys(fc.itens || {}).length > 0;
+    const unidades = (m.data as any[] | null) || [];
+    const tipoPorId = new Map<string, string>(unidades.map((u) => [u.id, u.tipo || 'modulo']));
+    const modulosTotal = unidades.filter((u) => (u.tipo || 'modulo') === 'modulo').length;
+    const especiaisTotal = unidades.length - modulosTotal;
+    const lanc = (l.data as any[] | null) || [];
+    let modulosFeitos = 0, especiaisFeitos = 0, orfaos = 0;
+    const vistos = new Set<string>();
+    for (const row of lanc) {
+      const tipo = tipoPorId.get(row.modulo_id);
+      if (!tipo) { orfaos++; continue; }
+      if (vistos.has(row.modulo_id)) continue;
+      vistos.add(row.modulo_id);
+      if (tipo === 'modulo') modulosFeitos++; else especiaisFeitos++;
+    }
     setStatus({
       copelLancada,
       totalCopel,
-      lancamentosCount: (l.data as any[] | null)?.length || 0,
-      modulosAtivos: (m.data as any[] | null)?.length || 0,
+      modulosFeitos,
+      modulosTotal,
+      especiaisFeitos,
+      especiaisTotal,
+      orfaos,
     });
   }, []);
 
@@ -94,7 +117,11 @@ export function EnergiaPainelTab({ onGoTo }: Props) {
     );
   }
 
-  const lancamentosCompleto = status && status.modulosAtivos > 0 && status.lancamentosCount >= status.modulosAtivos;
+  const lancamentosCompleto =
+    !!status &&
+    status.modulosTotal > 0 &&
+    status.modulosFeitos >= status.modulosTotal &&
+    status.especiaisFeitos >= status.especiaisTotal;
 
   return (
     <div className="space-y-6">
