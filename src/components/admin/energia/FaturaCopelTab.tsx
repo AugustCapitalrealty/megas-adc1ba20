@@ -681,6 +681,107 @@ export function FaturaCopelTab() {
             />
           </div>
 
+          {/* Bandeira tarifária — modo de cálculo */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Lightbulb className="h-4 w-4 text-primary" /> Bandeira tarifária — como cobrar do cliente
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Escolha se a bandeira é cobrada pela tarifa oficial da ANEEL (igual à planilha) ou rateando exatamente o R$ lançado na fatura da Copel.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm" disabled={isLocked}
+                  variant={bandeiraModo === 'oficial' ? 'default' : 'outline'}
+                  onClick={() => setFaturaItens((p) => ({ ...p, bandeira_modo: 'oficial' }))}
+                >
+                  Tarifa oficial (planilha)
+                </Button>
+                <Button
+                  size="sm" disabled={isLocked}
+                  variant={bandeiraModo === 'rateio' ? 'default' : 'outline'}
+                  onClick={() => setFaturaItens((p) => ({ ...p, bandeira_modo: 'rateio' }))}
+                >
+                  Rateio fechado (fatura Copel)
+                </Button>
+              </div>
+
+              {bandeiraModo === 'oficial' && (
+                <div className="flex flex-wrap items-end gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Bandeira vigente</Label>
+                    <Select value={bandeiraTipo} disabled={isLocked} onValueChange={(v) => setBandeiraTipo(v as BandeiraTipo)}>
+                      <SelectTrigger className="h-8 w-[170px] text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {(Object.keys(BANDEIRA_TABELA) as BandeiraTipo[]).map((k) => (
+                          <SelectItem key={k} value={k}>{BANDEIRA_TABELA[k].label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Tarifa (R$/100 kWh)</Label>
+                    <Input
+                      type="text" inputMode="decimal" disabled={isLocked}
+                      className="h-8 w-[140px] text-xs text-right bg-yellow-50 dark:bg-yellow-950/30 border-yellow-300/60"
+                      onFocus={(e) => e.currentTarget.select()}
+                      value={faturaItens.bandeira_tarifa_oficial || ''}
+                      onChange={(e) => setFaturaItens((p) => ({ ...p, bandeira_tarifa_oficial: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Comparativo */}
+              <div className="grid sm:grid-cols-2 gap-2 text-xs">
+                <div className={`rounded-md border p-3 space-y-1 ${bandeiraModo === 'oficial' ? 'border-primary bg-primary/5' : ''}`}>
+                  <div className="font-semibold">Tarifa oficial (planilha)</div>
+                  <div className="text-muted-foreground">Tarifa: <strong className="text-foreground">{fmtBR(bandeiraInfo.tarifaOficial, 4)}</strong> R$/100 kWh</div>
+                  <div className="text-muted-foreground">Total cobrado dos clientes: <strong className="text-foreground">{brl(bandeiraInfo.totalOficial)}</strong></div>
+                  <div className="text-muted-foreground">
+                    Sobra/falta vs. Copel: <strong className="text-foreground">{brl(bandeiraInfo.totalOficial - bandeiraInfo.copelReais)}</strong>
+                  </div>
+                </div>
+                <div className={`rounded-md border p-3 space-y-1 ${bandeiraModo === 'rateio' ? 'border-primary bg-primary/5' : ''}`}>
+                  <div className="font-semibold">Rateio fechado (fatura Copel)</div>
+                  <div className="text-muted-foreground">Tarifa: <strong className="text-foreground">{fmtBR(bandeiraInfo.tarifaDerivada, 4)}</strong> R$/100 kWh</div>
+                  <div className="text-muted-foreground">Total cobrado dos clientes: <strong className="text-foreground">{brl(bandeiraInfo.totalDerivado)}</strong></div>
+                  <div className="text-muted-foreground">Sobra/falta vs. Copel: <strong className="text-foreground">{brl(0)}</strong></div>
+                </div>
+              </div>
+              <div className="text-[11px] text-muted-foreground">
+                Bandeira lançada na fatura Copel: <strong className="text-foreground">{brl(bandeiraInfo.copelReais)}</strong> ·
+                base do rateio: <strong className="text-foreground">{fmtBR(bandeiraInfo.baseKwh, 2)}</strong> kWh (consumo Copel + perdas)
+              </div>
+
+              <details className="text-[11px] text-muted-foreground">
+                <summary className="cursor-pointer text-foreground font-medium">Como é calculado (os dois jeitos)</summary>
+                <div className="mt-2 space-y-2">
+                  <div>
+                    <strong className="text-foreground">Tarifa oficial (planilha):</strong> cada cliente paga
+                    <em> ((consumo + perdas rateadas) ÷ 100) × tarifa tabelada da ANEEL</em>. É o preço público da bandeira,
+                    fácil de o cliente conferir. Como a bandeira também incide sobre as perdas técnicas, a soma cobrada
+                    fica um pouco <strong>maior</strong> que o valor de bandeira da fatura da Copel — essa sobra fica com o condomínio.
+                  </div>
+                  <div>
+                    <strong className="text-foreground">Rateio fechado (fatura Copel):</strong> a tarifa é derivada —
+                    <em> (R$ total de bandeira da Copel × 100) ÷ (kWh Copel + perdas)</em> — e depois aplicada da mesma forma.
+                    A soma cobrada dos clientes <strong>fecha exatamente</strong> com a Copel (sem sobra nem falta), mas o
+                    R$/100 kWh mostrado não é o número oficial da ANEEL.
+                  </div>
+                  <div>
+                    <strong className="text-foreground">Qual é mais justo:</strong> a tarifa oficial é mais transparente
+                    para o cliente; o rateio fechado é mais justo para o conjunto, porque ninguém paga mais nem menos
+                    que o total real da Copel.
+                  </div>
+                </div>
+              </details>
+            </CardContent>
+          </Card>
+
           {/* Itens + Tributos */}
           <div className="grid lg:grid-cols-[1fr,300px] gap-3">
             <Card>
