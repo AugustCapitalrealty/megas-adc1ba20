@@ -202,15 +202,11 @@ export function FaturasTab() {
     };
     const memoria = calcularMemoria(tarifasComPerdas, inputs, modoPerdas);
     const brutas = agruparPorCliente(memoria.linhas, agrupaModulos);
-    // Bucket da Área Comum ANTES da redistribuição — continua visível na lista
-    // de clientes mesmo quando o valor é rateado por m².
-    const areaBucket = brutas.find((f) => f.cliente_key === 'AREA_COMUM') || null;
-    // Replica RESUMO da planilha: valor líquido da Área Comum vai para os
-    // clientes proporcional à área locada (m²).
-    const fts = redistribuirAreaComumPorArea(brutas);
+    // Área Comum NÃO é rateada: é uma fatura própria da DEMERCADO (assim como
+    // a Obra) e entra na lista como mais um "cliente".
     return {
-      faturas: fts,
-      areaComumInfo: areaBucket,
+      faturas: brutas,
+      areaComumInfo: null,
       memoriaLinhas: memoria.linhas,
       fatias: fatiaMap,
       perdasResumo: {
