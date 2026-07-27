@@ -256,17 +256,20 @@ export function FaturasTab() {
   const totaisPorFatura = useMemo(() => {
     const map = new Map<string, ReturnType<typeof calcularTotalCliente>>();
     if (!tarifas) return map;
-    for (const f of faturas) {
+    for (const f of faturasExibidas) {
       const linhasF = linhasPorFatura(f);
       const demContrato = f.contrato_id ? (contratoDemandaPorId[f.contrato_id] || 0) : 0;
       map.set(f.cliente_key, calcularTotalCliente(linhasF, tarifas as EnergiaTarifas, demContrato));
     }
     return map;
-  }, [faturas, tarifas, linhasPorFatura, contratoDemandaPorId]);
+  }, [faturasExibidas, tarifas, linhasPorFatura, contratoDemandaPorId]);
 
-  const totalGeral = Array.from(totaisPorFatura.values()).reduce((s, t) => s + t.total, 0);
-  const totalUltrapassagem = Array.from(totaisPorFatura.values()).reduce((s, t) => s + t.rsUltrapassagem, 0);
-  const totalCredito = Array.from(totaisPorFatura.values()).reduce((s, t) => s + t.credito, 0);
+  // Somatórios consideram apenas as faturas efetivas (a Área Comum rateada é
+  // informativa e já está distribuída nos clientes — somá-la duplicaria valor).
+  const totaisEfetivos = faturas.map((f) => totaisPorFatura.get(f.cliente_key)).filter(Boolean) as Array<ReturnType<typeof calcularTotalCliente>>;
+  const totalGeral = totaisEfetivos.reduce((s, t) => s + t.total, 0);
+  const totalUltrapassagem = totaisEfetivos.reduce((s, t) => s + t.rsUltrapassagem, 0);
+  const totalCredito = totaisEfetivos.reduce((s, t) => s + t.credito, 0);
   const totalCopel = Number(tarifas?.copel_valor_total) || 0;
   const diferenca = totalGeral - totalCopel;
   const diferencaResidual = diferenca - totalUltrapassagem - totalCredito;
@@ -287,7 +290,7 @@ export function FaturasTab() {
   }, [faturas, totaisPorFatura, contratoDemandaPorId]);
   const totalUltrapassagemKw = faturasComMulta.reduce((s, x) => s + x.ultrapassagemKw, 0);
 
-  const faturaSelecionada = faturas.find((f) => f.cliente_key === selecionado) || null;
+  const faturaSelecionada = faturasExibidas.find((f) => f.cliente_key === selecionado) || null;
 
   // Quantos contratos cada cliente tem (para decidir mostrar o nº do contrato no sidebar)
   const contratosPorCliente = useMemo(() => {
