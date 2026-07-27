@@ -316,6 +316,9 @@ export function FaturaCopelTab() {
       bandeira_vigente: bandeiraVigente,
       bandeira_tarifa_oficial: fc.bandeira_tarifa_oficial
         || fmtBR(BANDEIRA_TABELA[bandeiraVigente].valor, 4),
+      bandeira_tarifa_liquida: fc.bandeira_tarifa_liquida
+        || (fc.bandeira_tarifa_oficial ? '' : fmtBR(BANDEIRA_TABELA_LIQUIDA[bandeiraVigente], 4)),
+      bandeira_tarifa_manual: !!fc.bandeira_tarifa_manual,
     });
     const ep = Number((t.data as any)?.perdas_energy_ponta_kwh) || 0;
     const ef = Number((t.data as any)?.perdas_energy_fora_kwh) || 0;
