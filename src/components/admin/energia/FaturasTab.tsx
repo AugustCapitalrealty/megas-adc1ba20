@@ -445,13 +445,16 @@ export function FaturasTab() {
 
           {/* Diferenças — Copel × Faturado */}
           {faturas.length > 0 && (
-            <details className="rounded-md border bg-muted/30 group" open={Math.abs(diferencaResidual) >= 1}>
-              <summary className="cursor-pointer select-none px-3 py-2 text-sm font-semibold hover:bg-muted/60 transition flex items-center gap-2">
-                <Building2 className="h-4 w-4 text-primary" />
-                Diferenças Copel × Faturado
-                <span className={`ml-auto text-xs font-normal ${Math.abs(diferencaResidual) < 1 ? 'text-green-600' : Math.abs(diferencaResidual) < 50 ? 'text-amber-600' : 'text-red-600'}`}>
-                  residual: {brl(diferencaResidual)}
-                </span>
+            <details className="rounded-md border bg-muted/30 group">
+              <summary className="cursor-pointer select-none px-3 py-2 text-xs hover:bg-muted/60 transition flex flex-wrap items-center gap-x-1 gap-y-1 tabular-nums">
+                <span className="text-muted-foreground">bruta</span> <strong>{brl(diferenca)}</strong>
+                <span className="text-muted-foreground">− multa</span> <strong>{brl(totalUltrapassagem)}</strong>
+                <span className="text-muted-foreground">− créd/déb</span> <strong>{brl(totalCredito)}</strong>
+                <span className="text-muted-foreground">=</span>
+                <strong className={Math.abs(diferencaResidual) < 1 ? 'text-green-600' : Math.abs(diferencaResidual) < 50 ? 'text-amber-600' : 'text-red-600'}>
+                  residual {brl(diferencaResidual)}
+                </strong>
+                <span className="ml-auto text-muted-foreground underline">ver detalhe</span>
               </summary>
               <div className="p-4 space-y-4">
                 {/* PASSO 1 — Diferença bruta = Faturado − Copel */}
