@@ -866,7 +866,7 @@ function FaturaOficial({
             <InfoCell label="Módulos" value={modulosFaixa} />
             <InfoCell label="Concessionária" value="COPEL-DIS" />
             <InfoCell label="Modalidade Tarifária" value="A4 Verde" />
-            <InfoCell label="Período" value={periodoCompetencia(competencia)} className="md:col-span-2" />
+            <InfoCell label="Período de consumo" value={periodoCompetencia(competencia)} className="md:col-span-2" />
           </div>
         </div>
 
