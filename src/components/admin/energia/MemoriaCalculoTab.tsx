@@ -942,24 +942,6 @@ export function MemoriaCalculoTab() {
           </Card>
 
           {/* Consumo por Cliente — entrada principal do mês */}
-          {trocasNoMes.length > 0 && (
-            <Card className="border-amber-500/40 bg-amber-50/50 dark:bg-amber-950/20">
-              <CardContent className="py-3 text-xs space-y-1">
-                <div className="flex items-center gap-2 font-semibold">
-                  <AlertTriangle className="h-4 w-4 text-amber-600" />
-                  Troca de cliente no meio do mês — rateio por dias (pro-rata)
-                </div>
-                {trocasNoMes.map((t) => (
-                  <div key={t.modulo} className="text-muted-foreground">
-                    <strong>{t.modulo}</strong>: {t.periodos.map((p) => `${p.label} (${p.dias}d · ${(p.fator * 100).toFixed(1)}%)`).join(' → ')}
-                  </div>
-                ))}
-                <div className="text-muted-foreground">
-                  Lance o consumo do mês inteiro normalmente — a aba <strong>Faturas</strong> divide automaticamente entre os clientes na proporção dos dias.
-                </div>
-              </CardContent>
-            </Card>
-          )}
           <ConsumoClienteCard
             clientes={clientes}
             modulos={modulos}
@@ -977,6 +959,8 @@ export function MemoriaCalculoTab() {
               cf: (tarifas as any).copel_consumo_fora_kwh || 0,
             }}
             lancamentos={lancamentos}
+            periodosPorModulo={periodosPorModulo}
+            mesRef={mesRef}
           />
 
           {/* Matriz Memória de Cálculo */}
