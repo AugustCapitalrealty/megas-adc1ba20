@@ -20,7 +20,7 @@ import {
   type ModoRateioPerdas,
 } from '@/lib/energia-rateio';
 import { useSharedCompetencia } from './CompetenciaContext';
-import { resolverPeriodosPorModulo, type PeriodoModulo, type VigenciaRaw } from '@/lib/energia-vigencias';
+import { resolverPeriodosPorModulo, mesConsumo, type PeriodoModulo, type VigenciaRaw } from '@/lib/energia-vigencias';
 
 interface Competencia { id: string; ano_mes: string; status: 'rascunho' | 'fechada'; }
 interface Modulo { id: string; identificador: string; area_m2: number; ordem: number; cliente_id: string | null; demanda_contratada_kw: number; }
@@ -94,9 +94,10 @@ export function FaturasTab() {
     ((l.data as any[]) || []).forEach((r) => { map[r.modulo_id] = r; });
     setLancamentos(map);
 
-    // Todas as vigências que tocam o mês (um módulo pode trocar de cliente no meio).
-    const [yy, mm] = anoMes.split('-').map(Number);
-    const refFim = `${anoMes}-${String(new Date(yy, mm, 0).getDate()).padStart(2, '0')}`;
+    // Todas as vigências que tocam o mês de CONSUMO (competência − 1).
+    const consumoMes = mesConsumo(anoMes);
+    const [yy, mm] = consumoMes.split('-').map(Number);
+    const refFim = `${consumoMes}-${String(new Date(yy, mm, 0).getDate()).padStart(2, '0')}`;
     const { data: vinc } = await supabase
       .from('energia_contrato_modulos' as any)
       .select('modulo_id, vigencia_inicio, vigencia_fim, contrato_id, contrato:energia_contratos!inner(id, numero_contrato, demanda_contratada_kw, cliente_id, ativo)')
@@ -119,7 +120,7 @@ export function FaturasTab() {
   // Períodos de contrato de cada módulo dentro da competência (pro-rata por dias).
   const periodosPorModulo = useMemo<Record<string, PeriodoModulo[]>>(() => {
     if (!currentComp?.ano_mes) return {};
-    return resolverPeriodosPorModulo(currentComp.ano_mes, vinculos, modulos.map((m) => m.id));
+    return resolverPeriodosPorModulo(mesConsumo(currentComp.ano_mes), vinculos, modulos.map((m) => m.id));
   }, [currentComp?.ano_mes, vinculos, modulos]);
 
   const contratoDemandaPorId = useMemo(() => {
@@ -705,8 +706,8 @@ function compactarModulos(ids: string[]): string {
 }
 
 function periodoCompetencia(anoMes: string): string {
-  // anoMes = "YYYY-MM" → "01/MM/YYYY → último dia/MM/YYYY"
-  const [y, m] = anoMes.split('-').map(Number);
+  // Competência "YYYY-MM" → período de consumo (mês anterior)
+  const [y, m] = mesConsumo(anoMes).split('-').map(Number);
   if (!y || !m) return anoMes;
   const ult = new Date(y, m, 0).getDate();
   const mm = String(m).padStart(2, '0');
