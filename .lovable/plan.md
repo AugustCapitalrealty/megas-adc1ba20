@@ -1,36 +1,45 @@
-## Problema
+## Objetivo
 
-Hoje a competência `2026-06` é usada como se o consumo fosse de junho. Como a fatura de junho cobre o consumo de maio, os contratos avaliados são os do mês errado — por isso o aviso de "troca de cliente no meio do mês" aparece indevidamente.
+Reorganizar a tela **Faturas por Cliente** (`src/components/admin/energia/FaturasTab.tsx`) para ficar direta: três números no topo (Copel, Energy, Diferença), multas logo abaixo, e a Área Comum visível na lista de clientes.
 
-## O que muda
+## 1. Topo enxuto — 3 blocos
 
-### 1. Mês de consumo = competência − 1
+Substituir os 4 KPIs atuais + os blocos "Passo 1 / Passo 2 / Conta final" por uma faixa única:
 
-Novo helper em `src/lib/energia-vigencias.ts`:
-- `mesConsumo(anoMes)` → `'2026-06'` retorna `'2026-05'`.
-- `limitesCompetencia` continua igual (recebe já o mês de consumo).
+```text
+┌ FATURA COPEL ──┐   ┌ FATURA ENERGY ─┐   ┌ DIFERENÇA ─────┐
+│ R$ 316.407,05  │ → │ R$ 316.801,68  │ = │ R$ 394,63      │
+│ valor da conta │   │ 21 clientes    │   │ a maior        │
+└────────────────┘   └────────────────┘   └────────────────┘
+```
 
-Passa a ser usado onde se resolve contrato/vigência:
-- `MemoriaCalculoTab.tsx` (`fetchCompData`): `refInicio`/`refFim` e `resolverPeriodosPorModulo` usam `mesConsumo(anoMes)`.
-- `FaturasTab.tsx`: `refFim` do fetch de vínculos e `resolverPeriodosPorModulo` usam `mesConsumo(currentComp.ano_mes)`.
+- **Fatura Copel**: `copel_valor_total`.
+- **Fatura Energy**: soma das faturas dos clientes (`totalGeral`), com o nº de clientes como subtítulo.
+- **Diferença**: `Energy − Copel`, colorida (verde < R$ 1, âmbar < R$ 50, vermelho acima).
+- Logo abaixo da Diferença, uma linha discreta: `bruta 394,63 − multa 6.296,57 − créd/déb 2,87 = residual −5.904,81`, com um "ver detalhe" que abre o passo a passo atual (mantido, mas fechado por padrão em vez de dominar a tela).
+- Os toggles (modo de perdas, área comum) e o Exportar CSV viram uma barra fina acima dos três blocos.
 
-Não muda: chave da competência no banco, tarifas, lançamentos, fatura Copel — tudo continua gravado sob `ano_mes` da competência.
+## 2. Abaixo da Fatura Energy: multas e clientes
 
-### 2. Rótulos
+Ordem vertical passa a ser:
 
-- `periodoCompetencia()` na fatura do cliente passa a exibir o período de consumo real (ex.: `01/05/2026 → 31/05/2026`) com o texto "Período de consumo".
-- Onde a competência é exibida, acrescentar sufixo discreto "(consumo de mai/2026)" na barra de competência e no card de fatura Copel da Memória de Cálculo.
+1. Faixa Copel · Energy · Diferença
+2. **Multas de ultrapassagem** — tabela já existente, agora sempre visível (não mais aninhada dentro do bloco de diferenças), com total de kW e R$; se não houver multa, uma linha curta "Nenhuma ultrapassagem nesta competência".
+3. **Clientes** — sidebar + fatura detalhada, como hoje.
 
-### 3. Aviso de troca — selo discreto
+## 3. Área Comum na lista de clientes
 
-- Remover o card amarelo "Troca de cliente no meio do mês" da Memória de Cálculo (o estado `trocasNoMes` vira um mapa `moduloId → períodos`).
-- Na linha do módulo (matriz de lançamentos e listas por contrato), quando houver mais de um período, mostrar um selo pequeno em texto secundário, ex.:
-  `VALIDAR02 até 25/05 · TORNADO a partir de 26/05`
-  com tooltip mostrando dias e percentual pro-rata de cada período.
-- O módulo aparece nos dois clientes normalmente na aba Faturas (comportamento pro-rata atual mantido).
+Hoje, com "Ratear por m²" ligado, `redistribuirAreaComumPorArea` remove o bucket `AREA_COMUM` e ele desaparece da lista.
+
+Mudança:
+
+- Calcular e guardar o bucket da Área Comum **antes** da redistribuição.
+- Exibi-lo sempre na lista de clientes, no fim, com selo **"rateada por m²"** quando o modo de rateio estiver ativo (ou sem selo, como cliente normal, no modo "Separada").
+- No modo rateado, a linha é informativa: mostra o valor bruto da Área Comum e **não** entra no somatório "Fatura Energy" (evita contagem dupla) — indicado por um texto curto "já distribuída nos clientes acima".
+- Ao selecioná-la, abre a fatura detalhada normal da Área Comum (consumo, perdas, impostos, crédito fotovoltaico).
 
 ## Detalhes técnicos
 
-- `mesConsumo` faz aritmética de ano/mês pura em string, sem `Date`, evitando fuso.
-- Nenhuma migração de banco: a mudança é só de interpretação/apresentação no frontend.
-- Os cálculos de rateio pro-rata já existentes continuam intactos; apenas a janela de datas de entrada muda.
+- Alterações concentradas em `FaturasTab.tsx` (apresentação): novo layout do header, extração do bucket `AREA_COMUM` do resultado de `agruparPorCliente` antes de `redistribuirAreaComumPorArea`, e inclusão dele em `faturasFiltradas`/sidebar com flag `informativa`.
+- `totalGeral`, `totalUltrapassagem`, `totalCredito` continuam somando apenas as faturas efetivas (exclui a Área Comum informativa).
+- Nenhuma mudança em `src/lib/energia-rateio.ts` nem no banco.
