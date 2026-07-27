@@ -139,7 +139,7 @@ export function FaturasTab() {
   // fatiaId (`moduloId` ou `moduloId@i`) → dados do período
   interface Fatia { modulo_id: string; cliente_id: string | null; contrato_id: string | null; contrato_numero: string | null; periodo: PeriodoModulo }
 
-  const { faturas, areaComumInfo, memoriaLinhas, fatias } = useMemo<{ faturas: FaturaCliente[]; areaComumInfo: FaturaCliente | null; memoriaLinhas: MemoriaLinha[]; fatias: Record<string, Fatia> }>(() => {
+  const { faturas, areaComumInfo, memoriaLinhas, fatias, perdasResumo } = useMemo<{ faturas: FaturaCliente[]; areaComumInfo: FaturaCliente | null; memoriaLinhas: MemoriaLinha[]; fatias: Record<string, Fatia>; perdasResumo: { ponta: number; fora: number; consumoPonta: number; consumoFora: number } }>(() => {
     if (!tarifas) return { faturas: [], areaComumInfo: null, memoriaLinhas: [], fatias: {} };
     // Fonte de verdade: módulos COM lançamento nesta competência. Para cada um,
     // o cliente é o do contrato vigente no período (não o cliente atual do módulo).
