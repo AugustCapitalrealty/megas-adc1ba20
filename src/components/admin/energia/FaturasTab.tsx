@@ -617,6 +617,7 @@ export function FaturasTab() {
                   const idx = f.cliente_key.indexOf('::');
                   const cli = idx >= 0 ? f.cliente_key.slice(0, idx) : '';
                   const showContrato = !!cli && (contratosPorCliente.get(cli) || 0) > 1 && f.contrato_numero;
+                  const isAreaRateada = f.cliente_key === 'AREA_COMUM' && ratearAreaComum;
                   return (
                     <li key={f.cliente_key}>
                       <button
@@ -626,7 +627,9 @@ export function FaturasTab() {
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-medium text-sm truncate">{f.cliente_nome}</span>
                           {f.cliente_key === 'AREA_COMUM' && (
-                            <Badge variant={active ? 'secondary' : 'outline'} className="text-[10px]">comum</Badge>
+                            <Badge variant={active ? 'secondary' : 'outline'} className="text-[10px] shrink-0">
+                              {isAreaRateada ? 'rateada por m²' : 'comum'}
+                            </Badge>
                           )}
                         </div>
                         {showContrato && (
@@ -637,6 +640,11 @@ export function FaturasTab() {
                         <div className={`text-xs mt-0.5 ${active ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
                           {f.modulos.length} mód · {brl(totaisPorFatura.get(f.cliente_key)?.total ?? 0)}
                         </div>
+                        {isAreaRateada && (
+                          <div className={`text-[10px] mt-0.5 italic ${active ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                            já distribuída nos clientes acima
+                          </div>
+                        )}
                       </button>
                     </li>
                   );
