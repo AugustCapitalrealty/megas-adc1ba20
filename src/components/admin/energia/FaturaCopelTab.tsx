@@ -530,39 +530,24 @@ export function FaturaCopelTab() {
     const tarifaFatura = keys.map((k) => parseBR(it[k]?.preco_unit || '')).find((v) => v > 0) || 0;
     const baseKwh = copelPontaKwh + copelForaKwh + energyPontaNum + energyForaNum;
     const tarifaDerivada = baseKwh > 0 && copelReais > 0 ? copelReais / baseKwh : 0;
-    // Tarifa líquida (sem tributos): campo salvo, ou engenharia reversa do valor
-    // legado gravado em bandeira_tarifa_oficial, ou a tabela ANEEL.
-    const salvaLiquida = toRsKwh(parseBR(faturaItens.bandeira_tarifa_liquida || ''));
-    const salvaBruta = toRsKwh(parseBR(faturaItens.bandeira_tarifa_oficial || ''));
-    const fatorGross = grossUpBandeira(1, aliquotas);
-    const tarifaLiquida = salvaLiquida > 0
-      ? salvaLiquida
-      : (salvaBruta > 0 ? salvaBruta / (fatorGross || 1) : BANDEIRA_TABELA_LIQUIDA[bandeiraTipo]);
-    const tarifaBrutaCalc = grossUpBandeira(tarifaLiquida, aliquotas);
-    // Manual: usuário sobrescreveu a tarifa com tributos
-    const tarifaOficial = faturaItens.bandeira_tarifa_manual && salvaBruta > 0 ? salvaBruta : tarifaBrutaCalc;
+    // Tarifa oficial = preço unitário (com tributos) lançado nas linhas de
+    // bandeira da própria fatura. Sem linha lançada, cai na tabela ANEEL.
+    const tarifaOficial = tarifaFatura > 0 ? tarifaFatura : BANDEIRA_TABELA[bandeiraTipo].valor;
     const totalOficial = baseKwh * tarifaOficial;
     const totalDerivado = baseKwh * tarifaDerivada;
     const tarifaAtiva = bandeiraModo === 'oficial' ? tarifaOficial : tarifaDerivada;
     const totalAtivo = bandeiraModo === 'oficial' ? totalOficial : totalDerivado;
     return {
       copelReais, baseKwh, tarifaDerivada, tarifaOficial, totalOficial, totalDerivado,
-      tarifaAtiva, totalAtivo, tarifaLiquida, tarifaBrutaCalc, tarifaFatura,
+      tarifaAtiva, totalAtivo, tarifaFatura,
     };
   }, [
-    faturaItens.itens, faturaItens.bandeira_tarifa_oficial, faturaItens.bandeira_tarifa_liquida,
-    faturaItens.bandeira_tarifa_manual, bandeiraModo, bandeiraTipo, aliquotas,
+    faturaItens.itens, bandeiraModo, bandeiraTipo,
     copelPontaKwh, copelForaKwh, energyPontaNum, energyForaNum,
   ]);
 
   const setBandeiraTipo = (tipo: BandeiraTipo) => {
-    setFaturaItens((p) => ({
-      ...p,
-      bandeira_vigente: tipo,
-      bandeira_tarifa_liquida: fmtBR(BANDEIRA_TABELA_LIQUIDA[tipo], 6),
-      bandeira_tarifa_manual: false,
-      bandeira_tarifa_oficial: fmtBR(grossUpBandeira(BANDEIRA_TABELA_LIQUIDA[tipo], aliquotas), 6),
-    }));
+    setFaturaItens((p) => ({ ...p, bandeira_vigente: tipo }));
   };
 
   const save = async () => {
