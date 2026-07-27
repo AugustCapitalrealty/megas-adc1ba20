@@ -277,6 +277,7 @@ export function ContratosTab({ initialFocusContratoId, onFocusHandled }: { initi
           modulos={modulos.filter((m) => m.ativo)}
           existingVinculos={editing ? vinculos.filter((v) => v.contrato_id === editing.id) : []}
           allVinculos={vinculos}
+          contratos={contratos}
           userId={user?.id || null}
           onSaved={() => { setModalOpen(false); setEditing(null); fetchAll(); }}
           saving={saving}
@@ -289,7 +290,7 @@ export function ContratosTab({ initialFocusContratoId, onFocusHandled }: { initi
 
 // ─────────────────────────────────────────────────────────────
 function ContratoModal({
-  open, onOpenChange, contrato, clientes, modulos, existingVinculos, allVinculos, userId, onSaved, saving, setSaving,
+  open, onOpenChange, contrato, clientes, modulos, existingVinculos, allVinculos, contratos, userId, onSaved, saving, setSaving,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -298,6 +299,7 @@ function ContratoModal({
   modulos: Modulo[];
   existingVinculos: ContratoModulo[];
   allVinculos: ContratoModulo[];
+  contratos: Contrato[];
   userId: string | null;
   onSaved: () => void;
   saving: boolean;
