@@ -543,21 +543,43 @@ export function FaturaCopelTab() {
       'bandeira_vermelha_2_ponta', 'bandeira_vermelha_2_fora',
     ];
     const copelReais = keys.reduce((s, k) => s + parseBR(it[k]?.valor || ''), 0);
+    // Preço unitário COM tributos digitado na própria fatura (R$/kWh → R$/100 kWh)
+    const precoFatura = keys.map((k) => parseBR(it[k]?.preco_unit || '')).find((v) => v > 0) || 0;
+    const tarifaFatura = precoFatura * 100;
     const baseKwh = copelPontaKwh + copelForaKwh + energyPontaNum + energyForaNum;
     const tarifaDerivada = baseKwh > 0 && copelReais > 0 ? (copelReais * 100) / baseKwh : 0;
-    const tarifaOficial = parseBR(faturaItens.bandeira_tarifa_oficial || '');
+    // Tarifa líquida (sem tributos): campo salvo, ou engenharia reversa do valor
+    // legado gravado em bandeira_tarifa_oficial, ou a tabela ANEEL.
+    const salvaLiquida = parseBR(faturaItens.bandeira_tarifa_liquida || '');
+    const salvaBruta = parseBR(faturaItens.bandeira_tarifa_oficial || '');
+    const fatorGross = grossUpBandeira(1, aliquotas);
+    const tarifaLiquida = salvaLiquida > 0
+      ? salvaLiquida
+      : (salvaBruta > 0 ? salvaBruta / (fatorGross || 1) : BANDEIRA_TABELA_LIQUIDA[bandeiraTipo]);
+    const tarifaBrutaCalc = grossUpBandeira(tarifaLiquida, aliquotas);
+    // Manual: usuário sobrescreveu a tarifa com tributos
+    const tarifaOficial = faturaItens.bandeira_tarifa_manual && salvaBruta > 0 ? salvaBruta : tarifaBrutaCalc;
     const totalOficial = (baseKwh / 100) * tarifaOficial;
     const totalDerivado = (baseKwh / 100) * tarifaDerivada;
     const tarifaAtiva = bandeiraModo === 'oficial' ? tarifaOficial : tarifaDerivada;
     const totalAtivo = bandeiraModo === 'oficial' ? totalOficial : totalDerivado;
-    return { copelReais, baseKwh, tarifaDerivada, tarifaOficial, totalOficial, totalDerivado, tarifaAtiva, totalAtivo };
-  }, [faturaItens.itens, faturaItens.bandeira_tarifa_oficial, bandeiraModo, copelPontaKwh, copelForaKwh, energyPontaNum, energyForaNum]);
+    return {
+      copelReais, baseKwh, tarifaDerivada, tarifaOficial, totalOficial, totalDerivado,
+      tarifaAtiva, totalAtivo, tarifaLiquida, tarifaBrutaCalc, tarifaFatura,
+    };
+  }, [
+    faturaItens.itens, faturaItens.bandeira_tarifa_oficial, faturaItens.bandeira_tarifa_liquida,
+    faturaItens.bandeira_tarifa_manual, bandeiraModo, bandeiraTipo, aliquotas,
+    copelPontaKwh, copelForaKwh, energyPontaNum, energyForaNum,
+  ]);
 
   const setBandeiraTipo = (tipo: BandeiraTipo) => {
     setFaturaItens((p) => ({
       ...p,
       bandeira_vigente: tipo,
-      bandeira_tarifa_oficial: fmtBR(BANDEIRA_TABELA[tipo].valor, 4),
+      bandeira_tarifa_liquida: fmtBR(BANDEIRA_TABELA_LIQUIDA[tipo], 4),
+      bandeira_tarifa_manual: false,
+      bandeira_tarifa_oficial: fmtBR(grossUpBandeira(BANDEIRA_TABELA_LIQUIDA[tipo], aliquotas), 4),
     }));
   };
 
