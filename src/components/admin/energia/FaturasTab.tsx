@@ -227,14 +227,21 @@ export function FaturasTab() {
     return (fatia.contrato_id ?? 'SEM') === contrato;
   }, [fatias]);
 
+  // Lista exibida = faturas efetivas + (quando rateada) a Área Comum como
+  // linha informativa no fim, para que ela nunca "suma" da tela.
+  const faturasExibidas = useMemo(
+    () => (areaComumInfo ? [...faturas, areaComumInfo] : faturas),
+    [faturas, areaComumInfo],
+  );
+
   const faturasFiltradas = useMemo(() => {
     const q = busca.trim().toLowerCase();
-    if (!q) return faturas;
-    return faturas.filter((f) =>
+    if (!q) return faturasExibidas;
+    return faturasExibidas.filter((f) =>
       f.cliente_nome.toLowerCase().includes(q) ||
       (f.contrato_numero || '').toLowerCase().includes(q),
     );
-  }, [faturas, busca]);
+  }, [faturasExibidas, busca]);
 
   useEffect(() => {
     if (!selecionado && faturas.length > 0) setSelecionado(faturas[0].cliente_key);
