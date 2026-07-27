@@ -12,7 +12,6 @@ import { toast } from 'sonner';
 import {
   calcularMemoria,
   agruparPorCliente,
-  redistribuirAreaComumPorArea,
   type EnergiaTarifas,
   type EnergiaLancamentoInput,
   type FaturaCliente,
@@ -139,8 +138,8 @@ export function FaturasTab() {
   // fatiaId (`moduloId` ou `moduloId@i`) → dados do período
   interface Fatia { modulo_id: string; cliente_id: string | null; contrato_id: string | null; contrato_numero: string | null; periodo: PeriodoModulo }
 
-  const { faturas, areaComumInfo, memoriaLinhas, fatias, perdasResumo } = useMemo<{ faturas: FaturaCliente[]; areaComumInfo: FaturaCliente | null; memoriaLinhas: MemoriaLinha[]; fatias: Record<string, Fatia>; perdasResumo: { ponta: number; fora: number; consumoPonta: number; consumoFora: number } }>(() => {
-    if (!tarifas) return { faturas: [], areaComumInfo: null, memoriaLinhas: [], fatias: {}, perdasResumo: { ponta: 0, fora: 0, consumoPonta: 0, consumoFora: 0 } };
+  const { faturas, memoriaLinhas, fatias, perdasResumo } = useMemo<{ faturas: FaturaCliente[]; memoriaLinhas: MemoriaLinha[]; fatias: Record<string, Fatia>; perdasResumo: { ponta: number; fora: number; consumoPonta: number; consumoFora: number } }>(() => {
+    if (!tarifas) return { faturas: [], memoriaLinhas: [], fatias: {}, perdasResumo: { ponta: 0, fora: 0, consumoPonta: 0, consumoFora: 0 } };
     // Fonte de verdade: módulos COM lançamento nesta competência. Para cada um,
     // o cliente é o do contrato vigente no período (não o cliente atual do módulo).
     // Quando há troca de cliente no meio do mês, o lançamento é fatiado por dias.
@@ -203,15 +202,10 @@ export function FaturasTab() {
     };
     const memoria = calcularMemoria(tarifasComPerdas, inputs, modoPerdas);
     const brutas = agruparPorCliente(memoria.linhas, agrupaModulos);
-    // Bucket da Área Comum ANTES da redistribuição — continua visível na lista
-    // de clientes mesmo quando o valor é rateado por m².
-    const areaBucket = brutas.find((f) => f.cliente_key === 'AREA_COMUM') || null;
-    // Replica RESUMO da planilha: valor líquido da Área Comum vai para os
-    // clientes proporcional à área locada (m²).
-    const fts = redistribuirAreaComumPorArea(brutas);
+    // Área Comum NÃO é rateada: é uma fatura própria da DEMERCADO (assim como
+    // a Obra) e entra na lista como mais um "cliente".
     return {
-      faturas: fts,
-      areaComumInfo: areaBucket,
+      faturas: brutas,
       memoriaLinhas: memoria.linhas,
       fatias: fatiaMap,
       perdasResumo: {
@@ -238,12 +232,8 @@ export function FaturasTab() {
     return (fatia.contrato_id ?? 'SEM') === contrato;
   }, [fatias]);
 
-  // Lista exibida = faturas efetivas + (quando rateada) a Área Comum como
-  // linha informativa no fim, para que ela nunca "suma" da tela.
-  const faturasExibidas = useMemo(
-    () => (areaComumInfo ? [...faturas, areaComumInfo] : faturas),
-    [faturas, areaComumInfo],
-  );
+  // Lista exibida = todas as faturas (Área Comum e Obra incluídas).
+  const faturasExibidas = faturas;
 
   const faturasFiltradas = useMemo(() => {
     const q = busca.trim().toLowerCase();
@@ -402,12 +392,6 @@ export function FaturasTab() {
                 >
                   Planilha (combinado)
                 </button>
-              </div>
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label className="text-[11px] text-muted-foreground">Área Comum</Label>
-              <div className="h-10 inline-flex items-center rounded-md border bg-muted/40 px-3 text-xs text-muted-foreground">
-                sempre rateada por m² nas faturas dos clientes
               </div>
             </div>
           </div>
@@ -587,7 +571,7 @@ export function FaturasTab() {
                   const idx = f.cliente_key.indexOf('::');
                   const cli = idx >= 0 ? f.cliente_key.slice(0, idx) : '';
                   const showContrato = !!cli && (contratosPorCliente.get(cli) || 0) > 1 && f.contrato_numero;
-                  const isAreaRateada = f.cliente_key === 'AREA_COMUM';
+                  const isAreaComum = f.cliente_key === 'AREA_COMUM';
                   return (
                     <li key={f.cliente_key}>
                       <button
@@ -596,9 +580,9 @@ export function FaturasTab() {
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-medium text-sm truncate">{f.cliente_nome}</span>
-                          {f.cliente_key === 'AREA_COMUM' && (
+                          {isAreaComum && (
                             <Badge variant={active ? 'secondary' : 'outline'} className="text-[10px] shrink-0">
-                              {isAreaRateada ? 'rateada por m²' : 'comum'}
+                              fatura própria
                             </Badge>
                           )}
                         </div>
@@ -610,11 +594,6 @@ export function FaturasTab() {
                         <div className={`text-xs mt-0.5 ${active ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
                           {f.modulos.length} mód · {brl(totaisPorFatura.get(f.cliente_key)?.total ?? 0)}
                         </div>
-                        {isAreaRateada && (
-                          <div className={`text-[10px] mt-0.5 italic ${active ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                            já distribuída nos clientes acima
-                          </div>
-                        )}
                       </button>
                     </li>
                   );
