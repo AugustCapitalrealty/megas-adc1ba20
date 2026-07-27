@@ -20,7 +20,7 @@ import {
   type FaturaCliente,
 } from '@/lib/energia-rateio';
 import { useSharedCompetencia } from './CompetenciaContext';
-import { resolverPeriodosPorModulo, type PeriodoModulo } from '@/lib/energia-vigencias';
+import { resolverPeriodosPorModulo, mesConsumo, rotuloPeriodo, type PeriodoModulo } from '@/lib/energia-vigencias';
 
 interface Competencia {
   id: string;
@@ -206,7 +206,8 @@ export function MemoriaCalculoTab() {
   const [lancamentos, setLancamentos] = useState<Record<string, LancamentoRow>>({});
   const [contratoPorModulo, setContratoPorModulo] = useState<Record<string, ContratoVigente>>({});
   const [contratosVigentes, setContratosVigentes] = useState<ContratoGrupo[]>([]);
-  const [trocasNoMes, setTrocasNoMes] = useState<Array<{ modulo: string; periodos: PeriodoModulo[] }>>([]);
+  const [periodosPorModulo, setPeriodosPorModulo] = useState<Record<string, PeriodoModulo[]>>({});
+  const [mesRef, setMesRef] = useState<string>('');
   const [newAnoMes, setNewAnoMes] = useState(currentYM());
   const [creating, setCreating] = useState(false);
   const [faturaItens, setFaturaItens] = useState<FaturaCopelItens>({ itens: {}, tributos: {} });
