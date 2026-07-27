@@ -20,6 +20,7 @@ import {
   type ModoRateioPerdas,
 } from '@/lib/energia-rateio';
 import { useSharedCompetencia } from './CompetenciaContext';
+import { resolverPeriodosPorModulo, type PeriodoModulo, type VigenciaRaw } from '@/lib/energia-vigencias';
 
 interface Competencia { id: string; ano_mes: string; status: 'rascunho' | 'fechada'; }
 interface Modulo { id: string; identificador: string; area_m2: number; ordem: number; cliente_id: string | null; demanda_contratada_kw: number; }
@@ -66,11 +67,7 @@ export function FaturasTab() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [tarifas, setTarifas] = useState<any>(null);
   const [lancamentos, setLancamentos] = useState<Record<string, any>>({});
-  const [contratoPorModulo, setContratoPorModulo] = useState<Record<string, { demanda_contratada_kw: number }>>({});
-  const [contratoIdPorModulo, setContratoIdPorModulo] = useState<Record<string, string>>({});
-  const [contratoDemandaPorId, setContratoDemandaPorId] = useState<Record<string, number>>({});
-  const [contratoNumeroPorId, setContratoNumeroPorId] = useState<Record<string, string>>({});
-  const [contratoClientePorId, setContratoClientePorId] = useState<Record<string, string>>({});
+  const [vinculos, setVinculos] = useState<VigenciaRaw[]>([]);
   const [busca, setBusca] = useState('');
   const [selecionado, setSelecionado] = useState<string | null>(null);
   const [modoPerdas, setModoPerdas] = useState<ModoRateioPerdas>('combinado');
@@ -97,39 +94,14 @@ export function FaturasTab() {
     ((l.data as any[]) || []).forEach((r) => { map[r.modulo_id] = r; });
     setLancamentos(map);
 
-    // Vigência sobrepõe o mês: vigencia_inicio <= último dia E (vigencia_fim IS NULL OR >= 1º dia)
+    // Todas as vigências que tocam o mês (um módulo pode trocar de cliente no meio).
     const [yy, mm] = anoMes.split('-').map(Number);
-    const refInicio = `${anoMes}-01`;
     const refFim = `${anoMes}-${String(new Date(yy, mm, 0).getDate()).padStart(2, '0')}`;
     const { data: vinc } = await supabase
       .from('energia_contrato_modulos' as any)
       .select('modulo_id, vigencia_inicio, vigencia_fim, contrato_id, contrato:energia_contratos!inner(id, numero_contrato, demanda_contratada_kw, cliente_id, ativo)')
       .lte('vigencia_inicio', refFim);
-    const cMap: Record<string, any> = {};
-    const cIdMap: Record<string, string> = {};
-    const cDemMap: Record<string, number> = {};
-    const cNumMap: Record<string, string> = {};
-    const cCliMap: Record<string, string> = {};
-    if (vinc) {
-      for (const v of vinc as any[]) {
-        const fim = v.vigencia_fim ?? null;
-        if (fim && fim < refInicio) continue;
-        if (!v.contrato?.ativo) continue;
-        const prev = cMap[v.modulo_id];
-        if (!prev || v.vigencia_inicio > prev.__inicio) {
-          cMap[v.modulo_id] = { demanda_contratada_kw: Number(v.contrato.demanda_contratada_kw) || 0, __inicio: v.vigencia_inicio };
-          cIdMap[v.modulo_id] = v.contrato.id;
-          cDemMap[v.contrato.id] = Number(v.contrato.demanda_contratada_kw) || 0;
-          cNumMap[v.contrato.id] = v.contrato.numero_contrato || '';
-          if (v.contrato.cliente_id) cCliMap[v.contrato.id] = v.contrato.cliente_id;
-        }
-      }
-    }
-    setContratoPorModulo(cMap);
-    setContratoIdPorModulo(cIdMap);
-    setContratoDemandaPorId(cDemMap);
-    setContratoNumeroPorId(cNumMap);
-    setContratoClientePorId(cCliMap);
+    setVinculos(((vinc as any[]) || []) as VigenciaRaw[]);
   }, []);
 
   useEffect(() => { (async () => { setLoading(true); await fetchBase(); setLoading(false); })(); }, [fetchBase, version]);
@@ -144,29 +116,71 @@ export function FaturasTab() {
 
   const currentComp = competencias.find((c) => c.id === currentCompId) || null;
 
-  const { faturas, memoriaLinhas } = useMemo<{ faturas: FaturaCliente[]; memoriaLinhas: MemoriaLinha[] }>(() => {
-    if (!tarifas) return { faturas: [], memoriaLinhas: [] };
+  // Períodos de contrato de cada módulo dentro da competência (pro-rata por dias).
+  const periodosPorModulo = useMemo<Record<string, PeriodoModulo[]>>(() => {
+    if (!currentComp?.ano_mes) return {};
+    return resolverPeriodosPorModulo(currentComp.ano_mes, vinculos, modulos.map((m) => m.id));
+  }, [currentComp?.ano_mes, vinculos, modulos]);
+
+  const contratoDemandaPorId = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const ps of Object.values(periodosPorModulo)) {
+      for (const p of ps) if (p.contrato_id) map[p.contrato_id] = p.demanda_contratada_kw;
+    }
+    return map;
+  }, [periodosPorModulo]);
+
+  // fatiaId (`moduloId` ou `moduloId@i`) → dados do período
+  interface Fatia { modulo_id: string; cliente_id: string | null; contrato_id: string | null; contrato_numero: string | null; periodo: PeriodoModulo }
+
+  const { faturas, memoriaLinhas, fatias } = useMemo<{ faturas: FaturaCliente[]; memoriaLinhas: MemoriaLinha[]; fatias: Record<string, Fatia> }>(() => {
+    if (!tarifas) return { faturas: [], memoriaLinhas: [], fatias: {} };
     // Fonte de verdade: módulos COM lançamento nesta competência. Para cada um,
-    // o cliente é o do contrato vigente (não o cliente atual do módulo).
+    // o cliente é o do contrato vigente no período (não o cliente atual do módulo).
+    // Quando há troca de cliente no meio do mês, o lançamento é fatiado por dias.
     const modulosComLanc = modulos.filter((m) => !!lancamentos[m.id]);
-    const inputs: EnergiaLancamentoInput[] = modulosComLanc.map((m) => {
+    const fatiaMap: Record<string, Fatia> = {};
+    const inputs: EnergiaLancamentoInput[] = [];
+    const agrupaModulos: Array<{ id: string; cliente_id: string | null; identificador: string; contrato_id: string | null; contrato_numero: string | null }> = [];
+
+    for (const m of modulosComLanc) {
       const l = lancamentos[m.id];
-      const cid = contratoIdPorModulo[m.id];
-      const cliId = cid ? contratoClientePorId[cid] : null;
-      const cli = clientes.find((c) => c.id === cliId);
-      return {
-        modulo_id: m.id,
-        identificador: m.identificador,
-        cliente_nome: cli?.razao_social || cli?.nome || (cliId ? '—' : 'VAGO'),
-        area_m2: m.area_m2,
-        demanda_contratada_kw: contratoPorModulo[m.id]?.demanda_contratada_kw ?? 0,
-        demanda_usd_medida_kw: l?.demanda_usd_medida_kw ?? 0,
-        consumo_ponta_kwh: l?.consumo_ponta_kwh ?? 0,
-        consumo_fora_kwh: l?.consumo_fora_kwh ?? 0,
-        ajuste_manual_reais: l?.ajuste_manual_reais ?? 0,
-        is_area_comum: m.identificador.toUpperCase().includes('ÁREA COMUM') || m.identificador.toUpperCase().includes('AREA COMUM'),
-      };
-    });
+      const periodos = periodosPorModulo[m.id] ?? [];
+      const lista: PeriodoModulo[] = periodos.length ? periodos : [{
+        contrato_id: null, contrato_numero: null, cliente_id: null, demanda_contratada_kw: 0,
+        inicio: '', fim: '', dias: 0, fator: 1, parcial: false, label: '',
+      }];
+      const multi = lista.length > 1;
+      lista.forEach((p, i) => {
+        const fatiaId = multi ? `${m.id}@${i}` : m.id;
+        const fator = multi ? p.fator : 1;
+        if (multi && fator <= 0) return;
+        const cli = clientes.find((c) => c.id === p.cliente_id);
+        const identificador = multi && p.label ? `${m.identificador} (${p.label})` : m.identificador;
+        fatiaMap[fatiaId] = { modulo_id: m.id, cliente_id: p.cliente_id, contrato_id: p.contrato_id, contrato_numero: p.contrato_numero, periodo: p };
+        inputs.push({
+          modulo_id: fatiaId,
+          identificador,
+          cliente_nome: cli?.razao_social || cli?.nome || (p.cliente_id ? '—' : 'VAGO'),
+          area_m2: m.area_m2 * fator,
+          // demanda contratada e medida usam o mesmo fator: a relação entre elas
+          // (e portanto a ultrapassagem) é preservada.
+          demanda_contratada_kw: p.demanda_contratada_kw * fator,
+          demanda_usd_medida_kw: (l?.demanda_usd_medida_kw ?? 0) * fator,
+          consumo_ponta_kwh: (l?.consumo_ponta_kwh ?? 0) * fator,
+          consumo_fora_kwh: (l?.consumo_fora_kwh ?? 0) * fator,
+          ajuste_manual_reais: (l?.ajuste_manual_reais ?? 0) * fator,
+          is_area_comum: m.identificador.toUpperCase().includes('ÁREA COMUM') || m.identificador.toUpperCase().includes('AREA COMUM'),
+        });
+        agrupaModulos.push({
+          id: fatiaId,
+          cliente_id: p.cliente_id,
+          identificador,
+          contrato_id: p.contrato_id,
+          contrato_numero: p.contrato_numero,
+        });
+      });
+    }
     // Deriva perdas Copel em tempo de cálculo (consumo Copel − Σ lançamentos),
     // sem depender do valor persistido em energia_competencia_tarifas. Assim
     // diferenças negativas (Copel mediu menos que clientes) sempre entram no
@@ -182,25 +196,27 @@ export function FaturasTab() {
       bandeira_valor: resolveBandeiraValor(tarifas),
     };
     const memoria = calcularMemoria(tarifasComPerdas, inputs, modoPerdas);
-    let fts = agruparPorCliente(
-      memoria.linhas,
-      modulosComLanc.map((m) => {
-        const cid = contratoIdPorModulo[m.id] ?? null;
-        const cliId = cid ? (contratoClientePorId[cid] ?? null) : null;
-        return {
-          id: m.id,
-          cliente_id: cliId,
-          identificador: m.identificador,
-          contrato_id: cid,
-          contrato_numero: cid ? (contratoNumeroPorId[cid] || null) : null,
-        };
-      }),
-    );
+    let fts = agruparPorCliente(memoria.linhas, agrupaModulos);
     // Replica RESUMO da planilha: valor líquido da Área Comum vai para os
     // clientes proporcional à área locada (m²).
     if (ratearAreaComum) fts = redistribuirAreaComumPorArea(fts);
-    return { faturas: fts, memoriaLinhas: memoria.linhas };
-  }, [tarifas, modulos, lancamentos, clientes, contratoPorModulo, contratoIdPorModulo, contratoNumeroPorId, contratoClientePorId, modoPerdas, ratearAreaComum]);
+    return { faturas: fts, memoriaLinhas: memoria.linhas, fatias: fatiaMap };
+  }, [tarifas, modulos, lancamentos, clientes, periodosPorModulo, modoPerdas, ratearAreaComum]);
+
+  const pertenceAFatura = useCallback((l: MemoriaLinha, f: FaturaCliente): boolean => {
+    const fatia = fatias[l.modulo_id];
+    if (!fatia) return false;
+    if (f.cliente_key === 'AREA_COMUM') {
+      return (l.identificador || '').toUpperCase().includes('AREA COMUM')
+        || (l.identificador || '').toUpperCase().includes('ÁREA COMUM');
+    }
+    if (f.cliente_key.startsWith('VAGO:')) return l.modulo_id === f.cliente_key.slice(5);
+    const idx = f.cliente_key.indexOf('::');
+    const cli = idx >= 0 ? f.cliente_key.slice(0, idx) : f.cliente_key;
+    const contrato = idx >= 0 ? f.cliente_key.slice(idx + 2) : null;
+    if ((fatia.cliente_id ?? null) !== cli) return false;
+    return (fatia.contrato_id ?? 'SEM') === contrato;
+  }, [fatias]);
 
   const faturasFiltradas = useMemo(() => {
     const q = busca.trim().toLowerCase();
@@ -218,25 +234,8 @@ export function FaturasTab() {
   // Recalcula totais por cliente usando a MESMA lógica da Fatura Oficial,
   // para que os KPIs e o sidebar batam com o valor que cada cliente realmente paga.
   const linhasPorFatura = useCallback((f: FaturaCliente): MemoriaLinha[] => {
-    return memoriaLinhas.filter((l) => {
-      const m = modulos.find((mm) => mm.id === l.modulo_id);
-      if (!m) return false;
-      if (f.cliente_key === 'AREA_COMUM') {
-        return (l.identificador || '').toUpperCase().includes('AREA COMUM')
-          || (l.identificador || '').toUpperCase().includes('ÁREA COMUM');
-      }
-      if (f.cliente_key.startsWith('VAGO:')) {
-        return l.modulo_id === f.cliente_key.slice(5);
-      }
-      const idx = f.cliente_key.indexOf('::');
-      const cli = idx >= 0 ? f.cliente_key.slice(0, idx) : f.cliente_key;
-      const contrato = idx >= 0 ? f.cliente_key.slice(idx + 2) : null;
-      const mCid = contratoIdPorModulo[m.id] ?? 'SEM';
-      const mCliId = mCid !== 'SEM' ? (contratoClientePorId[mCid] ?? null) : null;
-      if (mCliId !== cli) return false;
-      return mCid === contrato;
-    });
-  }, [memoriaLinhas, modulos, contratoIdPorModulo, contratoClientePorId]);
+    return memoriaLinhas.filter((l) => pertenceAFatura(l, f));
+  }, [memoriaLinhas, pertenceAFatura]);
 
   const totaisPorFatura = useMemo(() => {
     const map = new Map<string, ReturnType<typeof calcularTotalCliente>>();
@@ -619,23 +618,7 @@ export function FaturasTab() {
                 if (!cid) return 0;
                 return contratoDemandaPorId[cid] || 0;
               })()}
-              linhas={memoriaLinhas.filter((l) => {
-                const m = modulos.find((mm) => mm.id === l.modulo_id);
-                if (!m) return false;
-                if (faturaSelecionada.cliente_key === 'AREA_COMUM') {
-                  return (l.identificador || '').toUpperCase().includes('AREA COMUM') || (l.identificador || '').toUpperCase().includes('ÁREA COMUM');
-                }
-                if (faturaSelecionada.cliente_key.startsWith('VAGO:')) {
-                  return l.modulo_id === faturaSelecionada.cliente_key.slice(5);
-                }
-                const idx = faturaSelecionada.cliente_key.indexOf('::');
-                const cli = idx >= 0 ? faturaSelecionada.cliente_key.slice(0, idx) : faturaSelecionada.cliente_key;
-                const contrato = idx >= 0 ? faturaSelecionada.cliente_key.slice(idx + 2) : null;
-                const mCid = contratoIdPorModulo[m.id] ?? 'SEM';
-                const mCliId = mCid !== 'SEM' ? (contratoClientePorId[mCid] ?? null) : null;
-                if (mCliId !== cli) return false;
-                return mCid === contrato;
-              })}
+              linhas={memoriaLinhas.filter((l) => pertenceAFatura(l, faturaSelecionada))}
               todasLinhas={memoriaLinhas}
               onCopy={copiarResumo}
               modoPerdas={modoPerdas}
