@@ -529,15 +529,25 @@ export function FaturasTab() {
                   A diferença saudável vem apenas de <strong>ultrapassagem</strong> (multa por demanda acima do contratado) e do <strong>crédito/débito</strong> da Copel repassado aos clientes. Se o residual for relevante, revisar a Fatura Copel, os lançamentos ou a demanda contratada dos contratos.
                 </p>
 
-                {/* Clientes que pagaram multa de ultrapassagem */}
-                {faturasComMulta.length > 0 ? (
-                  <details className="rounded-md border bg-background">
-                    <summary className="cursor-pointer select-none px-3 py-2 text-xs font-semibold hover:bg-muted/60 transition flex items-center gap-2">
-                      Ver clientes com multa de ultrapassagem
-                      <span className="ml-auto font-normal text-muted-foreground">
-                        {faturasComMulta.length} cliente(s) · {brl(totalUltrapassagem)}
-                      </span>
-                    </summary>
+              </div>
+            </details>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Multas de ultrapassagem */}
+      {faturas.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              Multas de ultrapassagem
+              <span className="ml-auto text-xs font-normal text-muted-foreground">
+                {faturasComMulta.length} cliente(s) · {brl(totalUltrapassagem)}
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {faturasComMulta.length > 0 ? (
                     <div className="overflow-x-auto">
                       <table className="w-full text-xs">
                         <thead className="bg-muted/50 text-[10px] uppercase tracking-wide">
@@ -572,17 +582,14 @@ export function FaturasTab() {
                         </tbody>
                       </table>
                     </div>
-                  </details>
-                ) : (
-                  <div className="rounded-md border bg-background px-3 py-2 text-xs text-muted-foreground">
-                    Nenhum cliente com ultrapassagem nesta competência.
-                  </div>
-                )}
+            ) : (
+              <div className="px-4 py-4 text-xs text-muted-foreground">
+                Nenhum cliente com ultrapassagem nesta competência.
               </div>
-            </details>
-          )}
-        </CardContent>
-      </Card>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {faturas.length === 0 ? (
         <Card><CardContent className="py-10 text-center text-muted-foreground">
