@@ -12,7 +12,6 @@ import { toast } from 'sonner';
 import {
   calcularMemoria,
   agruparPorCliente,
-  redistribuirAreaComumPorArea,
   type EnergiaTarifas,
   type EnergiaLancamentoInput,
   type FaturaCliente,
