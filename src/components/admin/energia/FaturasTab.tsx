@@ -681,24 +681,6 @@ export function FaturasTab() {
   );
 }
 
-function KpiCard({ label, value, icon: Icon, tone, suffix }: { label: string; value: string; icon: any; tone?: 'primary' | 'green' | 'amber' | 'red'; suffix?: string }) {
-  const toneCls =
-    tone === 'primary' ? 'border-primary/30 bg-primary/5'
-    : tone === 'green' ? 'border-green-300/50 bg-green-50 dark:bg-green-950/20'
-    : tone === 'amber' ? 'border-amber-300/50 bg-amber-50 dark:bg-amber-950/20'
-    : tone === 'red' ? 'border-red-300/50 bg-red-50 dark:bg-red-950/20'
-    : '';
-  return (
-    <div className={`rounded-md border p-3 ${toneCls}`}>
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Icon className="h-3.5 w-3.5" /> {label}
-      </div>
-      <div className="mt-1 text-xl font-bold tabular-nums">{value}</div>
-      {suffix && <div className="text-[11px] text-muted-foreground">{suffix}</div>}
-    </div>
-  );
-}
-
 // ───────────────────────────────────────────────────────────
 // Fatura Oficial — replica o layout da planilha "FATURA DE ENERGIA"
 // que o cliente já recebe hoje (PDF Mega Centro Logístico).
