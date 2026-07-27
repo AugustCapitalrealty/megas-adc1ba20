@@ -330,6 +330,7 @@ function ContratoModal({
   }, [vinculosDraft]);
 
   const toggleModulo = (moduloId: string, checked: boolean) => {
+    const ini = checked ? inicioSugerido(moduloId) : vigInicio;
     setVinculosDraft((p) => {
       const idx = p.findIndex((v) => v.modulo_id === moduloId && !v._delete);
       if (checked) {
@@ -337,9 +338,9 @@ function ContratoModal({
         // se existe um soft-deleted, restaura
         const delIdx = p.findIndex((v) => v.modulo_id === moduloId && v._delete);
         if (delIdx >= 0) {
-          return p.map((v, i) => i === delIdx ? { ...v, _delete: false, vigencia_inicio: vigInicio, vigencia_fim: vigFim || null } : v);
+          return p.map((v, i) => i === delIdx ? { ...v, _delete: false, vigencia_inicio: ini, vigencia_fim: vigFim || null } : v);
         }
-        return [...p, { modulo_id: moduloId, vigencia_inicio: vigInicio, vigencia_fim: vigFim || null }];
+        return [...p, { modulo_id: moduloId, vigencia_inicio: ini, vigencia_fim: vigFim || null }];
       } else {
         if (idx < 0) return p;
         const v = p[idx];
@@ -384,13 +385,25 @@ function ContratoModal({
     return d.toISOString().slice(0, 10);
   };
 
+  /** Módulo ocupado por outro contrato SEM data de fim = bloqueio indefinido. */
+  const bloqueioIndefinido = (moduloId: string) =>
+    (ocupacaoPorModulo.get(moduloId) || []).some((o) => !o.fim);
+
+  /** Data inicial sugerida para o módulo: máx entre vigência padrão e liberação. */
+  const inicioSugerido = (moduloId: string) => {
+    const livre = livreApartirDe(moduloId);
+    if (livre && livre > vigInicio) return livre;
+    return vigInicio;
+  };
+
   const filteredModulos = useMemo(() => {
     const term = moduloSearch.trim().toLowerCase();
-    const list = term ? modulos.filter((m) => m.identificador.toLowerCase().includes(term)) : modulos;
-    // selecionados primeiro, bloqueados por último
+    const base = modulos.filter((m) => draftByModulo.has(m.id) || !bloqueioIndefinido(m.id));
+    const list = term ? base.filter((m) => m.identificador.toLowerCase().includes(term)) : base;
+    // selecionados primeiro, depois livres já, depois livres a partir de data futura
     return [...list].sort((a, b) => {
       const rank = (m: Modulo) =>
-        draftByModulo.has(m.id) ? 0 : conflitoDoModulo(m.id) ? 2 : 1;
+        draftByModulo.has(m.id) ? 0 : livreApartirDe(m.id) ? 2 : 1;
       const ra = rank(a), rb = rank(b);
       if (ra !== rb) return ra - rb;
       return a.identificador.localeCompare(b.identificador, undefined, { numeric: true });
@@ -400,7 +413,7 @@ function ContratoModal({
 
   const selectAllVisible = () => {
     filteredModulos.forEach((m) => {
-      if (!draftByModulo.has(m.id) && !conflitoDoModulo(m.id)) toggleModulo(m.id, true);
+      if (!draftByModulo.has(m.id)) toggleModulo(m.id, true);
     });
   };
   const clearAllVisible = () => {
@@ -409,7 +422,11 @@ function ContratoModal({
     });
   };
   const applyDefaultDatesToSelected = () => {
-    setVinculosDraft((p) => p.map((v) => v._delete ? v : ({ ...v, vigencia_inicio: vigInicio, vigencia_fim: vigFim || null })));
+    setVinculosDraft((p) => p.map((v) => v._delete ? v : ({
+      ...v,
+      vigencia_inicio: inicioSugerido(v.modulo_id),
+      vigencia_fim: vigFim || null,
+    })));
     toast.success('Vigência padrão aplicada aos módulos selecionados');
   };
 
@@ -630,28 +647,21 @@ function ContratoModal({
                   const checked = draftIdx !== undefined;
                   const v = checked ? vinculosDraft[draftIdx!] : null;
                   const custom = v ? hasCustomDates(v) : false;
-                  const conflito = !checked ? conflitoDoModulo(m.id) : null;
-                  const livre = !checked && !conflito ? livreApartirDe(m.id) : null;
+                  const livre = !checked ? livreApartirDe(m.id) : null;
                   return (
                     <div
                       key={m.id}
-                      className={`flex items-center gap-3 px-3 py-2 transition-colors ${checked ? 'bg-primary/5' : conflito ? 'opacity-60' : 'hover:bg-muted/30'}`}
+                      className={`flex items-center gap-3 px-3 py-2 transition-colors ${checked ? 'bg-primary/5' : 'hover:bg-muted/30'}`}
                     >
                       <Checkbox
                         checked={checked}
-                        disabled={!!conflito}
                         onCheckedChange={(c) => toggleModulo(m.id, !!c)}
                         id={`mod-${m.id}`}
                       />
-                      <label htmlFor={`mod-${m.id}`} className={`flex-1 text-sm font-medium ${conflito ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                      <label htmlFor={`mod-${m.id}`} className="flex-1 text-sm font-medium cursor-pointer">
                         {m.identificador}
-                        {conflito && (
-                          <span className="block text-[11px] font-normal text-muted-foreground">
-                            ocupado por {conflito.numero}{conflito.fim ? ` até ${br(conflito.fim)}` : ' (sem data de fim)'}
-                          </span>
-                        )}
                         {livre && (
-                          <span className="block text-[11px] font-normal text-muted-foreground">
+                          <span className="block text-[11px] font-normal text-emerald-600 dark:text-emerald-400">
                             livre a partir de {br(livre)}
                           </span>
                         )}
