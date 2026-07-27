@@ -551,15 +551,14 @@ export function FaturaCopelTab() {
       'bandeira_vermelha_2_ponta', 'bandeira_vermelha_2_fora',
     ];
     const copelReais = keys.reduce((s, k) => s + parseBR(it[k]?.valor || ''), 0);
-    // Preço unitário COM tributos digitado na própria fatura (R$/kWh → R$/100 kWh)
-    const precoFatura = keys.map((k) => parseBR(it[k]?.preco_unit || '')).find((v) => v > 0) || 0;
-    const tarifaFatura = precoFatura * 100;
+    // Preço unitário COM tributos digitado na própria fatura (R$/kWh)
+    const tarifaFatura = keys.map((k) => parseBR(it[k]?.preco_unit || '')).find((v) => v > 0) || 0;
     const baseKwh = copelPontaKwh + copelForaKwh + energyPontaNum + energyForaNum;
-    const tarifaDerivada = baseKwh > 0 && copelReais > 0 ? (copelReais * 100) / baseKwh : 0;
+    const tarifaDerivada = baseKwh > 0 && copelReais > 0 ? copelReais / baseKwh : 0;
     // Tarifa líquida (sem tributos): campo salvo, ou engenharia reversa do valor
     // legado gravado em bandeira_tarifa_oficial, ou a tabela ANEEL.
-    const salvaLiquida = parseBR(faturaItens.bandeira_tarifa_liquida || '');
-    const salvaBruta = parseBR(faturaItens.bandeira_tarifa_oficial || '');
+    const salvaLiquida = toRsKwh(parseBR(faturaItens.bandeira_tarifa_liquida || ''));
+    const salvaBruta = toRsKwh(parseBR(faturaItens.bandeira_tarifa_oficial || ''));
     const fatorGross = grossUpBandeira(1, aliquotas);
     const tarifaLiquida = salvaLiquida > 0
       ? salvaLiquida
@@ -567,8 +566,8 @@ export function FaturaCopelTab() {
     const tarifaBrutaCalc = grossUpBandeira(tarifaLiquida, aliquotas);
     // Manual: usuário sobrescreveu a tarifa com tributos
     const tarifaOficial = faturaItens.bandeira_tarifa_manual && salvaBruta > 0 ? salvaBruta : tarifaBrutaCalc;
-    const totalOficial = (baseKwh / 100) * tarifaOficial;
-    const totalDerivado = (baseKwh / 100) * tarifaDerivada;
+    const totalOficial = baseKwh * tarifaOficial;
+    const totalDerivado = baseKwh * tarifaDerivada;
     const tarifaAtiva = bandeiraModo === 'oficial' ? tarifaOficial : tarifaDerivada;
     const totalAtivo = bandeiraModo === 'oficial' ? totalOficial : totalDerivado;
     return {
@@ -585,9 +584,9 @@ export function FaturaCopelTab() {
     setFaturaItens((p) => ({
       ...p,
       bandeira_vigente: tipo,
-      bandeira_tarifa_liquida: fmtBR(BANDEIRA_TABELA_LIQUIDA[tipo], 4),
+      bandeira_tarifa_liquida: fmtBR(BANDEIRA_TABELA_LIQUIDA[tipo], 6),
       bandeira_tarifa_manual: false,
-      bandeira_tarifa_oficial: fmtBR(grossUpBandeira(BANDEIRA_TABELA_LIQUIDA[tipo], aliquotas), 4),
+      bandeira_tarifa_oficial: fmtBR(grossUpBandeira(BANDEIRA_TABELA_LIQUIDA[tipo], aliquotas), 6),
     }));
   };
 
@@ -612,9 +611,9 @@ export function FaturaCopelTab() {
       itens: it,
       bandeira_modo: bandeiraModo,
       bandeira_vigente: bandeiraTipo,
-      bandeira_tarifa_liquida: fmtBR(bandeiraInfo.tarifaLiquida, 4),
+      bandeira_tarifa_liquida: fmtBR(bandeiraInfo.tarifaLiquida, 6),
       bandeira_tarifa_manual: !!faturaItens.bandeira_tarifa_manual,
-      bandeira_tarifa_oficial: fmtBR(bandeiraInfo.tarifaOficial, 4),
+      bandeira_tarifa_oficial: fmtBR(bandeiraInfo.tarifaOficial, 6),
     };
     const v = (k: CopelItemKey) => parseBR(it[k]?.valor || '');
     const q = (k: CopelItemKey) => parseBR(it[k]?.quant || '');
@@ -632,7 +631,8 @@ export function FaturaCopelTab() {
     // Somando todos os clientes: R$ = ((consumo + perdas) / 100) * bandeira_valor
     // Portanto, para reproduzir o total R$ de bandeira lançado na Copel:
     //   bandeira_valor = bandeiraReais * 100 / (copelKwh + energyLosses)
-    const bandeiraValor = bandeiraInfo.tarifaAtiva;
+    // A UI trabalha em R$/kWh → converte para R$/100 kWh esperado pelo engine.
+    const bandeiraValor = bandeiraInfo.tarifaAtiva * 100;
     const mirror = {
       copel_consumo_ponta_kwh: q('te_ponta') || q('usd_ponta'),
       copel_consumo_fora_kwh: q('te_fora') || q('usd_fora'),
