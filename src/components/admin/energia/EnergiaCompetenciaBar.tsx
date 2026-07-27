@@ -7,6 +7,7 @@ import { Calendar, Lock, Unlock, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { useSharedCompetencia } from './CompetenciaContext';
+import { mesConsumo } from '@/lib/energia-vigencias';
 
 interface Competencia { id: string; ano_mes: string; status: 'rascunho' | 'fechada' }
 
