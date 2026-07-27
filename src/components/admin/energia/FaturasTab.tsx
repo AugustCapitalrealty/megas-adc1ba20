@@ -634,7 +634,7 @@ export function FaturasTab() {
                   const idx = f.cliente_key.indexOf('::');
                   const cli = idx >= 0 ? f.cliente_key.slice(0, idx) : '';
                   const showContrato = !!cli && (contratosPorCliente.get(cli) || 0) > 1 && f.contrato_numero;
-                  const isAreaRateada = f.cliente_key === 'AREA_COMUM' && ratearAreaComum;
+                  const isAreaRateada = f.cliente_key === 'AREA_COMUM';
                   return (
                     <li key={f.cliente_key}>
                       <button
