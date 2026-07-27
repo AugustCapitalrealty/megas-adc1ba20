@@ -39,7 +39,18 @@ interface EnergiaModulo {
   ordem: number;
   ativo: boolean;
   observacao: string | null;
+  tipo: TipoUnidade;
 }
+
+/** Tipo da unidade: separa módulos locáveis de áreas especiais (não são módulos). */
+export type TipoUnidade = 'modulo' | 'area_comum' | 'restaurante' | 'obra' | 'outro';
+export const TIPO_UNIDADE_LABEL: Record<TipoUnidade, string> = {
+  modulo: 'Módulo',
+  area_comum: 'Área comum',
+  restaurante: 'Restaurante',
+  obra: 'Obra',
+  outro: 'Outro',
+};
 
 interface EnergiaParametros {
   id: string;
@@ -371,6 +382,16 @@ export function EnergiaCadastrosTab({ onOpenContrato }: { onOpenContrato?: (cont
   }
 
   const totalArea = modulos.reduce((s, m) => s + Number(m.area_m2 || 0), 0);
+  const tipoDe = (m: EnergiaModulo): TipoUnidade => (m.tipo || 'modulo');
+  const modulosCount = modulos.filter(m => tipoDe(m) === 'modulo').length;
+  const especiaisCount = modulos.length - modulosCount;
+  // Módulos locáveis primeiro; áreas especiais (comum, restaurante, obra) ao final.
+  const modulosOrdenados = [...modulos].sort((a, b) => {
+    const ea = tipoDe(a) === 'modulo' ? 0 : 1;
+    const eb = tipoDe(b) === 'modulo' ? 0 : 1;
+    if (ea !== eb) return ea - eb;
+    return (a.ordem ?? 0) - (b.ordem ?? 0);
+  });
   const clienteLabel = (id: string | null) => {
     if (!id) return null;
     const c = clientes.find((x) => x.id === id);
@@ -516,10 +537,11 @@ export function EnergiaCadastrosTab({ onOpenContrato }: { onOpenContrato?: (cont
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <LayoutGrid className="h-5 w-5 text-primary" />
-            Módulos do Mega Curitiba ({modulos.length})
+            Unidades do Mega Curitiba ({modulosCount} módulos + {especiaisCount} áreas especiais)
           </CardTitle>
           <CardDescription>
             Área total: <strong>{totalArea.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} m²</strong>. A demanda contratada agora vive no <em>Contrato</em> vinculado ao módulo.
+            Unidades como Área comum, Restaurante e Obra não contam como módulos locáveis.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -538,6 +560,7 @@ export function EnergiaCadastrosTab({ onOpenContrato }: { onOpenContrato?: (cont
                 <TableRow>
                   <TableHead className="w-20">Ordem</TableHead>
                   <TableHead>Módulo</TableHead>
+                  <TableHead className="w-36">Tipo</TableHead>
                   <TableHead className="text-right">Área (m²)</TableHead>
                   <TableHead>Cliente (vigente)</TableHead>
                   <TableHead className="text-right">Demanda (kW)</TableHead>
@@ -548,9 +571,9 @@ export function EnergiaCadastrosTab({ onOpenContrato }: { onOpenContrato?: (cont
               </TableHeader>
               <TableBody>
                 {modulos.length === 0 && (
-                  <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground py-6">Nenhum módulo cadastrado</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground py-6">Nenhuma unidade cadastrada</TableCell></TableRow>
                 )}
-                {modulos.map(m => {
+                {modulosOrdenados.map(m => {
                   const cv = contratoPorModulo[m.id];
                   const cliNome = cv ? clienteLabel(cv.cliente_id) : null;
                   return (
@@ -570,6 +593,19 @@ export function EnergiaCadastrosTab({ onOpenContrato }: { onOpenContrato?: (cont
                         onChange={e => setModulos(prev => prev.map(x => x.id === m.id ? { ...x, identificador: e.target.value } : x))}
                         onBlur={e => handleUpdateModulo(m.id, { identificador: e.target.value })}
                       />
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={m.tipo || 'modulo'}
+                        onValueChange={(v) => handleUpdateModulo(m.id, { tipo: v as TipoUnidade })}
+                      >
+                        <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {(Object.keys(TIPO_UNIDADE_LABEL) as TipoUnidade[]).map(k => (
+                            <SelectItem key={k} value={k}>{TIPO_UNIDADE_LABEL[k]}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </TableCell>
                     <TableCell>
                       <Input

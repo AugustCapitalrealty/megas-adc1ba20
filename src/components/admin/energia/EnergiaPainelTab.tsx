@@ -12,8 +12,14 @@ interface Competencia { id: string; ano_mes: string; status: 'rascunho' | 'fecha
 interface Status {
   copelLancada: boolean;
   totalCopel: number;
-  lancamentosCount: number;
-  modulosAtivos: number;
+  /** lançamentos preenchidos / total de módulos locáveis ativos */
+  modulosFeitos: number;
+  modulosTotal: number;
+  /** lançamentos preenchidos / total de áreas especiais (comum, restaurante, obra) */
+  especiaisFeitos: number;
+  especiaisTotal: number;
+  /** lançamentos de unidades que não estão mais ativas no cadastro */
+  orfaos: number;
 }
 
 interface Props {
@@ -59,18 +65,35 @@ export function EnergiaPainelTab({ onGoTo }: Props) {
         .from('energia_competencia_lancamentos')
         .select('modulo_id')
         .eq('competencia_id', compId),
-      supabase.from('energia_modulos').select('id').eq('ativo', true),
+      supabase.from('energia_modulos').select('id, tipo').eq('ativo', true),
     ]);
     const fc: any = (t.data as any)?.fatura_copel_itens || {};
     const totalCopel = Number(
       String(fc.total_a_pagar || '0').replace(/\./g, '').replace(',', '.'),
     ) || 0;
     const copelLancada = totalCopel > 0 || Object.keys(fc.itens || {}).length > 0;
+    const unidades = (m.data as any[] | null) || [];
+    const tipoPorId = new Map<string, string>(unidades.map((u) => [u.id, u.tipo || 'modulo']));
+    const modulosTotal = unidades.filter((u) => (u.tipo || 'modulo') === 'modulo').length;
+    const especiaisTotal = unidades.length - modulosTotal;
+    const lanc = (l.data as any[] | null) || [];
+    let modulosFeitos = 0, especiaisFeitos = 0, orfaos = 0;
+    const vistos = new Set<string>();
+    for (const row of lanc) {
+      const tipo = tipoPorId.get(row.modulo_id);
+      if (!tipo) { orfaos++; continue; }
+      if (vistos.has(row.modulo_id)) continue;
+      vistos.add(row.modulo_id);
+      if (tipo === 'modulo') modulosFeitos++; else especiaisFeitos++;
+    }
     setStatus({
       copelLancada,
       totalCopel,
-      lancamentosCount: (l.data as any[] | null)?.length || 0,
-      modulosAtivos: (m.data as any[] | null)?.length || 0,
+      modulosFeitos,
+      modulosTotal,
+      especiaisFeitos,
+      especiaisTotal,
+      orfaos,
     });
   }, []);
 
@@ -94,7 +117,11 @@ export function EnergiaPainelTab({ onGoTo }: Props) {
     );
   }
 
-  const lancamentosCompleto = status && status.modulosAtivos > 0 && status.lancamentosCount >= status.modulosAtivos;
+  const lancamentosCompleto =
+    !!status &&
+    status.modulosTotal > 0 &&
+    status.modulosFeitos >= status.modulosTotal &&
+    status.especiaisFeitos >= status.especiaisTotal;
 
   return (
     <div className="space-y-6">
@@ -140,12 +167,19 @@ export function EnergiaPainelTab({ onGoTo }: Props) {
             />
             <StepCard
               step={2}
-              title="Lançamentos por Módulo"
+              title="Lançamentos por Unidade"
               icon={ClipboardList}
               done={!!lancamentosCompleto}
               detail={
                 status
-                  ? `${status.lancamentosCount} de ${status.modulosAtivos} módulos`
+                  ? (
+                    <span className="block space-y-0.5">
+                      <span className="block">{status.modulosFeitos} de {status.modulosTotal} módulos</span>
+                      {status.especiaisTotal > 0 && (
+                        <span className="block">{status.especiaisFeitos} de {status.especiaisTotal} áreas especiais</span>
+                      )}
+                    </span>
+                  )
                   : '—'
               }
               cta="Abrir Lançamentos"
@@ -180,9 +214,18 @@ export function EnergiaPainelTab({ onGoTo }: Props) {
               />
               <ChecklistItem
                 done={!!lancamentosCompleto}
-                label={`Lançamentos de todos os módulos (${status?.lancamentosCount ?? 0}/${status?.modulosAtivos ?? 0})`}
+                label={`Lançamentos completos — módulos ${status?.modulosFeitos ?? 0}/${status?.modulosTotal ?? 0} · áreas especiais ${status?.especiaisFeitos ?? 0}/${status?.especiaisTotal ?? 0}`}
                 onClick={() => onGoTo('lancamentos')}
               />
+              {!!status?.orfaos && (
+                <div className="flex items-start gap-2 rounded-md border border-amber-300/60 bg-amber-50 dark:bg-amber-950/20 p-3 text-xs">
+                  <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                  <span>
+                    Existem <strong>{status.orfaos}</strong> lançamento(s) de unidades que não estão mais ativas no cadastro.
+                    Eles não entram na contagem nem no rateio. Reative a unidade no cadastro ou remova o lançamento.
+                  </span>
+                </div>
+              )}
               <ChecklistItem
                 done={!!(status?.copelLancada && lancamentosCompleto)}
                 label="Faturas por cliente conferidas contra a Copel"
@@ -207,10 +250,13 @@ export function EnergiaPainelTab({ onGoTo }: Props) {
                     <div className="text-2xl font-semibold font-mono">{brl(status.totalCopel)}</div>
                   </div>
                   <div>
-                    <div className="text-muted-foreground">Módulos lançados</div>
+                    <div className="text-muted-foreground">Unidades lançadas</div>
                     <div className="text-2xl font-semibold font-mono">
-                      {status.lancamentosCount}
-                      <span className="text-base text-muted-foreground font-normal"> / {status.modulosAtivos}</span>
+                      {status.modulosFeitos}
+                      <span className="text-base text-muted-foreground font-normal"> / {status.modulosTotal}</span>
+                      <span className="block text-xs text-muted-foreground font-normal font-sans">
+                        + {status.especiaisFeitos}/{status.especiaisTotal} áreas especiais
+                      </span>
                     </div>
                   </div>
                   <div>
@@ -264,7 +310,7 @@ function StepCard({
   title: string;
   icon: React.ComponentType<{ className?: string }>;
   done: boolean;
-  detail: string;
+  detail: React.ReactNode;
   cta: string;
   onClick: () => void;
 }) {
