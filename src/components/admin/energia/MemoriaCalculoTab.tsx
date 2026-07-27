@@ -36,6 +36,7 @@ interface Modulo {
   ativo: boolean;
   demanda_contratada_kw: number;
   cliente_id: string | null;
+  tipo?: 'modulo' | 'area_comum' | 'restaurante' | 'obra' | 'outro';
 }
 interface Cliente { id: string; nome: string; razao_social: string | null; }
 interface ContratoVigente { modulo_id: string; demanda_contratada_kw: number; numero_contrato: string; }
