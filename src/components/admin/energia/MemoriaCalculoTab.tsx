@@ -276,9 +276,12 @@ export function MemoriaCalculoTab() {
 
     // Resolver contrato vigente por módulo para o mês da competência.
     // Um contrato é vigente no mês se sua vigência se sobrepõe a [primeiro_dia, último_dia].
-    const [yy, mm] = anoMes.split('-').map(Number);
-    const refInicio = `${anoMes}-01`;
-    const refFim = `${anoMes}-${String(new Date(yy, mm, 0).getDate()).padStart(2, '0')}`;
+    // A fatura da competência cobre o consumo do MÊS ANTERIOR.
+    const consumoMes = mesConsumo(anoMes);
+    setMesRef(consumoMes);
+    const [yy, mm] = consumoMes.split('-').map(Number);
+    const refInicio = `${consumoMes}-01`;
+    const refFim = `${consumoMes}-${String(new Date(yy, mm, 0).getDate()).padStart(2, '0')}`;
     const { data: vinculos, error: vErr } = await supabase
       .from('energia_contrato_modulos' as any)
       .select('modulo_id, vigencia_inicio, vigencia_fim, contrato:energia_contratos!inner(id, numero_contrato, demanda_contratada_kw, ativo, cliente_id)')
@@ -314,17 +317,11 @@ export function MemoriaCalculoTab() {
     }
     const grupos = new Map<string, ContratoGrupo>();
     if (!vErr && vinculos) {
-      // Determina, por módulo, qual contrato é o vigente "vencedor" (mesma regra do cMap)
-      const winner: Record<string, string> = {};
-      for (const mid of Object.keys(cMap)) {
-        winner[mid] = cMap[mid].numero_contrato;
-      }
       for (const v of vinculos as any[]) {
         const fim = v.vigencia_fim ? v.vigencia_fim : null;
         if (fim && fim < refInicio) continue;
         if (!v.contrato?.ativo) continue;
-        // só inclui se for o contrato vencedor do módulo
-        if (winner[v.modulo_id] !== v.contrato.numero_contrato) continue;
+        // Um módulo pode aparecer em 2 contratos no mesmo mês (troca no meio do mês).
         const cid = v.contrato.id;
         if (!grupos.has(cid)) {
           grupos.set(cid, {
@@ -342,16 +339,12 @@ export function MemoriaCalculoTab() {
     }
     setContratosVigentes(Array.from(grupos.values()));
 
-    // Detecta módulos que trocaram de cliente no meio do mês (rateio pro-rata na fatura)
+    // Períodos por módulo dentro do mês de consumo (pro-rata quando há troca)
     if (!vErr && vinculos) {
       const ids = Array.from(modulosById.keys());
-      const per = resolverPeriodosPorModulo(anoMes, vinculos as any, ids);
-      const trocas = ids
-        .filter((id) => (per[id]?.length ?? 0) > 1)
-        .map((id) => ({ modulo: modulosById.get(id)?.identificador || id, periodos: per[id] }));
-      setTrocasNoMes(trocas);
+      setPeriodosPorModulo(resolverPeriodosPorModulo(consumoMes, vinculos as any, ids));
     } else {
-      setTrocasNoMes([]);
+      setPeriodosPorModulo({});
     }
   }, []);
 
