@@ -1401,8 +1401,10 @@ interface ConsumoClienteCardProps {
   isLocked: boolean;
   copelTotais: { d: number; cp: number; cf: number };
   lancamentos: Record<string, LancamentoRow>;
+  periodosPorModulo: Record<string, PeriodoModulo[]>;
+  mesRef: string;
 }
-function ConsumoClienteCard({ clientes, modulos, contratosVigentes, consumoCli, updateConsumoCli, entradaMedidor, setEntradaMedidor, onSave, saving, isLocked, copelTotais, lancamentos }: ConsumoClienteCardProps) {
+function ConsumoClienteCard({ clientes, modulos, contratosVigentes, consumoCli, updateConsumoCli, entradaMedidor, setEntradaMedidor, onSave, saving, isLocked, copelTotais, lancamentos, periodosPorModulo, mesRef }: ConsumoClienteCardProps) {
   const emCP = parseBR(entradaMedidor.cp || '');
   const emCF = parseBR(entradaMedidor.cf || '');
   const isAreaComum = (m: Modulo) => (m.tipo ? m.tipo === 'area_comum' : /(área|area) comum/i.test(m.identificador));
