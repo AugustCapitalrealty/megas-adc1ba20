@@ -536,23 +536,15 @@ export function FaturaCopelTab() {
     const tval = (t?: CopelTributo) => parseBR(t?.valor || '');
     const piscof = tval(trib.pis) + tval(trib.cofins);
     const ultrap = v('demanda_ultrapassagem');
-    // ── Bandeira derivada dos itens da Copel ────────────────────────
-    // O engine de rateio (src/lib/energia-rateio.ts) aplica bandeira como
+    // ── Bandeira (R$/100 kWh) ───────────────────────────────────────
+    // Modo 'oficial' (planilha): usa a tarifa tabelada da bandeira vigente.
+    // Modo 'rateio' (legado): deriva a tarifa do R$ total lançado na Copel —
+    // o engine de rateio (src/lib/energia-rateio.ts) aplica bandeira como
     //   BM/BN = ((Q + perdas_rateadas) / 100) * bandeira_valor
     // Somando todos os clientes: R$ = ((consumo + perdas) / 100) * bandeira_valor
     // Portanto, para reproduzir o total R$ de bandeira lançado na Copel:
     //   bandeira_valor = bandeiraReais * 100 / (copelKwh + energyLosses)
-    // Sem itens de bandeira → 0 (nenhuma taxa rateada).
-    const bandeiraKeys = [
-      'bandeira_amarela_ponta', 'bandeira_amarela_fora',
-      'bandeira_vermelha_1_ponta', 'bandeira_vermelha_1_fora',
-      'bandeira_vermelha_2_ponta', 'bandeira_vermelha_2_fora',
-    ];
-    const bandeiraReais = bandeiraKeys.reduce((s, k) => s + v(k), 0);
-    const baseKwhBandeira = copelPontaKwh + copelForaKwh + energyPontaNum + energyForaNum;
-    const bandeiraValor = baseKwhBandeira > 0 && bandeiraReais > 0
-      ? (bandeiraReais * 100) / baseKwhBandeira
-      : 0;
+    const bandeiraValor = bandeiraInfo.tarifaAtiva;
     const mirror = {
       copel_consumo_ponta_kwh: q('te_ponta') || q('usd_ponta'),
       copel_consumo_fora_kwh: q('te_fora') || q('usd_fora'),
