@@ -185,8 +185,10 @@ export function ContratosTab({ initialFocusContratoId, onFocusHandled }: { initi
                 <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todos</SelectItem>
-                  <SelectItem value="ativos">Ativos</SelectItem>
-                  <SelectItem value="inativos">Inativos</SelectItem>
+                  <SelectItem value="vigente">Vigentes</SelectItem>
+                  <SelectItem value="encerrado">Encerrados</SelectItem>
+                  <SelectItem value="futuro">Futuros</SelectItem>
+                  <SelectItem value="inativo">Inativos</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -220,7 +222,7 @@ export function ContratosTab({ initialFocusContratoId, onFocusHandled }: { initi
                       <TableCell>{clienteLabel(c.cliente_id)}</TableCell>
                       <TableCell className="text-right">{Number(c.demanda_contratada_kw).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
                       <TableCell className="text-xs">
-                        {c.vigencia_inicio} → {c.vigencia_fim || '—'}
+                        {br(c.vigencia_inicio)} → {br(c.vigencia_fim)}
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
@@ -238,7 +240,20 @@ export function ContratosTab({ initialFocusContratoId, onFocusHandled }: { initi
                         ) : <span className="text-xs text-muted-foreground">—</span>}
                       </TableCell>
                       <TableCell className="text-center">
-                        <Badge variant={c.ativo ? 'default' : 'secondary'}>{c.ativo ? 'Ativo' : 'Inativo'}</Badge>
+                        {(() => {
+                          const st = vigenciaStatus(c);
+                          return (
+                            <div className="flex flex-col items-center gap-0.5">
+                              <Badge variant={STATUS_META[st].variant}>{STATUS_META[st].label}</Badge>
+                              {st === 'encerrado' && (
+                                <span className="text-[10px] text-muted-foreground">em {br(c.vigencia_fim)}</span>
+                              )}
+                              {st === 'futuro' && (
+                                <span className="text-[10px] text-muted-foreground">inicia {br(c.vigencia_inicio)}</span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button size="icon" variant="ghost" onClick={() => openEdit(c)}><Pencil className="h-4 w-4" /></Button>
