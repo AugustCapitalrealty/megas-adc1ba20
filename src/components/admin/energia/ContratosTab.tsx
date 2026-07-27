@@ -47,6 +47,28 @@ interface ModuloVinculoDraft {
 
 const BUCKET = 'energia-contratos';
 const todayISO = () => new Date().toISOString().slice(0, 10);
+const br = (iso?: string | null) => (iso ? iso.split('-').reverse().join('/') : '—');
+
+type VigStatus = 'inativo' | 'futuro' | 'encerrado' | 'vigente';
+function vigenciaStatus(c: { ativo: boolean; vigencia_inicio: string; vigencia_fim: string | null }, hoje = todayISO()): VigStatus {
+  if (!c.ativo) return 'inativo';
+  if (c.vigencia_inicio > hoje) return 'futuro';
+  if (c.vigencia_fim && c.vigencia_fim < hoje) return 'encerrado';
+  return 'vigente';
+}
+const STATUS_META: Record<VigStatus, { label: string; variant: 'default' | 'secondary' | 'outline' }> = {
+  vigente: { label: 'Ativo', variant: 'default' },
+  encerrado: { label: 'Encerrado', variant: 'outline' },
+  futuro: { label: 'Futuro', variant: 'outline' },
+  inativo: { label: 'Inativo', variant: 'secondary' },
+};
+
+/** Dois intervalos [ini, fim] (fim nulo = infinito) se sobrepõem? */
+function overlaps(aIni: string, aFim: string | null, bIni: string, bFim: string | null) {
+  const aEnd = aFim || '9999-12-31';
+  const bEnd = bFim || '9999-12-31';
+  return aIni <= bEnd && bIni <= aEnd;
+}
 
 export function ContratosTab({ initialFocusContratoId, onFocusHandled }: { initialFocusContratoId?: string | null; onFocusHandled?: () => void } = {}) {
   const { user } = useAuth();
@@ -102,8 +124,7 @@ export function ContratosTab({ initialFocusContratoId, onFocusHandled }: { initi
   const filtered = useMemo(() => {
     return contratos.filter((c) => {
       if (filterCliente !== '__all__' && c.cliente_id !== filterCliente) return false;
-      if (filterAtivo === 'ativos' && !c.ativo) return false;
-      if (filterAtivo === 'inativos' && c.ativo) return false;
+      if (filterAtivo !== 'todos' && vigenciaStatus(c) !== filterAtivo) return false;
       return true;
     });
   }, [contratos, filterCliente, filterAtivo]);
@@ -164,8 +185,10 @@ export function ContratosTab({ initialFocusContratoId, onFocusHandled }: { initi
                 <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todos</SelectItem>
-                  <SelectItem value="ativos">Ativos</SelectItem>
-                  <SelectItem value="inativos">Inativos</SelectItem>
+                  <SelectItem value="vigente">Vigentes</SelectItem>
+                  <SelectItem value="encerrado">Encerrados</SelectItem>
+                  <SelectItem value="futuro">Futuros</SelectItem>
+                  <SelectItem value="inativo">Inativos</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -199,7 +222,7 @@ export function ContratosTab({ initialFocusContratoId, onFocusHandled }: { initi
                       <TableCell>{clienteLabel(c.cliente_id)}</TableCell>
                       <TableCell className="text-right">{Number(c.demanda_contratada_kw).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
                       <TableCell className="text-xs">
-                        {c.vigencia_inicio} → {c.vigencia_fim || '—'}
+                        {br(c.vigencia_inicio)} → {br(c.vigencia_fim)}
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
@@ -217,7 +240,20 @@ export function ContratosTab({ initialFocusContratoId, onFocusHandled }: { initi
                         ) : <span className="text-xs text-muted-foreground">—</span>}
                       </TableCell>
                       <TableCell className="text-center">
-                        <Badge variant={c.ativo ? 'default' : 'secondary'}>{c.ativo ? 'Ativo' : 'Inativo'}</Badge>
+                        {(() => {
+                          const st = vigenciaStatus(c);
+                          return (
+                            <div className="flex flex-col items-center gap-0.5">
+                              <Badge variant={STATUS_META[st].variant}>{STATUS_META[st].label}</Badge>
+                              {st === 'encerrado' && (
+                                <span className="text-[10px] text-muted-foreground">em {br(c.vigencia_fim)}</span>
+                              )}
+                              {st === 'futuro' && (
+                                <span className="text-[10px] text-muted-foreground">inicia {br(c.vigencia_inicio)}</span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button size="icon" variant="ghost" onClick={() => openEdit(c)}><Pencil className="h-4 w-4" /></Button>
@@ -241,6 +277,7 @@ export function ContratosTab({ initialFocusContratoId, onFocusHandled }: { initi
           modulos={modulos.filter((m) => m.ativo)}
           existingVinculos={editing ? vinculos.filter((v) => v.contrato_id === editing.id) : []}
           allVinculos={vinculos}
+          contratos={contratos}
           userId={user?.id || null}
           onSaved={() => { setModalOpen(false); setEditing(null); fetchAll(); }}
           saving={saving}
@@ -253,7 +290,7 @@ export function ContratosTab({ initialFocusContratoId, onFocusHandled }: { initi
 
 // ─────────────────────────────────────────────────────────────
 function ContratoModal({
-  open, onOpenChange, contrato, clientes, modulos, existingVinculos, allVinculos, userId, onSaved, saving, setSaving,
+  open, onOpenChange, contrato, clientes, modulos, existingVinculos, allVinculos, contratos, userId, onSaved, saving, setSaving,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -262,6 +299,7 @@ function ContratoModal({
   modulos: Modulo[];
   existingVinculos: ContratoModulo[];
   allVinculos: ContratoModulo[];
+  contratos: Contrato[];
   userId: string | null;
   onSaved: () => void;
   saving: boolean;
@@ -315,25 +353,54 @@ function ContratoModal({
     setVinculosDraft((p) => p.map((v) => (v.modulo_id === moduloId && !v._delete) ? { ...v, ...patch } : v));
   };
 
+  // Vínculos de OUTROS contratos, por módulo — usados para checar sobreposição de datas.
+  const ocupacaoPorModulo = useMemo(() => {
+    const map = new Map<string, { contrato: Contrato | undefined; inicio: string; fim: string | null }[]>();
+    allVinculos
+      .filter((v) => v.contrato_id !== contrato?.id)
+      .forEach((v) => {
+        const arr = map.get(v.modulo_id) || [];
+        arr.push({ contrato: contratos.find((c) => c.id === v.contrato_id), inicio: v.vigencia_inicio, fim: v.vigencia_fim });
+        map.set(v.modulo_id, arr);
+      });
+    return map;
+  }, [allVinculos, contratos, contrato?.id]);
+
+  /** Conflito real com o período que está sendo cadastrado (ou null se está livre). */
+  const conflitoDoModulo = (moduloId: string, ini = vigInicio, fim: string | null = vigFim || null) => {
+    const ocup = ocupacaoPorModulo.get(moduloId) || [];
+    const conf = ocup.find((o) => overlaps(o.inicio, o.fim, ini, fim));
+    if (!conf) return null;
+    return { numero: conf.contrato?.numero_contrato || 'outro contrato', fim: conf.fim };
+  };
+
+  /** Data em que o módulo fica livre (fim do último vínculo anterior), se houver. */
+  const livreApartirDe = (moduloId: string) => {
+    const ocup = (ocupacaoPorModulo.get(moduloId) || []).filter((o) => o.fim);
+    if (!ocup.length) return null;
+    const maiorFim = ocup.reduce((a, b) => ((b.fim! > a.fim!) ? b : a)).fim!;
+    const d = new Date(`${maiorFim}T00:00:00`);
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().slice(0, 10);
+  };
+
   const filteredModulos = useMemo(() => {
     const term = moduloSearch.trim().toLowerCase();
-    const usedByOthers = new Set(
-      allVinculos.filter((v) => v.contrato_id !== contrato?.id).map((v) => v.modulo_id),
-    );
-    const base = modulos.filter((m) => !usedByOthers.has(m.id));
-    const list = term ? base.filter((m) => m.identificador.toLowerCase().includes(term)) : base;
-    // selecionados primeiro
+    const list = term ? modulos.filter((m) => m.identificador.toLowerCase().includes(term)) : modulos;
+    // selecionados primeiro, bloqueados por último
     return [...list].sort((a, b) => {
-      const sa = draftByModulo.has(a.id) ? 0 : 1;
-      const sb = draftByModulo.has(b.id) ? 0 : 1;
-      if (sa !== sb) return sa - sb;
+      const rank = (m: Modulo) =>
+        draftByModulo.has(m.id) ? 0 : conflitoDoModulo(m.id) ? 2 : 1;
+      const ra = rank(a), rb = rank(b);
+      if (ra !== rb) return ra - rb;
       return a.identificador.localeCompare(b.identificador, undefined, { numeric: true });
     });
-  }, [modulos, moduloSearch, draftByModulo, allVinculos, contrato?.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modulos, moduloSearch, draftByModulo, ocupacaoPorModulo, vigInicio, vigFim]);
 
   const selectAllVisible = () => {
     filteredModulos.forEach((m) => {
-      if (!draftByModulo.has(m.id)) toggleModulo(m.id, true);
+      if (!draftByModulo.has(m.id) && !conflitoDoModulo(m.id)) toggleModulo(m.id, true);
     });
   };
   const clearAllVisible = () => {
@@ -355,6 +422,18 @@ function ContratoModal({
     if (!clienteId) return toast.error('Selecione o cliente');
     if (!vigInicio) return toast.error('Informe a vigência inicial');
     if (demanda <= 0) return toast.error('Demanda deve ser maior que zero');
+
+    // Espelha o gatilho do banco: nenhum módulo pode ter vigência sobreposta em outro contrato.
+    for (const v of vinculosDraft) {
+      if (v._delete || !v.modulo_id) continue;
+      const conf = conflitoDoModulo(v.modulo_id, v.vigencia_inicio, v.vigencia_fim || null);
+      if (conf) {
+        const nome = modulos.find((m) => m.id === v.modulo_id)?.identificador || 'módulo';
+        return toast.error(
+          `Módulo ${nome} já está no contrato ${conf.numero}${conf.fim ? ` até ${br(conf.fim)}` : ' (sem data de fim)'}. Ajuste a vigência para começar depois.`,
+        );
+      }
+    }
 
     setSaving(true);
     try {
@@ -551,18 +630,31 @@ function ContratoModal({
                   const checked = draftIdx !== undefined;
                   const v = checked ? vinculosDraft[draftIdx!] : null;
                   const custom = v ? hasCustomDates(v) : false;
+                  const conflito = !checked ? conflitoDoModulo(m.id) : null;
+                  const livre = !checked && !conflito ? livreApartirDe(m.id) : null;
                   return (
                     <div
                       key={m.id}
-                      className={`flex items-center gap-3 px-3 py-2 hover:bg-muted/30 transition-colors ${checked ? 'bg-primary/5' : ''}`}
+                      className={`flex items-center gap-3 px-3 py-2 transition-colors ${checked ? 'bg-primary/5' : conflito ? 'opacity-60' : 'hover:bg-muted/30'}`}
                     >
                       <Checkbox
                         checked={checked}
+                        disabled={!!conflito}
                         onCheckedChange={(c) => toggleModulo(m.id, !!c)}
                         id={`mod-${m.id}`}
                       />
-                      <label htmlFor={`mod-${m.id}`} className="flex-1 cursor-pointer text-sm font-medium">
+                      <label htmlFor={`mod-${m.id}`} className={`flex-1 text-sm font-medium ${conflito ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
                         {m.identificador}
+                        {conflito && (
+                          <span className="block text-[11px] font-normal text-muted-foreground">
+                            ocupado por {conflito.numero}{conflito.fim ? ` até ${br(conflito.fim)}` : ' (sem data de fim)'}
+                          </span>
+                        )}
+                        {livre && (
+                          <span className="block text-[11px] font-normal text-muted-foreground">
+                            livre a partir de {br(livre)}
+                          </span>
+                        )}
                       </label>
                       {v && (
                         <>

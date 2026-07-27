@@ -1,49 +1,38 @@
-## Objetivo
+## O que está acontecendo (verificado no código e no banco)
 
-Permitir que um módulo troque de cliente no meio do mês (ex.: Veloz até 25/07, novo cliente a partir de 26/07) e que a fatura do mês seja dividida proporcionalmente aos dias de cada contrato.
+**1. O status "Ativo" não olha a vigência.** Na lista de contratos (`ContratosTab.tsx`, linha 220) o badge vem só do campo `ativo` (interruptor "Contrato ativo" do formulário). O VALIDAR02 tem `vigencia_fim = 2026-06-25` e `ativo = true`, então aparece "Ativo" mesmo já encerrado.
 
-## Situação atual (verificada no código)
+**2. O módulo não aparece no novo contrato porque a tela esconde qualquer módulo já vinculado a outro contrato — sem olhar as datas.** Em `ContratosTab.tsx` (linhas 320-323) a lista de módulos remove todos os módulos que aparecem em vínculos de outros contratos. Como os módulos 1 e 2 estão no VALIDAR02 (até 25/06), eles somem do contrato da Tornado, mesmo com início em 26/06 — que é um período livre.
 
-- A tabela `energia_contrato_modulos` já guarda `vigencia_inicio` e `vigencia_fim` por módulo, e o formulário de contratos já permite editar essas datas.
-- Porém, no cálculo (`FaturasTab.tsx`, linhas ~113-127) quando existe mais de uma vigência no mesmo mês o sistema **escolhe apenas a mais recente** e joga 100% do consumo para esse cliente. Nenhuma divisão por dias acontece hoje.
-- O agrupamento por cliente (`agruparPorCliente` em `energia-rateio.ts`) trabalha com uma chave `cliente_id::contrato_id` por módulo — hoje um módulo só pode cair em um cliente.
+Confirmei no banco que a regra do servidor está correta: o gatilho de sobreposição usa intervalo de datas, então 01/01→25/06 e 26/06→… **não** conflitam. O bloqueio é só da tela.
 
-## O que será construído
+## O que será feito
 
-### 1. Resolver todas as vigências do mês (não só a última)
-Para cada módulo, montar a lista de períodos que se sobrepõem à competência, recortados nos limites do mês:
-- Veloz: 01/07 → 25/07 = 25 dias
-- Novo cliente: 26/07 → 31/07 = 6 dias
-- Dias sem nenhum contrato viram um período **Módulo Vago** (regra atual de módulo vago/área comum se aplica).
+### 1. Status derivado da vigência
+Substituir o badge único por status calculado:
+- **Ativo** — `ativo = true` e hoje dentro da vigência
+- **Encerrado** — `ativo = true` mas `vigencia_fim` já passou (com o texto "encerrado em 25/06/2026")
+- **Futuro** — vigência ainda não começou
+- **Inativo** — interruptor desligado
 
-### 2. Dividir o lançamento por dias
-O lançamento continua sendo **um só por módulo** (leitura mensal). Na hora do cálculo, ele é fatiado em N linhas virtuais:
-- Consumo ponta, consumo fora ponta, demanda medida e ajuste manual são multiplicados por `dias do período ÷ dias do mês`.
-- Demanda contratada usa a do contrato daquele período.
-- Área (m²) não é fatiada — só é usada em rateio de área comum, e ali entra proporcional aos dias também, para não duplicar o m² do módulo.
+O filtro do topo ganha as opções correspondentes (Vigentes / Encerrados / Futuros / Inativos), e a coluna Vigência passa a exibir datas em dd/mm/aaaa.
 
-### 3. Faturas separadas por cliente
-Cada fatia vira uma linha na memória de cálculo com a chave do cliente/contrato do período, então a fatura sai naturalmente separada: Veloz recebe 25/31 e o novo cliente 6/31 do módulo.
+### 2. Liberar módulos com vigência encerrada
+A lista de módulos do formulário passa a considerar as datas: um módulo só é bloqueado se o vínculo do outro contrato **se sobrepõe** ao período que está sendo cadastrado (vigência padrão início/fim do formulário). Casos:
+- Módulo livre no período → selecionável normalmente.
+- Módulo ocupado no período → aparece desabilitado com a explicação "ocupado por VALIDAR02 até 25/06/2026", em vez de simplesmente sumir.
+- Módulo com contrato anterior que já terminou → selecionável, com uma nota "livre a partir de 26/06/2026".
 
-### 4. Transparência na tela
-- Na fatura do cliente, os módulos com período parcial aparecem como `Módulo 12 (01/07–25/07 · 25/31 dias)`.
-- Bloco de auditoria mostra a equação `consumo do mês × dias ÷ dias do mês`.
-- Na aba Lançamentos, o módulo com troca no mês ganha um aviso indicando os períodos e os clientes envolvidos.
+A lista se recalcula quando o usuário muda a vigência do contrato no formulário.
 
-### 5. Cadastro: o contrato passa a mandar
-O campo cliente do cadastro de módulo deixa de ser a fonte de verdade e passa a ser apenas informativo (mostra o cliente vigente hoje, derivado do contrato). Onde ainda houver leitura direta de `energia_modulos.cliente_id` para faturamento, a leitura passa a ser pelo contrato vigente.
-
-### 6. Validação no cadastro de contratos
-Bloquear sobreposição de datas do mesmo módulo em contratos diferentes (já existe uma checagem no banco — será confirmada e a mensagem de erro melhorada na tela), e destacar visualmente na lista de contratos os módulos que terminam dentro da competência aberta.
+### 3. Aviso ao criar um contrato colado no anterior
+Ao salvar, se o início escolhido invadir o fim de outro contrato do mesmo módulo, a mensagem de erro passa a dizer qual módulo e qual contrato conflita e até que data ele vai, em vez do genérico "vínculo sobreposto".
 
 ## Detalhes técnicos
 
-- `src/components/admin/energia/FaturasTab.tsx`: substituir o `cMap` (um contrato por módulo) por `periodosPorModulo: Record<moduloId, Periodo[]>` com `{ contrato_id, cliente_id, demanda_contratada_kw, inicio, fim, dias, fator }`.
-- `src/lib/energia-rateio.ts`: `EnergiaLancamentoInput` ganha campos opcionais `periodo_label`, `fator_dias`, `contrato_id`, `cliente_id`; `agruparPorCliente` passa a aceitar múltiplas linhas do mesmo `modulo_id` com chaves de cliente distintas. As somas de consumo total e o rateio de perdas continuam corretos porque a soma das fatias é igual ao lançamento original.
-- `MemoriaCalculoTab.tsx` e `EnergiaCadastrosTab.tsx`: usar a mesma função de resolução de períodos (extraída para `src/lib/energia-vigencias.ts`) em vez de cada tela repetir a lógica de "última vigência".
-- Sem mudança de schema: `vigencia_inicio`/`vigencia_fim` já existem. Nenhuma migração de banco prevista.
-
-## Fora de escopo
-
-- Leitura real de medidor no dia da troca (fica pro-rata por dias, conforme escolhido).
-- Recalcular competências já fechadas — o pro-rata vale para competências abertas.
+- `src/components/admin/energia/ContratosTab.tsx`:
+  - novo helper de status (`vigenciaStatus(contrato, hoje)`) usado no badge e no filtro;
+  - `filteredModulos` troca o `Set` de "usados por outros" por um cálculo de sobreposição de `daterange` contra `vigInicio`/`vigFim` do formulário, guardando o conflito (contrato + data fim) para exibir no item;
+  - checkbox desabilitado + tooltip quando há conflito real;
+  - validação local antes do save, espelhando o gatilho do banco, com mensagem nomeando módulo e contrato.
+- Sem mudança de schema e sem migração: o gatilho `check_energia_contrato_modulos_overlap` já trata datas corretamente.
