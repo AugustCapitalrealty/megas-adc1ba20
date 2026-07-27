@@ -233,12 +233,8 @@ export function FaturasTab() {
     return (fatia.contrato_id ?? 'SEM') === contrato;
   }, [fatias]);
 
-  // Lista exibida = faturas efetivas + (quando rateada) a Área Comum como
-  // linha informativa no fim, para que ela nunca "suma" da tela.
-  const faturasExibidas = useMemo(
-    () => (areaComumInfo ? [...faturas, areaComumInfo] : faturas),
-    [faturas, areaComumInfo],
-  );
+  // Lista exibida = todas as faturas (Área Comum e Obra incluídas).
+  const faturasExibidas = faturas;
 
   const faturasFiltradas = useMemo(() => {
     const q = busca.trim().toLowerCase();
@@ -397,12 +393,6 @@ export function FaturasTab() {
                 >
                   Planilha (combinado)
                 </button>
-              </div>
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label className="text-[11px] text-muted-foreground">Área Comum</Label>
-              <div className="h-10 inline-flex items-center rounded-md border bg-muted/40 px-3 text-xs text-muted-foreground">
-                sempre rateada por m² nas faturas dos clientes
               </div>
             </div>
           </div>
@@ -582,7 +572,7 @@ export function FaturasTab() {
                   const idx = f.cliente_key.indexOf('::');
                   const cli = idx >= 0 ? f.cliente_key.slice(0, idx) : '';
                   const showContrato = !!cli && (contratosPorCliente.get(cli) || 0) > 1 && f.contrato_numero;
-                  const isAreaRateada = f.cliente_key === 'AREA_COMUM';
+                  const isAreaComum = f.cliente_key === 'AREA_COMUM';
                   return (
                     <li key={f.cliente_key}>
                       <button
@@ -591,9 +581,9 @@ export function FaturasTab() {
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-medium text-sm truncate">{f.cliente_nome}</span>
-                          {f.cliente_key === 'AREA_COMUM' && (
+                          {isAreaComum && (
                             <Badge variant={active ? 'secondary' : 'outline'} className="text-[10px] shrink-0">
-                              {isAreaRateada ? 'rateada por m²' : 'comum'}
+                              fatura própria
                             </Badge>
                           )}
                         </div>
@@ -605,11 +595,6 @@ export function FaturasTab() {
                         <div className={`text-xs mt-0.5 ${active ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
                           {f.modulos.length} mód · {brl(totaisPorFatura.get(f.cliente_key)?.total ?? 0)}
                         </div>
-                        {isAreaRateada && (
-                          <div className={`text-[10px] mt-0.5 italic ${active ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                            já distribuída nos clientes acima
-                          </div>
-                        )}
                       </button>
                     </li>
                   );
