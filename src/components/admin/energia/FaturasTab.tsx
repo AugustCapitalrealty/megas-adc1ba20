@@ -76,7 +76,7 @@ export function FaturasTab() {
   const [busca, setBusca] = useState('');
   const [selecionado, setSelecionado] = useState<string | null>(null);
   const [modoPerdas, setModoPerdas] = useState<ModoRateioPerdas>('combinado');
-  const [ratearAreaComum, setRatearAreaComum] = useState<boolean>(true);
+  // Área Comum é SEMPRE rateada por m² nas faturas dos clientes (regra da planilha RESUMO).
 
   const fetchBase = useCallback(async () => {
     const [c, m, cli] = await Promise.all([
@@ -139,8 +139,8 @@ export function FaturasTab() {
   // fatiaId (`moduloId` ou `moduloId@i`) → dados do período
   interface Fatia { modulo_id: string; cliente_id: string | null; contrato_id: string | null; contrato_numero: string | null; periodo: PeriodoModulo }
 
-  const { faturas, areaComumInfo, memoriaLinhas, fatias } = useMemo<{ faturas: FaturaCliente[]; areaComumInfo: FaturaCliente | null; memoriaLinhas: MemoriaLinha[]; fatias: Record<string, Fatia> }>(() => {
-    if (!tarifas) return { faturas: [], areaComumInfo: null, memoriaLinhas: [], fatias: {} };
+  const { faturas, areaComumInfo, memoriaLinhas, fatias, perdasResumo } = useMemo<{ faturas: FaturaCliente[]; areaComumInfo: FaturaCliente | null; memoriaLinhas: MemoriaLinha[]; fatias: Record<string, Fatia>; perdasResumo: { ponta: number; fora: number; consumoPonta: number; consumoFora: number } }>(() => {
+    if (!tarifas) return { faturas: [], areaComumInfo: null, memoriaLinhas: [], fatias: {}, perdasResumo: { ponta: 0, fora: 0, consumoPonta: 0, consumoFora: 0 } };
     // Fonte de verdade: módulos COM lançamento nesta competência. Para cada um,
     // o cliente é o do contrato vigente no período (não o cliente atual do módulo).
     // Quando há troca de cliente no meio do mês, o lançamento é fatiado por dias.
@@ -208,14 +208,20 @@ export function FaturasTab() {
     const areaBucket = brutas.find((f) => f.cliente_key === 'AREA_COMUM') || null;
     // Replica RESUMO da planilha: valor líquido da Área Comum vai para os
     // clientes proporcional à área locada (m²).
-    const fts = ratearAreaComum ? redistribuirAreaComumPorArea(brutas) : brutas;
+    const fts = redistribuirAreaComumPorArea(brutas);
     return {
       faturas: fts,
-      areaComumInfo: ratearAreaComum ? areaBucket : null,
+      areaComumInfo: areaBucket,
       memoriaLinhas: memoria.linhas,
       fatias: fatiaMap,
+      perdasResumo: {
+        ponta: tarifasComPerdas.perdas_copel_ponta_kwh + (Number(tarifas?.perdas_energy_ponta_kwh) || 0),
+        fora: tarifasComPerdas.perdas_copel_fora_kwh + (Number(tarifas?.perdas_energy_fora_kwh) || 0),
+        consumoPonta: somaPontaLanc,
+        consumoFora: somaForaLanc,
+      },
     };
-  }, [tarifas, modulos, lancamentos, clientes, periodosPorModulo, modoPerdas, ratearAreaComum]);
+  }, [tarifas, modulos, lancamentos, clientes, periodosPorModulo, modoPerdas]);
 
   const pertenceAFatura = useCallback((l: MemoriaLinha, f: FaturaCliente): boolean => {
     const fatia = fatias[l.modulo_id];
@@ -400,25 +406,31 @@ export function FaturasTab() {
             </div>
             <div className="flex flex-col gap-1">
               <Label className="text-[11px] text-muted-foreground">Área Comum</Label>
-              <div className="inline-flex rounded-md border overflow-hidden text-xs h-10" role="group" aria-label="Rateio da área comum">
-                <button
-                  type="button"
-                  onClick={() => setRatearAreaComum(true)}
-                  className={`px-3 transition-colors ${ratearAreaComum ? 'bg-primary text-primary-foreground font-semibold' : 'bg-background hover:bg-muted'}`}
-                  title="Replica a planilha (RESUMO): valor líquido da Área Comum é rateado nos clientes por m²."
-                >
-                  Ratear por m²
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRatearAreaComum(false)}
-                  className={`px-3 border-l transition-colors ${!ratearAreaComum ? 'bg-primary text-primary-foreground font-semibold' : 'bg-background hover:bg-muted'}`}
-                  title="Mantém Área Comum como cliente separado."
-                >
-                  Separada
-                </button>
+              <div className="h-10 inline-flex items-center rounded-md border bg-muted/40 px-3 text-xs text-muted-foreground">
+                sempre rateada por m² nas faturas dos clientes
               </div>
             </div>
+          </div>
+
+          {/* Explicação do modo de rateio de perdas */}
+          <div className="rounded-md border-l-4 border-primary/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+            {modoPerdas === 'separado' ? (
+              <>
+                <strong className="text-foreground">Exato (por posto):</strong> as perdas de Ponta são rateadas apenas pelo consumo Ponta e as de Fora Ponta apenas pelo consumo Fora Ponta.
+                <div className="mt-1 font-mono tabular-nums text-[11px]">
+                  perda_ponta = (consumo_ponta_cliente ÷ {num(perdasResumo.consumoPonta, 2)}) × {num(perdasResumo.ponta, 2)} kWh<br />
+                  perda_fora = (consumo_fora_cliente ÷ {num(perdasResumo.consumoFora, 2)}) × {num(perdasResumo.fora, 2)} kWh
+                </div>
+              </>
+            ) : (
+              <>
+                <strong className="text-foreground">Planilha (combinado):</strong> um único fator de participação (consumo total do cliente ÷ consumo total geral) é aplicado às perdas dos dois postos — replica a planilha Mega Curitiba.
+                <div className="mt-1 font-mono tabular-nums text-[11px]">
+                  fator = consumo_total_cliente ÷ {num(perdasResumo.consumoPonta + perdasResumo.consumoFora, 2)} kWh<br />
+                  perda_ponta = fator × {num(perdasResumo.ponta, 2)} kWh · perda_fora = fator × {num(perdasResumo.fora, 2)} kWh
+                </div>
+              </>
+            )}
           </div>
 
           {/* Faixa principal: Copel → Energy = Diferença */}
@@ -437,6 +449,11 @@ export function FaturasTab() {
               </div>
               <div className="mt-1 text-2xl font-bold tabular-nums text-primary">{brl(totalGeral)}</div>
               <div className="text-[11px] text-muted-foreground">{faturas.length} cliente(s)</div>
+              <div className="mt-2 border-t pt-2">
+                <div className="text-[11px] text-muted-foreground">sem multa de ultrapassagem</div>
+                <div className="text-base font-semibold tabular-nums">{brl(totalGeral - totalUltrapassagem)}</div>
+                <div className="text-[11px] text-muted-foreground">multa embutida: {brl(totalUltrapassagem)}</div>
+              </div>
             </div>
             <div className="hidden md:flex items-center justify-center text-2xl font-bold text-muted-foreground">=</div>
             <div className={`rounded-lg border p-4 ${Math.abs(diferenca) < 1 ? 'border-green-300/50 bg-green-50 dark:bg-green-950/20' : Math.abs(diferenca) < 50 ? 'border-amber-300/50 bg-amber-50 dark:bg-amber-950/20' : 'border-red-300/50 bg-red-50 dark:bg-red-950/20'}`}>
@@ -461,79 +478,27 @@ export function FaturasTab() {
                 </strong>
                 <span className="ml-auto text-muted-foreground underline">ver detalhe</span>
               </summary>
-              <div className="p-4 space-y-4">
-                {/* PASSO 1 — Diferença bruta = Faturado − Copel */}
-                <div className="rounded-lg border bg-background p-3">
-                  <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-                    Passo 1 · Diferença bruta = Σ Faturas dos clientes − Total Fatura Copel
-                  </div>
-                  <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-2">
-                    <div className="rounded-md bg-muted/40 px-3 py-2">
-                      <div className="text-[10px] uppercase text-muted-foreground">Σ Faturas clientes</div>
-                      <div className="text-base font-bold tabular-nums">{brl(totalGeral)}</div>
-                    </div>
-                    <div className="text-xl font-bold text-muted-foreground text-center">−</div>
-                    <div className="rounded-md bg-muted/40 px-3 py-2">
-                      <div className="text-[10px] uppercase text-muted-foreground">Total Fatura Copel</div>
-                      <div className="text-base font-bold tabular-nums">{brl(totalCopel)}</div>
-                    </div>
-                    <div className="text-xl font-bold text-muted-foreground text-center">=</div>
-                    <div className="rounded-md bg-primary/10 border border-primary/30 px-3 py-2">
-                      <div className="text-[10px] uppercase text-primary">Diferença bruta</div>
-                      <div className="text-base font-bold tabular-nums text-primary">{brl(diferenca)}</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* PASSO 2 — Residual = Bruta − Multa − Crédito */}
-                <div className="rounded-lg border bg-background p-3">
-                  <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-                    Passo 2 · Residual = Bruta − Ultrapassagem esperada − Crédito/Débito esperado
-                  </div>
-                  <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr] items-center gap-2">
-                    <div className="rounded-md bg-primary/10 border border-primary/30 px-3 py-2">
-                      <div className="text-[10px] uppercase text-primary">Bruta</div>
-                      <div className="text-sm font-bold tabular-nums text-primary">{brl(diferenca)}</div>
-                    </div>
-                    <div className="text-xl font-bold text-muted-foreground text-center">−</div>
-                    <div className="rounded-md bg-muted/40 px-3 py-2">
-                      <div className="text-[10px] uppercase text-muted-foreground">Multa ultrapassagem</div>
-                      <div className="text-sm font-bold tabular-nums">{brl(totalUltrapassagem)}</div>
-                    </div>
-                    <div className="text-xl font-bold text-muted-foreground text-center">−</div>
-                    <div className="rounded-md bg-muted/40 px-3 py-2">
-                      <div className="text-[10px] uppercase text-muted-foreground">Crédito/Débito</div>
-                      <div className="text-sm font-bold tabular-nums">{brl(totalCredito)}</div>
-                    </div>
-                    <div className="text-xl font-bold text-muted-foreground text-center">=</div>
-                    <div className={`rounded-md px-3 py-2 border ${Math.abs(diferencaResidual) < 1 ? 'bg-green-500/10 border-green-500/40' : Math.abs(diferencaResidual) < 50 ? 'bg-amber-500/10 border-amber-500/40' : 'bg-red-500/10 border-red-500/40'}`}>
-                      <div className={`text-[10px] uppercase ${Math.abs(diferencaResidual) < 1 ? 'text-green-700 dark:text-green-400' : Math.abs(diferencaResidual) < 50 ? 'text-amber-700 dark:text-amber-400' : 'text-red-700 dark:text-red-400'}`}>Residual</div>
-                      <div className={`text-sm font-bold tabular-nums ${Math.abs(diferencaResidual) < 1 ? 'text-green-700 dark:text-green-400' : Math.abs(diferencaResidual) < 50 ? 'text-amber-700 dark:text-amber-400' : 'text-red-700 dark:text-red-400'}`}>
-                        {brl(diferencaResidual)}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="mt-2 text-[11px] text-muted-foreground italic">
-                    Observação: subtrair um crédito negativo ({brl(totalCredito)}) tem o mesmo efeito de somá-lo em módulo. Por isso o residual pode ficar maior que a bruta quando o crédito é negativo.
-                  </div>
-                </div>
-
-                {/* Conta inline com os números reais */}
-                <div className="rounded-md border-l-4 border-primary bg-muted/30 px-4 py-3 font-mono text-sm tabular-nums overflow-x-auto">
-                  <div className="text-[11px] font-sans font-semibold uppercase text-muted-foreground mb-1">Conta final</div>
+              <div className="p-4 space-y-3">
+                <div className="rounded-lg border bg-background p-3 font-mono text-sm tabular-nums overflow-x-auto">
+                  <div className="font-sans text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">Diferença bruta</div>
                   <div>
-                    {brl(totalGeral)} <span className="text-muted-foreground">(faturado)</span>
-                    {' − '}{brl(totalCopel)} <span className="text-muted-foreground">(Copel)</span>
-                    {' − '}{brl(totalUltrapassagem)} <span className="text-muted-foreground">(multa)</span>
-                    {' − ('}{brl(totalCredito)}<span className="text-muted-foreground">)</span> <span className="text-muted-foreground">(créd/déb)</span>
-                    {' = '}<span className="font-bold text-primary">{brl(diferencaResidual)}</span>
+                    {brl(totalGeral)} <span className="text-muted-foreground font-sans">(faturado)</span>
+                    {' − '}{brl(totalCopel)} <span className="text-muted-foreground font-sans">(Copel)</span>
+                    {' = '}<span className="font-bold text-primary">{brl(diferenca)}</span>
+                  </div>
+                  <div className="font-sans text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mt-3 mb-1">Diferença residual</div>
+                  <div>
+                    {brl(diferenca)} <span className="text-muted-foreground font-sans">(bruta)</span>
+                    {' − '}{brl(totalUltrapassagem)} <span className="text-muted-foreground font-sans">(multa)</span>
+                    {' − ('}{brl(totalCredito)}{')'} <span className="text-muted-foreground font-sans">(créd/déb)</span>
+                    {' = '}
+                    <span className={`font-bold ${Math.abs(diferencaResidual) < 1 ? 'text-green-600' : Math.abs(diferencaResidual) < 50 ? 'text-amber-600' : 'text-red-600'}`}>{brl(diferencaResidual)}</span>
                   </div>
                 </div>
 
                 <p className="text-xs text-muted-foreground italic">
-                  A diferença saudável vem apenas de <strong>ultrapassagem</strong> (multa por demanda acima do contratado) e do <strong>crédito/débito</strong> da Copel repassado aos clientes. Se o residual for relevante, revisar a Fatura Copel, os lançamentos ou a demanda contratada dos contratos.
+                  A diferença saudável vem apenas de <strong>ultrapassagem</strong> (multa por demanda acima do contratado) e do <strong>crédito/débito</strong> da Copel repassado aos clientes. Crédito negativo aumenta o residual ao ser subtraído. Se o residual for relevante, revisar a Fatura Copel, os lançamentos ou a demanda contratada dos contratos.
                 </p>
-
               </div>
             </details>
           )}
@@ -622,7 +587,7 @@ export function FaturasTab() {
                   const idx = f.cliente_key.indexOf('::');
                   const cli = idx >= 0 ? f.cliente_key.slice(0, idx) : '';
                   const showContrato = !!cli && (contratosPorCliente.get(cli) || 0) > 1 && f.contrato_numero;
-                  const isAreaRateada = f.cliente_key === 'AREA_COMUM' && ratearAreaComum;
+                  const isAreaRateada = f.cliente_key === 'AREA_COMUM';
                   return (
                     <li key={f.cliente_key}>
                       <button

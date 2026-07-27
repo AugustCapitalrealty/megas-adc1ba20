@@ -1,29 +1,47 @@
-## Diagnóstico (confirmado)
+## Objetivo
 
-A bandeira do Sodexo/Restaurante saiu **R$ 11,04** quando deveria ser **R$ 1.103,75** — exatamente 100× menor.
+Deixar a tela **Faturas por Cliente** (`src/components/admin/energia/FaturasTab.tsx`) mais direta: sem o toggle de Área Comum, com explicação clara dos modos de rateio de perdas e com o valor da Fatura Energy também exibido **sem a multa de ultrapassagem**.
 
-O que os dados mostram (competência 2026-06):
-- No banco, a coluna `bandeira_valor` está **correta**: `2.5464` (R$/100 kWh), que é o que o motor de rateio espera (`(kWh + perdas) ÷ 100 × bandeira_valor`).
-- Mas o campo `fatura_copel_itens.bandeira_tarifa_oficial` foi gravado na nova escala **R$/kWh**: `"0,025464"`.
-- Em `src/components/admin/energia/FaturasTab.tsx`, a função `resolveBandeiraValor` prioriza `bandeira_tarifa_oficial` e entrega esse número **direto ao motor**, sem converter de R$/kWh para R$/100 kWh. Daí 43.345 ÷ 100 × 0,025464 = R$ 11,04.
+## 1. Área Comum sempre cobrada na fatura
 
-Ou seja: quando a UI da Fatura Copel passou a trabalhar em R$/kWh (0,025464), a aba Faturas por Cliente continuou lendo esse valor como se fosse R$/100 kWh.
+- Remover o grupo de botões "Ratear por m² / Separada" do cabeçalho.
+- Fixar o comportamento em **rateada por m²** (o valor líquido da Área Comum é sempre distribuído nos clientes proporcional à área locada, como na planilha RESUMO). Remove-se o estado `ratearAreaComum`; a chamada a `redistribuirAreaComumPorArea` passa a ser sempre aplicada.
+- A linha "Área Comum" continua visível na lista lateral, com o selo "rateada por m²" e a nota "já distribuída nos clientes acima", para conferência — sem entrar no somatório.
 
-## Correção
+## 2. Modos de cálculo explicados
 
-Em `src/components/admin/energia/FaturasTab.tsx`:
+O toggle **Exato (por posto) × Planilha (combinado)** permanece (é o que define o rateio das perdas técnicas), mas ganha explicação visível em vez de só `title`:
 
-1. Normalizar a escala em `resolveBandeiraValor`: ao ler `bandeira_tarifa_oficial`, converter para R$/100 kWh quando o valor estiver em R$/kWh (heurística já usada na aba Copel: valores < 0,5 são R$/kWh → multiplicar por 100; valores ≥ 0,5 já são escala antiga R$/100 kWh).
-2. Manter os fallbacks (`BANDEIRA_TARIFA_OFICIAL` e `tarifas.bandeira_valor`) que já estão na escala R$/100 kWh.
-3. Ajustar os rótulos do bloco de auditoria "Memória do cálculo de consumo" para exibir a tarifa nas duas escalas (R$/kWh e R$/100 kWh), evitando nova confusão.
+- Um pequeno bloco de texto abaixo do toggle, mudando conforme o modo ativo:
+  - **Exato (por posto):** perdas de Ponta rateadas só pelo consumo Ponta do cliente; perdas Fora Ponta só pelo consumo Fora Ponta. Fórmula: `perda_ponta_cliente = (consumo_ponta_cliente ÷ Σ consumo_ponta) × perdas_ponta_totais` (idem para Fora).
+  - **Planilha (combinado):** um único fator `consumo_total_cliente ÷ Σ consumo_total` aplicado às perdas dos dois postos — replica exatamente a planilha Mega Curitiba.
+- Ambos exibindo o fator resultante em % com os números reais da competência, para o usuário conferir.
 
-## Validação
+## 3. Faixa principal reorganizada
 
-- Recalcular Sodexo (Restaurante) em 06/2026: bandeira deve fechar em ~R$ 1.103,75 e o Total da Fatura em ~R$ 34.948,9x, alinhado à planilha.
-- Conferir que os demais clientes somam a bandeira total próxima ao lançado na Copel (R$ 977,05 ponta + R$ 9.946,31 fora).
+Mantém os três blocos **Fatura Copel → Fatura Energy = Diferença**, com um acréscimo:
+
+```text
+┌ Fatura Copel ──┐   ┌ Fatura Energy ─────────┐   ┌ Diferença ─┐
+│ R$ 316.407,05  │ → │ R$ 322.613,38          │ = │ R$ 6.206,33│
+│ valor da conta │   │ 21 cliente(s)          │   │ a maior    │
+└────────────────┘   │ ── sem multa ────────  │   └────────────┘
+                     │ R$ 316.406,83          │
+                     │ (multa R$ 6.206,55)    │
+                     └────────────────────────┘
+```
+
+- Sob o valor da Fatura Energy, uma sub-linha discreta: **"sem multa de ultrapassagem: R$ X"** = `totalGeral − totalUltrapassagem`, com o valor da multa entre parênteses.
+- A linha resumo abaixo (`bruta − multa − créd/déb = residual`) continua, com o detalhamento expansível.
+
+## 4. Limpeza do bloco confuso
+
+- O detalhe expansível "Passo 1 / Passo 2" é condensado: uma única equação horizontal com rótulos curtos (Faturado − Copel = Bruta; Bruta − Multa − Créd/Déb = Residual) e a nota explicativa curta, removendo a duplicação atual (grid Passo 1 + grid Passo 2 + "Conta final" repetem os mesmos números três vezes).
+- O card "Multas de ultrapassagem" permanece logo abaixo, sem mudanças.
 
 ## Detalhes técnicos
 
-- Nenhuma migração de banco; `bandeira_valor` já está correto.
-- Sem alteração em `src/lib/energia-rateio.ts` (contrato R$/100 kWh preservado).
-- Sem alteração no cálculo de impostos.
+- Arquivo único afetado: `src/components/admin/energia/FaturasTab.tsx`.
+- Estado `ratearAreaComum` e seu `useState` removidos; `useMemo` de cálculo perde essa dependência.
+- Nenhuma mudança no motor `src/lib/energia-rateio.ts` (as funções `redistribuirAreaComumPorArea` e `ModoRateioPerdas` continuam como estão).
+- Sem alteração de banco de dados.
