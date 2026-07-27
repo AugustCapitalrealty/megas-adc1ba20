@@ -310,7 +310,7 @@ function StepCard({
   title: string;
   icon: React.ComponentType<{ className?: string }>;
   done: boolean;
-  detail: string;
+  detail: React.ReactNode;
   cta: string;
   onClick: () => void;
 }) {
