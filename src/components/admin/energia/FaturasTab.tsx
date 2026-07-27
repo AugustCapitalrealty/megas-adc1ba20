@@ -27,6 +27,36 @@ interface Cliente { id: string; nome: string; razao_social: string | null; }
 
 const brl = (n: number) => (n || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 });
 const num = (n: number, dec = 2) => (n || 0).toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+const parseBRNumber = (value: unknown): number => {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  const text = String(value ?? '').trim();
+  if (!text) return 0;
+  const cleaned = text.replace(/[^\d.,-]/g, '');
+  if (cleaned.includes(',')) return Number(cleaned.replace(/\./g, '').replace(',', '.')) || 0;
+  return Number(cleaned.replace(/\./g, '')) || 0;
+};
+
+const BANDEIRA_TARIFA_OFICIAL: Record<string, number> = {
+  verde: 0,
+  amarela: 2.5464,
+  vermelha_1: 4.463,
+  vermelha_2: 7.877,
+};
+
+function detectarBandeiraVigente(itens: Record<string, any> = {}) {
+  if (parseBRNumber(itens.bandeira_vermelha_2_ponta?.valor) > 0 || parseBRNumber(itens.bandeira_vermelha_2_fora?.valor) > 0) return 'vermelha_2';
+  if (parseBRNumber(itens.bandeira_vermelha_1_ponta?.valor) > 0 || parseBRNumber(itens.bandeira_vermelha_1_fora?.valor) > 0) return 'vermelha_1';
+  if (parseBRNumber(itens.bandeira_amarela_ponta?.valor) > 0 || parseBRNumber(itens.bandeira_amarela_fora?.valor) > 0) return 'amarela';
+  return 'verde';
+}
+
+function resolveBandeiraValor(tarifas: any): number {
+  const faturaItens = tarifas?.fatura_copel_itens || {};
+  const modo = (faturaItens.bandeira_modo as string | undefined) || 'oficial';
+  if (modo !== 'oficial') return Number(tarifas?.bandeira_valor) || 0;
+  const vigente = (faturaItens.bandeira_vigente as string | undefined) || detectarBandeiraVigente(faturaItens.itens || {});
+  return parseBRNumber(faturaItens.bandeira_tarifa_oficial) || BANDEIRA_TARIFA_OFICIAL[vigente] || Number(tarifas?.bandeira_valor) || 0;
+}
 
 export function FaturasTab() {
   const [loading, setLoading] = useState(true);
@@ -149,6 +179,7 @@ export function FaturasTab() {
       ...(tarifas as EnergiaTarifas),
       perdas_copel_ponta_kwh: copelPontaKwh - somaPontaLanc,
       perdas_copel_fora_kwh: copelForaKwh - somaForaLanc,
+      bandeira_valor: resolveBandeiraValor(tarifas),
     };
     const memoria = calcularMemoria(tarifasComPerdas, inputs, modoPerdas);
     let fts = agruparPorCliente(
@@ -799,12 +830,14 @@ function FaturaOficial({
   // do contrato ≠ Σ módulos.
   const piscofConsumo = baseConsumoComPerdas * (1 - tarifas.icms_pct) * piscofPct;
   const piscofDemandaUsd = rsDemandaUsd * (1 - tarifas.icms_pct) * piscofPct;
+  const piscofUltrapassagem = rsUltrapassagem * (1 - tarifas.icms_pct) * piscofPct;
   const piscofDemandaIsenta = rsDemandaIsenta * piscofPct; // sem ICMS para deduzir
-  const piscofExibido = piscofConsumo + piscofDemandaUsd + piscofDemandaIsenta;
+  const piscofExibido = piscofConsumo + piscofDemandaUsd + piscofUltrapassagem + piscofDemandaIsenta;
 
   const icmsConsumo = baseConsumoComPerdas * tarifas.icms_pct;
   const icmsDemandaCalc = rsDemandaUsd * tarifas.icms_pct; // isenta NÃO entra
-  const icmsExibido = icmsConsumo + icmsDemandaCalc;
+  const icmsUltrapassagem = rsUltrapassagem * tarifas.icms_pct;
+  const icmsExibido = icmsConsumo + icmsDemandaCalc + icmsUltrapassagem;
 
   const basePiscof = piscofPct > 0 ? piscofExibido / piscofPct : 0;
   const pctPiscof = piscofPct * 100;
@@ -812,6 +845,9 @@ function FaturaOficial({
   const pctIcms = tarifas.icms_pct * 100;
 
   const modulosFaixa = compactarModulos(f.modulos);
+  const bandeiraTarifa = resolveBandeiraValor(tarifas);
+  const bandeiraPonta = (consumoPontaExibido / 100) * bandeiraTarifa;
+  const bandeiraFora = (consumoForaExibido / 100) * bandeiraTarifa;
 
   return (
     <Card className="print:shadow-none print:border-0">
@@ -921,9 +957,12 @@ function FaturaOficial({
             />
             <div className="rounded border bg-background p-3">
               <div className="font-semibold mb-1">Bandeira</div>
-              <AuditRow label="Σ bandeira_total (todos os módulos)" valor={brl(bandeira)} />
+              <AuditRow label="Tarifa oficial usada" valor={`R$ ${num(bandeiraTarifa, 4)} / 100 kWh`} />
+              <AuditRow label="Ponta: (consumo + perdas) ÷ 100 × tarifa" valor={`${num(consumoPontaExibido, 2)} ÷ 100 × ${num(bandeiraTarifa, 4)} = ${brl(bandeiraPonta)}`} />
+              <AuditRow label="Fora Ponta: (consumo + perdas) ÷ 100 × tarifa" valor={`${num(consumoForaExibido, 2)} ÷ 100 × ${num(bandeiraTarifa, 4)} = ${brl(bandeiraFora)}`} />
+              <AuditRow label="(=) Bandeira tarifária" valor={brl(bandeira)} strong />
               <div className="text-muted-foreground mt-1">
-                Vem cru do lançamento — sem derivação. Se está R$ 0,00, nenhum módulo teve bandeira lançada nesta competência.
+                Segue a planilha: consumo do cliente com perdas rateadas dividido por 100, multiplicado pela tarifa oficial da bandeira do mês.
               </div>
             </div>
             <div className="text-muted-foreground italic border-l-2 border-primary/50 pl-3">
@@ -977,6 +1016,7 @@ function FaturaOficial({
                     linhas={[
                       { label: 'Consumo (c/ perdas)', formula: `${brl(baseConsumoComPerdas)} × (1 − ${(tarifas.icms_pct*100).toFixed(0)}%) × ${pctPiscof.toFixed(2)}%`, valor: baseConsumoComPerdas * (1 - tarifas.icms_pct) * piscofPct },
                       { label: 'Demanda USD', formula: `${brl(rsDemandaUsd)} × (1 − ${(tarifas.icms_pct*100).toFixed(0)}%) × ${pctPiscof.toFixed(2)}%`, valor: piscofDemandaUsd },
+                      { label: 'Ultrapassagem', formula: `${brl(rsUltrapassagem)} × (1 − ${(tarifas.icms_pct*100).toFixed(0)}%) × ${pctPiscof.toFixed(2)}%`, valor: piscofUltrapassagem },
                       { label: 'Demanda Isenta ICMS', formula: `${brl(rsDemandaIsenta)} × ${pctPiscof.toFixed(2)}% (sem ICMS para deduzir)`, valor: piscofDemandaIsenta },
                     ]}
                     totalLabel="Total PIS/COFINS"
@@ -998,6 +1038,7 @@ function FaturaOficial({
                     linhas={[
                       { label: 'Consumo (c/ perdas)', formula: `${brl(baseConsumoComPerdas)} × ${pctIcms.toFixed(2)}%`, valor: baseConsumoComPerdas * tarifas.icms_pct },
                       { label: 'Demanda USD', formula: `${brl(rsDemandaUsd)} × ${pctIcms.toFixed(2)}%`, valor: icmsDemandaCalc },
+                      { label: 'Ultrapassagem', formula: `${brl(rsUltrapassagem)} × ${pctIcms.toFixed(2)}%`, valor: icmsUltrapassagem },
                       { label: 'Demanda Isenta ICMS', formula: `${brl(rsDemandaIsenta)} — isenta, não tributa`, valor: 0 },
                     ]}
                     totalLabel="Total ICMS"
@@ -1025,6 +1066,15 @@ function FaturaOficial({
                   </span>
                 </td>
                 <td className="px-3 py-1 text-right tabular-nums text-muted-foreground">{brl(piscofDemandaUsd + icmsDemandaCalc)}</td>
+              </tr>
+              <tr className="bg-muted/20 text-xs">
+                <td className="px-3 py-1 pl-8 text-muted-foreground" colSpan={3}>
+                  ↳ Imposto da ultrapassagem
+                  <span className="ml-2 text-[10px]">
+                    PIS/COFINS {brl(piscofUltrapassagem)} + ICMS {brl(icmsUltrapassagem)}
+                  </span>
+                </td>
+                <td className="px-3 py-1 text-right tabular-nums text-muted-foreground">{brl(piscofUltrapassagem + icmsUltrapassagem)}</td>
               </tr>
               <tr className="bg-muted/20 text-xs border-b">
                 <td className="px-3 py-1 pl-8 text-muted-foreground" colSpan={3}>

@@ -135,6 +135,31 @@ const fmtBR = (n: number, dec = 2) =>
   !n || !isFinite(n) ? '' : n.toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
 const brl = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2 });
 
+function normalizeBandeiraBuckets(rawItens: Record<string, any>, pontaKwh: number, foraKwh: number) {
+  if (pontaKwh <= 0 || foraKwh <= 0) return rawItens;
+  const next = { ...rawItens };
+  const pairs = [
+    ['bandeira_amarela_ponta', 'bandeira_amarela_fora'],
+    ['bandeira_vermelha_1_ponta', 'bandeira_vermelha_1_fora'],
+    ['bandeira_vermelha_2_ponta', 'bandeira_vermelha_2_fora'],
+  ] as const;
+
+  for (const [pontaKey, foraKey] of pairs) {
+    const qPonta = parseBR(next[pontaKey]?.quant || '');
+    const qFora = parseBR(next[foraKey]?.quant || '');
+    if (qPonta <= 0 || qFora <= 0) continue;
+    const pontaPareceFora = Math.abs(qPonta - foraKwh) / foraKwh <= 0.02;
+    const foraParecePonta = Math.abs(qFora - pontaKwh) / pontaKwh <= 0.02;
+    if (pontaPareceFora && foraParecePonta) {
+      const pontaItem = next[pontaKey];
+      next[pontaKey] = next[foraKey];
+      next[foraKey] = pontaItem;
+    }
+  }
+
+  return next;
+}
+
 // Calcula campos derivados (valor, pis_cofins, icms, tarifa_unit) para um item
 // respeitando a regra de tributação do catálogo.
 function recalcItem(def: CopelItemDef, curr: CopelItem, aliq: { pis: number; cofins: number; icms: number }): CopelItem {
@@ -247,18 +272,21 @@ export function FaturaCopelTab() {
       if (idx >= 0) rawExtras.splice(idx, 1);
       if (!rawExtras.includes(newKey) && rawItens[newKey]) rawExtras.push(newKey);
     }
+    const copelPontaFromItems = parseBR(rawItens.te_ponta?.quant || '') || parseBR(rawItens.usd_ponta?.quant || '') || Number((t.data as any)?.copel_consumo_ponta_kwh) || 0;
+    const copelForaFromItems = parseBR(rawItens.te_fora?.quant || '') || parseBR(rawItens.usd_fora?.quant || '') || Number((t.data as any)?.copel_consumo_fora_kwh) || 0;
+    const normalizedItens = normalizeBandeiraBuckets(rawItens, copelPontaFromItems, copelForaFromItems);
     // Bandeira: default = jeito da planilha (tarifa oficial). Para competências
     // antigas (sem escolha salva) detectamos a bandeira vigente pelos itens
     // lançados e pré-preenchemos a tarifa tabelada.
     let bandeiraVigente: BandeiraTipo = (fc.bandeira_vigente as BandeiraTipo) || 'verde';
     if (!fc.bandeira_vigente) {
       for (const tipo of ['vermelha_2', 'vermelha_1', 'amarela'] as const) {
-        const tem = BANDEIRA_ITEM_KEYS[tipo].some((k) => parseBR(rawItens[k]?.valor || '') > 0);
+        const tem = BANDEIRA_ITEM_KEYS[tipo].some((k) => parseBR(normalizedItens[k]?.valor || '') > 0);
         if (tem) { bandeiraVigente = tipo; break; }
       }
     }
     setFaturaItens({
-      itens: rawItens,
+      itens: normalizedItens,
       tributos: fc.tributos || {},
       total_a_pagar: fc.total_a_pagar || '',
       extras_keys: rawExtras,
@@ -527,7 +555,14 @@ export function FaturaCopelTab() {
       return;
     }
     setSaving(true);
-    const it = faturaItens.itens || {};
+    const it = normalizeBandeiraBuckets(faturaItens.itens || {}, copelPontaKwh, copelForaKwh);
+    const faturaItensToSave: FaturaCopelItens = {
+      ...faturaItens,
+      itens: it,
+      bandeira_modo: bandeiraModo,
+      bandeira_vigente: bandeiraTipo,
+      bandeira_tarifa_oficial: faturaItens.bandeira_tarifa_oficial || fmtBR(BANDEIRA_TABELA[bandeiraTipo].valor, 4),
+    };
     const v = (k: CopelItemKey) => parseBR(it[k]?.valor || '');
     const q = (k: CopelItemKey) => parseBR(it[k]?.quant || '');
     const tarif = (k: CopelItemKey) => parseBR(it[k]?.tarifa_unit || '');
@@ -584,7 +619,7 @@ export function FaturaCopelTab() {
     const { error } = await supabase
       .from('energia_competencia_tarifas')
       .update({
-        fatura_copel_itens: faturaItens as any,
+        fatura_copel_itens: faturaItensToSave as any,
         ...mirror,
         perdas_energy_ponta_kwh: energyPontaNum,
         perdas_energy_fora_kwh: energyForaNum,
