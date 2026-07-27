@@ -134,8 +134,8 @@ export function FaturasTab() {
   // fatiaId (`moduloId` ou `moduloId@i`) → dados do período
   interface Fatia { modulo_id: string; cliente_id: string | null; contrato_id: string | null; contrato_numero: string | null; periodo: PeriodoModulo }
 
-  const { faturas, memoriaLinhas, fatias } = useMemo<{ faturas: FaturaCliente[]; memoriaLinhas: MemoriaLinha[]; fatias: Record<string, Fatia> }>(() => {
-    if (!tarifas) return { faturas: [], memoriaLinhas: [], fatias: {} };
+  const { faturas, areaComumInfo, memoriaLinhas, fatias } = useMemo<{ faturas: FaturaCliente[]; areaComumInfo: FaturaCliente | null; memoriaLinhas: MemoriaLinha[]; fatias: Record<string, Fatia> }>(() => {
+    if (!tarifas) return { faturas: [], areaComumInfo: null, memoriaLinhas: [], fatias: {} };
     // Fonte de verdade: módulos COM lançamento nesta competência. Para cada um,
     // o cliente é o do contrato vigente no período (não o cliente atual do módulo).
     // Quando há troca de cliente no meio do mês, o lançamento é fatiado por dias.
@@ -197,11 +197,19 @@ export function FaturasTab() {
       bandeira_valor: resolveBandeiraValor(tarifas),
     };
     const memoria = calcularMemoria(tarifasComPerdas, inputs, modoPerdas);
-    let fts = agruparPorCliente(memoria.linhas, agrupaModulos);
+    const brutas = agruparPorCliente(memoria.linhas, agrupaModulos);
+    // Bucket da Área Comum ANTES da redistribuição — continua visível na lista
+    // de clientes mesmo quando o valor é rateado por m².
+    const areaBucket = brutas.find((f) => f.cliente_key === 'AREA_COMUM') || null;
     // Replica RESUMO da planilha: valor líquido da Área Comum vai para os
     // clientes proporcional à área locada (m²).
-    if (ratearAreaComum) fts = redistribuirAreaComumPorArea(fts);
-    return { faturas: fts, memoriaLinhas: memoria.linhas, fatias: fatiaMap };
+    const fts = ratearAreaComum ? redistribuirAreaComumPorArea(brutas) : brutas;
+    return {
+      faturas: fts,
+      areaComumInfo: ratearAreaComum ? areaBucket : null,
+      memoriaLinhas: memoria.linhas,
+      fatias: fatiaMap,
+    };
   }, [tarifas, modulos, lancamentos, clientes, periodosPorModulo, modoPerdas, ratearAreaComum]);
 
   const pertenceAFatura = useCallback((l: MemoriaLinha, f: FaturaCliente): boolean => {
@@ -219,14 +227,21 @@ export function FaturasTab() {
     return (fatia.contrato_id ?? 'SEM') === contrato;
   }, [fatias]);
 
+  // Lista exibida = faturas efetivas + (quando rateada) a Área Comum como
+  // linha informativa no fim, para que ela nunca "suma" da tela.
+  const faturasExibidas = useMemo(
+    () => (areaComumInfo ? [...faturas, areaComumInfo] : faturas),
+    [faturas, areaComumInfo],
+  );
+
   const faturasFiltradas = useMemo(() => {
     const q = busca.trim().toLowerCase();
-    if (!q) return faturas;
-    return faturas.filter((f) =>
+    if (!q) return faturasExibidas;
+    return faturasExibidas.filter((f) =>
       f.cliente_nome.toLowerCase().includes(q) ||
       (f.contrato_numero || '').toLowerCase().includes(q),
     );
-  }, [faturas, busca]);
+  }, [faturasExibidas, busca]);
 
   useEffect(() => {
     if (!selecionado && faturas.length > 0) setSelecionado(faturas[0].cliente_key);
@@ -241,17 +256,20 @@ export function FaturasTab() {
   const totaisPorFatura = useMemo(() => {
     const map = new Map<string, ReturnType<typeof calcularTotalCliente>>();
     if (!tarifas) return map;
-    for (const f of faturas) {
+    for (const f of faturasExibidas) {
       const linhasF = linhasPorFatura(f);
       const demContrato = f.contrato_id ? (contratoDemandaPorId[f.contrato_id] || 0) : 0;
       map.set(f.cliente_key, calcularTotalCliente(linhasF, tarifas as EnergiaTarifas, demContrato));
     }
     return map;
-  }, [faturas, tarifas, linhasPorFatura, contratoDemandaPorId]);
+  }, [faturasExibidas, tarifas, linhasPorFatura, contratoDemandaPorId]);
 
-  const totalGeral = Array.from(totaisPorFatura.values()).reduce((s, t) => s + t.total, 0);
-  const totalUltrapassagem = Array.from(totaisPorFatura.values()).reduce((s, t) => s + t.rsUltrapassagem, 0);
-  const totalCredito = Array.from(totaisPorFatura.values()).reduce((s, t) => s + t.credito, 0);
+  // Somatórios consideram apenas as faturas efetivas (a Área Comum rateada é
+  // informativa e já está distribuída nos clientes — somá-la duplicaria valor).
+  const totaisEfetivos = faturas.map((f) => totaisPorFatura.get(f.cliente_key)).filter(Boolean) as Array<ReturnType<typeof calcularTotalCliente>>;
+  const totalGeral = totaisEfetivos.reduce((s, t) => s + t.total, 0);
+  const totalUltrapassagem = totaisEfetivos.reduce((s, t) => s + t.rsUltrapassagem, 0);
+  const totalCredito = totaisEfetivos.reduce((s, t) => s + t.credito, 0);
   const totalCopel = Number(tarifas?.copel_valor_total) || 0;
   const diferenca = totalGeral - totalCopel;
   const diferencaResidual = diferenca - totalUltrapassagem - totalCredito;
@@ -272,7 +290,7 @@ export function FaturasTab() {
   }, [faturas, totaisPorFatura, contratoDemandaPorId]);
   const totalUltrapassagemKw = faturasComMulta.reduce((s, x) => s + x.ultrapassagemKw, 0);
 
-  const faturaSelecionada = faturas.find((f) => f.cliente_key === selecionado) || null;
+  const faturaSelecionada = faturasExibidas.find((f) => f.cliente_key === selecionado) || null;
 
   // Quantos contratos cada cliente tem (para decidir mostrar o nº do contrato no sidebar)
   const contratosPorCliente = useMemo(() => {
@@ -398,29 +416,45 @@ export function FaturasTab() {
             </div>
           </div>
 
-          {/* KPIs */}
-          <div className="grid gap-3 md:grid-cols-4">
-            <KpiCard label="Total faturado" value={brl(totalGeral)} icon={FileText} tone="primary" />
-            <KpiCard label="Clientes" value={String(faturas.length)} icon={Users} />
-            <KpiCard label="Fatura Copel" value={brl(totalCopel)} icon={Zap} />
-            <KpiCard
-              label="Diferença"
-              value={brl(Math.abs(diferenca))}
-              icon={Building2}
-              tone={Math.abs(diferenca) < 1 ? 'green' : Math.abs(diferenca) < 50 ? 'amber' : 'red'}
-              suffix={diferenca >= 0 ? 'a maior' : 'a menor'}
-            />
+          {/* Faixa principal: Copel → Energy = Diferença */}
+          <div className="grid items-stretch gap-2 md:grid-cols-[1fr_auto_1fr_auto_1fr]">
+            <div className="rounded-lg border p-4">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Zap className="h-3.5 w-3.5" /> Fatura Copel
+              </div>
+              <div className="mt-1 text-2xl font-bold tabular-nums">{brl(totalCopel)}</div>
+              <div className="text-[11px] text-muted-foreground">valor da conta</div>
+            </div>
+            <div className="hidden md:flex items-center justify-center text-2xl font-bold text-muted-foreground">→</div>
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <FileText className="h-3.5 w-3.5" /> Fatura Energy
+              </div>
+              <div className="mt-1 text-2xl font-bold tabular-nums text-primary">{brl(totalGeral)}</div>
+              <div className="text-[11px] text-muted-foreground">{faturas.length} cliente(s)</div>
+            </div>
+            <div className="hidden md:flex items-center justify-center text-2xl font-bold text-muted-foreground">=</div>
+            <div className={`rounded-lg border p-4 ${Math.abs(diferenca) < 1 ? 'border-green-300/50 bg-green-50 dark:bg-green-950/20' : Math.abs(diferenca) < 50 ? 'border-amber-300/50 bg-amber-50 dark:bg-amber-950/20' : 'border-red-300/50 bg-red-50 dark:bg-red-950/20'}`}>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Building2 className="h-3.5 w-3.5" /> Diferença
+              </div>
+              <div className="mt-1 text-2xl font-bold tabular-nums">{brl(Math.abs(diferenca))}</div>
+              <div className="text-[11px] text-muted-foreground">{diferenca >= 0 ? 'a maior' : 'a menor'}</div>
+            </div>
           </div>
 
           {/* Diferenças — Copel × Faturado */}
           {faturas.length > 0 && (
-            <details className="rounded-md border bg-muted/30 group" open={Math.abs(diferencaResidual) >= 1}>
-              <summary className="cursor-pointer select-none px-3 py-2 text-sm font-semibold hover:bg-muted/60 transition flex items-center gap-2">
-                <Building2 className="h-4 w-4 text-primary" />
-                Diferenças Copel × Faturado
-                <span className={`ml-auto text-xs font-normal ${Math.abs(diferencaResidual) < 1 ? 'text-green-600' : Math.abs(diferencaResidual) < 50 ? 'text-amber-600' : 'text-red-600'}`}>
-                  residual: {brl(diferencaResidual)}
-                </span>
+            <details className="rounded-md border bg-muted/30 group">
+              <summary className="cursor-pointer select-none px-3 py-2 text-xs hover:bg-muted/60 transition flex flex-wrap items-center gap-x-1 gap-y-1 tabular-nums">
+                <span className="text-muted-foreground">bruta</span> <strong>{brl(diferenca)}</strong>
+                <span className="text-muted-foreground">− multa</span> <strong>{brl(totalUltrapassagem)}</strong>
+                <span className="text-muted-foreground">− créd/déb</span> <strong>{brl(totalCredito)}</strong>
+                <span className="text-muted-foreground">=</span>
+                <strong className={Math.abs(diferencaResidual) < 1 ? 'text-green-600' : Math.abs(diferencaResidual) < 50 ? 'text-amber-600' : 'text-red-600'}>
+                  residual {brl(diferencaResidual)}
+                </strong>
+                <span className="ml-auto text-muted-foreground underline">ver detalhe</span>
               </summary>
               <div className="p-4 space-y-4">
                 {/* PASSO 1 — Diferença bruta = Faturado − Copel */}
@@ -495,15 +529,25 @@ export function FaturasTab() {
                   A diferença saudável vem apenas de <strong>ultrapassagem</strong> (multa por demanda acima do contratado) e do <strong>crédito/débito</strong> da Copel repassado aos clientes. Se o residual for relevante, revisar a Fatura Copel, os lançamentos ou a demanda contratada dos contratos.
                 </p>
 
-                {/* Clientes que pagaram multa de ultrapassagem */}
-                {faturasComMulta.length > 0 ? (
-                  <details className="rounded-md border bg-background">
-                    <summary className="cursor-pointer select-none px-3 py-2 text-xs font-semibold hover:bg-muted/60 transition flex items-center gap-2">
-                      Ver clientes com multa de ultrapassagem
-                      <span className="ml-auto font-normal text-muted-foreground">
-                        {faturasComMulta.length} cliente(s) · {brl(totalUltrapassagem)}
-                      </span>
-                    </summary>
+              </div>
+            </details>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Multas de ultrapassagem */}
+      {faturas.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              Multas de ultrapassagem
+              <span className="ml-auto text-xs font-normal text-muted-foreground">
+                {faturasComMulta.length} cliente(s) · {brl(totalUltrapassagem)}
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {faturasComMulta.length > 0 ? (
                     <div className="overflow-x-auto">
                       <table className="w-full text-xs">
                         <thead className="bg-muted/50 text-[10px] uppercase tracking-wide">
@@ -538,17 +582,14 @@ export function FaturasTab() {
                         </tbody>
                       </table>
                     </div>
-                  </details>
-                ) : (
-                  <div className="rounded-md border bg-background px-3 py-2 text-xs text-muted-foreground">
-                    Nenhum cliente com ultrapassagem nesta competência.
-                  </div>
-                )}
+            ) : (
+              <div className="px-4 py-4 text-xs text-muted-foreground">
+                Nenhum cliente com ultrapassagem nesta competência.
               </div>
-            </details>
-          )}
-        </CardContent>
-      </Card>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {faturas.length === 0 ? (
         <Card><CardContent className="py-10 text-center text-muted-foreground">
@@ -576,6 +617,7 @@ export function FaturasTab() {
                   const idx = f.cliente_key.indexOf('::');
                   const cli = idx >= 0 ? f.cliente_key.slice(0, idx) : '';
                   const showContrato = !!cli && (contratosPorCliente.get(cli) || 0) > 1 && f.contrato_numero;
+                  const isAreaRateada = f.cliente_key === 'AREA_COMUM' && ratearAreaComum;
                   return (
                     <li key={f.cliente_key}>
                       <button
@@ -585,7 +627,9 @@ export function FaturasTab() {
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-medium text-sm truncate">{f.cliente_nome}</span>
                           {f.cliente_key === 'AREA_COMUM' && (
-                            <Badge variant={active ? 'secondary' : 'outline'} className="text-[10px]">comum</Badge>
+                            <Badge variant={active ? 'secondary' : 'outline'} className="text-[10px] shrink-0">
+                              {isAreaRateada ? 'rateada por m²' : 'comum'}
+                            </Badge>
                           )}
                         </div>
                         {showContrato && (
@@ -596,6 +640,11 @@ export function FaturasTab() {
                         <div className={`text-xs mt-0.5 ${active ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
                           {f.modulos.length} mód · {brl(totaisPorFatura.get(f.cliente_key)?.total ?? 0)}
                         </div>
+                        {isAreaRateada && (
+                          <div className={`text-[10px] mt-0.5 italic ${active ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                            já distribuída nos clientes acima
+                          </div>
+                        )}
                       </button>
                     </li>
                   );
@@ -628,24 +677,6 @@ export function FaturasTab() {
           )}
         </div>
       )}
-    </div>
-  );
-}
-
-function KpiCard({ label, value, icon: Icon, tone, suffix }: { label: string; value: string; icon: any; tone?: 'primary' | 'green' | 'amber' | 'red'; suffix?: string }) {
-  const toneCls =
-    tone === 'primary' ? 'border-primary/30 bg-primary/5'
-    : tone === 'green' ? 'border-green-300/50 bg-green-50 dark:bg-green-950/20'
-    : tone === 'amber' ? 'border-amber-300/50 bg-amber-50 dark:bg-amber-950/20'
-    : tone === 'red' ? 'border-red-300/50 bg-red-50 dark:bg-red-950/20'
-    : '';
-  return (
-    <div className={`rounded-md border p-3 ${toneCls}`}>
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Icon className="h-3.5 w-3.5" /> {label}
-      </div>
-      <div className="mt-1 text-xl font-bold tabular-nums">{value}</div>
-      {suffix && <div className="text-[11px] text-muted-foreground">{suffix}</div>}
     </div>
   );
 }
