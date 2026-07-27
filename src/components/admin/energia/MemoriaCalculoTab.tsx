@@ -1428,6 +1428,7 @@ function ConsumoClienteCard({ clientes, modulos, contratosVigentes, consumoCli, 
     isVago?: boolean;
     isAreaComum?: boolean;
     demandaContratada: number;
+    contratoId?: string;
   }> = [];
 
   // Conta contratos por cliente para decidir se mostra número do contrato no nome
@@ -1449,6 +1450,7 @@ function ConsumoClienteCard({ clientes, modulos, contratosVigentes, consumoCli, 
       nome,
       modulos: mods,
       demandaContratada: c.demanda_contratada_kw || 0,
+      contratoId: c.contrato_id,
     });
   }
 
