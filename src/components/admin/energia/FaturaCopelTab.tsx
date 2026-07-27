@@ -607,7 +607,9 @@ export function FaturaCopelTab() {
       itens: it,
       bandeira_modo: bandeiraModo,
       bandeira_vigente: bandeiraTipo,
-      bandeira_tarifa_oficial: faturaItens.bandeira_tarifa_oficial || fmtBR(BANDEIRA_TABELA[bandeiraTipo].valor, 4),
+      bandeira_tarifa_liquida: fmtBR(bandeiraInfo.tarifaLiquida, 4),
+      bandeira_tarifa_manual: !!faturaItens.bandeira_tarifa_manual,
+      bandeira_tarifa_oficial: fmtBR(bandeiraInfo.tarifaOficial, 4),
     };
     const v = (k: CopelItemKey) => parseBR(it[k]?.valor || '');
     const q = (k: CopelItemKey) => parseBR(it[k]?.quant || '');
