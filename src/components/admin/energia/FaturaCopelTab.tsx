@@ -36,7 +36,29 @@ interface FaturaCopelItens {
   extras_keys?: string[];
   // descrição/rótulo livre para item "OUTROS" (key = `outros:<uuid>`)
   extras_labels?: Record<string, string>;
+  // ── Bandeira tarifária ──
+  // 'oficial' → usa a tarifa tabelada da bandeira vigente (jeito da planilha)
+  // 'rateio'  → deriva a tarifa do R$ total lançado na Copel (jeito legado do app)
+  bandeira_modo?: BandeiraModo;
+  bandeira_vigente?: BandeiraTipo;
+  bandeira_tarifa_oficial?: string;
 }
+
+// ─── Bandeira tarifária ─────────────────────────────────────────────────
+export type BandeiraModo = 'oficial' | 'rateio';
+export type BandeiraTipo = 'verde' | 'amarela' | 'vermelha_1' | 'vermelha_2';
+/** Tabela de referência ANEEL (R$/100 kWh) — equivale ao VLOOKUP da planilha. */
+const BANDEIRA_TABELA: Record<BandeiraTipo, { label: string; valor: number }> = {
+  verde:      { label: 'Verde',        valor: 0 },
+  amarela:    { label: 'Amarela',      valor: 2.5464 },
+  vermelha_1: { label: 'Vermelha P1',  valor: 4.4630 },
+  vermelha_2: { label: 'Vermelha P2',  valor: 7.8770 },
+};
+const BANDEIRA_ITEM_KEYS: Record<Exclude<BandeiraTipo, 'verde'>, string[]> = {
+  amarela:    ['bandeira_amarela_ponta', 'bandeira_amarela_fora'],
+  vermelha_1: ['bandeira_vermelha_1_ponta', 'bandeira_vermelha_1_fora'],
+  vermelha_2: ['bandeira_vermelha_2_ponta', 'bandeira_vermelha_2_fora'],
+};
 interface Competencia {
   id: string;
   ano_mes: string;
