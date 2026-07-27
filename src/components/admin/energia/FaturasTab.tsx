@@ -76,7 +76,7 @@ export function FaturasTab() {
   const [busca, setBusca] = useState('');
   const [selecionado, setSelecionado] = useState<string | null>(null);
   const [modoPerdas, setModoPerdas] = useState<ModoRateioPerdas>('combinado');
-  const [ratearAreaComum, setRatearAreaComum] = useState<boolean>(true);
+  // Área Comum é SEMPRE rateada por m² nas faturas dos clientes (regra da planilha RESUMO).
 
   const fetchBase = useCallback(async () => {
     const [c, m, cli] = await Promise.all([
