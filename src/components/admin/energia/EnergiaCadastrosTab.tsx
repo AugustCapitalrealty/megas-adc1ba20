@@ -39,7 +39,18 @@ interface EnergiaModulo {
   ordem: number;
   ativo: boolean;
   observacao: string | null;
+  tipo: TipoUnidade;
 }
+
+/** Tipo da unidade: separa módulos locáveis de áreas especiais (não são módulos). */
+export type TipoUnidade = 'modulo' | 'area_comum' | 'restaurante' | 'obra' | 'outro';
+export const TIPO_UNIDADE_LABEL: Record<TipoUnidade, string> = {
+  modulo: 'Módulo',
+  area_comum: 'Área comum',
+  restaurante: 'Restaurante',
+  obra: 'Obra',
+  outro: 'Outro',
+};
 
 interface EnergiaParametros {
   id: string;
