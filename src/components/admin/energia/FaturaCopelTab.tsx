@@ -42,10 +42,6 @@ interface FaturaCopelItens {
   bandeira_modo?: BandeiraModo;
   bandeira_vigente?: BandeiraTipo;
   bandeira_tarifa_oficial?: string;
-  // Tarifa ANEEL líquida (sem tributos), R$/100 kWh
-  bandeira_tarifa_liquida?: string;
-  // Quando true, o usuário sobrescreveu manualmente a tarifa com tributos
-  bandeira_tarifa_manual?: boolean;
 }
 
 // ─── Bandeira tarifária ─────────────────────────────────────────────────
@@ -58,26 +54,9 @@ const BANDEIRA_TABELA: Record<BandeiraTipo, { label: string; valor: number }> = 
   vermelha_1: { label: 'Vermelha P1',  valor: 0.044630 },
   vermelha_2: { label: 'Vermelha P2',  valor: 0.078770 },
 };
-/** Tarifas oficiais ANEEL SEM tributos (R$/kWh) — é o número da coluna
- *  "Tarifa unit. (R$)" da fatura da Copel. */
-const BANDEIRA_TABELA_LIQUIDA: Record<BandeiraTipo, number> = {
-  verde: 0,
-  amarela: 0.018850,
-  vermelha_1: 0.033010,
-  vermelha_2: 0.058270,
-};
 /** Compat: competências antigas gravaram a tarifa em R$/100 kWh (ex.: 2,5511).
  *  Como nenhuma bandeira real passa de 0,2 R$/kWh, valores ≥ 0,5 são escala antiga. */
 const toRsKwh = (n: number) => (n >= 0.5 ? n / 100 : n);
-/** Embute ICMS + PIS/COFINS na tarifa líquida (mesma ordem usada no resto do
- *  sistema: ICMS sobre o bruto, PIS/COFINS sobre o líquido de ICMS). */
-function grossUpBandeira(liquida: number, aliq: { icms: number; pis: number; cofins: number }): number {
-  const icms = aliq.icms / 100;
-  const piscof = (aliq.pis + aliq.cofins) / 100;
-  const fator = 1 - icms - (1 - icms) * piscof;
-  if (!(fator > 0)) return liquida;
-  return liquida / fator;
-}
 const BANDEIRA_ITEM_KEYS: Record<Exclude<BandeiraTipo, 'verde'>, string[]> = {
   amarela:    ['bandeira_amarela_ponta', 'bandeira_amarela_fora'],
   vermelha_1: ['bandeira_vermelha_1_ponta', 'bandeira_vermelha_1_fora'],
