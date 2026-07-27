@@ -138,8 +138,8 @@ export function FaturasTab() {
   // fatiaId (`moduloId` ou `moduloId@i`) → dados do período
   interface Fatia { modulo_id: string; cliente_id: string | null; contrato_id: string | null; contrato_numero: string | null; periodo: PeriodoModulo }
 
-  const { faturas, areaComumInfo, memoriaLinhas, fatias, perdasResumo } = useMemo<{ faturas: FaturaCliente[]; areaComumInfo: FaturaCliente | null; memoriaLinhas: MemoriaLinha[]; fatias: Record<string, Fatia>; perdasResumo: { ponta: number; fora: number; consumoPonta: number; consumoFora: number } }>(() => {
-    if (!tarifas) return { faturas: [], areaComumInfo: null, memoriaLinhas: [], fatias: {}, perdasResumo: { ponta: 0, fora: 0, consumoPonta: 0, consumoFora: 0 } };
+  const { faturas, memoriaLinhas, fatias, perdasResumo } = useMemo<{ faturas: FaturaCliente[]; memoriaLinhas: MemoriaLinha[]; fatias: Record<string, Fatia>; perdasResumo: { ponta: number; fora: number; consumoPonta: number; consumoFora: number } }>(() => {
+    if (!tarifas) return { faturas: [], memoriaLinhas: [], fatias: {}, perdasResumo: { ponta: 0, fora: 0, consumoPonta: 0, consumoFora: 0 } };
     // Fonte de verdade: módulos COM lançamento nesta competência. Para cada um,
     // o cliente é o do contrato vigente no período (não o cliente atual do módulo).
     // Quando há troca de cliente no meio do mês, o lançamento é fatiado por dias.
@@ -206,7 +206,6 @@ export function FaturasTab() {
     // a Obra) e entra na lista como mais um "cliente".
     return {
       faturas: brutas,
-      areaComumInfo: null,
       memoriaLinhas: memoria.linhas,
       fatias: fatiaMap,
       perdasResumo: {
