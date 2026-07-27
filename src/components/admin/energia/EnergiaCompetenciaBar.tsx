@@ -107,6 +107,11 @@ export function EnergiaCompetenciaBar() {
         </Select>
 
         {currentComp && (
+          <span className="text-[11px] text-muted-foreground hidden md:inline">
+            consumo de {formatCompetencia(mesConsumo(currentComp.ano_mes))}
+          </span>
+        )}
+        {currentComp && (
           <Badge variant={isLocked ? 'secondary' : 'default'} className="h-7">
             {isLocked ? 'Fechada' : 'Rascunho'}
           </Badge>
