@@ -483,6 +483,35 @@ export function FaturaCopelTab() {
     return out;
   }, [faturaItens.itens, copelPontaKwh, copelForaKwh]);
 
+  // ─── Bandeira: tarifa oficial × rateio fechado ───────────────────────
+  const bandeiraModo: BandeiraModo = faturaItens.bandeira_modo || 'oficial';
+  const bandeiraTipo: BandeiraTipo = faturaItens.bandeira_vigente || 'verde';
+  const bandeiraInfo = useMemo(() => {
+    const it = faturaItens.itens || {};
+    const keys = [
+      'bandeira_amarela_ponta', 'bandeira_amarela_fora',
+      'bandeira_vermelha_1_ponta', 'bandeira_vermelha_1_fora',
+      'bandeira_vermelha_2_ponta', 'bandeira_vermelha_2_fora',
+    ];
+    const copelReais = keys.reduce((s, k) => s + parseBR(it[k]?.valor || ''), 0);
+    const baseKwh = copelPontaKwh + copelForaKwh + energyPontaNum + energyForaNum;
+    const tarifaDerivada = baseKwh > 0 && copelReais > 0 ? (copelReais * 100) / baseKwh : 0;
+    const tarifaOficial = parseBR(faturaItens.bandeira_tarifa_oficial || '');
+    const totalOficial = (baseKwh / 100) * tarifaOficial;
+    const totalDerivado = (baseKwh / 100) * tarifaDerivada;
+    const tarifaAtiva = bandeiraModo === 'oficial' ? tarifaOficial : tarifaDerivada;
+    const totalAtivo = bandeiraModo === 'oficial' ? totalOficial : totalDerivado;
+    return { copelReais, baseKwh, tarifaDerivada, tarifaOficial, totalOficial, totalDerivado, tarifaAtiva, totalAtivo };
+  }, [faturaItens.itens, faturaItens.bandeira_tarifa_oficial, bandeiraModo, copelPontaKwh, copelForaKwh, energyPontaNum, energyForaNum]);
+
+  const setBandeiraTipo = (tipo: BandeiraTipo) => {
+    setFaturaItens((p) => ({
+      ...p,
+      bandeira_vigente: tipo,
+      bandeira_tarifa_oficial: fmtBR(BANDEIRA_TABELA[tipo].valor, 4),
+    }));
+  };
+
   const save = async () => {
     if (!tarifas) return;
     // Guarda-corpo: se alguma bandeira "_fora" está com quant absurdamente maior
