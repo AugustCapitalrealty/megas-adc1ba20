@@ -2,9 +2,10 @@ import { useLocation, Link } from 'react-router-dom';
 import { ChevronRight, Home } from 'lucide-react';
 
 const ROUTE_LABELS: Record<string, string> = {
-  '/': 'Dashboard',
+  '/': 'Hub',
+  '/solicitacoes': 'Solicitações',
   '/nova-solicitacao': 'Nova Solicitação',
-  '/minhas-solicitacoes': 'Solicitações',
+  '/minhas-solicitacoes': 'Minhas Solicitações',
   '/backoffice': 'Backoffice',
   '/painel-fluig': 'Painel',
   '/garantias': 'Garantias',
@@ -29,7 +30,7 @@ export function AppBreadcrumbs() {
     <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm text-muted-foreground mb-4">
       <Link to="/" className="hover:text-foreground transition-colors inline-flex items-center gap-1">
         <Home className="h-3.5 w-3.5" />
-        <span className="hidden sm:inline">Dashboard</span>
+        <span className="hidden sm:inline">Hub</span>
       </Link>
       {isAdmin && (
         <>

@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -31,6 +31,7 @@ function lazyWithRetry<T extends ComponentType<unknown>>(
 
 const Login = lazyWithRetry(() => import("./pages/Login"));
 const AwaitingApproval = lazyWithRetry(() => import("./pages/AwaitingApproval"));
+const Hub = lazyWithRetry(() => import("./pages/Hub"));
 const Dashboard = lazyWithRetry(() => import("./pages/Dashboard"));
 const NovaSolicitacao = lazyWithRetry(() => import("./pages/NovaSolicitacao"));
 const MinhasSolicitacoes = lazyWithRetry(() => import("./pages/MinhasSolicitacoes"));
@@ -69,7 +70,9 @@ function AppRoutes() {
 
         {/* Single shell — AppLayout mounts once, never remounts on navigation */}
         <Route element={<ProtectedShell />}>
-          <Route index element={<Dashboard />} />
+          <Route index element={<Hub />} />
+          <Route path="solicitacoes" element={<Dashboard />} />
+          <Route path="dashboard" element={<Navigate to="/solicitacoes" replace />} />
           <Route path="nova-solicitacao" element={<NovaSolicitacao />} />
           <Route path="minhas-solicitacoes" element={<MinhasSolicitacoes />} />
           <Route path="painel-fluig" element={<PainelFluig />} />
