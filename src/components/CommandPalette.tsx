@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/command';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { FileText, Search, LayoutDashboard, Plus, Shield, BarChart3, FileCheck, CalendarDays } from 'lucide-react';
+import { FileText, Search, LayoutDashboard, Plus, Shield, BarChart3, FileCheck, CalendarDays, Home } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 
 interface SearchResult {
@@ -84,7 +84,9 @@ export function CommandPalette() {
   }, [navigate]);
 
   const pages = [
+    { label: 'Hub dos Megas', icon: Home, path: '/' },
     { label: 'Nova Solicitação', icon: Plus, path: '/nova-solicitacao' },
+    { label: 'Dashboard de Solicitações', icon: LayoutDashboard, path: '/solicitacoes' },
     { label: 'Minhas Solicitações', icon: FileText, path: '/minhas-solicitacoes' },
     { label: 'Painel', icon: BarChart3, path: '/painel-fluig' },
     { label: 'Calendário', icon: CalendarDays, path: '/calendario' },
