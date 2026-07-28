@@ -87,8 +87,9 @@ export function AppLayout() {
 
   // Nav items filtered by persona
   const mainNavItems = [
+    { href: '/solicitacoes', label: 'Dashboard', icon: LayoutDashboard, show: true },
     { href: '/minhas-solicitacoes', label: 'Solicitações', icon: FileText, show: true },
-    { href: '/backoffice', label: 'Backoffice', icon: LayoutDashboard, show: isBackofficeOrAdmin },
+    { href: '/backoffice', label: 'Backoffice', icon: ClipboardList, show: isBackofficeOrAdmin },
     { href: '/painel-fluig', label: 'Painel', icon: BarChart3, show: true },
     { href: '/calendario', label: 'Calendário', icon: CalendarDays, show: true },
     { href: '/monitoramento-oc', label: 'Monitoramento', icon: FileCheck, show: true },
@@ -122,7 +123,8 @@ export function AppLayout() {
 
   const prefetchRoute = useCallback((path: string) => {
     const routeMap: Record<string, () => Promise<any>> = {
-      '/': () => import('@/pages/Dashboard'),
+      '/': () => import('@/pages/Hub'),
+      '/solicitacoes': () => import('@/pages/Dashboard'),
       '/nova-solicitacao': () => import('@/pages/NovaSolicitacao'),
       '/minhas-solicitacoes': () => import('@/pages/MinhasSolicitacoes'),
       '/backoffice': () => import('@/pages/Backoffice'),
