@@ -1,22 +1,53 @@
 ## Objetivo
 
-A Área Comum **não** é rateada entre os clientes. Ela é uma fatura própria da DEMERCADO (assim como a Obra). Ajustar a tela **Faturas por Cliente** para refletir isso.
+Transformar o produto de "sistema de solicitações" em **Hub dos Megas**: uma home que apresenta os aplicativos disponíveis, dá acesso rápido ao que importa e deixa espaço claro para novos módulos.
 
-## O que muda
+## Arquitetura de navegação
 
-1. **Sem rateio por m²**
-   - Deixar de chamar `redistribuirAreaComumPorArea` em `FaturasTab.tsx`. A lista de faturas passa a ser exatamente o resultado de `agruparPorCliente` (Área Comum incluída como um cliente normal).
-   - Remover o campo/legenda "Área Comum — sempre rateada por m² nas faturas dos clientes" do cabeçalho, e o selo "rateada por m²" / nota "já distribuída nos clientes acima" na linha da lista.
+```text
+/                     → Hub dos Megas (nova home)
+/solicitacoes         → Dashboard atual (hoje em "/")
+/nova-solicitacao     → inalterado
+/minhas-solicitacoes  → inalterado
+/backoffice, /painel-fluig, /monitoramento-oc,
+/garantias, /calendario, /notificacoes → inalterados
+/admin/rateio-energia → inalterado (exposto como app "Energia")
+```
 
-2. **Área Comum entra no somatório**
-   - Hoje a linha é exibida "fora" do total (`faturasComArea` = faturas + areaComumInfo separado). Passa a ser uma linha comum: entra no total da Fatura Energy, no contador de clientes e na comparação com a Fatura Copel.
-   - Manter apenas um selo discreto identificando que é conta da DEMERCADO (Área Comum / Obra), sem alterar valores.
+- `/` passa a renderizar a nova página `Hub`; o Dashboard vira a rota `/solicitacoes`.
+- Redirect de compatibilidade: quem chegar em `/dashboard` ou links antigos cai em `/solicitacoes`.
+- Ambas continuam dentro do `ProtectedShell` (mesmo header/auth).
 
-3. **Consistência dos totais**
-   - Com a Área Comum somando, o total Energy deve continuar batendo com a Copel (antes o rateio redistribuía o mesmo valor; agora ele fica concentrado numa linha). Verificar Fatura Copel × Fatura Energy × Diferença e a tabela de multas após a mudança.
+## Página Hub (`src/pages/Hub.tsx`)
+
+1. **Saudação + contexto** — "Bom dia, {nome}", papel do usuário e data.
+2. **Faixa de continuidade** — 3 atalhos contextuais por persona (ex.: solicitante → Nova Solicitação, pendências de correção, últimas solicitações; backoffice → fila de novas, aguardando solicitante).
+3. **Grade de apps (bento)** — cards grandes, cada um com ícone, nome, descrição de uma linha, badge de status ao vivo e 2–3 links diretos:
+   - **Solicitações** — badge com nº de itens pendentes; atalhos: Nova, Minhas, Backoffice (se papel), OC × NF, Garantias, Calendário.
+   - **Energia** — rateio mensal; badge com a competência aberta; atalhos: Painel, Lançamentos, Faturas. Visível só para admin.
+   - **Administração** (só admin) — usuários, SLA, eficiência, excelência.
+4. **Em breve** — cards em estado desabilitado, opacidade reduzida, badge "Em breve" e sem navegação (ex.: Contratos/Jurídico, Manutenção/Facilities, Indicadores). Servem de sinalização de roadmap.
+5. **Rodapé leve** — atalho para `⌘K` e link "O que há de novo".
+
+Visibilidade por papel reaproveita `useAuth` (`isAdmin`, `isBackofficeOrAdmin`); nada de card visível sem permissão.
+
+## Ajustes de shell (`AppLayout`)
+
+- Logo no header aponta para `/` (Hub) e ganha rótulo "Hub".
+- Item de nav "Dashboard" passa a apontar para `/solicitacoes`; menu mobile idem.
+- `prefetchRoute` e `AppBreadcrumbs` atualizados com as novas rotas ("Hub" como raiz, "Solicitações" como nível intermediário).
+- `CommandPalette` ganha entrada "Hub" e corrige o caminho do Dashboard.
 
 ## Detalhes técnicos
 
-- Arquivo afetado: `src/components/admin/energia/FaturasTab.tsx` (import de `redistribuirAreaComumPorArea`, `useMemo` das linhas 142-218, `faturasComArea` na 244, render da linha 590-600 e o bloco de legenda no cabeçalho).
-- `redistribuirAreaComumPorArea` continua existindo em `src/lib/energia-rateio.ts` (não utilizada pela tela) — sem mudanças no motor de cálculo.
-- Sem alteração de banco de dados.
+- Novo arquivo `src/pages/Hub.tsx` + `src/components/hub/AppCard.tsx` (card reutilizável com props `title/description/icon/badge/links/disabled`).
+- Catálogo de apps em `src/lib/hub-apps.ts` — array tipado com `visible(auth)` e `links[]`, para adicionar apps futuros em um só lugar.
+- Rotas em `src/App.tsx`: `index` → `Hub`, nova rota `solicitacoes` → `Dashboard`, redirect legado.
+- Badges usam os hooks já existentes (`useDashboardMetrics`) sem novas queries pesadas; card de Energia usa contagem simples da competência aberta.
+- Sem mudanças de banco, RLS ou edge functions.
+- Design segue os tokens Mega (laranja `#E87722`, Montserrat) e componentes canônicos (`PageHeader`, `KpiCard`); nada de cor hardcoded.
+
+## Fora de escopo
+
+- Construir qualquer app novo além dos placeholders.
+- Alterar regras de cálculo de energia ou fluxo de solicitações.
