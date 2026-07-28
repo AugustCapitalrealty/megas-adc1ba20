@@ -35,6 +35,7 @@ import {
   Sparkles,
   Palette,
   Zap,
+  ClipboardList,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -385,7 +386,7 @@ export function AppLayout() {
                     )}
                   >
                     <LayoutDashboard className="h-4 w-4" />
-                    Dashboard
+                    Hub dos Megas
                   </Link>
                   <Link
                     to="/nova-solicitacao"
