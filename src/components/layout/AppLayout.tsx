@@ -46,6 +46,8 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/comp
 import { useTheme } from 'next-themes';
 import logoMega from '@/assets/logos/logo-mega.png';
 import { useTrackEvent } from '@/hooks/useTrackEvent';
+import { resolveAppNav } from '@/lib/hub-nav';
+import { getHubApps } from '@/lib/hub-apps';
 
 export function AppLayout() {
   const { 
@@ -89,6 +91,7 @@ export function AppLayout() {
   // App ativo (null = Hub → header limpo)
   const appNav = resolveAppNav(location.pathname, { isBackofficeOrAdmin, isAdmin, isSolicitante });
   const mainNavItems = appNav?.items ?? [];
+  const hubApps = getHubApps({ isBackofficeOrAdmin, isAdmin });
 
   const getInitials = (name: string | null, email: string) => {
     if (name) return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
