@@ -1,53 +1,47 @@
 ## Objetivo
 
-Transformar o produto de "sistema de solicitações" em **Hub dos Megas**: uma home que apresenta os aplicativos disponíveis, dá acesso rápido ao que importa e deixa espaço claro para novos módulos.
+O Hub (`/`) vira uma home limpa: sem a faixa de navegação de módulos no topo. Essa faixa passa a ser **contextual do app**, aparecendo apenas quando a pessoa entra no app hoje chamado "Solicitações", que passa a se chamar **Financeiro**.
 
-## Arquitetura de navegação
+## 1. Header em dois modos
 
-```text
-/                     → Hub dos Megas (nova home)
-/solicitacoes         → Dashboard atual (hoje em "/")
-/nova-solicitacao     → inalterado
-/minhas-solicitacoes  → inalterado
-/backoffice, /painel-fluig, /monitoramento-oc,
-/garantias, /calendario, /notificacoes → inalterados
-/admin/rateio-energia → inalterado (exposto como app "Energia")
-```
+`src/components/layout/AppLayout.tsx` passa a decidir o modo pela rota atual:
 
-- `/` passa a renderizar a nova página `Hub`; o Dashboard vira a rota `/solicitacoes`.
-- Redirect de compatibilidade: quem chegar em `/dashboard` ou links antigos cai em `/solicitacoes`.
-- Ambas continuam dentro do `ProtectedShell` (mesmo header/auth).
+- **Modo Hub** (`/`): apenas logo Mega, busca (⌘K), sino de notificações e avatar. Sem itens de módulo, sem CTA "Nova", sem dropdown Admin. No mobile, o menu lateral também some (só perfil/tema/sair).
+- **Modo App** (demais rotas do shell): logo + um "app switcher" discreto à esquerda mostrando o app atual (ex.: `Mega | Financeiro`) com link de volta ao Hub, seguido da faixa de navegação daquele app.
 
-## Página Hub (`src/pages/Hub.tsx`)
+A faixa de navegação deixa de ser uma lista global e passa a ser derivada do app atual.
 
-1. **Saudação + contexto** — "Bom dia, {nome}", papel do usuário e data.
-2. **Faixa de continuidade** — 3 atalhos contextuais por persona (ex.: solicitante → Nova Solicitação, pendências de correção, últimas solicitações; backoffice → fila de novas, aguardando solicitante).
-3. **Grade de apps (bento)** — cards grandes, cada um com ícone, nome, descrição de uma linha, badge de status ao vivo e 2–3 links diretos:
-   - **Solicitações** — badge com nº de itens pendentes; atalhos: Nova, Minhas, Backoffice (se papel), OC × NF, Garantias, Calendário.
-   - **Energia** — rateio mensal; badge com a competência aberta; atalhos: Painel, Lançamentos, Faturas. Visível só para admin.
-   - **Administração** (só admin) — usuários, SLA, eficiência, excelência.
-4. **Em breve** — cards em estado desabilitado, opacidade reduzida, badge "Em breve" e sem navegação (ex.: Contratos/Jurídico, Manutenção/Facilities, Indicadores). Servem de sinalização de roadmap.
-5. **Rodapé leve** — atalho para `⌘K` e link "O que há de novo".
+## 2. Navegação por app
 
-Visibilidade por papel reaproveita `useAuth` (`isAdmin`, `isBackofficeOrAdmin`); nada de card visível sem permissão.
+Criar um mapa em `src/lib/hub-apps.ts` (ou arquivo irmão `hub-nav.ts`) que, dado o `pathname`, resolve o app ativo e sua navegação:
 
-## Ajustes de shell (`AppLayout`)
+- **Financeiro** — rotas `/solicitacoes`, `/nova-solicitacao`, `/minhas-solicitacoes`, `/backoffice`, `/painel-fluig`, `/calendario`, `/monitoramento-oc`, `/garantias`, `/notificacoes`, `/admin/sla`, `/admin/eficiencia`
+  Nav: Dashboard · Solicitações · Backoffice (backoffice/admin) · Painel · Calendário · OC × NF · Garantias (backoffice/admin) · Notificações (solicitante)
+  CTA primário: **Nova solicitação**
+- **Energia** — `/admin/rateio-energia` → nav própria (Painel do rateio), sem itens de Financeiro
+- **Administração** — `/admin/usuarios`, `/admin/excelencia`, `/admin/design-system` → nav própria (Usuários · Excelência · Design System)
 
-- Logo no header aponta para `/` (Hub) e ganha rótulo "Hub".
-- Item de nav "Dashboard" passa a apontar para `/solicitacoes`; menu mobile idem.
-- `prefetchRoute` e `AppBreadcrumbs` atualizados com as novas rotas ("Hub" como raiz, "Solicitações" como nível intermediário).
-- `CommandPalette` ganha entrada "Hub" e corrige o caminho do Dashboard.
+O dropdown "Admin" atual, que misturava tudo, é removido do header; seus itens passam a viver nos apps correspondentes e no card do Hub.
+
+## 3. Renomear Solicitações → Financeiro
+
+Apenas rótulos de interface (as rotas continuam `/solicitacoes` etc., sem quebrar links salvos):
+
+- `src/lib/hub-apps.ts`: card `Financeiro`, descrição "Compras, contratos, OCs e acompanhamento financeiro de ponta a ponta".
+- `src/pages/Hub.tsx`: badge e textos de atalho.
+- `src/components/layout/AppBreadcrumbs.tsx`: breadcrumb `Hub › Financeiro › <página>`.
+- `src/components/CommandPalette.tsx`: grupo "Financeiro".
+- Dentro do app, o item de nav que hoje é "Solicitações" (lista) continua "Minhas solicitações"; o "Dashboard" continua "Dashboard".
+
+## 4. Ajustes na Home do Hub
+
+- Ampliar o respiro do topo (sem a faixa, a saudação vira o primeiro elemento).
+- Atalhos e cards continuam como estão, com o card principal renomeado para Financeiro.
+- Card "Energia" e "Administração" ganham o mesmo tratamento de entrada por app.
 
 ## Detalhes técnicos
 
-- Novo arquivo `src/pages/Hub.tsx` + `src/components/hub/AppCard.tsx` (card reutilizável com props `title/description/icon/badge/links/disabled`).
-- Catálogo de apps em `src/lib/hub-apps.ts` — array tipado com `visible(auth)` e `links[]`, para adicionar apps futuros em um só lugar.
-- Rotas em `src/App.tsx`: `index` → `Hub`, nova rota `solicitacoes` → `Dashboard`, redirect legado.
-- Badges usam os hooks já existentes (`useDashboardMetrics`) sem novas queries pesadas; card de Energia usa contagem simples da competência aberta.
-- Sem mudanças de banco, RLS ou edge functions.
-- Design segue os tokens Mega (laranja `#E87722`, Montserrat) e componentes canônicos (`PageHeader`, `KpiCard`); nada de cor hardcoded.
-
-## Fora de escopo
-
-- Construir qualquer app novo além dos placeholders.
-- Alterar regras de cálculo de energia ou fluxo de solicitações.
+- Resolução do app ativo por prefixo de rota, com fallback "sem app" → modo Hub.
+- `prefetchRoute` continua, mas alimentado pela lista de rotas do app ativo.
+- Sem mudanças de backend, permissões ou regras de negócio; `RequireRole` permanece intacto.
+- Atualizar `src/App.guards.test.tsx` apenas se algum seletor de texto quebrar.

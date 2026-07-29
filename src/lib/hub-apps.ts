@@ -47,9 +47,9 @@ interface HubAccess {
 export function getHubApps({ isBackofficeOrAdmin, isAdmin }: HubAccess): HubApp[] {
   const apps: HubApp[] = [
     {
-      key: 'solicitacoes',
-      name: 'Solicitações',
-      description: 'Compras, contratos e acompanhamento de OCs de ponta a ponta.',
+      key: 'financeiro',
+      name: 'Financeiro',
+      description: 'Compras, contratos, OCs e acompanhamento financeiro de ponta a ponta.',
       icon: FileText,
       href: '/solicitacoes',
       span: 'full',

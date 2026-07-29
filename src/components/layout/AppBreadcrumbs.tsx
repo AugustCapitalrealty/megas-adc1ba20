@@ -1,15 +1,17 @@
 import { useLocation, Link } from 'react-router-dom';
 import { ChevronRight, Home } from 'lucide-react';
+import { resolveAppNav } from '@/lib/hub-nav';
 
 const ROUTE_LABELS: Record<string, string> = {
   '/': 'Hub',
-  '/solicitacoes': 'Solicitações',
+  '/solicitacoes': 'Dashboard',
   '/nova-solicitacao': 'Nova Solicitação',
   '/minhas-solicitacoes': 'Minhas Solicitações',
   '/backoffice': 'Backoffice',
   '/painel-fluig': 'Painel',
   '/garantias': 'Garantias',
   '/calendario': 'Calendário',
+  '/monitoramento-oc': 'OC × NF',
   '/admin/usuarios': 'Usuários',
   '/admin/sla': 'Dashboard SLA',
   '/admin/eficiencia': 'Eficiência',
@@ -24,7 +26,7 @@ export function AppBreadcrumbs() {
   const label = ROUTE_LABELS[pathname];
   if (!label) return null;
 
-  const isAdmin = pathname.startsWith('/admin');
+  const app = resolveAppNav(pathname, { isBackofficeOrAdmin: true, isAdmin: true, isSolicitante: false });
 
   return (
     <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm text-muted-foreground mb-4">
@@ -32,10 +34,10 @@ export function AppBreadcrumbs() {
         <Home className="h-3.5 w-3.5" />
         <span className="hidden sm:inline">Hub</span>
       </Link>
-      {isAdmin && (
+      {app && (
         <>
           <ChevronRight className="h-3.5 w-3.5" />
-          <span>Admin</span>
+          <Link to={app.home} className="hover:text-foreground transition-colors">{app.name}</Link>
         </>
       )}
       <ChevronRight className="h-3.5 w-3.5" />

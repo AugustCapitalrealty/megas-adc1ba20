@@ -13,29 +13,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { 
-  FileText, 
   LayoutDashboard, 
-  Plus, 
-  Users, 
   LogOut,
   Menu,
-  BarChart3,
   UserCog,
   X,
-  Timer,
-  Shield,
-  Settings,
-  ChevronDown,
-  FileCheck,
   WifiOff,
   Moon,
   Sun,
-  Bell,
-  CalendarDays,
-  Sparkles,
-  Palette,
-  Zap,
-  ClipboardList,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -46,6 +31,8 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/comp
 import { useTheme } from 'next-themes';
 import logoMega from '@/assets/logos/logo-mega.png';
 import { useTrackEvent } from '@/hooks/useTrackEvent';
+import { resolveAppNav } from '@/lib/hub-nav';
+import { getHubApps } from '@/lib/hub-apps';
 
 export function AppLayout() {
   const { 
@@ -86,26 +73,10 @@ export function AppLayout() {
   const displayProfile = isImpersonating ? impersonatedProfile : profile;
   const displayEmail = isImpersonating ? impersonatedProfile?.email : user?.email;
 
-  // Nav items filtered by persona
-  const mainNavItems = [
-    { href: '/solicitacoes', label: 'Dashboard', icon: LayoutDashboard, show: true },
-    { href: '/minhas-solicitacoes', label: 'Solicitações', icon: FileText, show: true },
-    { href: '/backoffice', label: 'Backoffice', icon: ClipboardList, show: isBackofficeOrAdmin },
-    { href: '/painel-fluig', label: 'Painel', icon: BarChart3, show: true },
-    { href: '/calendario', label: 'Calendário', icon: CalendarDays, show: true },
-    { href: '/monitoramento-oc', label: 'Monitoramento', icon: FileCheck, show: true },
-    { href: '/notificacoes', label: 'Notificações', icon: Bell, show: isSolicitante },
-  ];
-
-  const adminItems = [
-    { href: '/garantias', label: 'Garantias', icon: Shield },
-    { href: '/admin/usuarios', label: 'Usuários', icon: Users },
-    { href: '/admin/sla', label: 'Dashboard SLA', icon: Timer },
-    { href: '/admin/eficiencia', label: 'Eficiência', icon: BarChart3 },
-    { href: '/admin/excelencia', label: 'Excelência', icon: Sparkles },
-    { href: '/admin/rateio-energia', label: 'Rateio de Energia', icon: Zap },
-    { href: '/admin/design-system', label: 'Design System', icon: Palette },
-  ];
+  // App ativo (null = Hub → header limpo)
+  const appNav = resolveAppNav(location.pathname, { isBackofficeOrAdmin, isAdmin, isSolicitante });
+  const mainNavItems = appNav?.items ?? [];
+  const hubApps = getHubApps({ isBackofficeOrAdmin, isAdmin });
 
   const getInitials = (name: string | null, email: string) => {
     if (name) return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
@@ -113,14 +84,8 @@ export function AppLayout() {
   };
 
   const isActive = (href: string) => location.pathname === href;
-  const isAdminActive = adminItems.some(item => location.pathname === item.href);
 
-  // Primary CTA per persona
-  const primaryCta = isSolicitante
-    ? { href: '/nova-solicitacao', label: 'Nova Solicitação', shortLabel: 'Nova', icon: Plus }
-    : isAdmin
-    ? null // Admin uses dropdown
-    : { href: '/backoffice', label: 'Backoffice', shortLabel: 'Backoffice', icon: LayoutDashboard };
+  const primaryCta = appNav?.primaryCta ?? null;
 
   const prefetchRoute = useCallback((path: string) => {
     const routeMap: Record<string, () => Promise<any>> = {
@@ -213,11 +178,25 @@ export function AppLayout() {
       {/* Header */}
       <header role="banner" className="sticky top-0 z-50 w-full border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
         <div className="container flex h-14 sm:h-16 items-center justify-between gap-2">
-          <Link to="/" className="flex items-center gap-3 shrink-0">
-            <img src={logoMega} alt="Mega Centro Logístico" width={86} height={40} className="h-10 w-auto object-contain" />
-          </Link>
+          <div className="flex items-center gap-2 shrink-0 min-w-0">
+            <Link to="/" className="flex items-center gap-3 shrink-0" aria-label="Hub dos Megas">
+              <img src={logoMega} alt="Mega Centro Logístico" width={86} height={40} className="h-10 w-auto object-contain" />
+            </Link>
+            {appNav && (
+              <>
+                <span className="text-border select-none" aria-hidden="true">|</span>
+                <Link
+                  to={appNav.home}
+                  className="text-sm font-semibold text-foreground/80 hover:text-primary transition-colors truncate"
+                >
+                  {appNav.name}
+                </Link>
+              </>
+            )}
+          </div>
 
-          {/* Desktop Navigation */}
+          {/* Desktop Navigation — contextual ao app ativo (oculta no Hub) */}
+          {appNav && (
           <TooltipProvider delayDuration={300}>
           <nav aria-label="Navegação principal" className="hidden md:flex items-center gap-1">
             {/* Primary CTA - persona-based */}
@@ -242,84 +221,10 @@ export function AppLayout() {
               </Tooltip>
             )}
 
-            {/* For backoffice, also show Nova Solicitação as secondary */}
-            {!isSolicitante && !isAdmin && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link
-                    to="/nova-solicitacao"
-                    onMouseEnter={() => prefetchRoute('/nova-solicitacao')}
-                    className={cn(
-                      'flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors',
-                      isActive('/nova-solicitacao')
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-foreground/70 hover:text-primary hover:bg-accent'
-                    )}
-                  >
-                    <Plus className="h-4 w-4" />
-                    <span className="hidden xl:inline">Nova</span>
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent className="xl:hidden">Nova Solicitação</TooltipContent>
-              </Tooltip>
-            )}
-
-            {/* For admin, show Nova as a regular nav item */}
-            {isAdmin && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link
-                    to="/nova-solicitacao"
-                    onMouseEnter={() => prefetchRoute('/nova-solicitacao')}
-                    className={cn(
-                      'flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-semibold transition-colors mr-1 shadow-md',
-                      isActive('/nova-solicitacao')
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-primary text-primary-foreground hover:bg-primary/90'
-                    )}
-                  >
-                    <Plus className="h-4 w-4" />
-                    <span className="hidden xl:inline">Nova</span>
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent className="xl:hidden">Nova Solicitação</TooltipContent>
-              </Tooltip>
-            )}
-
             <NavLinks />
-
-            {isAdmin && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                    <button
-                    aria-label="Menu administração"
-                    className={cn(
-                      'flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors',
-                      isAdminActive
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-foreground/70 hover:text-primary hover:bg-accent'
-                    )}
-                  >
-                    <Settings className="h-4 w-4" />
-                    Admin
-                    <ChevronDown className="h-3.5 w-3.5" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {adminItems.map((item) => {
-                    const Icon = item.icon;
-                    return (
-                      <DropdownMenuItem key={item.href} onClick={() => navigate(item.href)} onMouseEnter={() => prefetchRoute(item.href)}>
-                        <Icon className="mr-2 h-4 w-4" />
-                        {item.label}
-                      </DropdownMenuItem>
-                    );
-                  })}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
           </nav>
           </TooltipProvider>
+          )}
 
           {/* Notifications & User Menu */}
           <div className="flex items-center gap-1 sm:gap-2">
@@ -388,46 +293,34 @@ export function AppLayout() {
                     <LayoutDashboard className="h-4 w-4" />
                     Hub dos Megas
                   </Link>
-                  <Link
-                    to="/nova-solicitacao"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={cn(
-                      'flex items-center gap-2 px-3 py-2.5 rounded-md text-sm font-semibold transition-colors',
-                      isActive('/nova-solicitacao')
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-primary/10 text-primary hover:bg-primary/20'
-                    )}
-                  >
-                    <Plus className="h-4 w-4" />
-                    Nova Solicitação
-                  </Link>
-                  <div className="h-px bg-border my-1" />
-                  <NavLinks mobile />
-                  {isAdmin && (
+                  {appNav && (
                     <>
                       <div className="h-px bg-border my-1" />
-                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-3 py-1">Administração</span>
-                      {adminItems.map((item) => {
-                        const Icon = item.icon;
-                        return (
-                          <Link
-                            key={item.href}
-                            to={item.href}
-                            onClick={() => setMobileMenuOpen(false)}
-                            className={cn(
-                              'flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors',
-                              isActive(item.href)
-                                ? 'bg-primary text-primary-foreground'
-                                : 'text-foreground/70 hover:text-primary hover:bg-accent'
-                            )}
-                          >
-                            <Icon className="h-4 w-4" />
-                            {item.label}
-                          </Link>
-                        );
-                      })}
+                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-3 py-1">
+                        {appNav.name}
+                      </span>
+                      <NavLinks mobile />
                     </>
                   )}
+
+                  <div className="h-px bg-border my-1" />
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-3 py-1">Apps</span>
+                  {hubApps
+                    .filter((a) => a.key !== appNav?.key)
+                    .map((a) => {
+                      const Icon = a.icon;
+                      return (
+                        <Link
+                          key={a.key}
+                          to={a.href ?? '/'}
+                          onClick={() => setMobileMenuOpen(false)}
+                          className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-foreground/70 hover:text-primary hover:bg-accent transition-colors"
+                        >
+                          <Icon className="h-4 w-4" />
+                          {a.name}
+                        </Link>
+                      );
+                    })}
                 </nav>
               </SheetContent>
             </Sheet>
