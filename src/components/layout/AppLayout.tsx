@@ -305,46 +305,34 @@ export function AppLayout() {
                     <LayoutDashboard className="h-4 w-4" />
                     Hub dos Megas
                   </Link>
-                  <Link
-                    to="/nova-solicitacao"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={cn(
-                      'flex items-center gap-2 px-3 py-2.5 rounded-md text-sm font-semibold transition-colors',
-                      isActive('/nova-solicitacao')
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-primary/10 text-primary hover:bg-primary/20'
-                    )}
-                  >
-                    <Plus className="h-4 w-4" />
-                    Nova Solicitação
-                  </Link>
-                  <div className="h-px bg-border my-1" />
-                  <NavLinks mobile />
-                  {isAdmin && (
+                  {appNav && (
                     <>
                       <div className="h-px bg-border my-1" />
-                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-3 py-1">Administração</span>
-                      {adminItems.map((item) => {
-                        const Icon = item.icon;
-                        return (
-                          <Link
-                            key={item.href}
-                            to={item.href}
-                            onClick={() => setMobileMenuOpen(false)}
-                            className={cn(
-                              'flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors',
-                              isActive(item.href)
-                                ? 'bg-primary text-primary-foreground'
-                                : 'text-foreground/70 hover:text-primary hover:bg-accent'
-                            )}
-                          >
-                            <Icon className="h-4 w-4" />
-                            {item.label}
-                          </Link>
-                        );
-                      })}
+                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-3 py-1">
+                        {appNav.name}
+                      </span>
+                      <NavLinks mobile />
                     </>
                   )}
+
+                  <div className="h-px bg-border my-1" />
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-3 py-1">Apps</span>
+                  {hubApps
+                    .filter((a) => a.key !== appNav?.key)
+                    .map((a) => {
+                      const Icon = a.icon;
+                      return (
+                        <Link
+                          key={a.key}
+                          to={a.href ?? '/'}
+                          onClick={() => setMobileMenuOpen(false)}
+                          className="flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-foreground/70 hover:text-primary hover:bg-accent transition-colors"
+                        >
+                          <Icon className="h-4 w-4" />
+                          {a.name}
+                        </Link>
+                      );
+                    })}
                 </nav>
               </SheetContent>
             </Sheet>
