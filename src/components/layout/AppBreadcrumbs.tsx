@@ -1,5 +1,6 @@
 import { useLocation, Link } from 'react-router-dom';
 import { ChevronRight, Home } from 'lucide-react';
+import { resolveAppNav } from '@/lib/hub-nav';
 
 const ROUTE_LABELS: Record<string, string> = {
   '/': 'Hub',
