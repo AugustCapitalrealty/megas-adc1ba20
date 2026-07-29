@@ -190,11 +190,25 @@ export function AppLayout() {
       {/* Header */}
       <header role="banner" className="sticky top-0 z-50 w-full border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
         <div className="container flex h-14 sm:h-16 items-center justify-between gap-2">
-          <Link to="/" className="flex items-center gap-3 shrink-0">
-            <img src={logoMega} alt="Mega Centro Logístico" width={86} height={40} className="h-10 w-auto object-contain" />
-          </Link>
+          <div className="flex items-center gap-2 shrink-0 min-w-0">
+            <Link to="/" className="flex items-center gap-3 shrink-0" aria-label="Hub dos Megas">
+              <img src={logoMega} alt="Mega Centro Logístico" width={86} height={40} className="h-10 w-auto object-contain" />
+            </Link>
+            {appNav && (
+              <>
+                <span className="text-border select-none" aria-hidden="true">|</span>
+                <Link
+                  to={appNav.home}
+                  className="text-sm font-semibold text-foreground/80 hover:text-primary transition-colors truncate"
+                >
+                  {appNav.name}
+                </Link>
+              </>
+            )}
+          </div>
 
-          {/* Desktop Navigation */}
+          {/* Desktop Navigation — contextual ao app ativo (oculta no Hub) */}
+          {appNav && (
           <TooltipProvider delayDuration={300}>
           <nav aria-label="Navegação principal" className="hidden md:flex items-center gap-1">
             {/* Primary CTA - persona-based */}
@@ -219,84 +233,10 @@ export function AppLayout() {
               </Tooltip>
             )}
 
-            {/* For backoffice, also show Nova Solicitação as secondary */}
-            {!isSolicitante && !isAdmin && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link
-                    to="/nova-solicitacao"
-                    onMouseEnter={() => prefetchRoute('/nova-solicitacao')}
-                    className={cn(
-                      'flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors',
-                      isActive('/nova-solicitacao')
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-foreground/70 hover:text-primary hover:bg-accent'
-                    )}
-                  >
-                    <Plus className="h-4 w-4" />
-                    <span className="hidden xl:inline">Nova</span>
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent className="xl:hidden">Nova Solicitação</TooltipContent>
-              </Tooltip>
-            )}
-
-            {/* For admin, show Nova as a regular nav item */}
-            {isAdmin && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link
-                    to="/nova-solicitacao"
-                    onMouseEnter={() => prefetchRoute('/nova-solicitacao')}
-                    className={cn(
-                      'flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-semibold transition-colors mr-1 shadow-md',
-                      isActive('/nova-solicitacao')
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-primary text-primary-foreground hover:bg-primary/90'
-                    )}
-                  >
-                    <Plus className="h-4 w-4" />
-                    <span className="hidden xl:inline">Nova</span>
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent className="xl:hidden">Nova Solicitação</TooltipContent>
-              </Tooltip>
-            )}
-
             <NavLinks />
-
-            {isAdmin && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                    <button
-                    aria-label="Menu administração"
-                    className={cn(
-                      'flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors',
-                      isAdminActive
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-foreground/70 hover:text-primary hover:bg-accent'
-                    )}
-                  >
-                    <Settings className="h-4 w-4" />
-                    Admin
-                    <ChevronDown className="h-3.5 w-3.5" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {adminItems.map((item) => {
-                    const Icon = item.icon;
-                    return (
-                      <DropdownMenuItem key={item.href} onClick={() => navigate(item.href)} onMouseEnter={() => prefetchRoute(item.href)}>
-                        <Icon className="mr-2 h-4 w-4" />
-                        {item.label}
-                      </DropdownMenuItem>
-                    );
-                  })}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
           </nav>
           </TooltipProvider>
+          )}
 
           {/* Notifications & User Menu */}
           <div className="flex items-center gap-1 sm:gap-2">
