@@ -88,11 +88,11 @@ export default function Hub() {
               key={app.key}
               app={app}
               badge={
-                app.key === 'solicitacoes' && !metrics.isLoading && pendencias > 0
+                app.key === 'financeiro' && !metrics.isLoading && pendencias > 0
                   ? `${pendencias} ${isBackofficeOrAdmin ? 'na fila' : 'pendentes'}`
                   : null
               }
-              badgeTone={app.key === 'solicitacoes' ? 'warning' : 'default'}
+              badgeTone={app.key === 'financeiro' ? 'warning' : 'default'}
               className={app.span === 'full' ? 'lg:col-span-2' : undefined}
             />
           ))}
