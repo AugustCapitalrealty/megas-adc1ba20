@@ -86,26 +86,9 @@ export function AppLayout() {
   const displayProfile = isImpersonating ? impersonatedProfile : profile;
   const displayEmail = isImpersonating ? impersonatedProfile?.email : user?.email;
 
-  // Nav items filtered by persona
-  const mainNavItems = [
-    { href: '/solicitacoes', label: 'Dashboard', icon: LayoutDashboard, show: true },
-    { href: '/minhas-solicitacoes', label: 'Solicitações', icon: FileText, show: true },
-    { href: '/backoffice', label: 'Backoffice', icon: ClipboardList, show: isBackofficeOrAdmin },
-    { href: '/painel-fluig', label: 'Painel', icon: BarChart3, show: true },
-    { href: '/calendario', label: 'Calendário', icon: CalendarDays, show: true },
-    { href: '/monitoramento-oc', label: 'Monitoramento', icon: FileCheck, show: true },
-    { href: '/notificacoes', label: 'Notificações', icon: Bell, show: isSolicitante },
-  ];
-
-  const adminItems = [
-    { href: '/garantias', label: 'Garantias', icon: Shield },
-    { href: '/admin/usuarios', label: 'Usuários', icon: Users },
-    { href: '/admin/sla', label: 'Dashboard SLA', icon: Timer },
-    { href: '/admin/eficiencia', label: 'Eficiência', icon: BarChart3 },
-    { href: '/admin/excelencia', label: 'Excelência', icon: Sparkles },
-    { href: '/admin/rateio-energia', label: 'Rateio de Energia', icon: Zap },
-    { href: '/admin/design-system', label: 'Design System', icon: Palette },
-  ];
+  // App ativo (null = Hub → header limpo)
+  const appNav = resolveAppNav(location.pathname, { isBackofficeOrAdmin, isAdmin, isSolicitante });
+  const mainNavItems = appNav?.items ?? [];
 
   const getInitials = (name: string | null, email: string) => {
     if (name) return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
@@ -113,14 +96,8 @@ export function AppLayout() {
   };
 
   const isActive = (href: string) => location.pathname === href;
-  const isAdminActive = adminItems.some(item => location.pathname === item.href);
 
-  // Primary CTA per persona
-  const primaryCta = isSolicitante
-    ? { href: '/nova-solicitacao', label: 'Nova Solicitação', shortLabel: 'Nova', icon: Plus }
-    : isAdmin
-    ? null // Admin uses dropdown
-    : { href: '/backoffice', label: 'Backoffice', shortLabel: 'Backoffice', icon: LayoutDashboard };
+  const primaryCta = appNav?.primaryCta ?? null;
 
   const prefetchRoute = useCallback((path: string) => {
     const routeMap: Record<string, () => Promise<any>> = {
