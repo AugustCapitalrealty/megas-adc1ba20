@@ -13,29 +13,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { 
-  FileText, 
   LayoutDashboard, 
-  Plus, 
-  Users, 
   LogOut,
   Menu,
-  BarChart3,
   UserCog,
   X,
-  Timer,
-  Shield,
-  Settings,
-  ChevronDown,
-  FileCheck,
   WifiOff,
   Moon,
   Sun,
-  Bell,
-  CalendarDays,
-  Sparkles,
-  Palette,
-  Zap,
-  ClipboardList,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
