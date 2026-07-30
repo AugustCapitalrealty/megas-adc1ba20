@@ -14,6 +14,7 @@ import {
   Palette,
   Zap,
   Plus,
+  Home,
 } from 'lucide-react';
 
 export interface AppNavItem {
@@ -39,6 +40,7 @@ interface NavAccess {
 }
 
 const FINANCEIRO_ROUTES = [
+  '/financeiro',
   '/solicitacoes',
   '/nova-solicitacao',
   '/minhas-solicitacoes',
@@ -67,9 +69,10 @@ export function resolveAppNav(pathname: string, access: NavAccess): AppNavContex
     return {
       key: 'financeiro',
       name: 'Financeiro',
-      home: '/solicitacoes',
+      home: '/financeiro',
       primaryCta: { href: '/nova-solicitacao', label: 'Nova Solicitação', shortLabel: 'Nova', icon: Plus },
       items: [
+        { href: '/financeiro', label: 'Início', icon: Home, show: true },
         { href: '/solicitacoes', label: 'Dashboard', icon: LayoutDashboard, show: true },
         { href: '/minhas-solicitacoes', label: 'Solicitações', icon: FileText, show: true },
         { href: '/backoffice', label: 'Backoffice', icon: ClipboardList, show: isBackofficeOrAdmin },

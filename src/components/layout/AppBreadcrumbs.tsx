@@ -4,6 +4,7 @@ import { resolveAppNav } from '@/lib/hub-nav';
 
 const ROUTE_LABELS: Record<string, string> = {
   '/': 'Hub',
+  '/financeiro': 'Início',
   '/solicitacoes': 'Dashboard',
   '/nova-solicitacao': 'Nova Solicitação',
   '/minhas-solicitacoes': 'Minhas Solicitações',
