@@ -1,47 +1,36 @@
 ## Objetivo
 
-O Hub (`/`) vira uma home limpa: sem a faixa de navegação de módulos no topo. Essa faixa passa a ser **contextual do app**, aparecendo apenas quando a pessoa entra no app hoje chamado "Solicitações", que passa a se chamar **Financeiro**.
+1. Criar uma página inicial do app Financeiro em `/financeiro`, com três cards de entrada.
+2. Limpar a Home do Hub: remover a faixa de atalhos (Fila do Backoffice, Aguardando solicitante, Nova solicitação), deixando apenas "Seus aplicativos" (e "Em breve").
 
-## 1. Header em dois modos
+## 1. Home do Financeiro (`/financeiro`)
 
-`src/components/layout/AppLayout.tsx` passa a decidir o modo pela rota atual:
+Nova página `src/pages/FinanceiroHome.tsx`:
 
-- **Modo Hub** (`/`): apenas logo Mega, busca (⌘K), sino de notificações e avatar. Sem itens de módulo, sem CTA "Nova", sem dropdown Admin. No mobile, o menu lateral também some (só perfil/tema/sair).
-- **Modo App** (demais rotas do shell): logo + um "app switcher" discreto à esquerda mostrando o app atual (ex.: `Mega | Financeiro`) com link de volta ao Hub, seguido da faixa de navegação daquele app.
+- Cabeçalho com nome do app, saudação curta e data.
+- Grid com 3 cards clicáveis, cada um com ícone, contagem em destaque e descrição:
+  - **Minhas Solicitações** → `/minhas-solicitacoes` — total de solicitações do usuário.
+  - **Aprovações pendentes** → `/minhas-solicitacoes?filter=oc_emitida` — OCs aguardando liberação/aceite do usuário (para backoffice/admin, a fila de aprovação).
+  - **Devoluções** → `/minhas-solicitacoes?filter=correcoes` — solicitações devolvidas para correção.
+- Números vêm de `useDashboardMetrics` (`total`, `pendingAcceptance`, `pendingCorrections`), já existente. Estado de carregamento com skeleton nos números.
+- Abaixo dos cards, uma linha discreta de links para o restante do app (Dashboard, Backoffice, OC × NF, Calendário), conforme permissão.
 
-A faixa de navegação deixa de ser uma lista global e passa a ser derivada do app atual.
+Rota: `<Route path="financeiro" element={<FinanceiroHome />} />` dentro de `ProtectedShell` em `src/App.tsx` (lazy, como as demais).
 
-## 2. Navegação por app
+Navegação:
+- `src/lib/hub-nav.ts`: incluir `/financeiro` em `FINANCEIRO_ROUTES`, trocar `home` do app para `/financeiro` e adicionar o item "Início" no menu do Financeiro (mantendo Dashboard em `/solicitacoes`).
+- `src/lib/hub-apps.ts`: o card Financeiro do Hub passa a apontar para `/financeiro`.
+- Breadcrumbs: `Hub › Financeiro` na nova rota.
 
-Criar um mapa em `src/lib/hub-apps.ts` (ou arquivo irmão `hub-nav.ts`) que, dado o `pathname`, resolve o app ativo e sua navegação:
+## 2. Hub mais limpo
 
-- **Financeiro** — rotas `/solicitacoes`, `/nova-solicitacao`, `/minhas-solicitacoes`, `/backoffice`, `/painel-fluig`, `/calendario`, `/monitoramento-oc`, `/garantias`, `/notificacoes`, `/admin/sla`, `/admin/eficiencia`
-  Nav: Dashboard · Solicitações · Backoffice (backoffice/admin) · Painel · Calendário · OC × NF · Garantias (backoffice/admin) · Notificações (solicitante)
-  CTA primário: **Nova solicitação**
-- **Energia** — `/admin/rateio-energia` → nav própria (Painel do rateio), sem itens de Financeiro
-- **Administração** — `/admin/usuarios`, `/admin/excelencia`, `/admin/design-system` → nav própria (Usuários · Excelência · Design System)
+Em `src/pages/Hub.tsx`:
+- Remover a seção "Atalhos" (os três cards) e o array `atalhos`.
+- Manter saudação, "Seus aplicativos", "Em breve" e a dica do ⌘K.
+- Manter o badge de pendências no card do Financeiro (usa `useDashboardMetrics`), removendo imports que ficarem sem uso.
 
-O dropdown "Admin" atual, que misturava tudo, é removido do header; seus itens passam a viver nos apps correspondentes e no card do Hub.
+## Notas técnicas
 
-## 3. Renomear Solicitações → Financeiro
-
-Apenas rótulos de interface (as rotas continuam `/solicitacoes` etc., sem quebrar links salvos):
-
-- `src/lib/hub-apps.ts`: card `Financeiro`, descrição "Compras, contratos, OCs e acompanhamento financeiro de ponta a ponta".
-- `src/pages/Hub.tsx`: badge e textos de atalho.
-- `src/components/layout/AppBreadcrumbs.tsx`: breadcrumb `Hub › Financeiro › <página>`.
-- `src/components/CommandPalette.tsx`: grupo "Financeiro".
-- Dentro do app, o item de nav que hoje é "Solicitações" (lista) continua "Minhas solicitações"; o "Dashboard" continua "Dashboard".
-
-## 4. Ajustes na Home do Hub
-
-- Ampliar o respiro do topo (sem a faixa, a saudação vira o primeiro elemento).
-- Atalhos e cards continuam como estão, com o card principal renomeado para Financeiro.
-- Card "Energia" e "Administração" ganham o mesmo tratamento de entrada por app.
-
-## Detalhes técnicos
-
-- Resolução do app ativo por prefixo de rota, com fallback "sem app" → modo Hub.
-- `prefetchRoute` continua, mas alimentado pela lista de rotas do app ativo.
-- Sem mudanças de backend, permissões ou regras de negócio; `RequireRole` permanece intacto.
-- Atualizar `src/App.guards.test.tsx` apenas se algum seletor de texto quebrar.
+- Sem mudanças de banco de dados nem de regras de negócio; apenas UI e rotas.
+- Reaproveita tokens e componentes existentes (`Card`, `ds-text-h1`, `AppCard`), sem cores hardcoded.
+- `/solicitacoes` continua funcionando como o Dashboard atual; `/financeiro` é apenas a porta de entrada do app.
