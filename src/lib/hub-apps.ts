@@ -51,7 +51,7 @@ export function getHubApps({ isBackofficeOrAdmin, isAdmin }: HubAccess): HubApp[
       name: 'Financeiro',
       description: 'Compras, contratos, OCs e acompanhamento financeiro de ponta a ponta.',
       icon: FileText,
-      href: '/solicitacoes',
+      href: '/financeiro',
       span: 'full',
       links: [
         { label: 'Nova solicitação', href: '/nova-solicitacao', icon: Plus, primary: true },
