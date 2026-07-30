@@ -5,7 +5,6 @@ import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
 import { AppCard } from '@/components/hub/AppCard';
 import { getHubApps, HUB_APPS_EM_BREVE } from '@/lib/hub-apps';
 import { Card } from '@/components/ui/card';
-import { ArrowRight, Plus, FileText, LayoutDashboard } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -29,18 +28,6 @@ export default function Hub() {
 
   const pendencias = isBackofficeOrAdmin ? metrics.newInQueue : metrics.pendingActions;
 
-  const atalhos = isBackofficeOrAdmin
-    ? [
-        { label: 'Fila do Backoffice', hint: `${metrics.newInQueue} novas`, href: '/backoffice', icon: LayoutDashboard },
-        { label: 'Aguardando solicitante', hint: `${metrics.waitingSolicitor} itens`, href: '/backoffice', icon: FileText },
-        { label: 'Nova solicitação', hint: 'Criar agora', href: '/nova-solicitacao', icon: Plus },
-      ]
-    : [
-        { label: 'Nova solicitação', hint: 'Criar agora', href: '/nova-solicitacao', icon: Plus },
-        { label: 'Minhas pendências', hint: `${metrics.pendingActions} aguardando você`, href: '/minhas-solicitacoes', icon: FileText },
-        { label: 'Minhas solicitações', hint: `${metrics.total} no total`, href: '/solicitacoes', icon: LayoutDashboard },
-      ];
-
   return (
     <div className="space-y-8">
       {/* Saudação */}
@@ -55,27 +42,6 @@ export default function Hub() {
           {format(agora, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
         </p>
       </header>
-
-      {/* Continuidade */}
-      <section aria-label="Atalhos" className="grid gap-3 sm:grid-cols-3">
-        {atalhos.map((a) => {
-          const Icon = a.icon;
-          return (
-            <Link key={a.label + a.href} to={a.href}>
-              <Card className="p-4 h-full flex items-center gap-3 transition-colors hover:border-primary/40 hover:bg-accent/40">
-                <div className="shrink-0 h-9 w-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-                  <Icon className="h-4 w-4" aria-hidden="true" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium truncate">{a.label}</p>
-                  <p className="text-xs text-muted-foreground truncate">{a.hint}</p>
-                </div>
-                <ArrowRight className="h-4 w-4 text-muted-foreground ml-auto shrink-0" />
-              </Card>
-            </Link>
-          );
-        })}
-      </section>
 
       {/* Apps */}
       <section aria-label="Aplicativos" className="space-y-3">

@@ -42,7 +42,7 @@ const TONE: Record<EntryCard['tone'], string> = {
 
 export default function FinanceiroHome() {
   useDocumentTitle('Financeiro');
-  const { effectiveProfile, isBackofficeOrAdmin, isSolicitante } = useAuth();
+  const { effectiveProfile, isBackofficeOrAdmin, isAdmin } = useAuth();
   const metrics = useDashboardMetrics(isBackofficeOrAdmin ? 'geral' : 'minhas');
 
   const agora = new Date();
@@ -86,7 +86,7 @@ export default function FinanceiroHome() {
     <div className="space-y-8">
       <header className="space-y-1">
         <p className="text-xs uppercase tracking-widest text-muted-foreground">
-          Financeiro {isSolicitante ? '· Solicitante' : ''}
+          Financeiro · {isAdmin ? 'Administrador' : isBackofficeOrAdmin ? 'Backoffice' : 'Solicitante'}
         </p>
         <h1 className="ds-text-h1">
           {saudacao(agora)}{primeiroNome ? `, ${primeiroNome}` : ''}
