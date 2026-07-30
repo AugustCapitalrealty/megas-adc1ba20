@@ -1,10 +1,8 @@
-import { Link } from 'react-router-dom';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { useAuth } from '@/hooks/useAuth';
 import { useDashboardMetrics } from '@/hooks/useDashboardMetrics';
 import { AppCard } from '@/components/hub/AppCard';
 import { getHubApps, HUB_APPS_EM_BREVE } from '@/lib/hub-apps';
-import { Card } from '@/components/ui/card';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
