@@ -64,22 +64,14 @@ export function AppAccessDialog({ open, onOpenChange, userId, userName, access, 
         app,
         papel: draft[app]!,
       }));
-      const mantidos = rows.map((r) => r.app);
-
       const { error: delError } = await supabase
         .from('user_app_access')
         .delete()
-        .eq('user_id', userId)
-        .not('app', 'in', `(${mantidos.length ? mantidos.join(',') : 'financeiro,energia,administracao'})`)
-        .throwOnError();
+        .eq('user_id', userId);
       if (delError) throw delError;
 
-      if (mantidos.length === 0) {
-        await supabase.from('user_app_access').delete().eq('user_id', userId).throwOnError();
-      } else {
-        const { error } = await supabase
-          .from('user_app_access')
-          .upsert(rows, { onConflict: 'user_id,app' });
+      if (rows.length > 0) {
+        const { error } = await supabase.from('user_app_access').insert(rows);
         if (error) throw error;
       }
 
