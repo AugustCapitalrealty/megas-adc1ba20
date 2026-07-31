@@ -1092,6 +1092,15 @@ export default function Admin() {
         </Tabs>
       </PageContainer>
 
+      <AppAccessDialog
+        open={accessUser !== null}
+        onOpenChange={(open) => !open && setAccessUser(null)}
+        userId={accessUser?.id ?? null}
+        userName={accessUser?.full_name || accessUser?.email || 'este usuário'}
+        access={accessUser?.appAccess ?? {}}
+        onSaved={handleAccessSaved}
+      />
+
       <Dialog open={vacationModalOpen} onOpenChange={setVacationModalOpen}>
         <DialogContent>
           <DialogHeader>
