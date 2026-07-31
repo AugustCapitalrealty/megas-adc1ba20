@@ -15,12 +15,12 @@ function saudacao(date: Date) {
 
 export default function Hub() {
   useDocumentTitle('Hub dos Megas');
-  const { effectiveProfile, isBackofficeOrAdmin, isAdmin } = useAuth();
+  const { effectiveProfile, isBackofficeOrAdmin, isAdmin, hasApp } = useAuth();
   const metrics = useDashboardMetrics(isBackofficeOrAdmin ? 'geral' : 'minhas');
 
   const agora = new Date();
   const primeiroNome = (effectiveProfile?.full_name || '').split(' ')[0];
-  const apps = getHubApps({ isBackofficeOrAdmin, isAdmin });
+  const apps = getHubApps({ isBackofficeOrAdmin, isAdmin, hasApp });
 
   const papel = isAdmin ? 'Administrador' : isBackofficeOrAdmin ? 'Backoffice' : 'Solicitante';
 
@@ -46,6 +46,12 @@ export default function Hub() {
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
           Seus aplicativos
         </h2>
+        {apps.length === 0 && (
+          <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
+            Você ainda não tem nenhum aplicativo liberado. Peça a um administrador do Hub para
+            configurar seus acessos em Administração › Usuários & acessos.
+          </div>
+        )}
         <div className="grid gap-4 lg:grid-cols-2">
           {apps.map((app) => (
             <AppCard

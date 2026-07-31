@@ -9,7 +9,7 @@ import { ScrollToTop } from "@/components/ScrollToTop";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { PageLoadingFallback } from "@/components/ui/PageLoadingFallback";
 import { ThemeProvider } from "next-themes";
-import { ProtectedShell, RequireRole } from "@/routes/guards";
+import { ProtectedShell, RequireRole, RequireApp } from "@/routes/guards";
 
 // Retry dynamic imports once before failing — covers transient network blips
 // and stale chunks right after a deploy. ErrorBoundary handles the rest.
@@ -38,6 +38,7 @@ const MinhasSolicitacoes = lazyWithRetry(() => import("./pages/MinhasSolicitacoe
 const Backoffice = lazyWithRetry(() => import("./pages/Backoffice"));
 const PainelFluig = lazyWithRetry(() => import("./pages/PainelFluig"));
 const Admin = lazyWithRetry(() => import("./pages/Admin"));
+const AdminHub = lazyWithRetry(() => import("./pages/AdminHub"));
 const DashboardSLA = lazyWithRetry(() => import("./pages/DashboardSLA"));
 const GarantiasVigentes = lazyWithRetry(() => import("./pages/GarantiasVigentes"));
 const DashboardEficiencia = lazyWithRetry(() => import("./pages/DashboardEficiencia"));
@@ -84,10 +85,11 @@ function AppRoutes() {
           <Route path="backoffice" element={<RequireRole role="backoffice"><Backoffice /></RequireRole>} />
           <Route path="admin/sla" element={<RequireRole role="backoffice"><DashboardSLA /></RequireRole>} />
           <Route path="admin/eficiencia" element={<RequireRole role="backoffice"><DashboardEficiencia /></RequireRole>} />
-          <Route path="admin/usuarios" element={<RequireRole role="admin"><Admin /></RequireRole>} />
-          <Route path="admin/excelencia" element={<RequireRole role="admin"><AdminExcelencia /></RequireRole>} />
-          <Route path="admin/design-system" element={<RequireRole role="admin"><AdminDesignSystem /></RequireRole>} />
-          <Route path="admin/rateio-energia" element={<RequireRole role="admin"><AdminRateioEnergia /></RequireRole>} />
+          <Route path="admin" element={<RequireApp app="administracao"><AdminHub /></RequireApp>} />
+          <Route path="admin/usuarios" element={<RequireApp app="administracao"><Admin /></RequireApp>} />
+          <Route path="admin/excelencia" element={<RequireApp app="administracao"><AdminExcelencia /></RequireApp>} />
+          <Route path="admin/design-system" element={<RequireApp app="administracao"><AdminDesignSystem /></RequireApp>} />
+          <Route path="admin/rateio-energia" element={<RequireApp app="energia"><AdminRateioEnergia /></RequireApp>} />
         </Route>
 
         <Route path="*" element={<NotFound />} />

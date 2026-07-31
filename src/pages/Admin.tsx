@@ -29,6 +29,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { AppAccessDialog } from '@/components/admin/AppAccessDialog';
+import { APP_BY_KEY, APP_ROLE_LABELS, type AppAccessMap, type AppKey } from '@/lib/app-access';
 
 const EMPREENDIMENTOS: Empreendimento[] = ['mega_curitiba', 'mega_itajai', 'mega_esteio', 'mega_canoas', 'todos'];
 
@@ -39,6 +41,7 @@ interface UserWithRoles {
   approved: boolean;
   created_at: string;
   roles: AppRole[];
+  appAccess: AppAccessMap;
   empreendimentos: Empreendimento[];
   receber_notificacoes_email: boolean;
 }
@@ -73,6 +76,7 @@ export default function Admin() {
   } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [accessUser, setAccessUser] = useState<UserWithRoles | null>(null);
   const [users, setUsers] = useState<UserWithRoles[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -133,6 +137,13 @@ export default function Admin() {
 
       if (rolesError) throw rolesError;
 
+      // Fetch all app access
+      const { data: allAccess, error: accessError } = await supabase
+        .from('user_app_access')
+        .select('user_id, app, papel');
+
+      if (accessError) throw accessError;
+
       // Fetch all user empreendimentos
       const { data: allEmpreendimentos, error: empError } = await supabase
         .from('user_empreendimentos')
@@ -147,6 +158,9 @@ export default function Admin() {
         roles: (allRoles || [])
           .filter((r) => r.user_id === profile.id)
           .map((r) => r.role as AppRole),
+        appAccess: (allAccess || [])
+          .filter((a) => a.user_id === profile.id)
+          .reduce<AppAccessMap>((acc, a) => ({ ...acc, [a.app as AppKey]: a.papel }), {}),
         empreendimentos: (allEmpreendimentos || [])
           .filter((e) => e.user_id === profile.id)
           .map((e) => e.empreendimento as Empreendimento),
@@ -715,10 +729,14 @@ export default function Admin() {
       (user.full_name?.toLowerCase() || '').includes(searchTerm.toLowerCase())
   );
 
+  const handleAccessSaved = (userId: string, access: AppAccessMap) => {
+    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, appAccess: access } : u)));
+  };
+
   const stats = {
     total: users.length,
-    admins: users.filter((u) => u.roles.includes('admin')).length,
-    backoffice: users.filter((u) => u.roles.includes('backoffice')).length,
+    admins: users.filter((u) => u.appAccess.administracao !== undefined).length,
+    backoffice: users.filter((u) => u.appAccess.financeiro === 'backoffice' || u.appAccess.financeiro === 'admin').length,
     pending: users.filter((u) => !u.approved).length,
   };
 
@@ -854,9 +872,7 @@ export default function Admin() {
                     <TableHead>Usuário</TableHead>
                     <TableHead>E-mail</TableHead>
                     <TableHead className="text-center">Aprovado</TableHead>
-                    <TableHead className="text-center">Solicitante</TableHead>
-                    <TableHead className="text-center">Backoffice</TableHead>
-                    <TableHead className="text-center">Admin</TableHead>
+                    <TableHead>Acessos aos apps</TableHead>
                     <TableHead className="text-center">
                       <div className="flex items-center justify-center gap-1">
                         <Mail className="h-3 w-3" />
@@ -871,7 +887,7 @@ export default function Admin() {
                 <TableBody>
                   {filteredUsers.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={isMasterUser ? 10 : 9} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={isMasterUser ? 8 : 7} className="text-center py-8 text-muted-foreground">
                         {searchTerm ? 'Nenhum usuário encontrado' : 'Nenhum usuário cadastrado'}
                       </TableCell>
                     </TableRow>
@@ -956,37 +972,26 @@ export default function Admin() {
                               </Button>
                             </div>
                           </TableCell>
-                          <TableCell className="text-center">
-                            <div className="flex justify-center">
-                              <Checkbox
-                                checked={targetUser.roles.includes('solicitante')}
-                                onCheckedChange={() =>
-                                  handleRoleChange(targetUser.id, 'solicitante', targetUser.roles.includes('solicitante'))
-                                }
-                                disabled={isSaving}
-                              />
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <div className="flex justify-center">
-                              <Checkbox
-                                checked={targetUser.roles.includes('backoffice')}
-                                onCheckedChange={() =>
-                                  handleRoleChange(targetUser.id, 'backoffice', targetUser.roles.includes('backoffice'))
-                                }
-                                disabled={isSaving}
-                              />
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <div className="flex justify-center">
-                              <Checkbox
-                                checked={targetUser.roles.includes('admin')}
-                                onCheckedChange={() =>
-                                  handleRoleChange(targetUser.id, 'admin', targetUser.roles.includes('admin'))
-                                }
-                                disabled={isSaving}
-                              />
+                          <TableCell>
+                            <div className="flex flex-wrap items-center gap-1">
+                              {(Object.keys(targetUser.appAccess) as AppKey[]).length === 0 ? (
+                                <span className="text-xs text-muted-foreground">Sem acesso</span>
+                              ) : (
+                                (Object.keys(targetUser.appAccess) as AppKey[]).map((app) => (
+                                  <Badge key={app} variant="secondary" className="text-xs">
+                                    {APP_BY_KEY[app]?.name} · {APP_ROLE_LABELS[targetUser.appAccess[app]!]}
+                                  </Badge>
+                                ))
+                              )}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 px-2 text-xs"
+                                onClick={() => setAccessUser(targetUser)}
+                              >
+                                <Pencil className="h-3 w-3 mr-1" />
+                                Editar
+                              </Button>
                             </div>
                           </TableCell>
                           <TableCell className="text-center">
@@ -1086,6 +1091,15 @@ export default function Admin() {
           </TabsContent>
         </Tabs>
       </PageContainer>
+
+      <AppAccessDialog
+        open={accessUser !== null}
+        onOpenChange={(open) => !open && setAccessUser(null)}
+        userId={accessUser?.id ?? null}
+        userName={accessUser?.full_name || accessUser?.email || 'este usuário'}
+        access={accessUser?.appAccess ?? {}}
+        onSaved={handleAccessSaved}
+      />
 
       <Dialog open={vacationModalOpen} onOpenChange={setVacationModalOpen}>
         <DialogContent>
