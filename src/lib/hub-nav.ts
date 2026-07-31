@@ -1,7 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import {
   FileText,
-  LayoutDashboard,
   ClipboardList,
   BarChart3,
   CalendarDays,
