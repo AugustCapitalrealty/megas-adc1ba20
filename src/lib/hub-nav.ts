@@ -14,6 +14,7 @@ import {
   Zap,
   Plus,
   Home,
+  ShieldCheck,
 } from 'lucide-react';
 
 export interface AppNavItem {
@@ -57,7 +58,7 @@ const FINANCEIRO_ROUTES = [
 
 const ENERGIA_ROUTES = ['/admin/rateio-energia'];
 
-const ADMIN_ROUTES = ['/admin/usuarios', '/admin/excelencia', '/admin/design-system'];
+const ADMIN_ROUTES = ['/admin', '/admin/usuarios', '/admin/excelencia', '/admin/design-system'];
 
 const matches = (pathname: string, routes: string[]) =>
   routes.some((r) => pathname === r || pathname.startsWith(`${r}/`));
@@ -105,9 +106,10 @@ export function resolveAppNav(pathname: string, access: NavAccess): AppNavContex
     return {
       key: 'administracao',
       name: 'Administração',
-      home: '/admin/usuarios',
+      home: '/admin',
       items: [
-        { href: '/admin/usuarios', label: 'Usuários', icon: Users, show: true },
+        { href: '/admin', label: 'Início', icon: Home, show: true },
+        { href: '/admin/usuarios', label: 'Usuários & acessos', icon: Users, show: true },
         { href: '/admin/excelencia', label: 'Excelência', icon: Sparkles, show: isAdmin },
         { href: '/admin/design-system', label: 'Design System', icon: Palette, show: isAdmin },
       ].filter((i) => i.show),
