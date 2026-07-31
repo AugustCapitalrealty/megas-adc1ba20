@@ -38,6 +38,7 @@ const MinhasSolicitacoes = lazyWithRetry(() => import("./pages/MinhasSolicitacoe
 const Backoffice = lazyWithRetry(() => import("./pages/Backoffice"));
 const PainelFluig = lazyWithRetry(() => import("./pages/PainelFluig"));
 const Admin = lazyWithRetry(() => import("./pages/Admin"));
+const AdminHub = lazyWithRetry(() => import("./pages/AdminHub"));
 const DashboardSLA = lazyWithRetry(() => import("./pages/DashboardSLA"));
 const GarantiasVigentes = lazyWithRetry(() => import("./pages/GarantiasVigentes"));
 const DashboardEficiencia = lazyWithRetry(() => import("./pages/DashboardEficiencia"));
