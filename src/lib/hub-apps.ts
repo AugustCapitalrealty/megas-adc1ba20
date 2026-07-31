@@ -41,12 +41,19 @@ export interface HubApp {
 interface HubAccess {
   isBackofficeOrAdmin: boolean;
   isAdmin: boolean;
+  hasApp?: (app: 'financeiro' | 'energia' | 'administracao') => boolean;
+  canApp?: (app: 'financeiro' | 'energia' | 'administracao', minimo: string) => boolean;
 }
 
 /** Apps disponíveis hoje, filtrados por papel do usuário. */
-export function getHubApps({ isBackofficeOrAdmin, isAdmin }: HubAccess): HubApp[] {
-  const apps: HubApp[] = [
-    {
+export function getHubApps({ isBackofficeOrAdmin, isAdmin, hasApp }: HubAccess): HubApp[] {
+  const liberado = (app: 'financeiro' | 'energia' | 'administracao') =>
+    hasApp ? hasApp(app) : app === 'financeiro' || isAdmin;
+
+  const apps: HubApp[] = [];
+
+  if (liberado('financeiro')) {
+    apps.push({
       key: 'financeiro',
       name: 'Financeiro',
       description: 'Compras, contratos, OCs e acompanhamento financeiro de ponta a ponta.',
@@ -65,10 +72,10 @@ export function getHubApps({ isBackofficeOrAdmin, isAdmin }: HubAccess): HubApp[
           : []),
         { label: 'Calendário', href: '/calendario', icon: CalendarDays },
       ],
-    },
-  ];
+    });
+  }
 
-  if (isAdmin) {
+  if (liberado('energia')) {
     apps.push({
       key: 'energia',
       name: 'Energia',
@@ -79,15 +86,17 @@ export function getHubApps({ isBackofficeOrAdmin, isAdmin }: HubAccess): HubApp[
         { label: 'Abrir rateio', href: '/admin/rateio-energia', icon: Zap, primary: true },
       ],
     });
+  }
 
+  if (liberado('administracao')) {
     apps.push({
       key: 'administracao',
       name: 'Administração',
-      description: 'Usuários, indicadores de SLA, eficiência e saúde da plataforma.',
+      description: 'Usuários, acessos aos apps, integrações e saúde da plataforma.',
       icon: Users,
-      href: '/admin/usuarios',
+      href: '/admin',
       links: [
-        { label: 'Usuários', href: '/admin/usuarios', icon: Users, primary: true },
+        { label: 'Usuários & acessos', href: '/admin/usuarios', icon: Users, primary: true },
         { label: 'SLA', href: '/admin/sla', icon: Timer },
         { label: 'Eficiência', href: '/admin/eficiencia', icon: BarChart3 },
         { label: 'Excelência', href: '/admin/excelencia', icon: Sparkles },
