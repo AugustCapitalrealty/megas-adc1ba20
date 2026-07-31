@@ -14,7 +14,6 @@ import {
   Zap,
   Plus,
   Home,
-  ShieldCheck,
 } from 'lucide-react';
 
 export interface AppNavItem {
