@@ -2011,6 +2011,36 @@ export type Database = {
         }
         Relationships: []
       }
+      user_app_access: {
+        Row: {
+          app: Database["public"]["Enums"]["app_key"]
+          created_at: string
+          id: string
+          papel: Database["public"]["Enums"]["app_role_level"]
+          updated_at: string
+          updated_by: string | null
+          user_id: string
+        }
+        Insert: {
+          app: Database["public"]["Enums"]["app_key"]
+          created_at?: string
+          id?: string
+          papel: Database["public"]["Enums"]["app_role_level"]
+          updated_at?: string
+          updated_by?: string | null
+          user_id: string
+        }
+        Update: {
+          app?: Database["public"]["Enums"]["app_key"]
+          created_at?: string
+          id?: string
+          papel?: Database["public"]["Enums"]["app_role_level"]
+          updated_at?: string
+          updated_by?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_empreendimentos: {
         Row: {
           created_at: string
@@ -2087,6 +2117,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      app_role_of: {
+        Args: { _app: Database["public"]["Enums"]["app_key"]; _user_id: string }
+        Returns: Database["public"]["Enums"]["app_role_level"]
+      }
+      app_role_rank: {
+        Args: { _papel: Database["public"]["Enums"]["app_role_level"] }
+        Returns: number
+      }
       calcular_dias_uteis: {
         Args: { data_fim?: string; data_inicio: string }
         Returns: number
@@ -2335,6 +2373,10 @@ export type Database = {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["empreendimento"][]
       }
+      has_app_access: {
+        Args: { _app: Database["public"]["Enums"]["app_key"]; _user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -2352,6 +2394,14 @@ export type Database = {
           p_user_id: string
         }
         Returns: undefined
+      }
+      is_app_at_least: {
+        Args: {
+          _app: Database["public"]["Enums"]["app_key"]
+          _papel: Database["public"]["Enums"]["app_role_level"]
+          _user_id: string
+        }
+        Returns: boolean
       }
       is_backoffice_or_admin: { Args: { _user_id: string }; Returns: boolean }
       solicitacao_missing_anexos: {
@@ -2383,7 +2433,15 @@ export type Database = {
       }
     }
     Enums: {
+      app_key: "financeiro" | "energia" | "administracao"
       app_role: "solicitante" | "backoffice" | "admin" | "super_admin"
+      app_role_level:
+        | "solicitante"
+        | "backoffice"
+        | "admin"
+        | "leitor"
+        | "editor"
+        | "fechador"
       empreendimento:
         | "mega_curitiba"
         | "mega_itajai"
@@ -2576,7 +2634,16 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_key: ["financeiro", "energia", "administracao"],
       app_role: ["solicitante", "backoffice", "admin", "super_admin"],
+      app_role_level: [
+        "solicitante",
+        "backoffice",
+        "admin",
+        "leitor",
+        "editor",
+        "fechador",
+      ],
       empreendimento: [
         "mega_curitiba",
         "mega_itajai",
