@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { lovable } from '@/integrations/lovable/index';
 import type { AppRole, Profile } from '@/types';
 import { deriveAuthState } from '@/hooks/auth-state';
+import type { AppAccessMap, AppKey, AppRoleLevel } from '@/lib/app-access';
 
 interface AuthContextType {
   user: User | null;
@@ -26,6 +27,12 @@ interface AuthContextType {
   isImpersonating: boolean;
   effectiveProfile: Profile | null;
   effectiveRoles: AppRole[];
+  appAccess: AppAccessMap;
+  effectiveAppAccess: AppAccessMap;
+  hasApp: (app: AppKey) => boolean;
+  appRole: (app: AppKey) => AppRoleLevel | undefined;
+  canApp: (app: AppKey, minimo: AppRoleLevel) => boolean;
+  refreshAppAccess: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -38,6 +45,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [impersonatedProfile, setImpersonatedProfile] = useState<Profile | null>(null);
   const [impersonatedRoles, setImpersonatedRoles] = useState<AppRole[]>([]);
+  const [appAccess, setAppAccess] = useState<AppAccessMap>({});
+  const [impersonatedAppAccess, setImpersonatedAppAccess] = useState<AppAccessMap>({});
 
   const requestRef = useRef(0);
   const lastAppliedSessionRef = useRef<string | null>(null);
@@ -45,23 +54,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const clearUserState = useCallback(() => {
     setProfile(null);
     setRoles([]);
+    setAppAccess({});
     setImpersonatedProfile(null);
     setImpersonatedRoles([]);
+    setImpersonatedAppAccess({});
   }, []);
 
   const fetchUserData = useCallback(async (userId: string) => {
     const requestId = ++requestRef.current;
 
     try {
-      const [profileResult, rolesResult] = await Promise.all([
+      const [profileResult, rolesResult, accessResult] = await Promise.all([
         supabase.rpc('get_my_profile').maybeSingle(),
         supabase.from('user_roles').select('role').eq('user_id', userId),
+        supabase.from('user_app_access').select('app, papel').eq('user_id', userId),
       ]);
 
       if (requestId !== requestRef.current) return;
 
       setProfile((profileResult.data as Profile | null) ?? null);
       setRoles((rolesResult.data?.map((r) => r.role as AppRole)) ?? []);
+      setAppAccess(toAccessMap(accessResult.data));
     } catch (error) {
       if (requestId !== requestRef.current) return;
       console.error('Error fetching user data:', error);
