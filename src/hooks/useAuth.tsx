@@ -37,6 +37,14 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+function toAccessMap(rows: { app: string; papel: string }[] | null | undefined): AppAccessMap {
+  const map: AppAccessMap = {};
+  (rows ?? []).forEach((row) => {
+    map[row.app as AppKey] = row.papel as AppRoleLevel;
+  });
+  return map;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -158,13 +166,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const [targetProfileResult, targetRolesResult] = await Promise.all([
+      const [targetProfileResult, targetRolesResult, targetAccessResult] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
         supabase.from('user_roles').select('role').eq('user_id', userId),
+        supabase.from('user_app_access').select('app, papel').eq('user_id', userId),
       ]);
 
       setImpersonatedProfile((targetProfileResult.data as Profile | null) ?? null);
       setImpersonatedRoles((targetRolesResult.data?.map((r) => r.role as AppRole)) ?? []);
+      setImpersonatedAppAccess(toAccessMap(targetAccessResult.data));
     } catch (error) {
       console.error('Error impersonating user:', error);
     }
@@ -173,7 +183,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const stopImpersonation = () => {
     setImpersonatedProfile(null);
     setImpersonatedRoles([]);
+    setImpersonatedAppAccess({});
   };
+
+  const refreshAppAccess = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase.from('user_app_access').select('app, papel').eq('user_id', user.id);
+    setAppAccess(toAccessMap(data));
+  }, [user]);
 
   const signInWithGoogle = async (): Promise<{ error: string | null }> => {
     const result = await lovable.auth.signInWithOAuth('google', {
@@ -196,16 +213,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearUserState();
   };
 
-  const { isMasterUser, isImpersonating, isApproved, effectiveProfile, effectiveRoles } = deriveAuthState({
+  const {
+    isMasterUser,
+    isImpersonating,
+    isApproved,
+    effectiveProfile,
+    effectiveRoles,
+    effectiveAppAccess,
+    hasApp,
+    appRole,
+    canApp,
+  } = deriveAuthState({
     profile,
     roles,
     impersonatedProfile,
     impersonatedRoles,
+    appAccess,
+    impersonatedAppAccess,
   });
 
   const hasRole = (role: AppRole) => effectiveRoles.includes(role);
-  const isBackofficeOrAdmin = hasRole('backoffice') || hasRole('admin');
-  const isAdmin = hasRole('admin');
+  const isBackofficeOrAdmin =
+    canApp('financeiro', 'backoffice') || hasRole('backoffice') || hasRole('admin');
+  const isAdmin = hasApp('administracao') || hasRole('admin');
 
   return (
     <AuthContext.Provider
@@ -229,6 +259,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isImpersonating,
         effectiveProfile,
         effectiveRoles,
+        appAccess,
+        effectiveAppAccess,
+        hasApp,
+        appRole,
+        canApp,
+        refreshAppAccess,
       }}
     >
       {children}
