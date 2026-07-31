@@ -30,6 +30,8 @@ export interface AppNavContext {
   /** Rota principal do app (link do "app switcher") */
   home: string;
   items: AppNavItem[];
+  /** Itens secundários agrupados num menu suspenso */
+  menu?: { label: string; items: AppNavItem[] };
   primaryCta?: { href: string; label: string; shortLabel: string; icon: LucideIcon };
 }
 
@@ -69,21 +71,25 @@ export function resolveAppNav(pathname: string, access: NavAccess): AppNavContex
     return {
       key: 'financeiro',
       name: 'Financeiro',
-      home: '/financeiro',
+      home: '/solicitacoes',
       primaryCta: { href: '/nova-solicitacao', label: 'Nova Solicitação', shortLabel: 'Nova', icon: Plus },
       items: [
-        { href: '/financeiro', label: 'Início', icon: Home, show: true },
-        { href: '/solicitacoes', label: 'Dashboard', icon: LayoutDashboard, show: true },
+        { href: '/solicitacoes', label: 'Início', icon: Home, show: true },
         { href: '/minhas-solicitacoes', label: 'Solicitações', icon: FileText, show: true },
         { href: '/backoffice', label: 'Backoffice', icon: ClipboardList, show: isBackofficeOrAdmin },
         { href: '/painel-fluig', label: 'Painel', icon: BarChart3, show: true },
         { href: '/calendario', label: 'Calendário', icon: CalendarDays, show: true },
-        { href: '/monitoramento-oc', label: 'OC × NF', icon: FileCheck, show: true },
-        { href: '/garantias', label: 'Garantias', icon: Shield, show: isBackofficeOrAdmin },
-        { href: '/admin/sla', label: 'SLA', icon: Timer, show: isBackofficeOrAdmin },
-        { href: '/admin/eficiencia', label: 'Eficiência', icon: BarChart3, show: isBackofficeOrAdmin },
-        { href: '/notificacoes', label: 'Notificações', icon: Bell, show: isSolicitante },
+        { href: '/monitoramento-oc', label: 'Monitoramento', icon: FileCheck, show: true },
       ].filter((i) => i.show),
+      menu: {
+        label: 'Mais',
+        items: [
+          { href: '/garantias', label: 'Garantias', icon: Shield, show: isBackofficeOrAdmin },
+          { href: '/admin/sla', label: 'SLA', icon: Timer, show: isBackofficeOrAdmin },
+          { href: '/admin/eficiencia', label: 'Eficiência', icon: BarChart3, show: isBackofficeOrAdmin },
+          { href: '/notificacoes', label: 'Notificações', icon: Bell, show: isSolicitante },
+        ].filter((i) => i.show),
+      },
     };
   }
 
