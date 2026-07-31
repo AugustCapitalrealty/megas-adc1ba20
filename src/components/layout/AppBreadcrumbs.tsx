@@ -4,15 +4,14 @@ import { resolveAppNav } from '@/lib/hub-nav';
 
 const ROUTE_LABELS: Record<string, string> = {
   '/': 'Hub',
-  '/financeiro': 'Início',
-  '/solicitacoes': 'Dashboard',
+  '/solicitacoes': 'Início',
   '/nova-solicitacao': 'Nova Solicitação',
   '/minhas-solicitacoes': 'Minhas Solicitações',
   '/backoffice': 'Backoffice',
   '/painel-fluig': 'Painel',
   '/garantias': 'Garantias',
   '/calendario': 'Calendário',
-  '/monitoramento-oc': 'OC × NF',
+  '/monitoramento-oc': 'Monitoramento',
   '/admin/usuarios': 'Usuários',
   '/admin/sla': 'Dashboard SLA',
   '/admin/eficiencia': 'Eficiência',

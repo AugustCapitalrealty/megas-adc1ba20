@@ -86,7 +86,7 @@ export function CommandPalette() {
   const pages = [
     { label: 'Hub dos Megas', icon: Home, path: '/' },
     { label: 'Nova Solicitação', icon: Plus, path: '/nova-solicitacao' },
-    { label: 'Financeiro — Dashboard', icon: LayoutDashboard, path: '/solicitacoes' },
+    { label: 'Financeiro — Início', icon: LayoutDashboard, path: '/solicitacoes' },
     { label: 'Minhas Solicitações', icon: FileText, path: '/minhas-solicitacoes' },
     { label: 'Painel', icon: BarChart3, path: '/painel-fluig' },
     { label: 'Calendário', icon: CalendarDays, path: '/calendario' },

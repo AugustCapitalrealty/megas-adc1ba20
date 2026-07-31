@@ -21,6 +21,8 @@ import {
   WifiOff,
   Moon,
   Sun,
+  ChevronDown,
+  MoreHorizontal,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -86,6 +88,8 @@ export function AppLayout() {
   const isActive = (href: string) => location.pathname === href;
 
   const primaryCta = appNav?.primaryCta ?? null;
+  const menuGroup = appNav?.menu && appNav.menu.items.length > 0 ? appNav.menu : null;
+  const isMenuActive = !!menuGroup?.items.some((i) => isActive(i.href));
 
   const prefetchRoute = useCallback((path: string) => {
     const routeMap: Record<string, () => Promise<any>> = {
@@ -122,21 +126,21 @@ export function AppLayout() {
               onClick={() => mobile && setMobileMenuOpen(false)}
               onMouseEnter={() => !mobile && prefetchRoute(item.href)}
               className={cn(
-                'flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                'flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors',
                 isActive(item.href)
                   ? 'bg-primary text-primary-foreground'
                   : 'text-foreground/70 hover:text-primary hover:bg-accent'
               )}
             >
               <Icon className="h-4 w-4 shrink-0" />
-              {mobile ? item.label : <span className="hidden xl:inline">{item.label}</span>}
+              {mobile ? item.label : <span className="hidden lg:inline">{item.label}</span>}
             </Link>
           );
           if (mobile) return link;
           return (
             <Tooltip key={item.href}>
               <TooltipTrigger asChild>{link}</TooltipTrigger>
-              <TooltipContent className="xl:hidden">{item.label}</TooltipContent>
+              <TooltipContent className="lg:hidden">{item.label}</TooltipContent>
             </Tooltip>
           );
         })}
@@ -198,7 +202,7 @@ export function AppLayout() {
           {/* Desktop Navigation — contextual ao app ativo (oculta no Hub) */}
           {appNav && (
           <TooltipProvider delayDuration={300}>
-          <nav aria-label="Navegação principal" className="hidden md:flex items-center gap-1">
+          <nav aria-label="Navegação principal" className="hidden md:flex flex-nowrap items-center gap-1">
             {/* Primary CTA - persona-based */}
             {primaryCta && (
               <Tooltip>
@@ -207,21 +211,55 @@ export function AppLayout() {
                     to={primaryCta.href}
                     onMouseEnter={() => prefetchRoute(primaryCta.href)}
                     className={cn(
-                      'flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-semibold transition-colors mr-1 shadow-md',
+                      'flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-semibold whitespace-nowrap transition-colors mr-1 shadow-md',
                       isActive(primaryCta.href)
                         ? 'bg-primary text-primary-foreground'
                         : 'bg-primary text-primary-foreground hover:bg-primary/90'
                     )}
                   >
                     <primaryCta.icon className="h-4 w-4" />
-                    <span className="hidden xl:inline">{primaryCta.shortLabel}</span>
+                    <span className="hidden lg:inline">{primaryCta.shortLabel}</span>
                   </Link>
                 </TooltipTrigger>
-                <TooltipContent className="xl:hidden">{primaryCta.label}</TooltipContent>
+                <TooltipContent className="lg:hidden">{primaryCta.label}</TooltipContent>
               </Tooltip>
             )}
 
             <NavLinks />
+
+            {menuGroup && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label={menuGroup.label}
+                    className={cn(
+                      'flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-colors',
+                      isMenuActive
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-foreground/70 hover:text-primary hover:bg-accent'
+                    )}
+                  >
+                    <MoreHorizontal className="h-4 w-4 shrink-0" />
+                    <span className="hidden lg:inline">{menuGroup.label}</span>
+                    <ChevronDown className="h-3 w-3 shrink-0 opacity-60" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  {menuGroup.items.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <DropdownMenuItem key={item.href} asChild>
+                        <Link to={item.href} onMouseEnter={() => prefetchRoute(item.href)}>
+                          <Icon className="mr-2 h-4 w-4" />
+                          {item.label}
+                        </Link>
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </nav>
           </TooltipProvider>
           )}
@@ -300,6 +338,33 @@ export function AppLayout() {
                         {appNav.name}
                       </span>
                       <NavLinks mobile />
+                    </>
+                  )}
+                  {menuGroup && (
+                    <>
+                      <div className="h-px bg-border my-1" />
+                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider px-3 py-1">
+                        {menuGroup.label}
+                      </span>
+                      {menuGroup.items.map((item) => {
+                        const Icon = item.icon;
+                        return (
+                          <Link
+                            key={item.href}
+                            to={item.href}
+                            onClick={() => setMobileMenuOpen(false)}
+                            className={cn(
+                              'flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                              isActive(item.href)
+                                ? 'bg-primary text-primary-foreground'
+                                : 'text-foreground/70 hover:text-primary hover:bg-accent'
+                            )}
+                          >
+                            <Icon className="h-4 w-4" />
+                            {item.label}
+                          </Link>
+                        );
+                      })}
                     </>
                   )}
 

@@ -51,7 +51,7 @@ export function getHubApps({ isBackofficeOrAdmin, isAdmin }: HubAccess): HubApp[
       name: 'Financeiro',
       description: 'Compras, contratos, OCs e acompanhamento financeiro de ponta a ponta.',
       icon: FileText,
-      href: '/financeiro',
+      href: '/solicitacoes',
       span: 'full',
       links: [
         { label: 'Nova solicitação', href: '/nova-solicitacao', icon: Plus, primary: true },
@@ -59,7 +59,7 @@ export function getHubApps({ isBackofficeOrAdmin, isAdmin }: HubAccess): HubApp[
         ...(isBackofficeOrAdmin
           ? [{ label: 'Backoffice', href: '/backoffice', icon: LayoutDashboard }]
           : []),
-        { label: 'OC × NF', href: '/monitoramento-oc', icon: FileCheck },
+        { label: 'Monitoramento', href: '/monitoramento-oc', icon: FileCheck },
         ...(isBackofficeOrAdmin
           ? [{ label: 'Garantias', href: '/garantias', icon: Shield }]
           : []),
