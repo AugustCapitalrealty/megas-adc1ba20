@@ -32,7 +32,6 @@ function lazyWithRetry<T extends ComponentType<unknown>>(
 const Login = lazyWithRetry(() => import("./pages/Login"));
 const AwaitingApproval = lazyWithRetry(() => import("./pages/AwaitingApproval"));
 const Hub = lazyWithRetry(() => import("./pages/Hub"));
-const FinanceiroHome = lazyWithRetry(() => import("./pages/FinanceiroHome"));
 const Dashboard = lazyWithRetry(() => import("./pages/Dashboard"));
 const NovaSolicitacao = lazyWithRetry(() => import("./pages/NovaSolicitacao"));
 const MinhasSolicitacoes = lazyWithRetry(() => import("./pages/MinhasSolicitacoes"));
@@ -72,7 +71,7 @@ function AppRoutes() {
         {/* Single shell — AppLayout mounts once, never remounts on navigation */}
         <Route element={<ProtectedShell />}>
           <Route index element={<Hub />} />
-          <Route path="financeiro" element={<FinanceiroHome />} />
+          <Route path="financeiro" element={<Navigate to="/solicitacoes" replace />} />
           <Route path="solicitacoes" element={<Dashboard />} />
           <Route path="dashboard" element={<Navigate to="/solicitacoes" replace />} />
           <Route path="nova-solicitacao" element={<NovaSolicitacao />} />
