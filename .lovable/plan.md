@@ -1,75 +1,63 @@
-## Objetivo
+# App novo: SLA de Contratos
 
-Transformar `/admin` em um **Hub de Administração**, onde o admin define, por usuário: quais apps do Hub ele enxerga e qual papel ele tem **dentro de cada app**.
+Quarto app do Hub (ao lado de Financeiro, Energia e Administração), em `/contratos`, com acesso controlado por `user_app_access` (nova chave `contratos`: leitor / editor / gestor).
 
-## Modelo de acesso
+## O que a planilha tem (12 abas = 12 categorias)
 
-Novo conceito: `app_key` + `app_role`.
+GERADOR · MOTOBOMBA A DIESEL · COBERTURA · ELÉTRICA · PPCI · CONTROLE DE PRAGAS · CONSULTORIA AMBIENTAL · ROÇADA · LIMPEZA E CONSERVAÇÃO · PORTARIA · SEGURANÇA E VIGILÂNCIA · LAUREANE
+
+Cada aba tem o mesmo formato:
 
 ```text
-usuario ──► app_access ──► { app: financeiro, papel: backoffice }
-                       └─► { app: energia,    papel: leitor    }
+                       | MEGA CURITIBA | MEGA ITAJAÍ | MEGA ESTEIO   <- 1 contrato por coluna
+FORNECEDOR             | LCW           | MG GERADORES| LR GERADORES
+Nº CONTRATO            | 2486.2024     | 2066.2023   |
+DATA INÍCIO / PRAZO(m) | 10/04/2024 12 | 01/01/2026  | 01/12/2025
+FIM                    | 10/04/2025    | 01/01/2027  | INDETERMINADO
+QUANTIDADE (equip/m²)  | 4             | 3           | 3
+VALOR CONTRATO / p/ equip.
+ÍNDICE E MÊS DE REAJUSTE (IPCA / DEZEMBRO)
+STATUS                 | Vencido       | Vigente     | Vigente
+-----------------------------------------------------------------
+ESCOPO | ITEM | TIPO | FREQUÊNCIA | CONTEMPLA (TRUE/FALSE por coluna)
 ```
 
-Apps e papéis (mantendo a nomenclatura atual):
+Cada linha de escopo é uma obrigação: texto, item (GERADOR, MOTOR, TANQUE…), tipo (MANUTENÇÃO / VERIFICAÇÃO / INSPEÇÃO / DOCUMENTAÇÃO) e frequência (MENSAL, BIMESTRAL, TRIMESTRAL, QUADRIMESTRAL, SEMESTRAL, ANUAL, QUINZENAL, SOB DEMANDA). Só entram no contrato as linhas com CONTEMPLA = TRUE. Há também observações em coluna extra (ex.: definição de "sob demanda") e um item especial de SLA de emergência ("atendimento em até 2 horas").
 
-| App | Papéis |
-|---|---|
-| Financeiro | solicitante · backoffice · admin |
-| Energia | leitor · editor · fechador |
-| Administração | admin (gestor do Hub) |
+## Modelo de dados
 
-Regras:
-- Sem registro em `app_access` para um app ⇒ o app **não aparece** no Hub nem nas rotas.
-- `super_admin` continua acima de tudo (vê e faz tudo, sem depender de `app_access`).
-- Empreendimentos continuam como hoje (`user_empreendimentos`), aplicados ao Financeiro.
+- `contrato_categorias` — as 12 categorias (nome, ícone, ordem, ativo).
+- `contratos` — categoria, empreendimento, fornecedor (texto + link opcional a `fornecedores`), nº do contrato, data início, prazo em meses, data fim (ou indeterminado), quantidade + unidade (equipamentos ou m²), valor do contrato, valor por unidade, índice e mês de reajuste, status calculado (vigente / a vencer / vencido / indeterminado), observações.
+- `contrato_escopos` — **lista própria de cada contrato** (escopo, item, tipo, frequência, observação, sla_horas quando for item de emergência, ativo). A importação só grava as linhas marcadas TRUE.
+- `contrato_execucoes` — agenda gerada por frequência: escopo, competência/data prevista, status (pendente / executado / atrasado / não se aplica), data de execução, responsável, observação.
+- `contrato_evidencias` — arquivos (relatório, ART, checklist, foto) anexados a uma execução, em bucket privado `contratos-evidencias`.
+- `contrato_importacoes` — histórico de importações (arquivo, quem, quando, resumo de criados/atualizados).
 
-## Migração automática (sem ninguém perder acesso)
+RLS: leitura para quem tem o app `contratos`; escrita para editor/gestor; exclusão só gestor. GRANTs explícitos em todas as tabelas.
 
-A partir das roles atuais:
-- `solicitante` ⇒ Financeiro/solicitante
-- `backoffice` ⇒ Financeiro/backoffice
-- `admin` ⇒ Financeiro/admin + Energia/fechador + Administração/admin
-- `super_admin` ⇒ inalterado
+## Telas
 
-## Banco de dados
+1. **Início do app (`/contratos`)** — KPIs: contratos vigentes, a vencer em 90 dias, vencidos, execuções pendentes no mês, % de cumprimento do SLA. Grid por categoria mostrando o status dos 3 empreendimentos.
+2. **Contratos (`/contratos/lista`)** — tabela filtrável (categoria, empreendimento, fornecedor, status) com valor, vigência, badge de vencimento e reajuste próximo.
+3. **Detalhe do contrato** — cabeçalho com dados comerciais, aba **Escopo** (itens editáveis com tipo/frequência), aba **Agenda** (execuções previstas e realizadas), aba **Evidências**, aba **Histórico**.
+4. **Agenda geral (`/contratos/agenda`)** — calendário/lista das obrigações do mês em todos os contratos, com marcar-como-executado e anexar evidência.
+5. **Indicadores (`/contratos/indicadores`)** — cumprimento por fornecedor, por empreendimento e por categoria; atrasos e itens sem evidência.
+6. **Importação (`/contratos/importar`)** — upload do `.xlsx`, leitura das 12 abas, preview por aba mostrando o que será criado/atualizado, e confirmação. Chave de deduplicação: categoria + empreendimento + nº do contrato (ou fornecedor quando não houver número).
 
-- Enums `app_key` e `app_role_level`; tabela `user_app_access (user_id, app, papel)` com unicidade por usuário+app, timestamps e trigger de `updated_at`.
-- GRANTs para `authenticated` (leitura própria) e `service_role`; RLS: cada um lê o próprio acesso, `admin`/`super_admin` gerenciam tudo (via função security definer, sem recursão).
-- Funções: `has_app_access(_user, _app)`, `app_role_of(_user, _app)`, `is_app_at_least(_user, _app, _nivel)`.
-- Backfill dos registros conforme a migração acima.
-- As tabelas de energia passam a exigir `has_app_access(auth.uid(),'energia')` para escrita (leitura para quem tem o app), mantendo admin/super_admin.
+## Importação
 
-## Tela: Hub de Administração (`/admin`)
-
-Nova home do app Administração, em cards:
-1. **Usuários & Acessos** (novo, principal)
-2. **Solicitações** (gestão existente)
-3. **Rateio / Configurações** (existente)
-4. **Integrações** (WhatsApp/GChat, existente)
-5. **Excelência** e **Design System** (existentes)
-
-### Usuários & Acessos
-- Lista com busca, filtro por app e por status (aprovado/pendente/sem acesso).
-- Linha do usuário mostra chips: `Financeiro · backoffice`, `Energia · leitor`.
-- Painel lateral ao clicar no usuário:
-  - aprovar/revogar acesso à plataforma;
-  - **matriz de apps**: switch por app + select do papel daquele app;
-  - empreendimentos (como hoje);
-  - modo férias/transferência (mantido);
-  - resumo em texto do que a pessoa passa a enxergar.
-- Ações em lote: aplicar um "preset" (Facilities, Backoffice Financeiro, Energia, Admin) a vários usuários.
-
-## Frontend
-
-- `src/hooks/useAppAccess.ts`: carrega o acesso do usuário efetivo (respeita impersonação) e expõe `hasApp(app)` / `appRole(app)` / `canApp(app, nivel)`.
-- `useAuth` passa a expor esses dados; `isBackofficeOrAdmin`/`isAdmin` são recalculados a partir de Financeiro para não quebrar chamadas existentes.
-- `src/lib/hub-apps.ts` e `src/lib/hub-nav.ts` filtram apps/itens por `hasApp`, não mais só por role global.
-- `src/routes/guards.tsx`: novo `RequireApp app="energia" nivel="editor"` usado nas rotas de Energia e Administração; `RequireRole` mantido como wrapper.
-- Estado vazio no Hub quando o usuário não tem nenhum app liberado.
+- Carga inicial: importo já os dados desta planilha no banco (categorias, contratos e escopos com CONTEMPLA = TRUE).
+- Depois disso, a tela de importação faz a mesma leitura para atualizações futuras, sempre com preview antes de gravar e registro em `contrato_importacoes`.
+- Regras de parsing: FIM = "INDETERMINADO"/"Indeterminado" vira contrato sem data fim; status é recalculado pela data (não confio no texto da planilha); valores monetários e datas normalizados; colunas de empreendimento vazias são ignoradas; abas sem escopo (ex.: MOTOBOMBA) criam só o contrato.
 
 ## Detalhes técnicos
 
-- Roles nunca ficam em `profiles`; `user_roles` continua existindo para `super_admin` e compatibilidade, `user_app_access` é a fonte de verdade dos apps.
-- Toda checagem de UI é espelhada em RLS no banco — a tela nunca é a única barreira.
-- Admin não consegue remover o próprio acesso de Administração (guarda no banco e na UI).
+- Parsing do `.xlsx` no browser com `xlsx` (SheetJS), sem backend.
+- Geração da agenda: função utilitária `src/lib/contratos-agenda.ts` que expande frequência × vigência em datas previstas; "SOB DEMANDA" não gera agenda, só entra no checklist.
+- Novo `AppKey` `contratos` em `src/lib/app-access.ts`, entrada em `src/lib/hub-apps.ts`, nav em `src/lib/hub-nav.ts`, rotas com `RequireApp` em `src/App.tsx`, e o app aparece no `AppAccessDialog` da Administração.
+- Design segue os componentes canônicos (PageHeader, KpiCard, StatusPill, DataTable, FilterToolbar, StandardModal), Montserrat/laranja Mega, datas via `formatBR`.
+
+## Entrega em duas etapas
+
+1. Banco + importação + lista/detalhe de contratos com escopos (dados da planilha já dentro).
+2. Agenda de execuções, evidências e indicadores de SLA.
