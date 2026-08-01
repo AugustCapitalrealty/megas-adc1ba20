@@ -164,6 +164,307 @@ export type Database = {
           },
         ]
       }
+      contrato_categorias: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          icone: string | null
+          id: string
+          nome: string
+          ordem: number
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          icone?: string | null
+          id?: string
+          nome: string
+          ordem?: number
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          icone?: string | null
+          id?: string
+          nome?: string
+          ordem?: number
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      contrato_escopos: {
+        Row: {
+          ativo: boolean
+          contrato_id: string
+          created_at: string
+          escopo: string
+          frequencia: string | null
+          id: string
+          item: string | null
+          observacao: string | null
+          ordem: number
+          sla_horas: number | null
+          tipo: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          contrato_id: string
+          created_at?: string
+          escopo: string
+          frequencia?: string | null
+          id?: string
+          item?: string | null
+          observacao?: string | null
+          ordem?: number
+          sla_horas?: number | null
+          tipo?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          contrato_id?: string
+          created_at?: string
+          escopo?: string
+          frequencia?: string | null
+          id?: string
+          item?: string | null
+          observacao?: string | null
+          ordem?: number
+          sla_horas?: number | null
+          tipo?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contrato_escopos_contrato_id_fkey"
+            columns: ["contrato_id"]
+            isOneToOne: false
+            referencedRelation: "contratos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contrato_evidencias: {
+        Row: {
+          created_at: string
+          enviado_por: string | null
+          execucao_id: string
+          id: string
+          mime_type: string | null
+          nome_arquivo: string
+          storage_path: string
+          tamanho_bytes: number | null
+          tipo: string
+        }
+        Insert: {
+          created_at?: string
+          enviado_por?: string | null
+          execucao_id: string
+          id?: string
+          mime_type?: string | null
+          nome_arquivo: string
+          storage_path: string
+          tamanho_bytes?: number | null
+          tipo?: string
+        }
+        Update: {
+          created_at?: string
+          enviado_por?: string | null
+          execucao_id?: string
+          id?: string
+          mime_type?: string | null
+          nome_arquivo?: string
+          storage_path?: string
+          tamanho_bytes?: number | null
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contrato_evidencias_execucao_id_fkey"
+            columns: ["execucao_id"]
+            isOneToOne: false
+            referencedRelation: "contrato_execucoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contrato_execucoes: {
+        Row: {
+          competencia: string
+          contrato_id: string
+          created_at: string
+          data_execucao: string | null
+          data_prevista: string
+          escopo_id: string
+          id: string
+          observacao: string | null
+          registrado_por: string | null
+          responsavel: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          competencia: string
+          contrato_id: string
+          created_at?: string
+          data_execucao?: string | null
+          data_prevista: string
+          escopo_id: string
+          id?: string
+          observacao?: string | null
+          registrado_por?: string | null
+          responsavel?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          competencia?: string
+          contrato_id?: string
+          created_at?: string
+          data_execucao?: string | null
+          data_prevista?: string
+          escopo_id?: string
+          id?: string
+          observacao?: string | null
+          registrado_por?: string | null
+          responsavel?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contrato_execucoes_contrato_id_fkey"
+            columns: ["contrato_id"]
+            isOneToOne: false
+            referencedRelation: "contratos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contrato_execucoes_escopo_id_fkey"
+            columns: ["escopo_id"]
+            isOneToOne: false
+            referencedRelation: "contrato_escopos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contrato_importacoes: {
+        Row: {
+          arquivo_nome: string
+          created_at: string
+          id: string
+          importado_por: string | null
+          resumo: Json
+        }
+        Insert: {
+          arquivo_nome: string
+          created_at?: string
+          id?: string
+          importado_por?: string | null
+          resumo?: Json
+        }
+        Update: {
+          arquivo_nome?: string
+          created_at?: string
+          id?: string
+          importado_por?: string | null
+          resumo?: Json
+        }
+        Relationships: []
+      }
+      contratos: {
+        Row: {
+          ativo: boolean
+          categoria_id: string
+          created_at: string
+          data_fim: string | null
+          data_inicio: string | null
+          empreendimento: Database["public"]["Enums"]["empreendimento"]
+          fornecedor_id: string | null
+          fornecedor_nome: string
+          id: string
+          indeterminado: boolean
+          indice_reajuste: string | null
+          mes_reajuste: string | null
+          numero_contrato: string | null
+          observacao: string | null
+          prazo_meses: number | null
+          quantidade: number | null
+          unidade: string
+          updated_at: string
+          updated_by: string | null
+          valor_contrato: number | null
+          valor_por_unidade: number | null
+        }
+        Insert: {
+          ativo?: boolean
+          categoria_id: string
+          created_at?: string
+          data_fim?: string | null
+          data_inicio?: string | null
+          empreendimento: Database["public"]["Enums"]["empreendimento"]
+          fornecedor_id?: string | null
+          fornecedor_nome: string
+          id?: string
+          indeterminado?: boolean
+          indice_reajuste?: string | null
+          mes_reajuste?: string | null
+          numero_contrato?: string | null
+          observacao?: string | null
+          prazo_meses?: number | null
+          quantidade?: number | null
+          unidade?: string
+          updated_at?: string
+          updated_by?: string | null
+          valor_contrato?: number | null
+          valor_por_unidade?: number | null
+        }
+        Update: {
+          ativo?: boolean
+          categoria_id?: string
+          created_at?: string
+          data_fim?: string | null
+          data_inicio?: string | null
+          empreendimento?: Database["public"]["Enums"]["empreendimento"]
+          fornecedor_id?: string | null
+          fornecedor_nome?: string
+          id?: string
+          indeterminado?: boolean
+          indice_reajuste?: string | null
+          mes_reajuste?: string | null
+          numero_contrato?: string | null
+          observacao?: string | null
+          prazo_meses?: number | null
+          quantidade?: number | null
+          unidade?: string
+          updated_at?: string
+          updated_by?: string | null
+          valor_contrato?: number | null
+          valor_por_unidade?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contratos_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "contrato_categorias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contratos_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documentos_emitidos: {
         Row: {
           created_at: string
