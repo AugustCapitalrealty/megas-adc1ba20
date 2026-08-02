@@ -114,16 +114,7 @@ export function resolveAppNav(pathname: string, access: NavAccess): AppNavContex
       home: '/contratos',
       items: [
         { href: '/contratos', label: 'Início', icon: Home, show: true },
-        { href: '/contratos/lista', label: 'Contratos', icon: ListChecks, show: true },
-        { href: '/contratos/agenda', label: 'Agenda', icon: CalendarCheck, show: true },
-        { href: '/contratos/indicadores', label: 'Indicadores', icon: Indicadores, show: true },
       ].filter((i) => i.show),
-      menu: {
-        label: 'Mais',
-        items: [
-          { href: '/contratos/importar', label: 'Importar planilha', icon: Upload, show: true },
-        ].filter((i) => i.show),
-      },
     };
   }
 
