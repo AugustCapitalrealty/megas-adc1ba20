@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
-import { FileText, Zap, Users } from 'lucide-react';
+import { FileText, Zap, Users, FileSignature } from 'lucide-react';
 
-export type AppKey = 'financeiro' | 'energia' | 'administracao';
+export type AppKey = 'financeiro' | 'energia' | 'administracao' | 'contratos';
 export type AppRoleLevel =
   | 'solicitante'
   | 'backoffice'
@@ -58,6 +58,19 @@ export const APP_DEFINITIONS: AppDefinition[] = [
     papelPadrao: 'admin',
     papeis: [
       { value: 'admin', label: 'Gestor do Hub', description: 'Administra usuários e acessos dos apps.' },
+    ],
+  },
+  {
+    key: 'contratos',
+    name: 'SLA de Contratos',
+    description: 'Contratos de prestação de serviços, escopos, agenda e evidências.',
+    icon: FileSignature,
+    home: '/contratos',
+    papelPadrao: 'leitor',
+    papeis: [
+      { value: 'leitor', label: 'Leitor', description: 'Visualiza contratos, escopos e agenda.' },
+      { value: 'editor', label: 'Editor', description: 'Edita contratos, escopos e registra execuções.' },
+      { value: 'admin', label: 'Gestor', description: 'Editor + importação e exclusão de contratos.' },
     ],
   },
 ];
@@ -119,6 +132,12 @@ export const ACCESS_PRESETS: AccessPreset[] = [
     key: 'admin',
     label: 'Administrador do Hub',
     description: 'Acesso completo a todos os apps.',
-    access: { financeiro: 'admin', energia: 'fechador', administracao: 'admin' },
+    access: { financeiro: 'admin', energia: 'fechador', administracao: 'admin', contratos: 'admin' },
+  },
+  {
+    key: 'contratos',
+    label: 'Contratos',
+    description: 'Financeiro (solicitante) + SLA de Contratos como editor.',
+    access: { financeiro: 'solicitante', contratos: 'editor' },
   },
 ];
