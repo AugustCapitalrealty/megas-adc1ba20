@@ -14,6 +14,11 @@ import {
   Zap,
   Plus,
   Home,
+  FileSignature,
+  ListChecks,
+  CalendarCheck,
+  Upload,
+  BarChart3 as Indicadores,
 } from 'lucide-react';
 
 export interface AppNavItem {
@@ -24,7 +29,7 @@ export interface AppNavItem {
 }
 
 export interface AppNavContext {
-  key: 'financeiro' | 'energia' | 'administracao';
+  key: 'financeiro' | 'energia' | 'administracao' | 'contratos';
   name: string;
   /** Rota principal do app (link do "app switcher") */
   home: string;
@@ -56,6 +61,8 @@ const FINANCEIRO_ROUTES = [
 ];
 
 const ENERGIA_ROUTES = ['/admin/rateio-energia'];
+
+const CONTRATOS_ROUTES = ['/contratos'];
 
 const ADMIN_ROUTES = ['/admin', '/admin/usuarios', '/admin/excelencia', '/admin/design-system'];
 
@@ -98,6 +105,26 @@ export function resolveAppNav(pathname: string, access: NavAccess): AppNavContex
       name: 'Energia',
       home: '/admin/rateio-energia',
       items: [{ href: '/admin/rateio-energia', label: 'Rateio de Energia', icon: Zap, show: true }],
+    };
+  }
+
+  if (matches(pathname, CONTRATOS_ROUTES)) {
+    return {
+      key: 'contratos',
+      name: 'SLA de Contratos',
+      home: '/contratos',
+      items: [
+        { href: '/contratos', label: 'Início', icon: Home, show: true },
+        { href: '/contratos/lista', label: 'Contratos', icon: ListChecks, show: true },
+        { href: '/contratos/agenda', label: 'Agenda', icon: CalendarCheck, show: true },
+        { href: '/contratos/indicadores', label: 'Indicadores', icon: Indicadores, show: true },
+      ].filter((i) => i.show),
+      menu: {
+        label: 'Mais',
+        items: [
+          { href: '/contratos/importar', label: 'Importar planilha', icon: Upload, show: true },
+        ].filter((i) => i.show),
+      },
     };
   }
 

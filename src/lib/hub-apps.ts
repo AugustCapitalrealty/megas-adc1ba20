@@ -14,7 +14,11 @@ import {
   Scale,
   Wrench,
   PieChart,
+  FileSignature,
+  ListChecks,
+  CalendarCheck,
 } from 'lucide-react';
+import type { AppKey } from './app-access';
 
 export interface HubAppLink {
   label: string;
@@ -41,13 +45,13 @@ export interface HubApp {
 interface HubAccess {
   isBackofficeOrAdmin: boolean;
   isAdmin: boolean;
-  hasApp?: (app: 'financeiro' | 'energia' | 'administracao') => boolean;
-  canApp?: (app: 'financeiro' | 'energia' | 'administracao', minimo: string) => boolean;
+  hasApp?: (app: AppKey) => boolean;
+  canApp?: (app: AppKey, minimo: string) => boolean;
 }
 
 /** Apps disponíveis hoje, filtrados por papel do usuário. */
 export function getHubApps({ isBackofficeOrAdmin, isAdmin, hasApp }: HubAccess): HubApp[] {
-  const liberado = (app: 'financeiro' | 'energia' | 'administracao') =>
+  const liberado = (app: AppKey) =>
     hasApp ? hasApp(app) : app === 'financeiro' || isAdmin;
 
   const apps: HubApp[] = [];
@@ -84,6 +88,21 @@ export function getHubApps({ isBackofficeOrAdmin, isAdmin, hasApp }: HubAccess):
       href: '/admin/rateio-energia',
       links: [
         { label: 'Abrir rateio', href: '/admin/rateio-energia', icon: Zap, primary: true },
+      ],
+    });
+  }
+
+  if (liberado('contratos')) {
+    apps.push({
+      key: 'contratos',
+      name: 'SLA de Contratos',
+      description: 'Contratos de prestação de serviços: escopos, agenda de obrigações e evidências.',
+      icon: FileSignature,
+      href: '/contratos',
+      links: [
+        { label: 'Contratos', href: '/contratos/lista', icon: ListChecks, primary: true },
+        { label: 'Agenda', href: '/contratos/agenda', icon: CalendarCheck },
+        { label: 'Indicadores', href: '/contratos/indicadores', icon: BarChart3 },
       ],
     });
   }
