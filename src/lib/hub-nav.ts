@@ -14,7 +14,6 @@ import {
   Zap,
   Plus,
   Home,
-  FileSignature,
   ListChecks,
   CalendarCheck,
   Upload,
