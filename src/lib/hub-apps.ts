@@ -100,9 +100,7 @@ export function getHubApps({ isBackofficeOrAdmin, isAdmin, hasApp }: HubAccess):
       icon: FileSignature,
       href: '/contratos',
       links: [
-        { label: 'Contratos', href: '/contratos/lista', icon: ListChecks, primary: true },
-        { label: 'Agenda', href: '/contratos/agenda', icon: CalendarCheck },
-        { label: 'Indicadores', href: '/contratos/indicadores', icon: BarChart3 },
+        { label: 'Ver contratos', href: '/contratos', icon: ListChecks, primary: true },
       ],
     });
   }

@@ -14,10 +14,6 @@ import {
   Zap,
   Plus,
   Home,
-  ListChecks,
-  CalendarCheck,
-  Upload,
-  BarChart3 as Indicadores,
 } from 'lucide-react';
 
 export interface AppNavItem {
