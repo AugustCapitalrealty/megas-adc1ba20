@@ -16,7 +16,7 @@ import {
   PieChart,
   FileSignature,
   ListChecks,
-  CalendarCheck,
+
 } from 'lucide-react';
 import type { AppKey } from './app-access';
 
