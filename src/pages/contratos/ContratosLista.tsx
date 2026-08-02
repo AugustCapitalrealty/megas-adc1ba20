@@ -250,6 +250,7 @@ export default function ContratosLista() {
       </div>
 
       <FilterToolbar
+        showSearch
         searchPlaceholder="Buscar por fornecedor, nº do contrato ou categoria..."
         searchValue={busca}
         onSearchChange={setBusca}
