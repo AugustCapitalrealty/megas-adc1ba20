@@ -48,6 +48,7 @@ const Notificacoes = lazyWithRetry(() => import("./pages/Notificacoes"));
 const AdminExcelencia = lazyWithRetry(() => import("./pages/AdminExcelencia"));
 const AdminDesignSystem = lazyWithRetry(() => import("./pages/AdminDesignSystem"));
 const AdminRateioEnergia = lazyWithRetry(() => import("./pages/AdminRateioEnergia"));
+const ContratosLista = lazyWithRetry(() => import("./pages/contratos/ContratosLista"));
 const NotFound = lazyWithRetry(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -90,6 +91,8 @@ function AppRoutes() {
           <Route path="admin/excelencia" element={<RequireApp app="administracao"><AdminExcelencia /></RequireApp>} />
           <Route path="admin/design-system" element={<RequireApp app="administracao"><AdminDesignSystem /></RequireApp>} />
           <Route path="admin/rateio-energia" element={<RequireApp app="energia"><AdminRateioEnergia /></RequireApp>} />
+          <Route path="contratos" element={<RequireApp app="contratos"><ContratosLista /></RequireApp>} />
+          <Route path="contratos/lista" element={<Navigate to="/contratos" replace />} />
         </Route>
 
         <Route path="*" element={<NotFound />} />

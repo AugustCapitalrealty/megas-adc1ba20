@@ -16,6 +16,7 @@ const ROUTE_LABELS: Record<string, string> = {
   '/admin/sla': 'Dashboard SLA',
   '/admin/eficiencia': 'Eficiência',
   '/admin/rateio-energia': 'Rateio de Energia',
+  '/contratos': 'Contratos',
 };
 
 export function AppBreadcrumbs() {
