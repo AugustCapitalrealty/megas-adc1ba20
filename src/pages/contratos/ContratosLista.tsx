@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { FileSignature, FileWarning, CheckCircle2, Clock, Infinity as InfinityIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { PageContainer } from '@/components/layout/PageContainer';
@@ -8,6 +9,8 @@ import { FilterToolbar, type ActiveFilterChip } from '@/components/ui/FilterTool
 import { DataTable, type DataTableColumn } from '@/components/ui/DataTable';
 import { KpiCard } from '@/components/ui/KpiCard';
 import { StatusPill, type StatusIntent } from '@/components/ui/StatusPill';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { GeradorPanel } from '@/components/contratos/GeradorPanel';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { formatBR } from '@/lib/date-utils';
 
@@ -63,6 +66,9 @@ const moeda = (v: number | null) =>
 
 export default function ContratosLista() {
   useDocumentTitle('SLA de Contratos');
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const aba = searchParams.get('aba') === 'gerador' ? 'gerador' : 'todos';
 
   const [busca, setBusca] = useState('');
   const [categoria, setCategoria] = useState('todas');
@@ -230,7 +236,17 @@ export default function ContratosLista() {
         icon={FileSignature}
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <Tabs
+        value={aba}
+        onValueChange={(v) => setSearchParams(v === 'gerador' ? { aba: 'gerador' } : {}, { replace: true })}
+      >
+        <TabsList>
+          <TabsTrigger value="todos">Todos os contratos</TabsTrigger>
+          <TabsTrigger value="gerador">Gerador</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="todos" className="space-y-6 mt-6">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard label="Vigentes" value={kpis.vigente} icon={CheckCircle2} intent="success" loading={isLoading} />
         <KpiCard
           label="A vencer (90 dias)"
@@ -327,6 +343,12 @@ export default function ContratosLista() {
           </div>
         }
       />
+        </TabsContent>
+
+        <TabsContent value="gerador" className="mt-6">
+          <GeradorPanel />
+        </TabsContent>
+      </Tabs>
     </PageContainer>
   );
 }
