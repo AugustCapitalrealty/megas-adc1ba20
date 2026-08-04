@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Zap, Layers, ListChecks } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Layers, ListChecks, CheckCircle2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,7 +15,7 @@ import { EMPREENDIMENTO_LABELS, SITUACAO_META, getSituacao, moeda } from '@/lib/
 
 const sel = (s: string): string => s;
 
-interface Escopo {
+export interface Escopo {
   id: string;
   contrato_id: string;
   escopo: string;
@@ -26,7 +27,7 @@ interface Escopo {
   ordem: number;
 }
 
-interface ContratoGerador {
+export interface ContratoCategoria {
   id: string;
   empreendimento: string;
   fornecedor_nome: string;
@@ -42,24 +43,42 @@ interface ContratoGerador {
   mes_reajuste: string | null;
 }
 
-export function GeradorPanel() {
-  const [contratoId, setContratoId] = useState<string | null>(null);
+interface Props {
+  categoriaId: string | null;
+  onCategoriaChange: (id: string) => void;
+  contratoId: string | null;
+  onContratoChange: (id: string) => void;
+}
+
+export function CategoriaPanel({ categoriaId, onCategoriaChange, contratoId, onContratoChange }: Props) {
+  const navigate = useNavigate();
   const [modo, setModo] = useState<'contrato' | 'comparar'>('contrato');
   const [busca, setBusca] = useState('');
   const [tipo, setTipo] = useState('todos');
   const [freq, setFreq] = useState('todas');
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['contratos-gerador'],
+  const { data: categorias = [] } = useQuery({
+    queryKey: ['contrato-categorias-panel'],
     queryFn: async () => {
-      const { data: cat, error: catErr } = await supabase
+      const { data, error } = await supabase
         .from('contrato_categorias')
-        .select(sel('id, nome'))
-        .eq('nome', 'GERADOR')
-        .maybeSingle<{ id: string; nome: string }>();
-      if (catErr) throw catErr;
-      if (!cat) return { contratos: [] as ContratoGerador[], escopos: [] as Escopo[] };
+        .select(sel('id, nome, ordem'))
+        .eq('ativo', true)
+        .order('ordem')
+        .returns<{ id: string; nome: string; ordem: number }[]>();
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
 
+  useEffect(() => {
+    if (!categoriaId && categorias.length > 0) onCategoriaChange(categorias[0].id);
+  }, [categorias, categoriaId, onCategoriaChange]);
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['contratos-categoria', categoriaId],
+    enabled: !!categoriaId,
+    queryFn: async () => {
       const { data: contratos, error: cErr } = await supabase
         .from('contratos')
         .select(
@@ -67,9 +86,9 @@ export function GeradorPanel() {
             'id, empreendimento, fornecedor_nome, numero_contrato, data_inicio, data_fim, indeterminado, quantidade, unidade, valor_contrato, valor_por_unidade, indice_reajuste, mes_reajuste',
           ),
         )
-        .eq('categoria_id', cat.id)
+        .eq('categoria_id', categoriaId as string)
         .order('empreendimento')
-        .returns<ContratoGerador[]>();
+        .returns<ContratoCategoria[]>();
       if (cErr) throw cErr;
 
       const ids = (contratos ?? []).map((c) => c.id);
@@ -88,12 +107,13 @@ export function GeradorPanel() {
     },
   });
 
-  const contratos = data?.contratos ?? [];
-  const escopos = data?.escopos ?? [];
+  const contratos = useMemo(() => data?.contratos ?? [], [data]);
+  const escopos = useMemo(() => data?.escopos ?? [], [data]);
 
   useEffect(() => {
-    if (!contratoId && contratos.length > 0) setContratoId(contratos[0].id);
-  }, [contratos, contratoId]);
+    if (contratos.length === 0) return;
+    if (!contratoId || !contratos.some((c) => c.id === contratoId)) onContratoChange(contratos[0].id);
+  }, [contratos, contratoId, onContratoChange]);
 
   const kpis = useMemo(() => {
     const acc = { vigente: 0, a_vencer: 0, vencido: 0, indeterminado: 0 };
@@ -102,10 +122,13 @@ export function GeradorPanel() {
     });
     return {
       ...acc,
-      equipamentos: contratos.reduce((s, c) => s + (c.quantidade ?? 0), 0),
+      unidades: contratos.reduce((s, c) => s + (c.quantidade ?? 0), 0),
       itens: escopos.length,
+      comSla: escopos.filter((e) => e.sla_horas != null).length,
     };
   }, [contratos, escopos]);
+
+  const unidadeLabel = contratos.find((c) => c.unidade)?.unidade ?? 'unid.';
 
   const tipos = useMemo(
     () => Array.from(new Set(escopos.map((e) => e.tipo).filter(Boolean) as string[])).sort(),
@@ -129,7 +152,6 @@ export function GeradorPanel() {
     [escopos, contratoId, busca, tipo, freq],
   );
 
-  // Comparativo: linha única por escopo+item, coluna por contrato
   const comparativo = useMemo(() => {
     const map = new Map<
       string,
@@ -163,7 +185,8 @@ export function GeradorPanel() {
       key: 'sla',
       header: 'SLA',
       align: 'right',
-      cell: (e) => (e.sla_horas == null ? '—' : `${e.sla_horas}h`),
+      cell: (e) =>
+        e.sla_horas == null ? <span className="text-muted-foreground">—</span> : `${e.sla_horas}h`,
     },
     {
       key: 'obs',
@@ -194,91 +217,129 @@ export function GeradorPanel() {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Contratos" value={contratos.length} icon={Layers} loading={isLoading} />
-        <KpiCard label="Vigentes" value={kpis.vigente} icon={Zap} intent="success" loading={isLoading} />
-        <KpiCard label="Geradores cobertos" value={kpis.equipamentos} icon={Zap} intent="info" loading={isLoading} />
-        <KpiCard label="Itens de escopo" value={kpis.itens} icon={ListChecks} loading={isLoading} />
+      <div className="flex flex-wrap gap-2">
+        {categorias.map((cat) => (
+          <Button
+            key={cat.id}
+            size="sm"
+            variant={cat.id === categoriaId ? 'default' : 'outline'}
+            onClick={() => onCategoriaChange(cat.id)}
+          >
+            {cat.nome}
+          </Button>
+        ))}
       </div>
 
-      <div className="grid gap-3 md:grid-cols-3">
-        {contratos.map((c) => {
-          const meta = SITUACAO_META[getSituacao(c)];
-          const ativo = c.id === contratoId && modo === 'contrato';
-          const total = escopos.filter((e) => e.contrato_id === c.id).length;
-          return (
-            <Card
-              key={c.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => {
-                setContratoId(c.id);
-                setModo('contrato');
-              }}
-              onKeyDown={(ev) => {
-                if (ev.key === 'Enter' || ev.key === ' ') {
-                  ev.preventDefault();
-                  setContratoId(c.id);
-                  setModo('contrato');
-                }
-              }}
-              className={cn(
-                'cursor-pointer transition-colors',
-                ativo ? 'border-primary ring-1 ring-primary/40' : 'hover:border-primary/40',
-              )}
-            >
-              <CardContent className="p-4 space-y-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="ds-text-label text-muted-foreground">
-                      {EMPREENDIMENTO_LABELS[c.empreendimento] ?? c.empreendimento}
-                    </p>
-                    <p className="font-semibold truncate">{c.fornecedor_nome}</p>
-                  </div>
-                  <StatusPill intent={meta.intent} size="sm">
-                    {meta.label}
-                  </StatusPill>
-                </div>
-                <dl className="text-sm space-y-1">
-                  <div className="flex justify-between gap-2">
-                    <dt className="text-muted-foreground">Nº contrato</dt>
-                    <dd>{c.numero_contrato || '—'}</dd>
-                  </div>
-                  <div className="flex justify-between gap-2">
-                    <dt className="text-muted-foreground">Vigência</dt>
-                    <dd className="text-right">
-                      {c.data_inicio ? formatBR(c.data_inicio, 'dd/MM/yyyy') : '—'} →{' '}
-                      {c.indeterminado || !c.data_fim ? 'indeterminado' : formatBR(c.data_fim, 'dd/MM/yyyy')}
-                    </dd>
-                  </div>
-                  <div className="flex justify-between gap-2">
-                    <dt className="text-muted-foreground">Quantidade</dt>
-                    <dd>{c.quantidade == null ? '—' : `${c.quantidade.toLocaleString('pt-BR')} ${c.unidade}`}</dd>
-                  </div>
-                  <div className="flex justify-between gap-2">
-                    <dt className="text-muted-foreground">Valor</dt>
-                    <dd className="tabular-nums">{moeda(c.valor_contrato)}</dd>
-                  </div>
-                  <div className="flex justify-between gap-2">
-                    <dt className="text-muted-foreground">Por equipamento</dt>
-                    <dd className="tabular-nums">{moeda(c.valor_por_unidade)}</dd>
-                  </div>
-                  <div className="flex justify-between gap-2">
-                    <dt className="text-muted-foreground">Reajuste</dt>
-                    <dd>
-                      {c.indice_reajuste ? `${c.indice_reajuste}${c.mes_reajuste ? ` · ${c.mes_reajuste}` : ''}` : '—'}
-                    </dd>
-                  </div>
-                  <div className="flex justify-between gap-2">
-                    <dt className="text-muted-foreground">Itens de escopo</dt>
-                    <dd>{total}</dd>
-                  </div>
-                </dl>
-              </CardContent>
-            </Card>
-          );
-        })}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <KpiCard label="Contratos" value={contratos.length} icon={Layers} loading={isLoading} />
+        <KpiCard label="Vigentes" value={kpis.vigente} icon={CheckCircle2} intent="success" loading={isLoading} />
+        <KpiCard
+          label={`Cobertura (${unidadeLabel})`}
+          value={kpis.unidades}
+          icon={Layers}
+          intent="info"
+          loading={isLoading}
+        />
+        <KpiCard
+          label="Itens de escopo"
+          value={kpis.itens}
+          hint={`${kpis.comSla} com SLA definido`}
+          icon={ListChecks}
+          loading={isLoading}
+        />
       </div>
+
+      {contratos.length === 0 && !isLoading ? (
+        <div className="rounded-lg border bg-card py-10 text-center ds-text-body text-muted-foreground">
+          Nenhum contrato cadastrado nesta categoria.
+        </div>
+      ) : (
+        <div className="grid gap-3 md:grid-cols-3">
+          {contratos.map((c) => {
+            const meta = SITUACAO_META[getSituacao(c)];
+            const ativo = c.id === contratoId && modo === 'contrato';
+            const doContrato = escopos.filter((e) => e.contrato_id === c.id);
+            return (
+              <Card
+                key={c.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => {
+                  onContratoChange(c.id);
+                  setModo('contrato');
+                }}
+                onKeyDown={(ev) => {
+                  if (ev.key === 'Enter' || ev.key === ' ') {
+                    ev.preventDefault();
+                    onContratoChange(c.id);
+                    setModo('contrato');
+                  }
+                }}
+                className={cn(
+                  'cursor-pointer transition-colors',
+                  ativo ? 'border-primary ring-1 ring-primary/40' : 'hover:border-primary/40',
+                )}
+              >
+                <CardContent className="p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="ds-text-label text-muted-foreground">
+                        {EMPREENDIMENTO_LABELS[c.empreendimento] ?? c.empreendimento}
+                      </p>
+                      <p className="font-semibold truncate">{c.fornecedor_nome}</p>
+                    </div>
+                    <StatusPill intent={meta.intent} size="sm">
+                      {meta.label}
+                    </StatusPill>
+                  </div>
+                  <dl className="text-sm space-y-1">
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-muted-foreground">Nº contrato</dt>
+                      <dd>{c.numero_contrato || '—'}</dd>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-muted-foreground">Vigência</dt>
+                      <dd className="text-right">
+                        {c.data_inicio ? formatBR(c.data_inicio, 'dd/MM/yyyy') : '—'} →{' '}
+                        {c.indeterminado || !c.data_fim ? 'indeterminado' : formatBR(c.data_fim, 'dd/MM/yyyy')}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-muted-foreground">Quantidade</dt>
+                      <dd>{c.quantidade == null ? '—' : `${c.quantidade.toLocaleString('pt-BR')} ${c.unidade}`}</dd>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-muted-foreground">Valor</dt>
+                      <dd className="tabular-nums">{moeda(c.valor_contrato)}</dd>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-muted-foreground">Por unidade</dt>
+                      <dd className="tabular-nums">{moeda(c.valor_por_unidade)}</dd>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-muted-foreground">Escopo · SLA</dt>
+                      <dd>
+                        {doContrato.length} itens · {doContrato.filter((e) => e.sla_horas != null).length} com SLA
+                      </dd>
+                    </div>
+                  </dl>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={(ev) => {
+                      ev.stopPropagation();
+                      navigate(`/contratos/${c.id}`);
+                    }}
+                  >
+                    Ver detalhamento
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
 
       <FilterToolbar
         showSearch
@@ -308,18 +369,10 @@ export function GeradorPanel() {
         ]}
         footer={
           <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant={modo === 'contrato' ? 'default' : 'outline'}
-              onClick={() => setModo('contrato')}
-            >
+            <Button size="sm" variant={modo === 'contrato' ? 'default' : 'outline'} onClick={() => setModo('contrato')}>
               Por contrato
             </Button>
-            <Button
-              size="sm"
-              variant={modo === 'comparar' ? 'default' : 'outline'}
-              onClick={() => setModo('comparar')}
-            >
+            <Button size="sm" variant={modo === 'comparar' ? 'default' : 'outline'} onClick={() => setModo('comparar')}>
               Comparar Megas
             </Button>
           </div>
@@ -337,7 +390,8 @@ export function GeradorPanel() {
           error={error ? 'Não foi possível carregar o escopo.' : undefined}
           empty={
             <div className="py-10 text-center ds-text-body text-muted-foreground">
-              Nenhum item de escopo para este contrato.
+              Nenhum item de escopo cadastrado para este contrato — por enquanto só os dados contratuais existem nesta
+              categoria.
             </div>
           }
         />

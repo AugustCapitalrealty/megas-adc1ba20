@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { FileSignature, FileWarning, CheckCircle2, Clock, Infinity as InfinityIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { PageContainer } from '@/components/layout/PageContainer';
@@ -10,7 +10,7 @@ import { DataTable, type DataTableColumn } from '@/components/ui/DataTable';
 import { KpiCard } from '@/components/ui/KpiCard';
 import { StatusPill, type StatusIntent } from '@/components/ui/StatusPill';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { GeradorPanel } from '@/components/contratos/GeradorPanel';
+import { CategoriaPanel } from '@/components/contratos/CategoriaPanel';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { formatBR } from '@/lib/date-utils';
 
@@ -68,7 +68,16 @@ export default function ContratosLista() {
   useDocumentTitle('SLA de Contratos');
 
   const [searchParams, setSearchParams] = useSearchParams();
-  const aba = searchParams.get('aba') === 'gerador' ? 'gerador' : 'todos';
+  const navigate = useNavigate();
+  const aba = searchParams.get('aba') === 'categoria' || searchParams.get('aba') === 'gerador' ? 'categoria' : 'todos';
+  const catParam = searchParams.get('cat');
+  const contratoParam = searchParams.get('contrato');
+
+  const updateParams = (patch: Record<string, string | null>) => {
+    const next = new URLSearchParams(searchParams);
+    Object.entries(patch).forEach(([k, v]) => (v == null ? next.delete(k) : next.set(k, v)));
+    setSearchParams(next, { replace: true });
+  };
 
   const [busca, setBusca] = useState('');
   const [categoria, setCategoria] = useState('todas');
@@ -238,11 +247,11 @@ export default function ContratosLista() {
 
       <Tabs
         value={aba}
-        onValueChange={(v) => setSearchParams(v === 'gerador' ? { aba: 'gerador' } : {}, { replace: true })}
+        onValueChange={(v) => (v === 'categoria' ? updateParams({ aba: 'categoria' }) : setSearchParams({}, { replace: true }))}
       >
         <TabsList>
-          <TabsTrigger value="todos">Todos os contratos</TabsTrigger>
-          <TabsTrigger value="gerador">Gerador</TabsTrigger>
+          <TabsTrigger value="todos">Visão geral</TabsTrigger>
+          <TabsTrigger value="categoria">Por categoria</TabsTrigger>
         </TabsList>
 
         <TabsContent value="todos" className="space-y-6 mt-6">
@@ -336,6 +345,7 @@ export default function ContratosLista() {
         rowKey={(c) => c.id}
         density="normal"
         stickyHeader
+        onRowClick={(c) => navigate(`/contratos/${c.id}`)}
         error={error ? 'Não foi possível carregar os contratos.' : undefined}
         empty={
           <div className="py-10 text-center ds-text-body text-muted-foreground">
@@ -345,8 +355,13 @@ export default function ContratosLista() {
       />
         </TabsContent>
 
-        <TabsContent value="gerador" className="mt-6">
-          <GeradorPanel />
+        <TabsContent value="categoria" className="mt-6">
+          <CategoriaPanel
+            categoriaId={catParam}
+            onCategoriaChange={(catId) => updateParams({ aba: 'categoria', cat: catId, contrato: null })}
+            contratoId={contratoParam}
+            onContratoChange={(cId) => updateParams({ aba: 'categoria', contrato: cId })}
+          />
         </TabsContent>
       </Tabs>
     </PageContainer>
