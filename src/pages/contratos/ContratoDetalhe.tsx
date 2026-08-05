@@ -286,12 +286,19 @@ export default function ContratoDetalhe() {
         }
         icon={FileSignature}
         actions={
-          situacao ? (
-            <StatusPill intent={situacao.intent}>
-              {situacao.label}
-              {diasParaVencer != null && diasParaVencer >= 0 ? ` · ${diasParaVencer} dias` : ''}
-            </StatusPill>
-          ) : undefined
+          <>
+            {situacao && (
+              <StatusPill intent={situacao.intent}>
+                {situacao.label}
+                {diasParaVencer != null && diasParaVencer >= 0 ? ` · ${diasParaVencer} dias` : ''}
+              </StatusPill>
+            )}
+            {editavel && (
+              <Button variant="outline" onClick={() => navigate(`/contratos/${id}/editar`)}>
+                Editar contrato
+              </Button>
+            )}
+          </>
         }
       />
 
