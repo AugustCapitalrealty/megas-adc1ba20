@@ -294,8 +294,8 @@ export default function ContratoDetalhe() {
               </StatusPill>
             )}
             {editavel && (
-              <Button variant="outline" onClick={() => navigate(`/contratos/${id}/editar`)}>
-                Editar contrato
+              <Button variant="outline" asChild>
+                <Link to={`/contratos/${id}/editar`}>Editar contrato</Link>
               </Button>
             )}
           </>
