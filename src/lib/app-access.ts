@@ -62,7 +62,7 @@ export const APP_DEFINITIONS: AppDefinition[] = [
   },
   {
     key: 'contratos',
-    name: 'SLA de Contratos',
+    name: 'Performance de Contratos',
     description: 'Contratos de prestação de serviços, escopos, agenda e evidências.',
     icon: FileSignature,
     home: '/contratos',
@@ -137,7 +137,7 @@ export const ACCESS_PRESETS: AccessPreset[] = [
   {
     key: 'contratos',
     label: 'Contratos',
-    description: 'Financeiro (solicitante) + SLA de Contratos como editor.',
+    description: 'Financeiro (solicitante) + Performance de Contratos como editor.',
     access: { financeiro: 'solicitante', contratos: 'editor' },
   },
 ];

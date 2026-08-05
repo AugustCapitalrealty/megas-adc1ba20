@@ -95,7 +95,7 @@ export function getHubApps({ isBackofficeOrAdmin, isAdmin, hasApp }: HubAccess):
   if (liberado('contratos')) {
     apps.push({
       key: 'contratos',
-      name: 'SLA de Contratos',
+      name: 'Performance de Contratos',
       description: 'Contratos de prestação de serviços: escopos, agenda de obrigações e evidências.',
       icon: FileSignature,
       href: '/contratos',
