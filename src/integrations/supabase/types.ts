@@ -197,6 +197,53 @@ export type Database = {
         }
         Relationships: []
       }
+      contrato_escopo_padrao: {
+        Row: {
+          ativo: boolean
+          categoria_id: string
+          created_at: string
+          escopo: string
+          frequencia: string | null
+          id: string
+          item: string | null
+          ordem: number
+          tipo: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          categoria_id: string
+          created_at?: string
+          escopo: string
+          frequencia?: string | null
+          id?: string
+          item?: string | null
+          ordem?: number
+          tipo?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          categoria_id?: string
+          created_at?: string
+          escopo?: string
+          frequencia?: string | null
+          id?: string
+          item?: string | null
+          ordem?: number
+          tipo?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contrato_escopo_padrao_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "contrato_categorias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contrato_escopos: {
         Row: {
           ativo: boolean
@@ -380,11 +427,16 @@ export type Database = {
       }
       contratos: {
         Row: {
+          area_atendida: string | null
           ativo: boolean
           categoria_id: string
           created_at: string
+          criticidade_dd: string | null
+          data_dd: string | null
           data_fim: string | null
           data_inicio: string | null
+          data_vencimento: string | null
+          detalhamento: string | null
           empreendimento: Database["public"]["Enums"]["empreendimento"]
           fornecedor_id: string | null
           fornecedor_nome: string
@@ -396,18 +448,28 @@ export type Database = {
           observacao: string | null
           prazo_meses: number | null
           quantidade: number | null
+          renovacao_automatica: boolean
+          tem_sla: boolean
+          tipo_contratacao: string | null
+          ultima_medicao: string | null
           unidade: string
           updated_at: string
           updated_by: string | null
           valor_contrato: number | null
+          valor_mensal: number | null
           valor_por_unidade: number | null
         }
         Insert: {
+          area_atendida?: string | null
           ativo?: boolean
           categoria_id: string
           created_at?: string
+          criticidade_dd?: string | null
+          data_dd?: string | null
           data_fim?: string | null
           data_inicio?: string | null
+          data_vencimento?: string | null
+          detalhamento?: string | null
           empreendimento: Database["public"]["Enums"]["empreendimento"]
           fornecedor_id?: string | null
           fornecedor_nome: string
@@ -419,18 +481,28 @@ export type Database = {
           observacao?: string | null
           prazo_meses?: number | null
           quantidade?: number | null
+          renovacao_automatica?: boolean
+          tem_sla?: boolean
+          tipo_contratacao?: string | null
+          ultima_medicao?: string | null
           unidade?: string
           updated_at?: string
           updated_by?: string | null
           valor_contrato?: number | null
+          valor_mensal?: number | null
           valor_por_unidade?: number | null
         }
         Update: {
+          area_atendida?: string | null
           ativo?: boolean
           categoria_id?: string
           created_at?: string
+          criticidade_dd?: string | null
+          data_dd?: string | null
           data_fim?: string | null
           data_inicio?: string | null
+          data_vencimento?: string | null
+          detalhamento?: string | null
           empreendimento?: Database["public"]["Enums"]["empreendimento"]
           fornecedor_id?: string | null
           fornecedor_nome?: string
@@ -442,10 +514,15 @@ export type Database = {
           observacao?: string | null
           prazo_meses?: number | null
           quantidade?: number | null
+          renovacao_automatica?: boolean
+          tem_sla?: boolean
+          tipo_contratacao?: string | null
+          ultima_medicao?: string | null
           unidade?: string
           updated_at?: string
           updated_by?: string | null
           valor_contrato?: number | null
+          valor_mensal?: number | null
           valor_por_unidade?: number | null
         }
         Relationships: [

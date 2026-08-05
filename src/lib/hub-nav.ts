@@ -106,7 +106,7 @@ export function resolveAppNav(pathname: string, access: NavAccess): AppNavContex
   if (matches(pathname, CONTRATOS_ROUTES)) {
     return {
       key: 'contratos',
-      name: 'SLA de Contratos',
+      name: 'Performance de Contratos',
       home: '/contratos',
       items: [
         { href: '/contratos', label: 'Início', icon: Home, show: true },

@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { FileSignature, FileWarning, CheckCircle2, Clock, Infinity as InfinityIcon } from 'lucide-react';
+import { FileSignature, FileWarning, CheckCircle2, Clock, Infinity as InfinityIcon, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/useAuth';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { FilterToolbar, type ActiveFilterChip } from '@/components/ui/FilterToolbar';
@@ -65,7 +67,8 @@ const moeda = (v: number | null) =>
   v == null ? '—' : v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 export default function ContratosLista() {
-  useDocumentTitle('SLA de Contratos');
+  useDocumentTitle('Performance de Contratos');
+  const { canApp } = useAuth();
 
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -240,9 +243,17 @@ export default function ContratosLista() {
   return (
     <PageContainer width="wide">
       <PageHeader
-        title="SLA de Contratos"
+        title="Performance de Contratos"
         description="Contratos de prestação de serviços dos Megas: vigência, escopo e obrigações."
         icon={FileSignature}
+        actions={
+          canApp('contratos', 'editor') ? (
+            <Button onClick={() => navigate('/contratos/novo')}>
+              <Plus className="h-4 w-4 mr-2" />
+              Novo contrato
+            </Button>
+          ) : undefined
+        }
       />
 
       <Tabs
