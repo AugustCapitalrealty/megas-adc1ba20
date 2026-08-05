@@ -157,7 +157,7 @@ export default function ContratoForm() {
         .eq('id', id!)
         .maybeSingle();
       if (error) throw error;
-      return data as Record<string, unknown> | null;
+      return (data ?? null) as unknown as Record<string, unknown> | null;
     },
   });
 
