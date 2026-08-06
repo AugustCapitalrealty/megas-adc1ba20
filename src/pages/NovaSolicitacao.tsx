@@ -1243,12 +1243,7 @@ export default function NovaSolicitacao() {
             )}
             {currentStep === 'detalhes' && (
               <>
-                <DetalhesStep
-                  {...stepProps}
-                  formatCurrency={formatCurrency}
-                  handleContratoMensalChange={handleContratoMensalChange}
-                  errors={showErrors ? stepErrors : undefined}
-                />
+                <DetalhesStep {...stepProps} formatCurrency={formatCurrency} handleContratoMensalChange={handleContratoMensalChange} />
                 {showErrors && (
                   <div className="space-y-1">
                     <FieldError message={stepErrors.naturezaOrcamentaria} />
@@ -1256,8 +1251,6 @@ export default function NovaSolicitacao() {
                     <FieldError message={stepErrors.faturamentoDireto} />
                     <FieldError message={stepErrors.escopoDetalhadoMinuta} />
                     <FieldError message={stepErrors.dueDiligenceConfirmada} />
-                    <FieldError message={stepErrors.diasGarantiaServico} />
-                    <FieldError message={stepErrors.diasGarantiaProduto} />
                     <FieldError message={stepErrors.rateio} />
                   </div>
                 )}

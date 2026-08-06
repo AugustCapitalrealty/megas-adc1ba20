@@ -81,16 +81,6 @@ export interface FormState {
   rateioValores: RateioValor[];
   rateioEmpreendimentosSelecionados: string[];
 
-  // Signatários (Webdox) — obrigatórios quando o instrumento não é OC
-  representanteLegalNome: string;
-  representanteLegalCpf: string;
-  representanteLegalEmail: string;
-  representanteLegalTelefone: string;
-  testemunhaNome: string;
-  testemunhaCpf: string;
-  testemunhaEmail: string;
-  testemunhaTelefone: string;
-
   // Anexos
   anexos: Record<string, UploadedFile | null>;
   outrosAnexos: UploadedFile[];
@@ -158,14 +148,6 @@ export interface FormSetters {
   setTipoRateio: (v: string) => void;
   setRateioValores: (v: RateioValor[]) => void;
   setRateioEmpreendimentosSelecionados: (v: string[]) => void;
-  setRepresentanteLegalNome: (v: string) => void;
-  setRepresentanteLegalCpf: (v: string) => void;
-  setRepresentanteLegalEmail: (v: string) => void;
-  setRepresentanteLegalTelefone: (v: string) => void;
-  setTestemunhaNome: (v: string) => void;
-  setTestemunhaCpf: (v: string) => void;
-  setTestemunhaEmail: (v: string) => void;
-  setTestemunhaTelefone: (v: string) => void;
   setAnexos: (v: Record<string, UploadedFile | null>) => void;
   setOutrosAnexos: (v: UploadedFile[]) => void;
 }
