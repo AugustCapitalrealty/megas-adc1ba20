@@ -30,9 +30,10 @@ import type { StepProps } from '../types';
 interface DetalhesStepProps extends StepProps {
   formatCurrency: (v: string) => string;
   handleContratoMensalChange: (checked: boolean) => void;
+  errors?: Record<string, string | undefined>;
 }
 
-export function DetalhesStep({ formState, derived, setters, formatCurrency, handleContratoMensalChange }: DetalhesStepProps) {
+export function DetalhesStep({ formState, derived, setters, formatCurrency, handleContratoMensalChange, errors }: DetalhesStepProps) {
   const {
     naturezaOrcamentaria, origemCusto, empreendimento, clienteId,
     dataInicio, dataFim, parcelas, contratoMensal, retencao6,
