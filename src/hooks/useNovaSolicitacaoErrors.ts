@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { FormState, DerivedValues, Step } from '@/components/nova-solicitacao/types';
+import { validarSignatario } from '@/lib/signatarios';
 
 export type FieldErrors = Partial<Record<string, string>>;
 
@@ -70,6 +71,30 @@ export function computeStepErrors(
       }
       if (derived.requerDueDiligence && !formState.dueDiligenceConfirmada) {
         errors.dueDiligenceConfirmada = 'Confirme a due diligence para prosseguir.';
+      }
+      // Garantia: prazo obrigatório sempre que houver tipo de garantia
+      if (formState.tipoGarantia === 'servico' || formState.tipoGarantia === 'ambos') {
+        const dias = Number(formState.diasGarantiaServico || formState.diasGarantia || 0);
+        if (!dias || dias <= 0) errors.diasGarantiaServico = 'Informe os dias de garantia do serviço.';
+      }
+      if (formState.tipoGarantia === 'produto' || formState.tipoGarantia === 'ambos') {
+        const dias = Number(formState.diasGarantiaProduto || formState.diasGarantia || 0);
+        if (!dias || dias <= 0) errors.diasGarantiaProduto = 'Informe os dias de garantia do produto.';
+      }
+      // Signatários (Webdox): obrigatórios quando o instrumento não é OC
+      if (derived.instrumentoJuridico !== 'oc') {
+        Object.assign(errors, validarSignatario('representanteLegal', {
+          nome: formState.representanteLegalNome,
+          cpf: formState.representanteLegalCpf,
+          email: formState.representanteLegalEmail,
+          telefone: formState.representanteLegalTelefone,
+        }));
+        Object.assign(errors, validarSignatario('testemunha', {
+          nome: formState.testemunhaNome,
+          cpf: formState.testemunhaCpf,
+          email: formState.testemunhaEmail,
+          telefone: formState.testemunhaTelefone,
+        }));
       }
       // Rateio: required when empreendimento === 'todos'
       if (formState.empreendimento === 'todos') {
