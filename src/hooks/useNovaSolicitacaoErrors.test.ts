@@ -6,6 +6,14 @@ import type { FormState, DerivedValues } from '@/components/nova-solicitacao/typ
 function baseFormState(overrides: Partial<FormState> = {}): FormState {
   return {
     empreendimento: 'mega_canoas' as any,
+    representanteLegalNome: '',
+    representanteLegalCpf: '',
+    representanteLegalEmail: '',
+    representanteLegalTelefone: '',
+    testemunhaNome: '',
+    testemunhaCpf: '',
+    testemunhaEmail: '',
+    testemunhaTelefone: '',
     descricao: 'descrição suficientemente longa para passar nas regras',
     valor: '50000',
     tipoContratacao: '',
