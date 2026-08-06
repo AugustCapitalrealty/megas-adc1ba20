@@ -14,6 +14,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ClienteSelect } from '@/components/ClienteSelect';
 import { EscopoDetalhadoField } from '@/components/EscopoDetalhadoField';
 import { DueDiligenceModule } from '@/components/DueDiligenceModule';
+import { SignatariosBlock } from '../SignatariosBlock';
 import { RetencaoTecnicaAlert } from '@/components/RetencaoTecnicaAlert';
 import { cn } from '@/lib/utils';
 import {
@@ -231,6 +232,37 @@ export function DetalhesStep({ formState, derived, setters, formatCurrency, hand
 
       {/* Escopo Detalhado */}
       <EscopoDetalhadoField instrumentoJuridico={instrumentoJuridico} escopo={escopoDetalhadoMinuta} onEscopoChange={setters.setEscopoDetalhadoMinuta} />
+
+      {/* Signatários — Webdox (somente quando não é OC) */}
+      {instrumentoJuridico !== 'oc' && (
+        <SignatariosBlock
+          representante={{
+            nome: formState.representanteLegalNome,
+            cpf: formState.representanteLegalCpf,
+            email: formState.representanteLegalEmail,
+            telefone: formState.representanteLegalTelefone,
+          }}
+          testemunha={{
+            nome: formState.testemunhaNome,
+            cpf: formState.testemunhaCpf,
+            email: formState.testemunhaEmail,
+            telefone: formState.testemunhaTelefone,
+          }}
+          onRepresentanteChange={(campo, valor) => {
+            if (campo === 'nome') setters.setRepresentanteLegalNome(valor);
+            else if (campo === 'cpf') setters.setRepresentanteLegalCpf(valor);
+            else if (campo === 'email') setters.setRepresentanteLegalEmail(valor);
+            else setters.setRepresentanteLegalTelefone(valor);
+          }}
+          onTestemunhaChange={(campo, valor) => {
+            if (campo === 'nome') setters.setTestemunhaNome(valor);
+            else if (campo === 'cpf') setters.setTestemunhaCpf(valor);
+            else if (campo === 'email') setters.setTestemunhaEmail(valor);
+            else setters.setTestemunhaTelefone(valor);
+          }}
+          errors={errors}
+        />
+      )}
 
       {/* Due Diligence */}
       <DueDiligenceModule
