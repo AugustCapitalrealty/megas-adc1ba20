@@ -22,6 +22,7 @@ import type { Step, DerivedValues, FormSetters } from '@/components/nova-solicit
 import { NATUREZAS_ISENTAS_ANEXOS, NATUREZAS_AGUA_ENERGIA, TIPO_TO_NATUREZA } from '@/components/nova-solicitacao/types';
 import { toCentsString } from '@/lib/valor-monetario';
 import { MODULO_VAGO_CLIENTE_ID } from '@/lib/solicitacao-rules';
+import { isModuloVagoCliente, isModuloVagoNome, loadModuloVagoClientes } from '@/lib/modulo-vago';
 
 interface DuplicateData {
   tipo?: string;
