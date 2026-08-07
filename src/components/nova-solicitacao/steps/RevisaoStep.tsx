@@ -185,6 +185,28 @@ export function RevisaoStep({ formState, derived, formatCurrency }: RevisaoStepP
           </>
         )}
 
+        {exigeSignatarios && (
+          <div className="py-3 border-b">
+            <span className="text-muted-foreground text-sm">Dados para assinatura (Webdox)</span>
+            <div className="mt-2 grid gap-3 md:grid-cols-2 text-sm">
+              <div className="p-2 rounded bg-muted/50">
+                <p className="font-medium">Representante legal</p>
+                <p>{representanteLegalNome || '—'}</p>
+                <p className="text-muted-foreground text-xs">
+                  {representanteLegalCpf || '—'} · {representanteLegalEmail || '—'} · {representanteLegalTelefone || '—'}
+                </p>
+              </div>
+              <div className="p-2 rounded bg-muted/50">
+                <p className="font-medium">Testemunha</p>
+                <p>{testemunhaNome || '—'}</p>
+                <p className="text-muted-foreground text-xs">
+                  {testemunhaCpf || '—'} · {testemunhaEmail || '—'} · {testemunhaTelefone || '—'}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="pt-2">
           <span className="text-muted-foreground text-sm">Anexos ({Object.values(anexos).filter(Boolean).length})</span>
           <div className="mt-2 space-y-1">
