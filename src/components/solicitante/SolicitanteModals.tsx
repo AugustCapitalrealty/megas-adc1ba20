@@ -82,6 +82,9 @@ interface EditModalProps {
   setEditDiasGarantiaServico: (v: string) => void;
   editDiasGarantiaProduto: string;
   setEditDiasGarantiaProduto: (v: string) => void;
+  // Parcelas (editável durante correção)
+  editParcelas: string;
+  setEditParcelas: (v: string) => void;
 }
 
 function EditModal(props: EditModalProps) {
@@ -98,7 +101,11 @@ function EditModal(props: EditModalProps) {
     editDiasGarantia, setEditDiasGarantia,
     editDiasGarantiaServico, setEditDiasGarantiaServico,
     editDiasGarantiaProduto, setEditDiasGarantiaProduto,
+    editParcelas, setEditParcelas,
   } = props;
+
+  const valorNumericoEdit = (parseFloat((editValor || '').replace(/\D/g, '')) || 0) / 100;
+  const numParcelas = Math.min(Math.max(parseInt(editParcelas, 10) || 1, 1), 60);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -188,6 +195,25 @@ function EditModal(props: EditModalProps) {
                     <span className="text-amber-600">Faltam {100 - editEscopoDetalhado.length} caracteres</span>
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* Garantia — disponível durante correção */}
+            {editingSolicitacao?.status && ['pendente_correcao', 'aguardando_informacoes'].includes(editingSolicitacao.status) && (
+              <div className="space-y-2">
+                <Label>Número de parcelas</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={60}
+                  value={editParcelas}
+                  onChange={(e) => setEditParcelas(e.target.value)}
+                />
+                {valorNumericoEdit > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {numParcelas}x de {(valorNumericoEdit / numParcelas).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </p>
+                )}
               </div>
             )}
 
