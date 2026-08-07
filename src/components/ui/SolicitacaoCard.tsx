@@ -147,7 +147,7 @@ export const SolicitacaoCard = memo(function SolicitacaoCard({
               )}
               {(sol as any).numero_projuris && (
                 <Badge variant="outline" className="text-xs bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800">
-                  Projuris: {(sol as any).numero_projuris}
+                  Webdox: {(sol as any).numero_projuris}
                 </Badge>
               )}
               {sol.tipo_contratacao && (
