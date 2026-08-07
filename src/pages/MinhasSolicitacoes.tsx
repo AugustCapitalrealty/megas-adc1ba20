@@ -241,7 +241,7 @@ export default function MinhasSolicitacoes() {
       });
       if (error) throw error;
       toast({
-        title: 'Número Projuris atualizado',
+        title: 'Número Webdox atualizado',
         description: 'A alteração foi registrada no histórico.',
       });
       setEditProjurisSol(null);
@@ -1540,14 +1540,14 @@ export default function MinhasSolicitacoes() {
       <Dialog open={!!editProjurisSol} onOpenChange={(open) => !open && setEditProjurisSol(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Editar número Projuris</DialogTitle>
+            <DialogTitle>Editar número Webdox</DialogTitle>
             <DialogDescription>
-              Atualize o número Projuris da solicitação <strong>#{editProjurisSol?.protocolo}</strong>.
+              Atualize o número Webdox da solicitação <strong>#{editProjurisSol?.protocolo}</strong>.
               A alteração ficará registrada no histórico.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="edit-projuris-solicitante">Número Projuris</Label>
+            <Label htmlFor="edit-projuris-solicitante">Número Webdox</Label>
             <Input
               id="edit-projuris-solicitante"
               placeholder="Ex.: 3830"
