@@ -610,6 +610,7 @@ export default function MinhasSolicitacoes() {
     setEditDiasGarantia(sol.dias_garantia != null ? String(sol.dias_garantia) : '');
     setEditDiasGarantiaServico(sol.dias_garantia_servico != null ? String(sol.dias_garantia_servico) : '');
     setEditDiasGarantiaProduto(sol.dias_garantia_produto != null ? String(sol.dias_garantia_produto) : '');
+    setEditParcelas(sol.parcelas != null ? String(sol.parcelas) : '1');
     setEditOpen(true);
     
     const { data: anexosData } = await supabase
