@@ -167,6 +167,7 @@ export default function MinhasSolicitacoes() {
   const [editDiasGarantia, setEditDiasGarantia] = useState('');
   const [editDiasGarantiaServico, setEditDiasGarantiaServico] = useState('');
   const [editDiasGarantiaProduto, setEditDiasGarantiaProduto] = useState('');
+  const [editParcelas, setEditParcelas] = useState('1');
   
   // Supplier swap state
   const [trocarFornecedor, setTrocarFornecedor] = useState(false);
