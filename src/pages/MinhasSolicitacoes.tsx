@@ -725,6 +725,20 @@ export default function MinhasSolicitacoes() {
     try {
       const valorNumerico = parseFloat((editValor || '').replace(/\D/g, '')) / 100 || 0;
       const statusAnterior = editingSolicitacao.status;
+
+      // Garantia: dias obrigatórios sempre que houver tipo de garantia
+      const parseDiasInput = (v: string) => {
+        const n = parseInt(v, 10);
+        return Number.isFinite(n) && n > 0 ? n : null;
+      };
+      if (editTipoGarantia === 'ambos') {
+        if (!parseDiasInput(editDiasGarantiaServico) || !parseDiasInput(editDiasGarantiaProduto)) {
+          throw new Error('Informe os dias de garantia de serviço e de produto.');
+        }
+      } else if (editTipoGarantia !== 'nenhuma' && !parseDiasInput(editDiasGarantia)) {
+        throw new Error('Informe os dias de garantia.');
+      }
+
       const solicitacaoValidada: Solicitacao = {
         ...editingSolicitacao,
         valor: valorNumerico,
@@ -736,14 +750,30 @@ export default function MinhasSolicitacoes() {
       if (missingBeforeUpload.length > 0) {
         throw new Error(`Anexos obrigatórios ausentes: ${missingBeforeUpload.map((item) => item.label).join(', ')}`);
       }
-      
-      await uploadNewAnexos(editingSolicitacao.id);
 
+      // 1) Excluir antes de subir, para evitar dois anexos do mesmo tipo
+      const anexosRemovidos = existingAnexos.filter((a) => anexosParaExcluir.includes(a.id));
       if (anexosParaExcluir.length > 0) {
-        const storagePaths = existingAnexos.filter(a => anexosParaExcluir.includes(a.id)).map(a => a.storage_path);
-        await supabase.from('anexos').delete().in('id', anexosParaExcluir);
-        if (storagePaths.length > 0) await supabase.storage.from('anexos').remove(storagePaths);
+        const storagePaths = anexosRemovidos.map((a) => a.storage_path);
+        const { error: deleteError } = await supabase.from('anexos').delete().in('id', anexosParaExcluir);
+        if (deleteError) throw new Error(`Não foi possível excluir os anexos marcados: ${deleteError.message}`);
+
+        // Confirma na base que realmente sumiram
+        const { data: remanescentes, error: checkDeleteError } = await supabase
+          .from('anexos').select('id').in('id', anexosParaExcluir);
+        if (checkDeleteError) throw new Error(`Erro ao confirmar exclusão dos anexos: ${checkDeleteError.message}`);
+        if ((remanescentes ?? []).length > 0) {
+          throw new Error('Os anexos marcados para exclusão não foram removidos. Tente novamente.');
+        }
+
+        if (storagePaths.length > 0) {
+          const { error: storageError } = await supabase.storage.from('anexos').remove(storagePaths);
+          if (storageError) throw new Error(`Erro ao remover arquivos: ${storageError.message}`);
+        }
       }
+
+      // 2) Só depois subir os novos
+      await uploadNewAnexos(editingSolicitacao.id);
 
       const { data: currentAnexos, error: currentAnexosError } = await supabase
         .from('anexos')
@@ -764,11 +794,13 @@ export default function MinhasSolicitacoes() {
         escopo_detalhado_minuta: editEscopoDetalhado.trim() || null,
       };
 
+      // Parcelas
+      const parcelasAtual = Number(editingSolicitacao.parcelas ?? 1) || 1;
+      const parcelasNovas = Math.min(Math.max(parseInt(editParcelas, 10) || 1, 1), 60);
+      updateData.parcelas = parcelasNovas;
+
       // Garantia
-      const parseDias = (v: string) => {
-        const n = parseInt(v, 10);
-        return Number.isFinite(n) && n > 0 ? n : null;
-      };
+      const parseDias = parseDiasInput;
       updateData.tipo_garantia = editTipoGarantia;
       if (editTipoGarantia === 'nenhuma') {
         updateData.dias_garantia = null;
