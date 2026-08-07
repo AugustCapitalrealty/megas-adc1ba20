@@ -106,6 +106,11 @@ export const GarantiaCard = React.memo(function GarantiaCard({
               <Badge variant="outline" className="text-xs">
                 {TIPO_GARANTIA_LABELS[g.tipo_garantia]}
               </Badge>
+              {g.garantiaIncompleta && (
+                <Badge variant="outline" className="text-xs border-warning/40 text-warning">
+                  Prazo não informado
+                </Badge>
+              )}
             </div>
             <div className="flex gap-1.5 flex-wrap items-center">
               {g.infraspeak_registrada && (
