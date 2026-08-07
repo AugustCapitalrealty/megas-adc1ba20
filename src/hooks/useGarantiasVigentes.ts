@@ -34,6 +34,8 @@ export interface GarantiaItem {
   dias_garantia: number | null;
   dias_garantia_servico: number | null;
   dias_garantia_produto: number | null;
+  /** true quando o tipo de garantia foi informado mas o prazo não */
+  garantiaIncompleta?: boolean;
   data_conclusao: string;
   fornecedor_razao_social: string | null;
   fornecedor_nome_fantasia: string | null;
