@@ -798,6 +798,39 @@ export function BackofficeModals(props: BackofficeModalsProps) {
                           diasGarantiaProduto={detalhes.solicitacao.dias_garantia_produto}
                         />
                       )}
+                      {(detalhes.solicitacao.tipo_garantia === 'ambos'
+                        ? !detalhes.solicitacao.dias_garantia_servico || !detalhes.solicitacao.dias_garantia_produto
+                        : !detalhes.solicitacao.dias_garantia) && (
+                        <p className="mt-2 text-sm text-amber-700 dark:text-amber-300 flex items-center gap-2">
+                          <AlertTriangle className="h-4 w-4" />
+                          Garantia sem prazo informado — peça a complementação ao solicitante.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Dados para assinatura (Webdox) */}
+                {(detalhes.solicitacao.representante_legal_nome || detalhes.solicitacao.testemunha_nome) && (
+                  <div className="p-3 border rounded-lg bg-muted/30">
+                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                      Dados para assinatura (Webdox)
+                    </Label>
+                    <div className="mt-2 grid gap-3 md:grid-cols-2 text-sm">
+                      <div>
+                        <p className="font-medium">Representante legal</p>
+                        <p>{detalhes.solicitacao.representante_legal_nome || '—'}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {detalhes.solicitacao.representante_legal_cpf || '—'} · {detalhes.solicitacao.representante_legal_email || '—'} · {detalhes.solicitacao.representante_legal_telefone || '—'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="font-medium">Testemunha</p>
+                        <p>{detalhes.solicitacao.testemunha_nome || '—'}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {detalhes.solicitacao.testemunha_cpf || '—'} · {detalhes.solicitacao.testemunha_email || '—'} · {detalhes.solicitacao.testemunha_telefone || '—'}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 )}
