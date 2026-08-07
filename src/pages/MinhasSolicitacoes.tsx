@@ -119,6 +119,9 @@ export default function MinhasSolicitacoes() {
   }, [layoutMode]);
   const [focusedRowId, setFocusedRowId] = useState<string | null>(null);
 
+  // Carrega a lista de clientes "módulo vago" (dispensados de comunicado ao cliente)
+  useEffect(() => { void loadModuloVagoClientes(); }, []);
+
   // Auto-dismiss success banner
   useEffect(() => {
     if (createdProtocolo) {
