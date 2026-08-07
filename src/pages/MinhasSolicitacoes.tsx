@@ -834,6 +834,33 @@ export default function MinhasSolicitacoes() {
       const { error: updateError } = await supabase.from('solicitacoes').update(updateData).eq('id', editingSolicitacao.id);
       if (updateError) throw new Error(`Erro ao atualizar solicitação: ${updateError.message}`);
 
+      // Auditoria das alterações feitas na correção
+      const auditoria: string[] = [];
+      if (parcelasNovas !== parcelasAtual) {
+        auditoria.push(`Parcelas: ${parcelasAtual} → ${parcelasNovas}`);
+      }
+      if (updateData.fornecedor_id && updateData.fornecedor_id !== editingSolicitacao.fornecedor_id) {
+        const nomeAntigo = fornecedoresInfo.principal?.razao_social || fornecedoresInfo.principal?.cnpj || 'anterior';
+        const nomeNovo =
+          novoFornecedorEscolhido === 'concorrente1'
+            ? fornecedoresInfo.concorrente1?.razao_social || fornecedoresInfo.concorrente1?.cnpj
+            : novoFornecedorEscolhido === 'concorrente2'
+              ? fornecedoresInfo.concorrente2?.razao_social || fornecedoresInfo.concorrente2?.cnpj
+              : novoFornecedorBuscado?.razao_social || novoFornecedorBuscado?.cnpj;
+        auditoria.push(`Fornecedor: ${nomeAntigo} → ${nomeNovo || 'novo fornecedor'}`);
+      }
+      if (anexosRemovidos.length > 0) {
+        auditoria.push(`Anexos removidos: ${anexosRemovidos.map((a) => a.nome_arquivo).join(', ')}`);
+      }
+      if (auditoria.length > 0) {
+        await supabase.from('historico_solicitacoes').insert({
+          solicitacao_id: editingSolicitacao.id,
+          user_id: user.id,
+          acao: 'alteracao_correcao',
+          motivo: auditoria.join(' | '),
+        } as any);
+      }
+
       await supabase.from('historico_solicitacoes').insert({
         solicitacao_id: editingSolicitacao.id, user_id: user.id,
         acao: statusAnterior === 'aguardando_informacoes' ? 'resposta_informacoes' : 'reenvio',
