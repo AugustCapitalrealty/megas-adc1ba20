@@ -121,16 +121,19 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          modulo_vago: boolean
           nome: string
         }
         Insert: {
           created_at?: string
           id?: string
+          modulo_vago?: boolean
           nome: string
         }
         Update: {
           created_at?: string
           id?: string
+          modulo_vago?: boolean
           nome?: string
         }
         Relationships: []
@@ -2151,10 +2154,18 @@ export type Database = {
           prazo_liberacao_retencao_dias: number | null
           protocolo: string | null
           rateio_valores: Json | null
+          representante_legal_cpf: string | null
+          representante_legal_email: string | null
+          representante_legal_nome: string | null
+          representante_legal_telefone: string | null
           requer_retencao_tecnica: boolean | null
           resposta_informacoes: string | null
           retencao_6_porcento: boolean | null
           status: Database["public"]["Enums"]["request_status"]
+          testemunha_cpf: string | null
+          testemunha_email: string | null
+          testemunha_nome: string | null
+          testemunha_telefone: string | null
           tipo: Database["public"]["Enums"]["request_type"] | null
           tipo_contratacao:
             | Database["public"]["Enums"]["tipo_contratacao"]
@@ -2235,10 +2246,18 @@ export type Database = {
           prazo_liberacao_retencao_dias?: number | null
           protocolo?: string | null
           rateio_valores?: Json | null
+          representante_legal_cpf?: string | null
+          representante_legal_email?: string | null
+          representante_legal_nome?: string | null
+          representante_legal_telefone?: string | null
           requer_retencao_tecnica?: boolean | null
           resposta_informacoes?: string | null
           retencao_6_porcento?: boolean | null
           status?: Database["public"]["Enums"]["request_status"]
+          testemunha_cpf?: string | null
+          testemunha_email?: string | null
+          testemunha_nome?: string | null
+          testemunha_telefone?: string | null
           tipo?: Database["public"]["Enums"]["request_type"] | null
           tipo_contratacao?:
             | Database["public"]["Enums"]["tipo_contratacao"]
@@ -2319,10 +2338,18 @@ export type Database = {
           prazo_liberacao_retencao_dias?: number | null
           protocolo?: string | null
           rateio_valores?: Json | null
+          representante_legal_cpf?: string | null
+          representante_legal_email?: string | null
+          representante_legal_nome?: string | null
+          representante_legal_telefone?: string | null
           requer_retencao_tecnica?: boolean | null
           resposta_informacoes?: string | null
           retencao_6_porcento?: boolean | null
           status?: Database["public"]["Enums"]["request_status"]
+          testemunha_cpf?: string | null
+          testemunha_email?: string | null
+          testemunha_nome?: string | null
+          testemunha_telefone?: string | null
           tipo?: Database["public"]["Enums"]["request_type"] | null
           tipo_contratacao?:
             | Database["public"]["Enums"]["tipo_contratacao"]
