@@ -395,6 +395,14 @@ export default function NovaSolicitacao() {
         setters.setNaturezaFossaFiltro(!!s.natureza_servico_fossa_filtro);
         setters.setNaturezaPrecoVariavel(!!s.natureza_servico_preco_variavel);
         if (s.escopo_detalhado_minuta) setters.setEscopoDetalhadoMinuta(s.escopo_detalhado_minuta);
+        if (s.representante_legal_nome) setters.setRepresentanteLegalNome(s.representante_legal_nome);
+        if (s.representante_legal_cpf) setters.setRepresentanteLegalCpf(s.representante_legal_cpf);
+        if (s.representante_legal_email) setters.setRepresentanteLegalEmail(s.representante_legal_email);
+        if (s.representante_legal_telefone) setters.setRepresentanteLegalTelefone(s.representante_legal_telefone);
+        if (s.testemunha_nome) setters.setTestemunhaNome(s.testemunha_nome);
+        if (s.testemunha_cpf) setters.setTestemunhaCpf(s.testemunha_cpf);
+        if (s.testemunha_email) setters.setTestemunhaEmail(s.testemunha_email);
+        if (s.testemunha_telefone) setters.setTestemunhaTelefone(s.testemunha_telefone);
         setters.setDueDiligenceConfirmada(!!s.due_diligence_confirmada);
         if (s.due_diligence_numero_projuris) {
           setters.setTemProcessoProjuris(true);
@@ -464,6 +472,14 @@ export default function NovaSolicitacao() {
       natureza_servico_fossa_filtro: formState.naturezaFossaFiltro,
       natureza_servico_preco_variavel: formState.naturezaPrecoVariavel,
       escopo_detalhado_minuta: formState.escopoDetalhadoMinuta || null,
+      representante_legal_nome: formState.representanteLegalNome || null,
+      representante_legal_cpf: formState.representanteLegalCpf || null,
+      representante_legal_email: formState.representanteLegalEmail || null,
+      representante_legal_telefone: formState.representanteLegalTelefone || null,
+      testemunha_nome: formState.testemunhaNome || null,
+      testemunha_cpf: formState.testemunhaCpf || null,
+      testemunha_email: formState.testemunhaEmail || null,
+      testemunha_telefone: formState.testemunhaTelefone || null,
       due_diligence_confirmada: formState.dueDiligenceConfirmada,
       due_diligence_numero_projuris: formState.dueDiligenceNumeroProjuris || null,
       tipo_rateio: formState.empreendimento === 'todos' ? formState.tipoRateio : null,
@@ -785,6 +801,14 @@ export default function NovaSolicitacao() {
         natureza_servico_fossa_filtro: formState.naturezaFossaFiltro,
         natureza_servico_preco_variavel: formState.naturezaPrecoVariavel,
         escopo_detalhado_minuta: derived.requerEscopoDetalhado ? formState.escopoDetalhadoMinuta.trim() : null,
+        representante_legal_nome: derived.instrumentoJuridico !== 'oc' ? formState.representanteLegalNome.trim() || null : null,
+        representante_legal_cpf: derived.instrumentoJuridico !== 'oc' ? formState.representanteLegalCpf.trim() || null : null,
+        representante_legal_email: derived.instrumentoJuridico !== 'oc' ? formState.representanteLegalEmail.trim() || null : null,
+        representante_legal_telefone: derived.instrumentoJuridico !== 'oc' ? formState.representanteLegalTelefone.trim() || null : null,
+        testemunha_nome: derived.instrumentoJuridico !== 'oc' ? formState.testemunhaNome.trim() || null : null,
+        testemunha_cpf: derived.instrumentoJuridico !== 'oc' ? formState.testemunhaCpf.trim() || null : null,
+        testemunha_email: derived.instrumentoJuridico !== 'oc' ? formState.testemunhaEmail.trim() || null : null,
+        testemunha_telefone: derived.instrumentoJuridico !== 'oc' ? formState.testemunhaTelefone.trim() || null : null,
         due_diligence_confirmada: derived.requerDueDiligence ? formState.dueDiligenceConfirmada : false,
         due_diligence_numero_projuris: formState.temProcessoProjuris ? formState.dueDiligenceNumeroProjuris.trim() || null : null,
         tipo_rateio: formState.empreendimento === 'todos' ? formState.tipoRateio : null,
