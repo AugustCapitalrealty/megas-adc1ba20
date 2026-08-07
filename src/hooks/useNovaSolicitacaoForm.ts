@@ -22,6 +22,7 @@ import type { Step, DerivedValues, FormSetters } from '@/components/nova-solicit
 import { NATUREZAS_ISENTAS_ANEXOS, NATUREZAS_AGUA_ENERGIA, TIPO_TO_NATUREZA } from '@/components/nova-solicitacao/types';
 import { toCentsString } from '@/lib/valor-monetario';
 import { MODULO_VAGO_CLIENTE_ID } from '@/lib/solicitacao-rules';
+import { isModuloVagoCliente, isModuloVagoNome, loadModuloVagoClientes } from '@/lib/modulo-vago';
 
 interface DuplicateData {
   tipo?: string;
@@ -131,6 +132,16 @@ export function useNovaSolicitacaoForm(
   const [anexos, setAnexos] = useState<Record<string, UploadedFile | null>>({});
   const [outrosAnexos, setOutrosAnexos] = useState<UploadedFile[]>([]);
 
+  // Signatários (Webdox)
+  const [representanteLegalNome, setRepresentanteLegalNome] = useState('');
+  const [representanteLegalCpf, setRepresentanteLegalCpf] = useState('');
+  const [representanteLegalEmail, setRepresentanteLegalEmail] = useState('');
+  const [representanteLegalTelefone, setRepresentanteLegalTelefone] = useState('');
+  const [testemunhaNome, setTestemunhaNome] = useState('');
+  const [testemunhaCpf, setTestemunhaCpf] = useState('');
+  const [testemunhaEmail, setTestemunhaEmail] = useState('');
+  const [testemunhaTelefone, setTestemunhaTelefone] = useState('');
+
   // AI validations
   const { isValidating: isValidatingDescription, validationResult: descriptionValidation } = useDescriptionValidation(descricao);
   const { validationResult: cnaeValidationResult } = useCNAEValidation({
@@ -202,6 +213,8 @@ export function useNovaSolicitacaoForm(
     dueDiligenceConfirmada, dueDiligenceNumeroProjuris, temProcessoProjuris,
     tipoRateio, rateioValores, rateioEmpreendimentosSelecionados,
     anexos, outrosAnexos,
+    representanteLegalNome, representanteLegalCpf, representanteLegalEmail, representanteLegalTelefone,
+    testemunhaNome, testemunhaCpf, testemunhaEmail, testemunhaTelefone,
   };
 
   const setters: FormSetters = {
@@ -221,6 +234,8 @@ export function useNovaSolicitacaoForm(
     setNenhumaOpcaoNatureza, setEscopoDetalhadoMinuta,
     setDueDiligenceConfirmada, setDueDiligenceNumeroProjuris, setTemProcessoProjuris,
     setTipoRateio, setRateioValores, setRateioEmpreendimentosSelecionados,
+    setRepresentanteLegalNome, setRepresentanteLegalCpf, setRepresentanteLegalEmail, setRepresentanteLegalTelefone,
+    setTestemunhaNome, setTestemunhaCpf, setTestemunhaEmail, setTestemunhaTelefone,
     setAnexos, setOutrosAnexos,
   };
 
@@ -445,7 +460,7 @@ export function useNovaSolicitacaoForm(
     }
 
     // Módulo Vago não é cliente real — não exige comunicado.
-    if (origemCusto === 'cliente' && clienteId !== MODULO_VAGO_CLIENTE_ID) {
+    if (origemCusto === 'cliente' && !isModuloVagoCliente(clienteId) && !isModuloVagoNome(clienteNome)) {
       attachments.push({ tipo: 'comunicado_cliente', label: ANEXO_LABELS.comunicado_cliente, required: true });
     }
     return attachments;
@@ -497,6 +512,14 @@ export function useNovaSolicitacaoForm(
     setChamadoCorretiva(false);
     setSemMemorial(false);
     setJustificativaSemMemorial('');
+    setRepresentanteLegalNome('');
+    setRepresentanteLegalCpf('');
+    setRepresentanteLegalEmail('');
+    setRepresentanteLegalTelefone('');
+    setTestemunhaNome('');
+    setTestemunhaCpf('');
+    setTestemunhaEmail('');
+    setTestemunhaTelefone('');
     setAnexos({});
     setOutrosAnexos([]);
   };
