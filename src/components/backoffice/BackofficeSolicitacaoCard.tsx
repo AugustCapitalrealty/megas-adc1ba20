@@ -167,13 +167,13 @@ export const BackofficeSolicitacaoCard = memo(function BackofficeSolicitacaoCard
     if (sol.numero_projuris) {
       chips.push(
         <Badge key="proj" variant="outline" className="text-[10px] gap-1 bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-700 cursor-pointer" onClick={() => callbacks.openEditProjuris(sol)}>
-          Projuris: {sol.numero_projuris} <Edit className="h-2.5 w-2.5" />
+          Webdox: {sol.numero_projuris} <Edit className="h-2.5 w-2.5" />
         </Badge>
       );
     } else {
       chips.push(
         <Badge key="proj-add" variant="outline" className="text-[10px] gap-1 cursor-pointer border-dashed text-purple-600 border-purple-200 dark:text-purple-400 dark:border-purple-700" onClick={() => callbacks.openEditProjuris(sol)}>
-          + Projuris
+          + Webdox
         </Badge>
       );
     }
