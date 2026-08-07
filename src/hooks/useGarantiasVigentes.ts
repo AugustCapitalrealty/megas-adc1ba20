@@ -111,6 +111,10 @@ function processarGarantias(item: any): GarantiaItem {
     dias_garantia: item.dias_garantia,
     dias_garantia_servico: item.dias_garantia_servico,
     dias_garantia_produto: item.dias_garantia_produto,
+    garantiaIncompleta:
+      item.tipo_garantia === 'ambos'
+        ? !item.dias_garantia_servico || !item.dias_garantia_produto
+        : !item.dias_garantia,
     data_conclusao: item.data_conclusao,
     fornecedor_razao_social: item.fornecedores?.razao_social || null,
     fornecedor_nome_fantasia: item.fornecedores?.nome_fantasia || null,
