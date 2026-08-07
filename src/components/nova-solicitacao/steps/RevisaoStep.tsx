@@ -23,8 +23,11 @@ export function RevisaoStep({ formState, derived, formatCurrency }: RevisaoStepP
     diasGarantiaServico, diasGarantiaProduto, fornecedor,
     fornecedorConcorrente1, fornecedorConcorrente2,
     justificativaFornecedores, emergencial, clienteNome, anexos,
+    representanteLegalNome, representanteLegalCpf, representanteLegalEmail, representanteLegalTelefone,
+    testemunhaNome, testemunhaCpf, testemunhaEmail, testemunhaTelefone,
   } = formState;
-  const { isAC, valorNumerico, valorServicoNumerico, valorMaterialNumerico, requires3CNPJs } = derived;
+  const { isAC, valorNumerico, valorServicoNumerico, valorMaterialNumerico, requires3CNPJs, instrumentoJuridico } = derived;
+  const exigeSignatarios = instrumentoJuridico !== 'oc';
 
   return (
     <div className="space-y-4">
