@@ -480,7 +480,7 @@ export function BackofficeModals(props: BackofficeModalsProps) {
                           setEditProjurisOpen(true);
                         }}
                       >
-                        Adicionar nº Projuris
+                        Adicionar nº Webdox
                       </Button>
                     </div>
                   </div>
@@ -515,7 +515,7 @@ export function BackofficeModals(props: BackofficeModalsProps) {
                         </div>
                         {detalhes.solicitacao.due_diligence_numero_projuris && (
                           <div>
-                            <Label className="text-xs text-muted-foreground">Número Projuris Informado</Label>
+                            <Label className="text-xs text-muted-foreground">Número Webdox Informado</Label>
                             <p className="font-medium font-mono bg-background px-2 py-1 rounded inline-block">
                               {detalhes.solicitacao.due_diligence_numero_projuris}
                             </p>
@@ -530,7 +530,7 @@ export function BackofficeModals(props: BackofficeModalsProps) {
                         </AlertDescription>
                       </Alert>
                       <p className="text-xs text-muted-foreground italic">
-                        💡 Registre no Projuris e utilize o campo "Observação" ao emitir a OC para documentar a verificação de Due Diligence.
+                        💡 Registre no Webdox e utilize o campo "Observação" ao emitir a OC para documentar a verificação de Due Diligence.
                       </p>
                     </CardContent>
                   </Card>
@@ -1249,9 +1249,9 @@ export function BackofficeModals(props: BackofficeModalsProps) {
       <Dialog open={editProjurisOpen} onOpenChange={setEditProjurisOpen}>
         <DialogContent className="max-w-lg w-[80vw]">
           <DialogHeader>
-            <DialogTitle>Editar Número Projuris</DialogTitle>
+            <DialogTitle>Editar Número Webdox</DialogTitle>
             <DialogDescription>
-              Informe o número do processo no Projuris. Para remover, use o botão "Remover número".
+              Informe o número do processo no Webdox. Para remover, use o botão "Remover número".
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">

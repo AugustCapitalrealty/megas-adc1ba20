@@ -47,7 +47,7 @@ export function DueDiligenceModule({
           </p>
           {numeroProjuris && (
             <p className="text-sm">
-              <span className="font-medium">Número Projuris informado:</span>{' '}
+              <span className="font-medium">Número Webdox informado:</span>{' '}
               <span className="font-mono">{numeroProjuris}</span>
             </p>
           )}
@@ -77,7 +77,7 @@ export function DueDiligenceModule({
         <div className="bg-white dark:bg-gray-900 rounded-lg p-4 border border-amber-200 dark:border-amber-800">
           <p className="text-sm font-medium mb-2">O que você deve fazer:</p>
           <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
-            <li>Após definição comercial, solicite Due Diligence no Projuris</li>
+            <li>Após definição comercial, solicite Due Diligence no Webdox</li>
             <li>Aguarde parecer do Jurídico (favorável/desfavorável)</li>
             <li>Somente após parecer, comunique o vencedor da concorrência</li>
           </ol>
@@ -92,7 +92,7 @@ export function DueDiligenceModule({
             />
             <div className="flex-1">
               <Label htmlFor="tem_processo_projuris" className="cursor-pointer text-sm">
-                Já possuo processo de Due Diligence no Projuris
+                Já possuo processo de Due Diligence no Webdox
               </Label>
               
               {temProcessoProjuris && (
