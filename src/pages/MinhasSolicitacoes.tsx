@@ -1488,6 +1488,7 @@ export default function MinhasSolicitacoes() {
           editDiasGarantia, setEditDiasGarantia,
           editDiasGarantiaServico, setEditDiasGarantiaServico,
           editDiasGarantiaProduto, setEditDiasGarantiaProduto,
+          editParcelas, setEditParcelas,
         }}
         aceiteOpen={aceiteOpen}
         setAceiteOpen={setAceiteOpen}
