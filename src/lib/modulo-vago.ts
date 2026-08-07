@@ -25,7 +25,7 @@ export async function loadModuloVagoClientes(): Promise<void> {
   if (loaded) return;
   if (loadingPromise) return loadingPromise;
   loadingPromise = (async () => {
-    const { data, error } = await supabase.from('clientes').select('id, nome');
+    const { data, error } = await supabase.from('clientes').select('id, nome, modulo_vago');
     if (!error && data) {
       for (const c of data as Array<{ id: string; nome: string; modulo_vago?: boolean }>) {
         if ((c as any).modulo_vago === true || isModuloVagoNome(c.nome)) moduloVagoIds.add(c.id);

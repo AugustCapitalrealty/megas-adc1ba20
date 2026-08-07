@@ -23,8 +23,11 @@ export function RevisaoStep({ formState, derived, formatCurrency }: RevisaoStepP
     diasGarantiaServico, diasGarantiaProduto, fornecedor,
     fornecedorConcorrente1, fornecedorConcorrente2,
     justificativaFornecedores, emergencial, clienteNome, anexos,
+    representanteLegalNome, representanteLegalCpf, representanteLegalEmail, representanteLegalTelefone,
+    testemunhaNome, testemunhaCpf, testemunhaEmail, testemunhaTelefone,
   } = formState;
-  const { isAC, valorNumerico, valorServicoNumerico, valorMaterialNumerico, requires3CNPJs } = derived;
+  const { isAC, valorNumerico, valorServicoNumerico, valorMaterialNumerico, requires3CNPJs, instrumentoJuridico } = derived;
+  const exigeSignatarios = instrumentoJuridico !== 'oc';
 
   return (
     <div className="space-y-4">
@@ -180,6 +183,28 @@ export function RevisaoStep({ formState, derived, formatCurrency }: RevisaoStepP
               </div>
             )}
           </>
+        )}
+
+        {exigeSignatarios && (
+          <div className="py-3 border-b">
+            <span className="text-muted-foreground text-sm">Dados para assinatura (Webdox)</span>
+            <div className="mt-2 grid gap-3 md:grid-cols-2 text-sm">
+              <div className="p-2 rounded bg-muted/50">
+                <p className="font-medium">Representante legal</p>
+                <p>{representanteLegalNome || '—'}</p>
+                <p className="text-muted-foreground text-xs">
+                  {representanteLegalCpf || '—'} · {representanteLegalEmail || '—'} · {representanteLegalTelefone || '—'}
+                </p>
+              </div>
+              <div className="p-2 rounded bg-muted/50">
+                <p className="font-medium">Testemunha</p>
+                <p>{testemunhaNome || '—'}</p>
+                <p className="text-muted-foreground text-xs">
+                  {testemunhaCpf || '—'} · {testemunhaEmail || '—'} · {testemunhaTelefone || '—'}
+                </p>
+              </div>
+            </div>
+          </div>
         )}
 
         <div className="pt-2">

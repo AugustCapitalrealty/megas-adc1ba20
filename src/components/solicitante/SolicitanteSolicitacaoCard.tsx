@@ -311,10 +311,10 @@ export const SolicitanteSolicitacaoCard = React.memo(function SolicitanteSolicit
             size="sm"
             onClick={() => onEditProjuris(sol)}
             className="text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20"
-            title="Editar número Projuris"
+            title="Editar número Webdox"
           >
             <Edit className="h-4 w-4 mr-1" />
-            {hasProjuris ? `Projuris #${sol.numero_projuris}` : 'Adicionar Projuris'}
+            {hasProjuris ? `Webdox #${sol.numero_projuris}` : 'Adicionar Webdox'}
           </Button>
         );
       }

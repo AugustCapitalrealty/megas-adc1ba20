@@ -87,7 +87,7 @@ export function ProjurisStatusCard({ numeroProjuris, className, onEdit }: Projur
     return (
       <div className="flex items-center gap-2 p-3">
         <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-        <span className="text-sm text-muted-foreground">Carregando dados Projuris...</span>
+        <span className="text-sm text-muted-foreground">Carregando dados Webdox...</span>
       </div>
     );
   }
@@ -119,14 +119,14 @@ export function ProjurisStatusCard({ numeroProjuris, className, onEdit }: Projur
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2">
             <Scale className="h-4 w-4 text-primary" />
-            <span className="font-semibold text-sm">Projuris #{data.numero_requisicao}</span>
+            <span className="font-semibold text-sm">Webdox #{data.numero_requisicao}</span>
             {onEdit && (
               <Button
                 size="sm"
                 variant="ghost"
                 className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
                 onClick={onEdit}
-                title="Editar número Projuris"
+                title="Editar número Webdox"
               >
                 <Pencil className="h-3 w-3" />
               </Button>

@@ -28,7 +28,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ContextualEmptyState } from '@/components/ui/ContextualEmptyState';
 import { saveAs } from 'file-saver';
 import type { UploadedFile } from '@/components/FileUpload';
-import { MODULO_VAGO_CLIENTE_ID } from '@/lib/solicitacao-rules';
+import { isModuloVagoCliente, loadModuloVagoClientes } from '@/lib/modulo-vago';
 import { useToast } from '@/hooks/use-toast';
 import { TransferOwnershipModal } from '@/components/TransferOwnershipModal';
 import { exportToExcel } from '@/lib/export-utils';
@@ -119,6 +119,9 @@ export default function MinhasSolicitacoes() {
   }, [layoutMode]);
   const [focusedRowId, setFocusedRowId] = useState<string | null>(null);
 
+  // Carrega a lista de clientes "módulo vago" (dispensados de comunicado ao cliente)
+  useEffect(() => { void loadModuloVagoClientes(); }, []);
+
   // Auto-dismiss success banner
   useEffect(() => {
     if (createdProtocolo) {
@@ -167,6 +170,7 @@ export default function MinhasSolicitacoes() {
   const [editDiasGarantia, setEditDiasGarantia] = useState('');
   const [editDiasGarantiaServico, setEditDiasGarantiaServico] = useState('');
   const [editDiasGarantiaProduto, setEditDiasGarantiaProduto] = useState('');
+  const [editParcelas, setEditParcelas] = useState('1');
   
   // Supplier swap state
   const [trocarFornecedor, setTrocarFornecedor] = useState(false);
@@ -237,7 +241,7 @@ export default function MinhasSolicitacoes() {
       });
       if (error) throw error;
       toast({
-        title: 'Número Projuris atualizado',
+        title: 'Número Webdox atualizado',
         description: 'A alteração foi registrada no histórico.',
       });
       setEditProjurisSol(null);
@@ -569,7 +573,7 @@ export default function MinhasSolicitacoes() {
       if (isAguaEnergia) attachments.push({ tipo: 'fatura_agua_energia', label: getAttachmentLabel('fatura_agua_energia'), required: true });
     }
 
-    if (sol.origem_custo === 'cliente' && sol.cliente_id !== MODULO_VAGO_CLIENTE_ID) {
+    if (sol.origem_custo === 'cliente' && !isModuloVagoCliente(sol.cliente_id)) {
       attachments.push({ tipo: 'comunicado_cliente', label: getAttachmentLabel('comunicado_cliente'), required: true });
     }
 
@@ -609,6 +613,7 @@ export default function MinhasSolicitacoes() {
     setEditDiasGarantia(sol.dias_garantia != null ? String(sol.dias_garantia) : '');
     setEditDiasGarantiaServico(sol.dias_garantia_servico != null ? String(sol.dias_garantia_servico) : '');
     setEditDiasGarantiaProduto(sol.dias_garantia_produto != null ? String(sol.dias_garantia_produto) : '');
+    setEditParcelas(sol.parcelas != null ? String(sol.parcelas) : '1');
     setEditOpen(true);
     
     const { data: anexosData } = await supabase
@@ -720,6 +725,20 @@ export default function MinhasSolicitacoes() {
     try {
       const valorNumerico = parseFloat((editValor || '').replace(/\D/g, '')) / 100 || 0;
       const statusAnterior = editingSolicitacao.status;
+
+      // Garantia: dias obrigatórios sempre que houver tipo de garantia
+      const parseDiasInput = (v: string) => {
+        const n = parseInt(v, 10);
+        return Number.isFinite(n) && n > 0 ? n : null;
+      };
+      if (editTipoGarantia === 'ambos') {
+        if (!parseDiasInput(editDiasGarantiaServico) || !parseDiasInput(editDiasGarantiaProduto)) {
+          throw new Error('Informe os dias de garantia de serviço e de produto.');
+        }
+      } else if (editTipoGarantia !== 'nenhuma' && !parseDiasInput(editDiasGarantia)) {
+        throw new Error('Informe os dias de garantia.');
+      }
+
       const solicitacaoValidada: Solicitacao = {
         ...editingSolicitacao,
         valor: valorNumerico,
@@ -731,14 +750,30 @@ export default function MinhasSolicitacoes() {
       if (missingBeforeUpload.length > 0) {
         throw new Error(`Anexos obrigatórios ausentes: ${missingBeforeUpload.map((item) => item.label).join(', ')}`);
       }
-      
-      await uploadNewAnexos(editingSolicitacao.id);
 
+      // 1) Excluir antes de subir, para evitar dois anexos do mesmo tipo
+      const anexosRemovidos = existingAnexos.filter((a) => anexosParaExcluir.includes(a.id));
       if (anexosParaExcluir.length > 0) {
-        const storagePaths = existingAnexos.filter(a => anexosParaExcluir.includes(a.id)).map(a => a.storage_path);
-        await supabase.from('anexos').delete().in('id', anexosParaExcluir);
-        if (storagePaths.length > 0) await supabase.storage.from('anexos').remove(storagePaths);
+        const storagePaths = anexosRemovidos.map((a) => a.storage_path);
+        const { error: deleteError } = await supabase.from('anexos').delete().in('id', anexosParaExcluir);
+        if (deleteError) throw new Error(`Não foi possível excluir os anexos marcados: ${deleteError.message}`);
+
+        // Confirma na base que realmente sumiram
+        const { data: remanescentes, error: checkDeleteError } = await supabase
+          .from('anexos').select('id').in('id', anexosParaExcluir);
+        if (checkDeleteError) throw new Error(`Erro ao confirmar exclusão dos anexos: ${checkDeleteError.message}`);
+        if ((remanescentes ?? []).length > 0) {
+          throw new Error('Os anexos marcados para exclusão não foram removidos. Tente novamente.');
+        }
+
+        if (storagePaths.length > 0) {
+          const { error: storageError } = await supabase.storage.from('anexos').remove(storagePaths);
+          if (storageError) throw new Error(`Erro ao remover arquivos: ${storageError.message}`);
+        }
       }
+
+      // 2) Só depois subir os novos
+      await uploadNewAnexos(editingSolicitacao.id);
 
       const { data: currentAnexos, error: currentAnexosError } = await supabase
         .from('anexos')
@@ -759,11 +794,13 @@ export default function MinhasSolicitacoes() {
         escopo_detalhado_minuta: editEscopoDetalhado.trim() || null,
       };
 
+      // Parcelas
+      const parcelasAtual = Number(editingSolicitacao.parcelas ?? 1) || 1;
+      const parcelasNovas = Math.min(Math.max(parseInt(editParcelas, 10) || 1, 1), 60);
+      updateData.parcelas = parcelasNovas;
+
       // Garantia
-      const parseDias = (v: string) => {
-        const n = parseInt(v, 10);
-        return Number.isFinite(n) && n > 0 ? n : null;
-      };
+      const parseDias = parseDiasInput;
       updateData.tipo_garantia = editTipoGarantia;
       if (editTipoGarantia === 'nenhuma') {
         updateData.dias_garantia = null;
@@ -796,6 +833,33 @@ export default function MinhasSolicitacoes() {
       
       const { error: updateError } = await supabase.from('solicitacoes').update(updateData).eq('id', editingSolicitacao.id);
       if (updateError) throw new Error(`Erro ao atualizar solicitação: ${updateError.message}`);
+
+      // Auditoria das alterações feitas na correção
+      const auditoria: string[] = [];
+      if (parcelasNovas !== parcelasAtual) {
+        auditoria.push(`Parcelas: ${parcelasAtual} → ${parcelasNovas}`);
+      }
+      if (updateData.fornecedor_id && updateData.fornecedor_id !== editingSolicitacao.fornecedor_id) {
+        const nomeAntigo = fornecedoresInfo.principal?.razao_social || fornecedoresInfo.principal?.cnpj || 'anterior';
+        const nomeNovo =
+          novoFornecedorEscolhido === 'concorrente1'
+            ? fornecedoresInfo.concorrente1?.razao_social || fornecedoresInfo.concorrente1?.cnpj
+            : novoFornecedorEscolhido === 'concorrente2'
+              ? fornecedoresInfo.concorrente2?.razao_social || fornecedoresInfo.concorrente2?.cnpj
+              : novoFornecedorBuscado?.razao_social || novoFornecedorBuscado?.cnpj;
+        auditoria.push(`Fornecedor: ${nomeAntigo} → ${nomeNovo || 'novo fornecedor'}`);
+      }
+      if (anexosRemovidos.length > 0) {
+        auditoria.push(`Anexos removidos: ${anexosRemovidos.map((a) => a.nome_arquivo).join(', ')}`);
+      }
+      if (auditoria.length > 0) {
+        await supabase.from('historico_solicitacoes').insert({
+          solicitacao_id: editingSolicitacao.id,
+          user_id: user.id,
+          acao: 'alteracao_correcao',
+          motivo: auditoria.join(' | '),
+        } as any);
+      }
 
       await supabase.from('historico_solicitacoes').insert({
         solicitacao_id: editingSolicitacao.id, user_id: user.id,
@@ -1424,6 +1488,7 @@ export default function MinhasSolicitacoes() {
           editDiasGarantia, setEditDiasGarantia,
           editDiasGarantiaServico, setEditDiasGarantiaServico,
           editDiasGarantiaProduto, setEditDiasGarantiaProduto,
+          editParcelas, setEditParcelas,
         }}
         aceiteOpen={aceiteOpen}
         setAceiteOpen={setAceiteOpen}
@@ -1475,14 +1540,14 @@ export default function MinhasSolicitacoes() {
       <Dialog open={!!editProjurisSol} onOpenChange={(open) => !open && setEditProjurisSol(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Editar número Projuris</DialogTitle>
+            <DialogTitle>Editar número Webdox</DialogTitle>
             <DialogDescription>
-              Atualize o número Projuris da solicitação <strong>#{editProjurisSol?.protocolo}</strong>.
+              Atualize o número Webdox da solicitação <strong>#{editProjurisSol?.protocolo}</strong>.
               A alteração ficará registrada no histórico.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="edit-projuris-solicitante">Número Projuris</Label>
+            <Label htmlFor="edit-projuris-solicitante">Número Webdox</Label>
             <Input
               id="edit-projuris-solicitante"
               placeholder="Ex.: 3830"

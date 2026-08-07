@@ -34,6 +34,8 @@ export interface GarantiaItem {
   dias_garantia: number | null;
   dias_garantia_servico: number | null;
   dias_garantia_produto: number | null;
+  /** true quando o tipo de garantia foi informado mas o prazo não */
+  garantiaIncompleta?: boolean;
   data_conclusao: string;
   fornecedor_razao_social: string | null;
   fornecedor_nome_fantasia: string | null;
@@ -109,6 +111,10 @@ function processarGarantias(item: any): GarantiaItem {
     dias_garantia: item.dias_garantia,
     dias_garantia_servico: item.dias_garantia_servico,
     dias_garantia_produto: item.dias_garantia_produto,
+    garantiaIncompleta:
+      item.tipo_garantia === 'ambos'
+        ? !item.dias_garantia_servico || !item.dias_garantia_produto
+        : !item.dias_garantia,
     data_conclusao: item.data_conclusao,
     fornecedor_razao_social: item.fornecedores?.razao_social || null,
     fornecedor_nome_fantasia: item.fornecedores?.nome_fantasia || null,

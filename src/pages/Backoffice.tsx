@@ -921,7 +921,7 @@ export default function Backoffice() {
       if (error) throw error;
 
       toast({
-        title: 'Projuris atualizado',
+        title: 'Webdox atualizado',
         description: editProjurisValue ? `Atualizado para: ${editProjurisValue}` : 'Campo removido',
       });
 
